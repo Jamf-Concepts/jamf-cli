@@ -1,0 +1,176 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Advanced User Content Search
+  version: 0.0.1
+paths:
+  /v1/advanced-user-content-searches:
+    get:
+      tags:
+      - advanced-user-content-searches
+      summary: |
+        Get All Advanced User Content Search objects
+      description: |
+        Get All Advanced User Content Search Objects
+      responses:
+        200:
+          description: Successful response - Advanced User Content Searches retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AdvancedUserContentSearchSearchResults'
+      x-required-privileges:
+      - Read Advanced User Content Searches
+    post:
+      tags:
+      - advanced-user-content-searches
+      summary: |
+        Create Advanced User Content Search object
+      description: |
+        Creates Advanced User Content Search Object
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AdvancedUserContentSearch'
+        required: true
+      responses:
+        201:
+          description: Successful response - Advanced User Content Search created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+      - Create Advanced User Content Searches
+  /v1/advanced-user-content-searches/{id}:
+    get:
+      tags:
+      - advanced-user-content-searches
+      summary: |
+        Get Specified Advanced User Content Search object
+      description: |
+        Gets Specified Advanced User Content Search Object
+      parameters:
+      - name: id
+        in: path
+        description: id of target Advanced User Content Search
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response - Advanced User Content Search retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AdvancedUserContentSearch'
+        404:
+          description: Target Advanced User Content Search does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Advanced User Content Searches
+    put:
+      tags:
+      - advanced-user-content-searches
+      summary: |
+        Get Specified Advanced User Content Search object
+      description: |
+        Gets Specified Advanced User Content Search Object
+      parameters:
+      - name: id
+        in: path
+        description: id of target Advanced User Content Search
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AdvancedUserContentSearch'
+        required: true
+      responses:
+        200:
+          description: Successful response - Advanced User Content Search updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AdvancedUserContentSearch'
+        404:
+          description: Target Advanced User Content Search does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Advanced User Content Searches
+    delete:
+      tags:
+      - advanced-user-content-searches
+      summary: |
+        Remove specified Advanced User Content Search object
+      description: |
+        Removes specified Advanced User Content Search Object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of Advanced User Content Search record
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Successful response - Advanced User Content Search deleted
+        404:
+          description: Target Advanced User Content Search does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Delete Advanced User Content Searches
+components:
+  schemas:
+    AdvancedUserContentSearch:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          minLength: 1
+          readOnly: true
+        name:
+          type: string
+          example: Andy's Search
+        criteria:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/SmartSearchCriterion'
+        displayFields:
+          type: array
+          example:
+          - Content Name
+          - Price
+          items:
+            type: string
+        siteId:
+          type: string
+          nullable: true
+          example: -1
+    AdvancedUserContentSearchSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 3
+          minimum: 0
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/AdvancedUserContentSearch'

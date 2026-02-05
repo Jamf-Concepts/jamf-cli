@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: Jamf Pro API - Erase Mobile Device
+  description: Jamf Pro API - Erase Mobile Device
+  version: 0.0.1
+paths:
+  /v2/mobile-devices/{id}/erase:
+    post:
+      tags:
+        - mobile-devices
+      summary: |
+        Erase a Mobile Device
+      description: Erase a Mobile Device
+      x-required-privileges:
+        - Send Mobile Device Remote Wipe Command
+      x-action: true
+      parameters:
+        - name: id
+          in: path
+          description: Id of the Mobile Device to erase
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Options for eraseDevice command
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EraseDeviceMobileDeviceRequest'
+      responses:
+        200:
+          description: Erase command was queued for this device.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/EraseDeviceMobileDeviceResponse'
+        400:
+          description: Return to service requirements not met.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        403:
+          description: Insufficient privileges to perform this action.
+        404:
+          description: Mobile device not found.
+        500:
+          description: Failure, unable to queue command.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+components:
+  schemas:
+    EraseDeviceMobileDeviceRequest:
+      type: object
+      properties:
+        preserveDataPlan:
+          type: boolean
+          example: true
+          default: false
+          description: If 'true', preserve the data plan on an iPhone or iPad with eSIM functionality, if one exists.
+          nullable: false
+        disallowProximitySetup:
+          type: boolean
+          example: true
+          default: false
+          description: If 'true', disable Proximity Setup on the next reboot and skip the pane in Setup Assistant.
+          nullable: false
+        clearActivationLock:
+          type: boolean
+          example: true
+          default: false
+          description: Clear the activation lock on the device.
+          nullable: false
+        returnToService:
+          type: boolean
+          example: true
+          default: false
+          description: If 'true', the device will be returned to service after the erase is complete.
+          nullable: false
+    EraseDeviceMobileDeviceResponse:
+      type: object
+      required:
+        - deviceId
+        - commandUuid
+      properties:
+        deviceId:
+          type: string
+          example: 1234
+          description: Id of the mobile device for which eraseDevice command was queued
+        commandUuid:
+          type: string
+          example: "1234-5678-90ab-cdef-1234567890ab"
+          description: Uuid of the queued eraseDevice command

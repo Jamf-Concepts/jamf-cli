@@ -1,0 +1,69 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - smart-mobile-device-groups
+  version: 0.0.1
+paths:
+  /v1/smart-mobile-device-groups/{id}/recalculate:
+    post:
+      tags:
+      - smart-mobile-device-groups-preview
+      summary: |
+        Recalculate a smart group for the given id then return the ids for the devices in the smart group
+      description: |
+        recalculates a smart group for the given id and then
+        returns the ids for the devices in the smart group
+      parameters:
+      - name: id
+        in: path
+        description: instance id of smart group
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
+        400:
+          description: smart group not found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
+      x-required-privileges:
+      - Update Smart Mobile Device Groups
+  /v1/mobile-devices/{id}/recalculate-smart-groups:
+    post:
+      tags:
+      - smart-mobile-device-groups-preview
+      summary: |
+        Recalculate all smart groups for the given device id and then return count of smart groups that device fall into
+      description: |
+        Recalculates all smart groups for the given device id and then
+        returns the count of smart groups the device falls into
+      parameters:
+      - name: id
+        in: path
+        description: id of mobile device
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
+        400:
+          description: smart group not found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
+      x-required-privileges:
+      - Update Smart Mobile Device Groups

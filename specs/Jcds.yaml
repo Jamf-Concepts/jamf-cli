@@ -1,0 +1,240 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Jamf Cloud Distribution Service
+    version: 0.1.0
+paths:
+    /v1/jcds/files:
+        post:
+            tags:
+                - jamf-cloud-distribution-service
+            summary:
+                Initiate an upload to the Jamf Cloud Distribution Service
+            description:
+                Creates a temporary record and returns the credentials and information
+                needed for uploading the file to the Jamf Cloud Distribution Service.
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                201:
+                    description: File upload was initiated to the Jamf Cloud Distribution Service.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Credentials'
+            x-authentication-required: true
+            x-required-privileges:
+                - Create Jamf Cloud Distribution Service Files
+            x-action: true
+        get:
+            tags:
+                - jamf-cloud-distribution-service
+            summary:
+                Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service
+            description:
+                Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service.
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                200:
+                    description: Retrieved the list of files and file metadata from the Jamf Cloud Distribution Service.
+                    content:
+                        'application/json':
+                            schema:
+                                minItems: 0
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/FileData'
+            x-authentication-required: true
+            x-required-privileges:
+                - Read Jamf Cloud Distribution Service Files
+    /v1/jcds/files/{fileName}:
+        get:
+            tags:
+                - jamf-cloud-distribution-service
+            summary:
+                Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service
+            description:
+                Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.
+            parameters:
+                -   name: fileName
+                    in: path
+                    description: Name of the file stored in the Jamf Cloud Distribution Service.
+                    required: true
+                    schema:
+                        type: string
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                200:
+                    description: The URL to download the file from was retrieved.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/DownloadUrl'
+            x-authentication-required: true
+            x-required-privileges:
+                - Read Jamf Cloud Distribution Service Files
+        delete:
+            tags:
+                - jamf-cloud-distribution-service
+            summary:
+                Delete a file from the Jamf Cloud Distribution Service
+            description:
+                Delete a file by filename from the Jamf Cloud Distribution Service.
+            parameters:
+                -   name: fileName
+                    in: path
+                    description: Name of the file that will be deleted from the Jamf Cloud Distribution Service.
+                    required: true
+                    schema:
+                        type: string
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                204:
+                    description: File was deleted
+            x-authentication-required: true
+            x-required-privileges:
+                - Delete Jamf Cloud Distribution Service Files
+    /v1/jcds/renew-credentials:
+        post:
+            tags:
+                - jamf-cloud-distribution-service
+            summary:
+                Renew credentials for an upload to the Jamf Cloud Distribution Service
+            description:
+                Renews the credentials needed for uploading the file to the Jamf Cloud Distribution Service.
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                200:
+                    description: Credentials were renewed for an upload to the Jamf Cloud Distribution Service.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Credentials'
+            x-authentication-required: true
+            x-required-privileges:
+                - Create Jamf Cloud Distribution Service Files
+            x-action: true
+    /v1/jcds/refresh-inventory:
+        post:
+            tags:
+                - jamf-cloud-distribution-service
+            summary: |
+                Refreshes the inventory and status of uploads in Jamf Pro. This will update the 
+                status of uploads in the Jamf Pro database and allow the uploads to be deployed.
+            description: |
+                Refreshes the inventory and status of uploads in Jamf Pro. This will update the 
+                status of uploads in the Jamf Pro database and allow the uploads to be deployed.
+                Using the filename as a query parameter will query JCDS for the availability of
+                the file using an exponential back-off during the allocated time period. If the
+                filename is not supplied, all inventory will be refreshed, and this action is
+                limited to once every 15 seconds.
+            parameters:
+                - name: 'file-name'
+                  in: query
+                  description: 'Name of the file to check the availability of in JCDS. If available, the inventory and status will be updated in Jamf Pro. If no file is specified, it will force an immediate inventory refresh at a rate-limit of once every 15 seconds.'
+                  required: false
+                  schema:
+                      type: string
+                      default: ''
+                      maxLength: 255
+                      example: 'filename.pkg'
+            deprecated: true
+            x-deprecation-date: 2025-08-28
+            responses:
+                204:
+                    description: Inventory refresh completed.
+                500:
+                    description: Failure, unable to complete inventory refresh.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-authentication-required: true
+            x-action: true
+            x-required-privileges:
+                - Read Jamf Cloud Distribution Service Files
+components:
+    schemas:
+        Credentials:
+            type: object
+            properties:
+                accessKeyID:
+                    type: string
+                    format: password
+                    nullable: false
+                    example: "TESTYBLF477T5THW6BNN"
+                expiration:
+                    type: integer
+                    format: int64
+                    nullable: false
+                    example: 1678386302
+                secretAccessKey:
+                    type: string
+                    format: password
+                    nullable: false
+                    example: "tEstNvpw2AC9mggf08/Yw7krkPfYxWNoByGClLr7"
+                sessionToken:
+                    type: string
+                    nullable: false
+                    example: "TEsTb3JpZ2luX2VjEKr//////////wEaCXVzLWVhc3QtMSJHMEUCIQCwp+L32PlSQjeb/Pimk3AUPv3SADpSQv22pK2YqpOjhAIgDfrMNA9asxymToN9ntJrXn9i0bbOhkPAmewDBJ9RqCsqrQIIYxADGgw1NTI2NTM4ODEzMTkiDCmmPWNQKIMfmVIXNSqKAlWem+7n2ApbcAlPxtl5l8mQJz5wqPaUuBlwhuG9Fn7dPUeaHA6ZZjrEegjJOvMkATPEfoD/2o272WXegzC+VVuadrRP+x+pmSnkikqNVz43t6csUTZC61GXsEcsfgRcLHauRoR6vq9aVPRYXckztGjmFb4GpICbR/wc94nJZ6Yw1YZ63UrmEdnJIKSvy/tAoFhJuufy/JOFQEuyW/N38bg+d/xLMNfhMMUSfOE9TOFlI9gOvyOPQVBocckknPD+HWj+nin1SSIy+mH6wMoZNYdRe/J8d5lmjgeiL7l/FmdMmbB7vDdPGCe5hPvJwGpGv6FRnk31NZNFNP//csVTVszGiUmRuY3R2hPUMO6sqKAGOp0BvZ5WAPpip/YMfvCzkzLI0EHlLwHHenor0IenM75eCW+pGqJreU/VIbadRyzncUL4zIa3DBKxgIP/h5uFoSm0ZGdQSAovXtHRQwDBNhdksvqsxQsExn8BjjLh6tFVkBGb4IXY9sS5K7tIwnqOtcT1FEYxQ08RqkJAaP08eCIYbBrWW71S2bNUfIv6KFOG77pz88vw9vHOjxVRjTrfCQ=="
+                region:
+                    type: string
+                    nullable: false
+                    example: "us-east-1"
+                bucketName:
+                    type: string
+                    nullable: false
+                    example: "sbox-test-bucket"
+                path:
+                    type: string
+                    nullable: false
+                    example: "tmp/fc041b05-516e-4bde-9882-a08b1cc5473c/"
+                uuid:
+                    type: string
+                    nullable: false
+                    example: "fc041b05-516e-4bde-9882-a08b1cc5473c"
+        FileData:
+            type: object
+            description: Metadata pertaining to the file.
+            properties:
+                fileName:
+                    description: The name of the file
+                    type: string
+                    readOnly: true
+                    nullable: false
+                    example: test.txt
+                length:
+                    description: The length in bytes
+                    type: integer
+                    readOnly: true
+                    nullable: false
+                    example: 1321654
+                md5:
+                    description: The MD5 in hex
+                    type: string
+                    readOnly: true
+                    nullable: false
+                    example: 9e47d8266df642dc2c3cd73206189781
+                region:
+                    description: The region the file is hosted in
+                    type: string
+                    readOnly: true
+                    nullable: false
+                    example: us-east-1
+                sha3:
+                    description: The SHA3_512 in hex
+                    type: string
+                    readOnly: true
+                    nullable: false
+                    example: 4b2c9436a4e3e330bad91eaa55b66591cd4823548a681eff970b9b949d96201f8c6862ba8308dac1fdf53b9f4356d287bd1062b4f4b89dc2205d9f15776fd58f
+        DownloadUrl:
+            type: object
+            description: The URL to download a file from.
+            properties:
+                uri:
+                    type: string
+                    nullable: false
+                    example: https://example.cloudfront.net/96213b8b-a3ab-487d?response-content-disposition=attachment%3B+filename%3D%226gb.pkg%22&Expires=1678908843&Signature=hLsNd2__&Key-Pair-Id=K32YV

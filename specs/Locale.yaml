@@ -1,0 +1,34 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - version
+  version: 0.0.1
+paths:
+  /v1/locales:
+    get:
+      tags:
+        - locales-preview
+      summary: |
+        Return locales that can be used in other features
+      description: |
+        Returns locales that can be used in other features.
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Locale'
+      x-authentication-required: false
+components:
+  schemas:
+    Locale:
+      type: object
+      properties:
+        description:
+          type: string
+          example: English (United States)
+        identifier:
+          type: string
+          example: en_US

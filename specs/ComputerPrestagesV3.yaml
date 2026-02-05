@@ -1,0 +1,328 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Computer Prestage
+  version: 0.0.1
+paths:
+  /v3/computer-prestages:
+    get:
+      tags:
+      - computer-prestages
+      summary: |
+         Get sorted and paged Computer Prestages
+      description: Gets sorted and paged computer prestages
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Multiple
+          sort criteria are supported and must be separated with a comma. Example:
+          sort=date:desc,name:asc '
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [id:desc]
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ComputerPrestageSearchResultsV3'
+      x-required-privileges:
+      - Read Computer PreStage Enrollments
+    post:
+      tags:
+      - computer-prestages
+      summary: |
+         Create a Computer Prestage
+      description: Create a computer prestage
+      requestBody:
+        description: Computer Prestage to create. ids defined in this body will be
+          ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/PostComputerPrestageV3'
+        required: true
+      responses:
+        201:
+          description: Computer Prestage was created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Create Computer PreStage Enrollments
+  /v3/computer-prestages/{id}:
+    get:
+      tags:
+      - computer-prestages
+      summary: |
+         Retrieve a Computer Prestage with the supplied id
+      description: Retrieves a Computer Prestage with the supplied id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Computer Prestage identifier
+        schema:
+          type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetComputerPrestageV3'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Computer PreStage Enrollments
+    put:
+      tags:
+      - computer-prestages
+      summary: |
+         Update a Computer Prestage
+      description: Updates a Computer Prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Computer Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: Computer Prestage to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/PutComputerPrestageV3'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetComputerPrestageV3'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: The Computer Prestage was modified by another process. Read
+            the Computer Prestage again for updated changes.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Computer PreStage Enrollments
+    delete:
+        tags:
+            - computer-prestages
+        summary: |
+            Delete a Computer Prestage with the supplied id
+        description: Deletes a Computer Prestage with the supplied id
+        parameters:
+            -   name: id
+                in: path
+                required: true
+                description: Computer Prestage identifier
+                schema:
+                    type: string
+        responses:
+            204:
+                description: Success
+        x-required-privileges:
+            - Delete Computer PreStage Enrollments
+components:
+  schemas:
+    ComputerPrestageV3:
+      allOf:
+      - $ref: 'DefinitionsLibrary.yaml#/components/schemas/DeviceEnrollmentPrestageV2'
+      - type: object
+        properties:
+          installProfilesDuringSetup:
+            type: boolean
+            example: true
+            nullable: false
+          prestageInstalledProfileIds:
+            type: array
+            items:
+              type: string
+              example: 1
+          customPackageIds:
+            type: array
+            items:
+              type: string
+              example: 1
+          customPackageDistributionPointId:
+            type: string
+            example: 1
+          enableRecoveryLock:
+            type: boolean
+            example: true
+            nullable: false
+          recoveryLockPasswordType:
+            type: string
+            enum:
+              - MANUAL
+              - RANDOM
+            example: MANUAL
+            nullable: false
+          rotateRecoveryLockPassword:
+            type: boolean
+            example: true
+            nullable: false
+          prestageMinimumOsTargetVersionType:
+              type: string
+              enum:
+                  - NO_ENFORCEMENT
+                  - MINIMUM_OS_LATEST_VERSION
+                  - MINIMUM_OS_LATEST_MAJOR_VERSION
+                  - MINIMUM_OS_LATEST_MINOR_VERSION
+                  - MINIMUM_OS_SPECIFIC_VERSION
+              example: MINIMUM_OS_LATEST_VERSION
+              nullable: false
+          minimumOsSpecificVersion:
+              type: string
+              example: 17.1
+              nullable: false
+              minLength: 0
+          pssoEnabled:
+            type: boolean
+            example: true
+            default: false
+            description: 'Indicates whether Platform SSO (PSSO) is enabled for this computer
+              prestage, regardless of unattended or 403 workflows. When enabled, the PSSO 
+              application will be deployed to devices during the setup process to facilitate
+              single sign-on (SSO) for users.'
+          platformSsoAppBundleId:
+            type: string
+            example: com.okta.mobile
+            description: 'The bundle identifier for the Platform SSO (PSSO) application
+              unattended workflow. This identifier is used to specify which PSSO app should
+              be deployed to devices during the setup process.'
+          profileUrl:
+            type: string
+            example: https://mdmserver.example.com/psso.mobileconfig
+            nullable: true
+            description: 'The URL to the configuration profile for the Platform SSO (PSSO)
+              application 403 workflow. This URL is used when deploying the PSSO app to 
+              devices during the setup process. Users should use either profileUrl or populate
+              pssoConfigProfileId, but not both.'
+          pssoConfigProfileId:
+            type: string
+            example: 1
+            nullable: true
+            description: 'The identifier for the configuration profile associated with the
+              Platform SSO (PSSO) application 403 workflow. This ID is used to specify
+              which configuration profile should be applied to devices during the setup
+              process when PSSO is enabled. Users should use either pssoConfigProfileId or
+              populate profileUrl, but not both.'
+          manifestUrl:
+            type: string
+            example: https://mdmserver.example.com/psso-app.plist
+            nullable: true
+            description: 'The URL to the manifest file for the Platform SSO (PSSO) application
+              403 workflow. This URL is used when deploying the PSSO app to devices during the
+              setup process.'
+          authUrl:
+            type: string
+            example: https://idp.example.com/authenticate
+            nullable: true
+            description: 'The URL to the identity provider (IdP) for authentication for the
+              Platform SSO (PSSO) application 403 workflow. This URL is used in conjunction
+              with PSSO to facilitate single sign-on for users during the device setup process.'
+        required:
+          - customPackageIds
+          - customPackageDistributionPointId
+          - installProfilesDuringSetup
+          - prestageInstalledProfileIds
+    GetComputerPrestageV3:
+      allOf:
+      - $ref: '#/components/schemas/ComputerPrestageV3'
+      - type: object
+        properties:
+          id:
+            type: string
+            example: 1
+            readOnly: true
+            minLength: 1
+          profileUuid:
+            type: string
+            example: 29d-a8d8f-b8sdjndf-dsa9
+          siteId:
+            type: string
+            example: 5
+          versionLock:
+            type: integer
+            example: 0
+            minimum: 0
+          accountSettings:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountSettingsResponse'
+    PutComputerPrestageV3:
+      allOf:
+        - $ref: '#/components/schemas/ComputerPrestageV3'
+        - type: object
+          properties:
+            accountSettings:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountSettingsRequest'
+            recoveryLockPassword:
+              type: string
+              example: password123
+              format: password
+              minLength: 1
+              writeOnly: true
+            versionLock:
+              type: integer
+              example: 0
+              minimum: 0
+    PostComputerPrestageV3:
+      allOf:
+        - $ref: '#/components/schemas/ComputerPrestageV3'
+        - type: object
+          properties:
+            accountSettings:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountSettingsRequest'
+            recoveryLockPassword:
+              type: string
+              example: password123
+              format: password
+              minLength: 1
+              writeOnly: true
+    ComputerPrestageSearchResultsV3:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 1
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/GetComputerPrestageV3'

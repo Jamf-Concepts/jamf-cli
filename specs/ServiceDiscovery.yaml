@@ -1,0 +1,127 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Service Discovery Enrollment
+  version: 1.0.0
+paths:
+  /v1/service-discovery-enrollment/well-known-settings:
+    get:
+      tags:
+        - service-discovery-enrollment
+      summary: Get service discovery well-known settings for all organizations
+      description: |
+        Returns current settings for all AxM organizations.
+      responses:
+        200:
+          description: Well-known settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownSettingsResponse'
+        401:
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        403:
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    put:
+      tags:
+        - service-discovery-enrollment
+      summary: Update service discovery well-known settings
+      description: |
+        Accepts JSON payload to update enrollment types for AxM organizations.
+        Requires "Update User-Initiated Enrollment" privilege.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WellKnownSettingsRequest'
+      responses:
+        204:
+          description: Well-known settings updated successfully
+        400:
+          description: Bad request. Invalid enrollment type or malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        401:
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        403:
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+components:
+  schemas:
+    WellKnownSettingsResponse:
+      type: object
+      required:
+        - wellKnownSettings
+      properties:
+        wellKnownSettings:
+          type: array
+          description: Array of well-known settings for all AxM organizations
+          items:
+            $ref: '#/components/schemas/WellKnownSetting'
+    WellKnownSettingsRequest:
+      type: object
+      required:
+        - wellKnownSettings
+      properties:
+        wellKnownSettings:
+          type: array
+          description: Array of well-known settings to update
+          items:
+            $ref: '#/components/schemas/WellKnownSetting'
+    WellKnownSetting:
+      type: object
+      required:
+        - serverUuid
+        - enrollmentType
+      properties:
+        orgName:
+          type: string
+          description: Organization display name
+          example: 'Acme Corporation'
+        serverUuid:
+          type: string
+          description: Server UUID identifier
+          example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+        enrollmentType:
+          $ref: '#/components/schemas/ServiceDiscoveryVersion'
+    ServiceDiscoveryVersion:
+      type: string
+      enum:
+        - none
+        - mdm-byod
+        - mdm-adde
+      description: Service discovery enrollment version
+      example: 'mdm-byod'

@@ -1,0 +1,271 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Onboarding
+    version: 0.0.1
+paths:
+    /v1/onboarding/eligible-policies:
+        get:
+            tags:
+            - onboarding
+            summary: 'Retrieves a list of policies that are eligible to be used in an onboarding
+                configuration'
+            description: 'Retrieves a list of policies that are eligible to be used in an onboarding
+                configuration'
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                           is id:asc. Multiple sort criteria are supported and must be separated with
+                           a comma. Example: sort=date:desc,name:asc '
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ id:asc ]
+            responses:
+                200:
+                    description: OK
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/OnboardingEligibleItemsSearchResult'
+            x-required-privileges:
+            - Read Onboarding Configuration
+    /v1/onboarding/eligible-configuration-profiles:
+        get:
+            tags:
+                - onboarding
+            summary: 'Retrieves a list of configuration profiles that are eligible to be used in an onboarding
+                configuration'
+            description: 'Retrieves a list of configuration profiles that are eligible to be used in an onboarding
+                configuration'
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                           is id:asc. Multiple sort criteria are supported and must be separated with
+                           a comma. Example: sort=date:desc,name:asc '
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ id:asc ]
+            responses:
+                200:
+                    description: OK
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/OnboardingEligibleItemsSearchResult'
+            x-required-privileges:
+                - Read Onboarding Configuration
+    /v1/onboarding/eligible-apps:
+        get:
+            tags:
+                - onboarding
+            summary: 'Retrieves a list of applications that are eligible to be used in an onboarding
+                configuration'
+            description: 'Retrieves a list of applications that are eligible to be used in an onboarding
+                configuration'
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                           is id:asc. Multiple sort criteria are supported and must be separated with
+                           a comma. Example: sort=date:desc,name:asc '
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ id:asc ]
+            responses:
+                200:
+                    description: OK
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/OnboardingEligibleItemsSearchResult'
+            x-required-privileges:
+                - Read Onboarding Configuration
+    /v1/onboarding/history:
+        get:
+            tags:
+                - onboarding
+            summary: |
+                Get Onboarding history object
+            description: |
+                Gets Onboarding history object
+            parameters:
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                - name: sort
+                  in: query
+                  description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+                  explode: true
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                      default: [date:desc]
+                - name: filter
+                  in: query
+                  description: 'Query in the RSQL format, allowing to filter history notes collection.
+          Default filter is empty query - returning all results for the requested page.
+          Fields allowed in the query: username, date, note, details.
+          This param can be combined with paging and sorting.
+          Example: filter=username!=admin and date<2019-12-15'
+                  schema:
+                      type: string
+                      default: ''
+            responses:
+                200:
+                    description: Details of onboarding history were found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+            x-required-privileges:
+                - Read Onboarding Configuration
+        post:
+            tags:
+                - onboarding
+            summary: |
+                Add Onboarding history object notes
+            description: |
+                Adds Onboarding history object notes
+            requestBody:
+                description: history notes to create
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+                required: true
+            responses:
+                201:
+                    description: Notes of onboarding history were added
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                503:
+                    description: Onboarding history can not be saved
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Onboarding Configuration
+    /v1/onboarding/history/export:
+        post:
+            tags:
+                - onboarding
+            summary: |
+                Export history object collection in specified format for Onboarding
+            description: |
+                Export history object collection in specified format for Onboarding
+            parameters:
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                - name: sort
+                  in: query
+                  description: 'Sorting criteria in the format: property:asc/desc. Default sort
+             is date:desc. Multiple sort criteria are supported and must be separated
+             with a comma. Example: sort=date:desc,name:asc '
+                  explode: true
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                      default: [ date:desc ]
+                - name: filter
+                  in: query
+                  description: 'Query in the RSQL format, allowing to filter history notes collection.
+             Default filter is empty query - returning all results for the requested page.
+             Fields allowed in the query: username, date, note, details.
+             This param can be combined with paging and sorting.
+             Example: filter=username!=admin and date<2019-12-15'
+                  schema:
+                      type: string
+                      default: ''
+            requestBody:
+                description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+                required: false
+            responses:
+                200:
+                    description: Export successful
+                    content:
+                        text/csv:
+                            schema:
+                                format: binary
+                                example: |
+                                    username,date,note,details
+                                    admin,2019-02-04 21:09:31,Edited,item detail
+                400:
+                    description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Export currently unavailable, all export-related resources are in use. Try again later.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Onboarding Configuration
+            x-action: true
+
+components:
+    schemas:
+        OnboardingEligibleItemsSearchResult:
+            type: object
+            properties:
+                totalCount:
+                    type: integer
+                    example: 1
+                    nullable: false
+                results:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/OnboardingEligibleItem'
+            description: A list of onboarding eligible items
+
+        OnboardingEligibleItem:
+            required:
+                - id
+                - name
+                - scopeDescription
+                - siteDescription
+            type: object
+            properties:
+                id:
+                    type: string
+                    example: 1
+                    nullable: false
+                name:
+                    type: string
+                    example: Item 1
+                    nullable: false
+                scopeDescription:
+                    type: string
+                    example: All Computers
+                    nullable: false
+                siteDescription:
+                    type: string
+                    example: Example Site
+                    nullable: false

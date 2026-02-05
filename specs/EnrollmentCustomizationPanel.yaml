@@ -1,0 +1,727 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Enrollment Customization Panel
+  version: 0.0.1
+paths:
+  /v1/enrollment-customization/parse-markdown:
+    post:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Parse the given string as markdown text and return Html output
+      description: Parse the given string as markdown text and return Html output
+      requestBody:
+        description: Enrollment Customization Panel to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Markdown'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Markdown'
+      x-required-privileges:
+      - Read Enrollment Customizations
+  /v1/enrollment-customization/{id}/all:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get all Panels for single Enrollment Customization
+      description: Get all panels for single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/EnrollmentCustomizationPanelList'
+        404:
+          description: Enrollment Customization with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+  /v1/enrollment-customization/{id}/all/{panel-id}:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get a single Panel for a single Enrollment Customization
+      description: Get a single panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanel'
+        404:
+          description: Enrollment Customization with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+    delete:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Delete a single Panel from an Enrollment Customization
+      description: Delete a single panel from an Enrollment Customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/text:
+    post:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Create a Text Panel for a single Enrollment Customization
+      description: Create a Text panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelText'
+        required: true
+      responses:
+        201:
+          description: Text panel was created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelText'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/text/{panel-id}:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get a single Text Panel for a single Enrollment Customization
+      description: Get a single Text panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelText'
+        404:
+          description: Enrollment Customization with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+    put:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Update a single Text Panel for a single Enrollment Customization
+      description: Update a single Text panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelText'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelText'
+        404:
+          description: Enrollment Customization or Panel does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+    delete:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Delete a Text single Panel from an Enrollment Customization
+      description: Delete a Text single panel from an Enrollment Customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/text/{panel-id}/markdown:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get the markdown output of a single Text Panel for a single Enrollment
+      description: Get the markdown output of a single Text panel for a single enrollment
+        customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Markdown'
+        404:
+          description: Enrollment Customization with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+  /v1/enrollment-customization/{id}/sso:
+    post:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Create an SSO Panel for a single Enrollment Customization
+      description: Create an SSO panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelSsoAuth'
+        required: true
+      responses:
+        201:
+          description: Auth panel was created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelSsoAuth'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/sso/{panel-id}:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get a single SSO Panel for a single Enrollment Customization
+      description: Get a single SSO panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelSsoAuth'
+        404:
+          description: Enrollment Customization or Panel does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+    put:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Update a single SSO Panel for a single Enrollment Customization
+      description: Update a single SSO panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelSsoAuth'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelSsoAuth'
+        404:
+          description: Enrollment Customization or Panel does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+    delete:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Delete a single SSO Panel from an Enrollment Customization
+      description: Delete a single SSO panel from an Enrollment Customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/ldap:
+    post:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Create an LDAP Panel for a single Enrollment Customization
+      description: Create an LDAP panel for a single enrollment customization. If
+        multiple LDAP access groups are defined with the same name and id, only one
+        will be saved.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelLdapAuth'
+        required: true
+      responses:
+        201:
+          description: LDAP panel was created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelLdapAuth'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+  /v1/enrollment-customization/{id}/ldap/{panel-id}:
+    get:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Get a single LDAP panel for a single Enrollment Customization
+      description: Get a single LDAP panel for a single enrollment customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelLdapAuth'
+        404:
+          description: Enrollment Customization or Panel does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Enrollment Customizations
+    put:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Update a single LDAP Panel for a single Enrollment Customization
+      description: Update a single LDAP panel for a single enrollment customization.
+        If multiple LDAP access groups are defined with the same name and id, only
+        one will be saved.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      requestBody:
+        description: Enrollment Customization Panel to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationPanelLdapAuth'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetEnrollmentCustomizationPanelLdapAuth'
+        404:
+          description: Enrollment Customization or Panel does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Enrollment Customizations
+    delete:
+      tags:
+      - enrollment-customization-preview
+      summary: |
+         Delete an LDAP single panel from an Enrollment Customization
+      description: Delete an LDAP single Panel from an Enrollment Customization
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Enrollment Customization identifier
+        schema:
+          type: integer
+      - name: panel-id
+        in: path
+        required: true
+        description: Panel object identifier
+        schema:
+          type: integer
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Update Enrollment Customizations
+components:
+  schemas:
+    Markdown:
+      type: object
+      properties:
+        markdown:
+          type: string
+          example: '**markdown**'
+    EnrollmentCustomizationPanelList:
+      type: object
+      properties:
+        panels:
+          type: array
+          items:
+            $ref: '#/components/schemas/GetEnrollmentCustomizationPanel'
+    EnrollmentCustomizationPanel:
+      required:
+      - rank
+      - displayName
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: A Panel
+        rank:
+          type: integer
+          example: 0
+    GetEnrollmentCustomizationPanel:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanel'
+      - type: object
+        properties:
+          id:
+            type: integer
+            example: 2
+          type:
+            type: string
+            example: text
+    EnrollmentCustomizationPanelText:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanel'
+      - required:
+        - backButtonText
+        - body
+        - continueButtonText
+        - title
+        type: object
+        properties:
+          body:
+            type: string
+            example: Welcome!
+          subtext:
+            type: string
+            example: World!
+          title:
+            type: string
+            example: My text panel
+          backButtonText:
+            type: string
+            example: Back
+          continueButtonText:
+            type: string
+            example: Continue
+    GetEnrollmentCustomizationPanelText:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanelText'
+      - type: object
+        properties:
+          id:
+            type: integer
+            example: 2
+          type:
+            type: string
+            example: text
+    EnrollmentCustomizationPanelSsoAuth:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanel'
+      - required:
+        - groupEnrollmentAccessName
+        - isGroupEnrollmentAccessEnabled
+        - isUseJamfConnect
+        - longNameAttribute
+        - shortNameAttribute
+        type: object
+        properties:
+          isUseJamfConnect:
+            type: boolean
+            example: false
+          longNameAttribute:
+            type: string
+            example: long name
+          shortNameAttribute:
+            type: string
+            example: name
+          isGroupEnrollmentAccessEnabled:
+            type: boolean
+            example: false
+          groupEnrollmentAccessName:
+            type: string
+            example: GroupNameA
+            default: ""
+    GetEnrollmentCustomizationPanelSsoAuth:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanelSsoAuth'
+      - type: object
+        properties:
+          id:
+            type: integer
+            example: 2
+          type:
+            type: string
+            example: sso
+    EnrollmentCustomizationLdapGroupAccess:
+      type: object
+      properties:
+        ldapServerId:
+          type: integer
+          example: 1
+        groupName:
+          type: string
+          example: admins
+    EnrollmentCustomizationPanelLdapAuth:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanel'
+      - required:
+        - backButtonText
+        - continueButtonText
+        - passwordLabel
+        - usernameLabel
+        - title
+        type: object
+        properties:
+          usernameLabel:
+            type: string
+            example: Username
+          passwordLabel:
+            type: string
+            example: Password
+          title:
+            type: string
+            pattern: '\S' # Matches a non-empty string
+            example: My Ldap Panel
+          backButtonText:
+            type: string
+            example: Back
+          continueButtonText:
+            type: string
+            example: Continue
+          ldapGroupAccess:
+            type: array
+            items:
+              $ref: '#/components/schemas/EnrollmentCustomizationLdapGroupAccess'
+    GetEnrollmentCustomizationPanelLdapAuth:
+      allOf:
+      - $ref: '#/components/schemas/EnrollmentCustomizationPanelLdapAuth'
+      - type: object
+        properties:
+          id:
+            type: integer
+            example: 2
+          type:
+            type: string
+            example: ldap

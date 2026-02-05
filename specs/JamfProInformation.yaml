@@ -1,0 +1,54 @@
+openapi: 3.0.0
+info:
+  version: 0.0.1
+  title: Jamf Pro API - System Information
+paths:
+  /v2/jamf-pro-information:
+    get:
+      tags:
+        - jamf-pro-information
+      summary: |
+        Get basic information about the Jamf Pro Server
+      description: >
+        Get basic information about the Jamf Pro Server
+      responses:
+        '200':
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/JamfProInformationV2'
+      x-authentication-required: true
+components:
+  schemas:
+    JamfProInformationV2:
+      type: object
+      properties:
+        vppTokenEnabled:
+          type: boolean
+          example: false
+        depAccountEnabled:
+          type: boolean
+          example: false
+        byodEnabled:
+          type: boolean
+          default: false
+          readOnly: true
+          deprecated: true
+          description: >
+            **Deprecated as of 11.25.** This field always returns false.
+        userMigrationEnabled:
+          type: boolean
+          example: false
+        cloudDeploymentsEnabled:
+          type: boolean
+          example: false
+        patchEnabled:
+          type: boolean
+          example: false
+        ssoSamlEnabled:
+          type: boolean
+          example: false
+        smtpEnabled:
+          type: boolean
+          example: false

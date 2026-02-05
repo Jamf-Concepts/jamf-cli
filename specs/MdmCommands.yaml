@@ -1,0 +1,187 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - MDM Commands
+  version: 0.0.1
+paths:
+  /v1/mdm/commands:
+    get:
+      summary: Get information about mdm commands made by Jamf Pro.
+      description: Get information about mdm commands made by Jamf Pro.
+      tags:
+        - mdm
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+      parameters:
+        - name: uuids
+          in: query
+          required: false
+          description: A list of the UUIDs of the commands being searched for.  Limited to 40 UUIDs in length. Choose one of two parameters, but not both.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: client-management-id
+          in: query
+          required: false
+          description: The client management id used to search for a list of commands. Choose one of two parameters, but not both.
+          schema:
+              type: string
+              example: fd68c371-5921-436e-b16b-8a3c1bf90ee5
+      deprecated: true
+      x-deprecation-date: 2023-10-16
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommand'
+        414:
+          description: Too many UUIDs were provided in the path. The limit is set at a strict 40 UUIDs.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Failure, unable to complete lookup.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v2/mdm/blank-push:
+    post:
+      summary: Send blank push notifications to a list of client management IDs.
+      description: Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.
+      tags:
+        - mdm
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+      x-action: true
+      requestBody:
+        description: A list of client management IDs to send push notifications to.
+        required: true
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/BlankPushRequest'
+      responses:
+        200:
+          description: Push notifications sent successfully, with a list of UUIDs that encountered errors.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/BlankPushResponse'
+        400:
+          description: Invalid input provided.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Internal server error.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v2/mdm/commands:
+    get:
+      summary: |
+        Get information about mdm commands made by Jamf Pro.
+      description: Get information about mdm commands made by Jamf Pro.
+      tags:
+        - mdm
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Default sort is dateSent:asc. Multiple sort criteria are supported and must be separated
+                        with a comma.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ dateSent:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter, for a list of commands. All url must contain minimum one filter field.
+              Fields allowed in the query: uuid, clientManagementId, command, status, clientType, dateSent, validAfter, dateCompleted, profileId, profileIdentifier, and active. 
+              This param can be combined with paging. Please note that any date filters must be used with gt, lt, ge, le
+              Example: clientManagementId==fb511aae-c557-474f-a9c1-5dc845b90d0f;status==Pending;command==INSTALL_PROFILE;uuid==9e18f849-e689-4f2d-b616-a99d3da7db42;clientType==COMPUTER_USER;profileId==1;profileIdentifier==18cc61c2-01fc-11ed-b939-0242ac120002;dateCompleted=ge=2021-08-04T14:25:18.26Z;dateCompleted=le=2021-08-04T14:25:18.26Z;validAfter=ge=2021-08-05T14:25:18.26Z;active==true'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandResults'
+        500:
+          description: Failure, unable to complete lookup.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    post:
+      summary: |
+        Post a command for creation and queuing
+      description: Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.
+      tags:
+        - mdm
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+      x-action: true
+      requestBody:
+        description: The mdm command object to create and queue
+        content:
+          'application/json':
+            schema:
+              $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandRequest'
+      responses:
+        201:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        500:
+          description: Failure, unable to queue command.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+components:
+  schemas:
+    BlankPushRequest:
+      type: object
+      properties:
+        clientManagementIds:
+          type: array
+          items:
+            type: string
+          example:
+            - "fd68c371-5921-436e-b16b-8a3c1bf90ee5"
+            - "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+      required:
+        - clientManagementIds
+    BlankPushResponse:
+      type: object
+      properties:
+        errorUuids:
+          type: array
+          items:
+            type: string
+          example:
+            - "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+            - "fd68c371-5921-436e-b16b-8a3c1bf90ee5"
+      required:
+        - errorUuids

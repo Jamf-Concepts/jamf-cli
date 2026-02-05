@@ -1,0 +1,44 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - advanced search
+  version: 0.0.1
+paths:
+  /devices/extensionAttributes:
+    get:
+      tags:
+      - mobile-device-extension-attributes-preview
+      summary: |
+         Get Mobile Device Extension Attribute values placed in select paramter
+      description: Gets Mobile Device Extension Attribute values placed in select
+        parameter.
+      parameters:
+      - name: select
+        in: query
+        description: |
+          Acceptable values currently include:
+          * name
+        schema:
+          type: string
+          default: name
+      responses:
+        200:
+          description: Successful response - Extension Attributes retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDeviceExtensionAttributeResults'
+      x-required-privileges:
+      - Read Mobile Device Extension Attributes
+components:
+  schemas:
+    MobileDeviceExtensionAttributeResults:
+      type: object
+      properties:
+        extensionAttributes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: extAttribute1

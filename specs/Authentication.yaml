@@ -1,0 +1,439 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Authentication
+  version: 0.0.1
+paths:
+  /v1/auth:
+    get:
+      tags:
+        - api-authentication
+      summary: |
+        Get all the Authorization details associated with the current api
+      description: Get all the authorization details associated with the current api
+        token
+      responses:
+        200:
+          description: Current authorization details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationV1'
+      security:
+        - Bearer: []
+      x-authentication-required: true
+  /auth:
+    get:
+      deprecated: true
+      tags:
+        - api-authentication
+      summary: |
+        Get all the Authorization details associated with the current api
+      description: Get all the authorization details associated with the current api
+        token
+      responses:
+        200:
+          description: Current authorization details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Authorization'
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-deprecation-date: 2020-06-01
+
+  /auth/current:
+    post:
+      deprecated: true
+      tags:
+        - api-authentication
+      summary: |
+        Get the authorization details associated with the current API token
+      description: Get the authorization details associated with the current API token
+        for the users current site
+      responses:
+        200:
+          description: Authorization details for users current site.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentAuthorization'
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-action: true
+      x-deprecation-date: 2020-06-01
+  /v1/auth/token:
+    post:
+      tags:
+        - api-authentication
+      summary: Create a token based on other authentication details (basic, etc.)
+      description: |
+        Create a token based on other authentication details (basic, etc.).
+      responses:
+        200:
+          description: New auth token generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenV1'
+        401:
+          description: Authentication failed. If the admin has forced the user to change their password before next user login, or the non-SSO account's password has expired, an ApiError with USER_EXPIRED_PASSWORD will be returned.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      security:
+        - BasicAuth: []
+      x-authentication-required: false
+      x-action: true
+  /v1/auth/keep-alive:
+    post:
+      tags:
+        - api-authentication
+      summary: |
+        Invalidate existing token and generates new token
+      description: Invalidates existing token and generates new token with extended
+        expiration based on existing token credentials.
+      responses:
+        200:
+          description: Updated token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenV1'
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-action: true
+  /auth/keepAlive:
+    post:
+      deprecated: true
+      tags:
+        - api-authentication
+      summary: |
+        Invalidate existing token and generates new token
+      description: Invalidates existing token and generates new token with extended
+        expiration based on existing token credentials.
+      responses:
+        200:
+          description: Updated token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-action: true
+      x-deprecation-date: 2020-06-01
+  /v1/auth/invalidate-token:
+    post:
+      tags:
+        - api-authentication
+      summary: |
+        Invalidate current token
+      description: Invalidates current token
+      responses:
+        204:
+          description: token invalidated
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-action: true
+  /auth/invalidateToken:
+    post:
+      deprecated: true
+      tags:
+        - api-authentication
+      summary: |
+        Invalidate current token
+      description: Invalidates current token
+      responses:
+        204:
+          description: token invalidated
+      security:
+        - Bearer: []
+      x-authentication-required: true
+      x-action: true
+      x-deprecation-date: 2020-06-01
+components:
+  schemas:
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+          nullable: false
+          example: eyJhbGciOiJIUzUxMiJ9.eyJhdXRoZW50aWNhdGVkLWFwcCI6IkdFTkVSSUMiLCJhdXRoZW50aWNhdGlvbi10eXBlIjoiSlNTIiwiZ3JvdXBzIjpbXSwic3ViamVjdC10eXBlIjoiSlNTX1VTRVJfSUQiLCJ0b2tlbi11dWlkIjoiNzc0YWY3MGYtYWQ0Yy00N2QzLTk2MzktZjEwMjBhMTIwYzExIiwibGRhcC1zZXJ2ZXItaWQiOi0xLCJzdWIiOiIxIiwiZXhwIjoxNTM5NjE5MzQ4fQ.0t7sgYyIyA7kTTmrM8tMGE7fnXcJ1ZzQODAJp0pzg92-cBMQS0Cv8S9oWjkJD7VJS-CHA1dOppr0G_2dCPOfng
+        expires:
+          type: integer
+          example: 1539619348124
+    AuthTokenV1:
+      type: object
+      properties:
+        token:
+          type: string
+          nullable: false
+          example: eyJhbGciOiJIUzUxMiJ9.eyJhdXRoZW50aWNhdGVkLWFwcCI6IkdFTkVSSUMiLCJhdXRoZW50aWNhdGlvbi10eXBlIjoiSlNTIiwiZ3JvdXBzIjpbXSwic3ViamVjdC10eXBlIjoiSlNTX1VTRVJfSUQiLCJ0b2tlbi11dWlkIjoiNzc0YWY3MGYtYWQ0Yy00N2QzLTk2MzktZjEwMjBhMTIwYzExIiwibGRhcC1zZXJ2ZXItaWQiOi0xLCJzdWIiOiIxIiwiZXhwIjoxNTM5NjE5MzQ4fQ.0t7sgYyIyA7kTTmrM8tMGE7fnXcJ1ZzQODAJp0pzg92-cBMQS0Cv8S9oWjkJD7VJS-CHA1dOppr0G_2dCPOfng
+        expires:
+          type: string
+          example: 2020-04-21T21:09:31.626Z
+    AuthAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          example: 1
+        username:
+          type: string
+          example: admin
+        realName:
+          type: string
+          example: IT Bob
+        email:
+          type: string
+          example: ITBob@Jamf.com
+        preferences:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferences'
+        isMultiSiteAdmin:
+          type: boolean
+          example: true
+        accessLevel:
+          type: string
+          example: FullAccess
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+        privilegeSet:
+          type: string
+          example: CUSTOM
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+        privilegesBySite:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            1:
+              - Read SSO Settings
+              - Delete eBooks
+        groupIds:
+          type: array
+          example:
+            - 1
+            - 3
+          items:
+            type: integer
+        currentSiteId:
+          type: integer
+          example: 1
+    AuthAccountV1:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          example: 1
+        username:
+          type: string
+          example: admin
+        realName:
+          type: string
+          example: IT Bob
+        email:
+          type: string
+          example: ITBob@Jamf.com
+        preferences:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV1'
+        multiSiteAdmin:
+          type: boolean
+          example: true
+        accessLevel:
+          type: string
+          example: FullAccess
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+        privilegeSet:
+          type: string
+          example: CUSTOM
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+        privilegesBySite:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            1:
+              - Read SSO Settings
+              - Delete eBooks
+        groupIds:
+          type: array
+          example:
+            - 1
+            - 3
+          items:
+            type: string
+        currentSiteId:
+          type: string
+          example: 1
+    CurrentAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          example: 1
+        username:
+          type: string
+          example: admin
+        realName:
+          type: string
+          example: IT Bob
+        email:
+          type: string
+          example: ITBob@Jamf.com
+        preferences:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferences'
+        isMultiSiteAdmin:
+          type: boolean
+          example: true
+        accessLevel:
+          type: string
+          example: FullAccess
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+        privilegeSet:
+          type: string
+          example: CUSTOM
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+        privileges:
+          type: array
+          example:
+            - Read SSO Settings
+            - Delete eBooks
+          items:
+            type: string
+        groupIds:
+          type: array
+          example:
+            - 1
+            - 3
+          items:
+            type: integer
+        currentSiteId:
+          type: integer
+          example: 1
+    AccountGroup:
+      type: object
+      properties:
+        accessLevel:
+          type: string
+          example: FullAccess
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+        privilegeSet:
+          type: string
+          example: CUSTOM
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+        siteId:
+          type: integer
+          example: 1
+        privileges:
+          type: array
+          example: Read SSO Settings
+          items:
+            type: string
+        memberUserIds:
+          type: array
+          example:
+            - 1
+            - 3
+          items:
+            type: integer
+    AuthorizationV1:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/AuthAccountV1'
+        accountGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountGroup'
+        sites:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/V1Site'
+        authenticationType:
+          type: string
+          $ref: '#/components/schemas/AuthenticationType'
+    Authorization:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/AuthAccount'
+        accountGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountGroup'
+        sites:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/Site'
+        authenticationType:
+          type: string
+          $ref: '#/components/schemas/AuthenticationType'
+    CurrentAuthorization:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/CurrentAccount'
+        sites:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/Site'
+        authenticationType:
+            type: string
+            $ref: '#/components/schemas/AuthenticationType'
+    AuthenticationType:
+        type: string
+        example: JSS
+        enum:
+            - JSS
+            - LDAP
+            - SAML
+            - INVITE
+            - NATIVE_APP_API_INTEGRATION
+            - DEVICE_SIGNATURE
+            - CLOUD_CONNECTOR
+            - SYSTEM_ACCOUNT
+            - USER_ENROLLMENT
+            - CLIENT_CREDENTIALS
+            - OIDC
+            - M2M

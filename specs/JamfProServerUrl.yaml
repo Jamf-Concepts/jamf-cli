@@ -1,0 +1,122 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Jamf Pro Server URL
+  version: 0.0.1
+paths:
+  /v1/jamf-pro-server-url:
+    get:
+      tags:
+      - jamf-pro-server-url-preview
+      summary: |
+         Get Jamf Pro Server URL settings
+      description: Get Jamf Pro Server URL settings
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/JamfProServerUrl'
+      x-required-privileges:
+      - Read JSS URL
+    put:
+      tags:
+      - jamf-pro-server-url-preview
+      summary: |
+         Update Jamf Pro Server URL settings
+      description: Update Jamf Pro Server URL settings
+      requestBody:
+        description: Jamf Pro Server URL settings object
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/JamfProServerUrl'
+        required: true
+      responses:
+        200:
+          description: Jamf Pro Server URL settings updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/JamfProServerUrl'
+        403:
+          description: Jamf Pro Server URL is managed by Jamf Cloud
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update JSS URL
+  /v1/jamf-pro-server-url/history:
+    get:
+      tags:
+      - jamf-pro-server-url-preview
+      summary: |
+         Get Jamf Pro Server URL settings history
+      description: Gets Jamf Pro Server URL settings history
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+        schema:
+          type: string
+          default: date:desc
+      responses:
+        200:
+          description: Details of Jamf Pro Server URL settings history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+      - Read JSS URL
+    post:
+      tags:
+      - jamf-pro-server-url-preview
+      summary: |
+         Add Jamf Pro Server URL settings history notes
+      description: Adds Jamf Pro Server URL settings history notes
+      requestBody:
+        description: History notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Jamf Pro Server URL settings history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        403:
+          description: Jamf Pro Server URL is managed by Jamf Cloud
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Jamf Pro Server URL history does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update JSS URL
+components:
+  schemas:
+    JamfProServerUrl:
+      required:
+      - url
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://example.com:8443

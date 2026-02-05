@@ -1,0 +1,198 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Return To Service Congfiguration
+    version: 0.0.1
+paths:
+    /v1/return-to-service:
+        get:
+            tags:
+                - return-to-service
+            summary: |
+                Get all Return to Service Configurations
+            description: Gets all return to service configurations.
+            responses:
+                200:
+                    description: Successful response
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/ReturnToServiceConfigurationSearchResults'
+            x-required-privileges:
+                - View Return To Service Configurations
+        post:
+            tags:
+                - return-to-service
+            summary: |
+                Create a Return to Service Configuration
+            description: Create a return to service configuration
+            requestBody:
+                description: Return to Service Configuration to create. ids defined in this body will be
+                    ignored
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/ReturnToServiceConfigurationRequest'
+                required: true
+            responses:
+                201:
+                    description: Return to Service Configuration was created
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Edit Return To Service Configurations
+    /v1/return-to-service/{id}:
+        get:
+            tags:
+                - return-to-service
+            summary: |
+                Retrieve a Return to Service Configuration with the supplied id
+            description: Retrieves a Return to Service Configuration with the supplied id
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  description: Return to Service Configuration identifier
+                  schema:
+                      type: string
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/ReturnToServiceConfiguration'
+                404:
+                    description: Return to Service Configuration with that id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - View Return To Service Configurations
+        put:
+            tags:
+                - return-to-service
+            summary: |
+                Update a Return to Service Configuration
+            description: Updates a Return to Service Configuration
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  description: Return to Service Configuration identifier
+                  schema:
+                      type: string
+            requestBody:
+                description: Return to Service Configuration to update
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/ReturnToServiceConfigurationRequest'
+                required: true
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/ReturnToServiceConfiguration'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                404:
+                    description: Return to Service Configuration with that id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                409:
+                    description: The Return to Service Configuration was modified by another process. Read
+                        the Return to Service Configuration again for updated changes.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Edit Return To Service Configurations
+        delete:
+            tags:
+                - return-to-service
+            summary: |
+                Delete a Return To Service Configuration with the supplied id
+            description: Deletes a Return To Service Configuration with the supplied id
+            parameters:
+                -   name: id
+                    in: path
+                    required: true
+                    description: Return To Service Configurations identifier
+                    schema:
+                        type: string
+            responses:
+                204:
+                    description: Success
+                404:
+                    description: Return to Service Configuration with that id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Delete Return To Service Configurations
+components:
+    schemas:
+        ReturnToServiceConfigurationSearchResults:
+            type: object
+            properties:
+                totalCount:
+                    type: integer
+                    minimum: 0
+                    example: 1
+                results:
+                    type: array
+                    minItems: 0
+                    items:
+                        $ref: '#/components/schemas/ReturnToServiceConfiguration'
+        ReturnToServiceConfiguration:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Id of the Return to Service Configuration.
+                    example: 1
+                    minimum: 1
+                    nullable: false
+                displayName:
+                    type: string
+                    example: "displayName"
+                    default: false
+                    nullable: false
+                wifiProfileId:
+                    type: string
+                    description: Id of the wifi profile that is associated with the return to service configuration.
+                    example: 1
+                    nullable: false
+        ReturnToServiceConfigurationRequest:
+            type: object
+            properties:
+                displayName:
+                    type: string
+                    example: "displayName"
+                    description: Display name of the Return to Service Configuration.
+                    default: false
+                    nullable: false
+                wifiProfileId:
+                    type: string
+                    description: Id of the wifi profile that is associated with the return to service configuration.
+                    example: 1
+                    nullable: false

@@ -1,0 +1,529 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Mobile Device Prestage v3
+  version: 0.0.1
+  description: |
+    Mobile Device Prestage v3 API with Keep Managed Apps support. This API provides enhanced functionality for managing mobile device prestage enrollments including the ability to configure whether managed apps should be kept during Return to Service operations.
+paths:
+  /v3/mobile-device-prestages:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Get sorted and paged Mobile Device Prestages
+      description: Gets sorted and paged mobile device prestages
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Multiple
+          sort criteria are supported and must be separated with a comma. Example:
+          sort=date:desc,name:asc '
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [id:desc]
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDevicePrestageSearchResultsV3'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Create a Mobile Device Prestage
+      description: Create a mobile device prestage
+      requestBody:
+        description: Mobile Device Prestage to create. ids defined in this body will
+          be ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MobileDevicePrestageV3'
+        required: true
+      responses:
+        201:
+          description: Mobile Device Prestage was created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+      - Create Mobile Device PreStage Enrollments
+  /v3/mobile-device-prestages/{id}:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Retrieve a Mobile Device Prestage with the supplied id
+      description: Retrieves a Mobile Device Prestage with the supplied id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+    put:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Update a Mobile Device Prestage
+      description: Updates a Mobile Device Prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: Mobile Device Prestage to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/PutMobileDevicePrestageV3'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: The Mobile Device Prestage was modified by another process.
+            Read the Mobile Device Prestage again for updated changes.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Mobile Device PreStage Enrollments
+    delete:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Delete a Mobile Device Prestage with the supplied id
+      description: Deletes a Mobile Device Prestage with the supplied id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Delete Mobile Device PreStage Enrollments
+  /v3/mobile-device-prestages/{id}/history:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Get sorted and paged Mobile Device Prestage history objects
+      description: Gets sorted and paged mobile device prestage history objects
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property,asc/desc. Default sort
+          order is descending. Multiple sort criteria are supported and must be entered
+          on separate lines in Swagger UI. In the URI the ''sort'' query param is
+          duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [date:desc]
+      responses:
+        200:
+          description: Details of mobile device prestage history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Add Mobile Device Prestage history object notes
+      description: Adds mobile device prestage history object notes
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: History notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of mobile deivce prestage history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        503:
+          description: Mobile device prestage history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Mobile Device PreStage Enrollments
+  /v3/mobile-device-prestages/{id}/attachments:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Get attachments for a Mobile Device Prestage
+      description: Get attachments for a Mobile Device Prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description:  Mobile Device Prestage identifier
+        schema:
+          type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileAttachmentV3'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Add an attachment to a Mobile Device Prestage
+      description: Add an attachment to a Mobile Device prestage
+      parameters:
+      - name: id
+        in: path
+        description:  Identifier of the Mobile Device Prestage the attachment should be assigned to
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  description: The file to upload
+                  format: binary
+        required: true
+      responses:
+        201:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/PrestageFileAttachmentV3'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        413:
+          description: Payload Too Large
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Create Mobile Device PreStage Enrollments
+  /v3/mobile-device-prestages/{id}/attachments/delete-multiple:
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Remove an attachment for a Mobile Device Prestage
+      description: Remove an attachment for a Mobile Device Prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+        required: true
+      responses:
+        204:
+          description: Success
+      x-required-privileges:
+      - Delete Mobile Device PreStage Enrollments
+      x-action: true
+components:
+  schemas:
+    MobileDevicePrestageV3:
+      allOf:
+      - $ref: 'DefinitionsLibrary.yaml#/components/schemas/DeviceEnrollmentPrestageV3'
+      - type: object
+        properties:
+          allowPairing:
+            type: boolean
+            example: true
+          multiUser:
+            type: boolean
+            example: true
+          supervised:
+            type: boolean
+            example: true
+          maximumSharedAccounts:
+            type: integer
+            example: 10
+          configureDeviceBeforeSetupAssistant:
+            type: boolean
+            example: true
+          names:
+            $ref: '#/components/schemas/MobileDevicePrestageNamesV3'
+          sendTimezone:
+            type: boolean
+            example: true
+          timezone:
+            type: string
+            example: America/Chicago
+          storageQuotaSizeMegabytes:
+            type: integer
+            example: 4096
+          useStorageQuotaSize:
+            type: boolean
+            example: true
+          temporarySessionOnly:
+            type: boolean
+            example: false
+          enforceTemporarySessionTimeout:
+            type: boolean
+            example: false
+          temporarySessionTimeout:
+            type: integer
+            example: 30
+          enforceUserSessionTimeout:
+            type: boolean
+            example: false
+          userSessionTimeout:
+            type: integer
+            example: 30
+          prestageMinimumOsTargetVersionTypeIos:
+              type: string
+              enum:
+                  - NO_ENFORCEMENT
+                  - MINIMUM_OS_LATEST_VERSION
+                  - MINIMUM_OS_LATEST_MAJOR_VERSION
+                  - MINIMUM_OS_LATEST_MINOR_VERSION
+                  - MINIMUM_OS_SPECIFIC_VERSION
+              example: MINIMUM_OS_LATEST_VERSION
+              nullable: false
+          minimumOsSpecificVersionIos:
+              type: string
+              example: 17.1
+              nullable: false
+              minLength: 0
+          prestageMinimumOsTargetVersionTypeIpad:
+              type: string
+              enum:
+                  - NO_ENFORCEMENT
+                  - MINIMUM_OS_LATEST_VERSION
+                  - MINIMUM_OS_LATEST_MAJOR_VERSION
+                  - MINIMUM_OS_LATEST_MINOR_VERSION
+                  - MINIMUM_OS_SPECIFIC_VERSION
+              example: MINIMUM_OS_LATEST_VERSION
+              nullable: false
+          minimumOsSpecificVersionIpad:
+              type: string
+              example: 17.1
+              nullable: false
+              minLength: 0
+          rtsEnabled:
+            type: boolean
+            example: false
+          rtsConfigProfileId:
+              type: string
+              example: 1
+          preserveManagedApps:
+            type: boolean
+            example: false
+            description: "Controls whether managed apps are preserved during Return to Service operations."
+          installAppsDuringEnrollment:
+            type: boolean
+            example: true
+            description: "Controls whether apps are installed during the enrollment process."
+          doNotUseProfileFromBackup:
+            type: boolean
+            example: true
+            description: "If true, the device does not use the profile when it restores a backup. Default is false. Available in iOS 26 and later, and visionOS 26 and later; otherwise ignored by devices."
+        required:
+          - allowPairing
+          - multiUser
+          - supervised
+          - maximumSharedAccounts
+          - configureDeviceBeforeSetupAssistant
+          - sendTimezone
+          - timezone
+          - storageQuotaSizeMegabytes
+          - useStorageQuotaSize
+    GetMobileDevicePrestageV3:
+      allOf:
+      - $ref: '#/components/schemas/MobileDevicePrestageV3'
+      - type: object
+        properties:
+          id:
+            type: string
+            example: 1
+          profileUuid:
+            type: string
+            example: 29d-a8d8f-b8sdjndf-dsa9
+          siteId:
+            type: string
+            example: 5
+          versionLock:
+            type: integer
+            example: 0
+    PutMobileDevicePrestageV3:
+      allOf:
+      - $ref: '#/components/schemas/MobileDevicePrestageV3'
+      - type: object
+        properties:
+          versionLock:
+            type: integer
+            example: 0
+    MobileDevicePrestageSearchResultsV3:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+    MobileDevicePrestageNamesV3:
+      type: object
+      properties:
+        assignNamesUsing:
+          type: string
+          example: List of Names
+        prestageDeviceNames:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDevicePrestageNameV3'
+        deviceNamePrefix:
+          type: string
+          example: prefix
+        deviceNameSuffix:
+          type: string
+          example: suffix
+        singleDeviceName:
+          type: string
+          example: name
+        manageNames:
+          type: boolean
+          example: true
+        deviceNamingConfigured:
+          type: boolean
+          example: true
+    MobileDevicePrestageNameV3:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        deviceName:
+          type: string
+          example: iPad
+        used:
+          type: boolean
+          example: false
+    FileAttachmentV3:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: receipt.pdf
+    PrestageFileAttachmentV3:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: receipt.pdf
+        fileType:
+          type: string
+          example: pdf

@@ -1,0 +1,40 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Renew MDM Profile
+  version: 0.0.1
+paths:
+  /v1/mdm/renew-profile:
+    post:
+      tags:
+        - mdm
+      summary: |
+        Renew MDM Profile
+      description: |
+        Renews the device's MDM Profile, including the device identity certificate within the MDM Profile.
+      requestBody:
+        description: List of devices' UDIDs to perform MDM profile renewal
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Udids'
+        required: true
+      x-required-privileges:
+        - Send Command to Renew MDM Profile
+      x-action: true
+      responses:
+        202:
+          description: |
+            The Renew MDM Profile action was queued with APNs for submitted devices. Any device udids returned were unknown and not submitted.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/RenewMdmProfileResponse'
+        403:
+          description: Insufficient privileges to perform this action or Renew MDM Profile is not enabled.
+components:
+  schemas:
+    RenewMdmProfileResponse:
+      type: object
+      properties:
+        udidsNotProcessed:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/Udids'

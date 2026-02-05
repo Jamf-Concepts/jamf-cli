@@ -1,0 +1,197 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Mobile Device Prestage Scope
+  version: 0.0.1
+paths:
+  /v2/mobile-device-prestages/scope:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Get all Device Scope for all Mobile Device Prestages
+      description: Get all device scope for all mobile device prestages
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeV2'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+  /v2/mobile-device-prestages/{id}/scope:
+    get:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Get Device Scope for a specific Mobile Device Prestage
+      description: Get device scope for a specific mobile device prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Mobile Device Prestage identifier
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Mobile Device PreStage Enrollments
+    put:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Replace Device Scope for a specific Mobile Device Prestage
+      description: Replace device scope for a specific mobile device prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: Serial Numbers to scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Mobile Device PreStage Enrollments
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Add Device Scope for a specific Mobile Device Prestage
+      description: Add device scope for a specific mobile device prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: Serial Numbers to scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Mobile Device PreStage Enrollments
+      x-action: true
+  /v2/mobile-device-prestages/{id}/scope/delete-multiple:
+    post:
+      tags:
+      - mobile-device-prestages
+      summary: |
+         Remove Device Scope for a specific Mobile Device Prestage
+      description: Remove device scope for a specific mobile device prestage
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Mobile Device Prestage identifier
+        schema:
+          type: string
+      requestBody:
+        description: Serial Numbers to remove from scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Mobile Device Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Mobile Device PreStage Enrollments
+      x-action: true

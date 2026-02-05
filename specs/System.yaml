@@ -1,0 +1,141 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - System Initialization
+  version: 0.0.1
+paths:
+  /v1/system/initialize:
+    post:
+      tags:
+        - jamf-pro-initialization
+      summary: |
+        Set up fresh installed Jamf Pro Server
+      description: |
+        Set up fresh installed Jamf Pro Server
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/InitializeV1'
+        required: true
+      responses:
+        202:
+          description: Jamf Pro Server has been initialized
+        400:
+          description: |
+            The following are codes returned by this call:
+            INVALID_ACTIVATION_CODE - activation code provided is not valid or is expired
+            INVALID_STATE - The system is in an invalid state to be initialized.
+            FIELD_REQUIRED - A required field was not provided.  The field name will be provided on the response.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-authentication-required: false
+      x-action: true
+  /v1/system/platform-initialize:
+    post:
+      tags:
+        - jamf-pro-initialization
+      summary: |
+        Set up fresh installed Jamf Pro Server for Platform
+      description: |
+        Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/PlatformInitializeV1'
+        required: true
+      responses:
+        202:
+          description: Jamf Pro Server has been initialized
+        400:
+          description: |
+            The following are codes returned by this call:
+            INVALID_ACTIVATION_CODE - activation code provided is not valid or is expired
+            INVALID_STATE - The system is in an invalid state to be initialized.
+            FIELD_REQUIRED - A required field was not provided.  The field name will be provided on the response.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-authentication-required: false
+      x-action: true
+components:
+  schemas:
+    InitializeV1:
+      type: object
+      description: Initial Jamf Pro setup data
+      required:
+        - eulaAccepted
+        - activationCode
+        - institutionName
+        - username
+        - password
+        - jssUrl
+      properties:
+        activationCode:
+          type: string
+          example: VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB
+          minLength: 39
+          maxLength: 39
+        institutionName:
+          type: string
+          example: Jamf
+          minLength: 1
+        eulaAccepted:
+          type: boolean
+          example: false
+        username:
+          type: string
+          example: admin
+          minLength: 1
+        password:
+          type: string
+          example: "12345"
+          format: password
+          writeOnly: true
+          minLength: 1
+        email:
+          type: string
+          example: ITBob@jamf.com
+        jssUrl:
+          type: string
+          example: https://jamf.jamfcloud.com
+          minLength: 1
+    PlatformInitializeV1:
+      type: object
+      description: Platform Initial Jamf Pro setup data
+      required:
+        - eulaAccepted
+        - activationCode
+        - institutionName
+        - username
+        - email
+        - jssUrl
+      properties:
+        activationCode:
+          type: string
+          example: VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB
+          minLength: 39
+          maxLength: 39
+        institutionName:
+          type: string
+          example: Jamf
+          minLength: 1
+        eulaAccepted:
+          type: boolean
+          example: false
+        username:
+          type: string
+          example: admin
+          description: Federated user OIDC username to create
+          minLength: 1
+        email:
+          type: string
+          example: ITBob@jamf.com
+          description: Federated user OIDC email to create
+        jssUrl:
+          type: string
+          example: https://jamf.jamfcloud.com
+          minLength: 1

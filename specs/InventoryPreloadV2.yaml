@@ -1,0 +1,662 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Inventory Preload
+  version: 1.1.0
+paths:
+  /v2/inventory-preload/records:
+    get:
+      tags:
+        - inventory-preload
+      summary: Return all Inventory Preload records
+      description: Returns all Inventory Preload records.
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+              Sorting criteria in the format: `property:asc/desc`. Default sort
+              is `id:asc`. Multiple sort criteria are supported and must be separated with
+              a comma. All inventory preload fields are supported, however fields added by
+              extension attributes are not supported. If sorting by deviceType, use `0` for
+              Computer and `1` for Mobile Device.
+
+              Example: `sort=date:desc,name:asc`.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [id:asc]
+        - name: filter
+          in: query
+          description: |
+            Allowing to filter inventory preload records.
+            Default search is empty query - returning all results for the requested page.
+            All inventory preload fields are supported, however fields added by extension
+            attributes are not supported. If filtering by deviceType, use `0` for Computer
+            and `1` for Mobile Device.
+
+            Query in the RSQL format, allowing `==`, `!=`, `>`, `<`, and `=in=`.
+
+            Example: `filter=categoryName=="Category"`
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadRecordSearchResultsV2'
+      x-required-privileges:
+        - Read Inventory Preload Records
+    post:
+      tags:
+        - inventory-preload
+      summary: Create a new Inventory Preload record using JSON
+      description: Create a new Inventory Preload record using JSON.
+      requestBody:
+        description: Inventory Preload record to be created.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryPreloadRecordV2'
+        required: true
+      responses:
+        201:
+          description: Created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Create Inventory Preload Records
+  /v2/inventory-preload/records/{id}:
+    get:
+      tags:
+        - inventory-preload
+      summary: Get an Inventory Preload record
+      description: Retrieves an Inventory Preload record.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Inventory Preload identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadRecordV2'
+        404:
+          description: Inventory Preload record with specified id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Inventory Preload Records
+    put:
+      tags:
+        - inventory-preload
+      summary: Update an Inventory Preload record
+      description: Updates an Inventory Preload record.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Inventory Preload identifier
+          schema:
+            type: string
+      requestBody:
+        description: Inventory Preload record to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/InventoryPreloadRecordV2'
+        required: true
+      responses:
+        200:
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadRecordV2'
+        404:
+          description: Inventory Preload record with specified id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Inventory Preload Records
+    delete:
+      tags:
+        - inventory-preload
+      summary: |
+        Delete an Inventory Preload record
+      description: Deletes an Inventory Preload record.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Inventory Preload identifier
+          schema:
+            type: string
+      responses:
+        204:
+          description: OK
+        404:
+          description: Inventory Preload record with specified id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Delete Inventory Preload Records
+  /v2/inventory-preload/records/delete-all:
+    post:
+      tags:
+        - inventory-preload
+      summary: |
+        Delete all Inventory Preload records
+      description: Deletes all Inventory Preload records.
+      responses:
+        204:
+          description: OK
+      x-required-privileges:
+        - Delete Inventory Preload Records
+      x-action: true
+  /v2/inventory-preload/history:
+    get:
+      tags:
+        - inventory-preload
+      summary: |
+        Get Inventory Preload history entries
+      description: Gets Inventory Preload history entries.
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `date:desc`. Multiple sort criteria are supported and must be separated
+            with a comma.
+
+            Example: `sort=date:desc,name:asc`.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [date:desc]
+        - name: filter
+          in: query
+          description: |
+            Allows filtering inventory preload history records.
+            Default search is empty query - returning all results for the requested page.
+            All inventory preload history fields are supported.
+
+            Query in the RSQL format, allowing `==`, `!=`, `>`, `<`, and `=in=`.
+
+            Example: `filter=username=="admin"`
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+        - Read Inventory Preload Records
+    post:
+      tags:
+        - inventory-preload
+      summary: Add Inventory Preload history object notes
+      description: Adds Inventory Preload history object notes.
+      requestBody:
+        description: History notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of Inventory Preload history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        503:
+          description: Inventory Preload history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Inventory Preload Records
+  /v2/inventory-preload/csv-template:
+    get:
+      tags:
+        - inventory-preload
+      summary: Download the Inventory Preload CSV template
+      description: Retrieves the Inventory Preload CSV file template.
+      responses:
+        200:
+          description: OK
+          headers:
+            Content-Disposition:
+              description: |
+                A header field named `Content-Disposition` is returned with the file name contained in its value, which is always `inventory-preload-template.csv`.
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
+                example: Serial Number,Device Type,Username,Full Name,Email Address
+      x-required-privileges:
+        - Read Inventory Preload Records
+  /v2/inventory-preload/csv:
+    get:
+      tags:
+        - inventory-preload
+      summary: Download all Inventory Preload records
+      description: Returns all Inventory Preload records as a CSV file.
+      responses:
+        200:
+          description: OK
+          headers:
+            Content-Disposition:
+              description: |
+                A header field named `Content-Disposition` is returned with the file name contained in its value, which is always `inventory-preload-all.csv`.
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
+                example: |
+                  Serial Number,Device Type,Full Name
+                  serial123,Computer,Test Name
+      x-required-privileges:
+        - Read Inventory Preload Records
+    post:
+      tags:
+        - inventory-preload
+      summary: |
+        Create one or more new Inventory Preload records using CSV
+      description: |
+        Create one or more new Inventory Preload records using CSV.
+        A CSV template can be downloaded from /v2/inventory-preload/csv-template.
+        Serial number and device type are required. All other fields are optional.
+        When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data.
+        If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro.
+        If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro.
+        Full Name,
+        Email Address,
+        Phone Number,
+        Position.
+        This endpoint does not do full validation of each record in the CSV data.
+        To do full validation, use the `/v2/inventory-preload/csv-validate` endpoint first.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+              properties:
+                file:
+                  description: The CSV file to upload
+                  type: string
+                  example: |
+                    serial number,device type,full name
+                    serial123,Computer,Test Name
+      responses:
+        201:
+          description: Created
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Validation Failed
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadCsvValidationError'
+      x-required-privileges:
+        - Create Inventory Preload Records
+        - Update Inventory Preload Records
+        - Create User
+        - Update User
+  /v2/inventory-preload/csv-validate:
+    post:
+      tags:
+        - inventory-preload
+      summary: |
+        Validate a given CSV file
+      description: |
+        Validate a given CSV file.
+        Serial number and device type are required. All other fields are optional.
+        A CSV template can be downloaded from `/v2/inventory-preload/csv-template`.
+      requestBody:
+        description: |
+          Inventory Preload records to be validated. A CSV template can
+          be downloaded from `/v2/inventory-preload/csv-template`.
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+              properties:
+                file:
+                  description: The CSV file to upload
+                  type: string
+                  example: |
+                    serial number,device type,full name
+                    serial123,Computer,Test Name
+      responses:
+        200:
+          description: Ok
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/InventoryPreloadCsvValidationSuccess'
+        400:
+          description: Precondition Failed
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadCsvValidationError'
+      x-required-privileges:
+        - Create Inventory Preload Records
+      x-action: true
+  /v2/inventory-preload/export:
+    post:
+      tags:
+        - inventory-preload
+      summary: |
+        Export a collection of inventory preload records
+      description: |
+        Export a collection of inventory preload records
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `id:asc`. Multiple sort criteria are supported and must be separated with
+            a comma. All inventory preload fields are supported, however fields added by
+            extension attributes are not supported. If sorting by deviceType, use `0` for
+            Computer and `1` for Mobile Device.
+
+            Example: `sort=date:desc,name:asc`.
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: |
+            Allowing to filter inventory preload records.
+            Default search is empty query - returning all results for the requested page.
+            All inventory preload fields are supported, however fields added by extension
+            attributes are not supported. If filtering by deviceType, use `0` for Computer
+            and `1` for Mobile Device.
+
+            Query in the RSQL format, allowing `==`, `!=`, `>`, `<`, and `=in=`.
+
+            Example: `filter=categoryName=="Category"`
+          schema:
+            type: string
+            default: ''
+      requestBody:
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+        required: false
+      responses:
+        200:
+          description: Export successful
+          content:
+            'text/csv':
+              schema:
+                format: binary
+                example: |
+                  Column 1,Column 2,Column 3
+                  serial123,data,user
+                  serial1234,additional data,user last
+        503:
+          description: Unable to perform export operation.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Inventory Preload Records
+      x-action: true
+  /v2/inventory-preload/ea-columns:
+    get:
+      tags:
+        - inventory-preload
+      summary: |
+        Retrieve a list of extension attribute columns
+      description: |
+        Retrieve a list of extension attribute columns currently associated
+        with inventory preload records
+      responses:
+        200:
+          description: Ok
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryPreloadExtensionAttributeColumnResult'
+      x-required-privileges:
+        - Read Inventory Preload Records
+components:
+  schemas:
+    InventoryPreloadRecordV2:
+      required:
+        - deviceType
+        - serialNumber
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 1
+        serialNumber:
+          type: string
+          example: C02L29ECF8J1
+        deviceType:
+          type: string
+          example: Computer
+          enum:
+            - Computer
+            - Mobile Device
+            - Unknown
+        username:
+          type: string
+          nullable: true
+          example: admin
+        fullName:
+          type: string
+          nullable: true
+          example: Name
+        emailAddress:
+          type: string
+          nullable: true
+          example: ITBob@jamf.com
+        phoneNumber:
+          type: string
+          nullable: true
+          example: 555-555-5555
+        position:
+          type: string
+          nullable: true
+          example: IT Team Lead
+        department:
+          type: string
+          nullable: true
+          example: IT
+        building:
+          type: string
+          nullable: true
+          example: Eau Claire
+        room:
+          type: string
+          nullable: true
+          example: 4th Floor - Quad 3
+        poNumber:
+          type: string
+          nullable: true
+          example: 8675309
+        poDate:
+          type: string
+          nullable: true
+          example: 2019-02-04T21:09:31.661Z
+        warrantyExpiration:
+          type: string
+          nullable: true
+          example: 2012-07-21
+        appleCareId:
+          type: string
+          nullable: true
+          example: 5678
+        lifeExpectancy:
+          type: string
+          nullable: true
+          example: 5 years
+        purchasePrice:
+          type: string
+          nullable: true
+          example: $399
+        purchasingContact:
+          type: string
+          nullable: true
+          example: Nick in IT
+        purchasingAccount:
+          type: string
+          nullable: true
+          example: IT Budget
+        leaseExpiration:
+          type: string
+          nullable: true
+          example: 2015-06-19
+        barCode1:
+          type: string
+          nullable: true
+          example: 123456789
+        barCode2:
+          type: string
+          nullable: true
+          example: 123456789
+        assetTag:
+          type: string
+          nullable: true
+          example: ABCDEFG12345
+        vendor:
+          type: string
+          nullable: true
+          example: Apple
+        extensionAttributes:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/InventoryPreloadExtensionAttribute'
+
+    InventoryPreloadRecordSearchResultsV2:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 10
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryPreloadRecordV2'
+
+    InventoryPreloadExtensionAttributeColumn:
+      type: object
+      properties:
+        name:
+          type: string
+          example: eaColumn1
+        fullName:
+          type: string
+          example: Column 1
+
+    InventoryPreloadExtensionAttributeColumnResult:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 10
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryPreloadExtensionAttributeColumn'
+
+    InventoryPreloadCsvValidationError:
+      type: object
+      properties:
+        httpStatus:
+          type: integer
+          description: HTTP status of the response
+          example: 400
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryPreloadCsvValidationErrorCause'
+
+    InventoryPreloadCsvValidationErrorCause:
+      allOf:
+        - $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiErrorCause'
+        - type: object
+          properties:
+            value:
+              type: string
+              example: abcdefghijklmnopqrstuwxyzabcdefghijklmnopqrstuwxyzabcdefghijklmnopqrstuwxyz
+            serialNumber:
+              type: string
+              example: R7QFDE2YCFN4
+            line:
+              type: integer
+              example: 5
+            fieldSize:
+              type: integer
+              example: 60
+            deviceType:
+              type: string
+              example: Computer

@@ -1,0 +1,394 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Self Service Branding
+  version: 0.1.0
+paths:
+  /v1/self-service/branding/macos:
+    get:
+      tags:
+      - self-service-branding-macos
+      summary: |
+         Search for sorted and paged macOS branding configurations
+      description: Search for sorted and paged macOS branding configurations
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc.
+          Default sort is id:asc. Multiple sort criteria are supported and must be separated with
+          a comma. Example: sort=id:desc,brandingName:asc '
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [id:asc]
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MacOsBrandingSearchResults'
+      x-required-privileges:
+      - Read Self Service Branding Configuration
+      - Read Self Service
+    post:
+      tags:
+      - self-service-branding-macos
+      summary: |
+         Create a Self Service macOS branding configuration with the supplied
+      description: Create a Self Service macOS branding configuration with the supplied
+        details
+      requestBody:
+        description: The macOS branding configuration to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MacOsBrandingConfiguration'
+        required: false
+      responses:
+        201:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+      - Create Self Service Branding Configuration
+  /v1/self-service/branding/macos/{id}:
+    get:
+      tags:
+      - self-service-branding-macos
+      summary: |
+         Read a single Self Service macOS branding configuration indicated by the provided id
+      description: Read a single Self Service macOS branding configuration indicated by
+        the provided id.
+      parameters:
+      - name: id
+        in: path
+        description: id of macOS branding configuration
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MacOsBrandingConfiguration'
+      x-required-privileges:
+      - Read Self Service Branding Configuration
+    put:
+      tags:
+      - self-service-branding-macos
+      summary: |
+         Update a Self Service macOS branding configuration with the supplied details
+      description: Update a Self Service macOS branding configuration with the supplied
+        details
+      parameters:
+      - name: id
+        in: path
+        description: id of macOS branding configuration
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: The macOS branding configuration values to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MacOsBrandingConfiguration'
+        required: false
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MacOsBrandingConfiguration'
+        404:
+          description: Invalid id
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Self Service Branding Configuration
+    delete:
+      tags:
+      - self-service-branding-macos
+      summary: |
+         Delete the Self Service macOS branding configuration indicated by the provided id
+      description: Delete the Self Service macOS branding configuration indicated by the
+        provided id.
+      parameters:
+      - name: id
+        in: path
+        description: id of macOS branding configuration
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Successful response
+        404:
+          description: Invalid id
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Delete Self Service Branding Configuration
+  /v1/self-service/branding/ios:
+    get:
+      tags:
+        - self-service-branding-ios
+      summary: |
+        Search for sorted and paged iOS branding configurations
+      description: Search for sorted and paged iOS branding configurations
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc.
+            Default sort is id:asc. Multiple sort criteria are supported and must be separated with
+            a comma. Example: sort=id:desc,brandingName:asc '
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [id:asc]
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/IosBrandingSearchResults'
+      x-required-privileges:
+        - Read Self Service Branding Configuration
+    post:
+      tags:
+        - self-service-branding-ios
+      summary: |
+        Create a Self Service iOS branding configuration with the supplied
+      description: Create a Self Service iOS branding configuration with the supplied
+        details
+      requestBody:
+        description: The iOS branding configuration to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/IosBrandingConfiguration'
+        required: false
+      responses:
+        201:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+        - Create Self Service Branding Configuration
+  /v1/self-service/branding/ios/{id}:
+    get:
+      tags:
+        - self-service-branding-ios
+      summary: |
+        Read a single Self Service iOS branding configuration indicated by the provided id
+      description: Read a single Self Service iOS branding configuration indicated by
+        the provided id.
+      parameters:
+        - name: id
+          in: path
+          description: id of iOS branding configuration
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/IosBrandingConfiguration'
+      x-required-privileges:
+        - Read Self Service Branding Configuration
+    put:
+      tags:
+        - self-service-branding-ios
+      summary: |
+        Update a Self Service iOS branding configuration with the supplied details
+      description: Update a Self Service iOS branding configuration with the supplied
+        details
+      parameters:
+        - name: id
+          in: path
+          description: id of iOS branding configuration
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The iOS branding configuration values to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/IosBrandingConfiguration'
+        required: false
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/IosBrandingConfiguration'
+        404:
+          description: Invalid id
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Self Service Branding Configuration
+    delete:
+      tags:
+        - self-service-branding-ios
+      summary: |
+        Delete the Self Service iOS branding configuration indicated by the provided id
+      description: Delete the Self Service iOS branding configuration indicated by the
+        provided id.
+      parameters:
+        - name: id
+          in: path
+          description: id of iOS branding configuration
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Successful response
+        404:
+          description: Invalid id
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Delete Self Service Branding Configuration
+  /self-service/branding/images:
+    post:
+      tags:
+      - self-service-branding-preview
+      summary: |
+         Upload an image
+      description: Uploads an image
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  description: The file to upload
+                  format: binary
+        required: true
+      responses:
+        201:
+          description: Image successfully uploaded
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/BrandingImageUrl'
+      x-required-privileges:
+      - Update Self Service Branding Configuration
+components:
+  schemas:
+    MacOsBrandingConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          readOnly: true
+        applicationName:
+          type: string
+          example: Self Service
+        brandingName:
+          type: string
+          example: Self Service
+        brandingNameSecondary:
+          type: string
+          example: Self Service
+        iconId:
+          type: integer
+          example: 1
+        brandingHeaderImageId:
+          type: integer
+          example: 1
+        homeHeading:
+          type: string
+          example: Welcome to Self Service
+        homeSubheading:
+          type: string
+          example: We help organizations succeed with Apple
+    MacOsBrandingSearchResults:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MacOsBrandingConfiguration'
+    IosBrandingConfiguration:
+      required:
+        - brandingName
+        - headerBackgroundColorCode
+        - menuIconColorCode
+        - brandingNameColorCode
+        - statusBarTextColor
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          readOnly: true
+        brandingName:
+          type: string
+          example: Self Service
+        iconId:
+          type: integer
+          example: 1
+        headerBackgroundColorCode:
+          type: string
+          example: 'FFFFFF'
+        menuIconColorCode:
+          type: string
+          example: '000001'
+        brandingNameColorCode:
+          type: string
+          example: '000000'
+        statusBarTextColor:
+          type: string
+          example: dark
+    IosBrandingSearchResults:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IosBrandingConfiguration'

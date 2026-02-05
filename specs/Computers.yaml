@@ -1,0 +1,123 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - computers
+  version: 0.0.1
+paths:
+  /preview/computers:
+    get:
+      tags:
+      - computers-preview
+      summary: |
+        Return a list of Computers
+      description: Returns a list of computers.
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is name:asc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc'
+        schema:
+          type: string
+          default: name:asc
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputersSearchResults'
+      x-required-privileges:
+      - Read Computers
+components:
+  schemas:
+    ComputerLocation:
+      type: object
+      properties:
+        username:
+          type: string
+          example: admin
+        position:
+          type: string
+          example: IT Team Lead
+        room:
+          type: string
+          example: 4th Floor - Quad 3
+    ComputerOverview:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          example: "7"
+        location:
+          $ref: '#/components/schemas/ComputerLocation'
+        name:
+          type: string
+          example: Zach's hand me down MacBook Pro
+        udid:
+          type: string
+          example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
+        serialNumber:
+          type: string
+          example: C02L29ECF8J1
+        lastContactDate:
+          type: string
+          example: 2000-04-25T21:09:31.661Z
+        lastReportDate:
+          type: string
+          example: 2000-04-25T21:09:31.661Z
+        lastEnrolledDate:
+          type: string
+          example: 2000-04-25T21:09:31.661Z
+        operatingSystemVersion:
+          type: string
+          example: 10.9.5
+        operatingSystemBuild:
+          type: string
+          example: TK421
+        operatingSystemSupplementalBuildVersion:
+          type: string
+          example: TK953
+          description: Collected for macOS 13.0 or later
+        operatingSystemRapidSecurityResponse:
+          type: string
+          example: (a)
+          description: Collected for macOS 13.0 or later
+        ipAddress:
+          type: string
+          example: 93.184.216.34
+        macAddress:
+          type: string
+          example: F3:7C:6F:2C:B6:76
+        assetTag:
+          type: string
+          example: A123BC
+        modelIdentifier:
+          type: string
+          example: MNYF2XX/A
+        mdmAccessRights:
+          type: integer
+          example: 1
+        isManaged:
+          type: boolean
+          example: true
+        managementId:
+          type: string
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+    ComputersSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 3
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/ComputerOverview'

@@ -1,0 +1,277 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - ebook
+  version: 0.0.1
+paths:
+  /v1/ebooks:
+    get:
+      tags:
+      - ebooks
+      summary: |
+         Get Ebook object
+      description: Gets ebook object
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is name:asc. Multiple sort criteria are supported and must be separated with
+          a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [name:asc]
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                  $ref: '#/components/schemas/EbookSearchResults'
+      x-required-privileges:
+      - Read eBooks
+  /v1/ebooks/{id}:
+    get:
+      tags:
+      - ebooks
+      summary: |
+        Get specified Ebook object
+      description: |
+        Gets specified Ebook object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of ebook record
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Details about ebook were found for given id
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Ebook'
+        404:
+          description: Specified ebook object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read eBooks
+  /v1/ebooks/{id}/scope:
+    get:
+      tags:
+      - ebooks
+      summary: |
+        Get specified scope of Ebook object
+      description: |
+        Gets specified scope of Ebook object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of ebook record
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Details of scope for ebook were found
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/EbookScope'
+        404:
+          description: Specified scope for ebook object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read eBooks
+components:
+  schemas:
+    Ebook:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: The Neverending API
+        kind:
+          type: string
+          example: IBOOKS
+          enum:
+          - UNKNOWN
+          - PDF
+          - EPUB
+          - IBOOKS
+        url:
+          type: string
+          example: https://jamf.com/ibooks/the_neverending_api.just_kidding
+        free:
+          type: boolean
+          example: true
+        version:
+          type: string
+          example: 10.9.0
+        author:
+          type: string
+          example: IT Bob
+        deployAsManaged:
+          type: boolean
+          description: If true, it will be automatically installed
+          example: false
+        installAutomatically:
+          type: boolean
+          example: false
+        categoryId:
+          type: string
+          example: -1
+        siteId:
+          type: string
+          example: -1
+    EbookScope:
+      type: object
+      properties:
+        allComputers:
+          type: boolean
+          example: false
+        allMobileDevices:
+          type: boolean
+          example: false
+        allUsers:
+          type: boolean
+          example: false
+        computerIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        computerGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        mobileDeviceIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        mobileDeviceGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        buildingIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        departmentIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        userIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        userGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        classroomIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        limitations:
+          $ref: '#/components/schemas/EbookLimitations'
+        exclusions:
+          $ref: '#/components/schemas/EbookExclusions'
+    EbookLimitations:
+      type: object
+      properties:
+        networkSegments:
+          type: array
+          items:
+            type: string
+            example: 1
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: admin
+        userGroups:
+          type: array
+          items:
+            type: string
+            example: 1
+    EbookExclusions:
+      type: object
+      properties:
+        computerIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        computerGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        mobileDeviceIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        mobileDeviceGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        buildingIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        departmentIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        userIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        userGroupIds:
+          type: array
+          items:
+            type: string
+            example: -1
+        limitations:
+          $ref: '#/components/schemas/EbookLimitations'
+    EbookSearchResults:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ebook'

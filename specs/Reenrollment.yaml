@@ -1,0 +1,208 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - re-enrollment
+  version: 0.0.1
+paths:
+  /v1/reenrollment:
+    get:
+      tags:
+      - re-enrollment-preview
+      summary: |
+        Get Re-enrollment object
+      description: |
+        Gets Re-enrollment object
+      responses:
+        200:
+          description: Details of Re-enrollment object were found
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Reenrollment'
+        404:
+          description: Re-enrollment object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Re-enrollment
+    put:
+      tags:
+      - re-enrollment-preview
+      summary: |
+        Update the Re-enrollment object
+      description: |
+        Update the Re-enrollment object
+      requestBody:
+        description: Re-enrollment object to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Reenrollment'
+        required: true
+      responses:
+        201:
+          description: Re-enrollment record was updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Reenrollment'
+      x-required-privileges:
+      - Update Re-enrollment
+  /v1/reenrollment/history:
+    get:
+      tags:
+      - re-enrollment-preview
+      summary: |
+        Get Re-enrollment history object
+      description: |
+        Gets Re-enrollment history object
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+        schema:
+          type: string
+          default: date:desc
+      responses:
+        200:
+          description: Details of re-enrollment history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+      - Read Re-enrollment
+    post:
+      tags:
+      - re-enrollment-preview
+      summary: |
+        Add specified Re-enrollment history object notes
+      description: |
+        Adds specified Re-enrollment history object notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of re-enrollment history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        503:
+          description: Re-enrollment history can not be saved.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Re-enrollment
+  /v1/reenrollment/history/export:
+    post:
+      tags:
+        - re-enrollment-preview
+      summary: |
+        Export reenrollment history collection
+      description: |
+        Export reenrollment history collection
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                      is id:desc. Multiple sort criteria are supported and must be separated
+                      with a comma. Example: sort=id:desc,name:asc '
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter history notes collection.
+                      Default filter is empty query - returning all results for the requested page.
+                      Fields allowed in the query: id, name.
+                      This param can be combined with paging and sorting.
+                      Example: name=="*script*"'
+          schema:
+            type: string
+            default: ''
+      requestBody:
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+        required: false
+      responses:
+        200:
+          description: Export successful
+          content:
+            text/csv,application/json:
+              schema:
+                format: binary
+                example: |
+                  Username,DATE,NOTES,Details
+                  admin, 2022-02-04T11:56:26.343Z, Edited ,Re-enrollment Restricted true
+        400:
+          description: |
+            Export fields specified incorrectly - non-existing column or duplicate in the list.
+            Supported columns: id,name,categoryName,categoryId,priority.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Re-enrollment
+      x-action: true
+components:
+  schemas:
+    Reenrollment:
+      required:
+      - flushMDMQueue
+      type: object
+      properties:
+        isFlushPolicyHistoryEnabled:
+          type: boolean
+          default: false
+        isFlushLocationInformationEnabled:
+          type: boolean
+          default: false
+        isFlushLocationInformationHistoryEnabled:
+          type: boolean
+          default: false
+        isFlushExtensionAttributesEnabled:
+          type: boolean
+          default: false
+        isFlushSoftwareUpdatePlansEnabled:
+          type: boolean
+          default: false
+        flushMDMQueue:
+          type: string
+          example: DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+          enum:
+          - DELETE_NOTHING
+          - DELETE_ERRORS
+          - DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+          - DELETE_EVERYTHING

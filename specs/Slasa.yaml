@@ -1,0 +1,43 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Slasa
+    version: 1.0.0
+paths:
+    /v1/slasa:
+        get:
+            tags:
+                - slasa
+            summary: Get the status of SLASA
+            description: Get if SLASA has been accepted or not
+            responses:
+                200:
+                    description: Whether SLASA has been accepted or not
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SlasaAcceptance'
+            x-authentication-required: false
+        post:
+            tags:
+                - slasa
+            summary: Accept the SLASA
+            description: Accept the SLASA for Jamf Pro.
+            responses:
+                204:
+                    description: SLASA has been accepted
+            x-required-privileges:
+                - Update Activation Code
+                - View JSS Information
+            x-action: true
+components:
+    schemas:
+        SlasaAcceptance:
+            type: object
+            properties:
+                slasaAcceptanceStatus:
+                    type: string
+                    nullable: false
+                    example: ACCEPTED
+                    enum:
+                        - ACCEPTED
+                        - NOT_ACCEPTED

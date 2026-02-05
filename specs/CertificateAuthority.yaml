@@ -1,0 +1,223 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Certificate Authority
+  version: 0.0.1
+paths:
+  /v1/pki/certificate-authority/active:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns X.509 details of the active Certificate Authority (CA)
+      description:
+        Returns X.509 details of the active Certificate Authority (CA)
+      responses:
+        200:
+          description: Successful response displays the details of the active Certificate Authority (CA)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateRecord'
+      x-authentication-required: false
+  /v1/pki/certificate-authority/active/pem:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns active Certificate Authority (CA) in PEM format
+      description:
+        Returns active Certificate Authority (CA) in PEM format
+      responses:
+        200:
+          description: Successful response returns certificate in PEM format.
+          content:
+            application/pem-certificate-chain:
+              schema:
+                type: string
+                format: binary
+      x-authentication-required: false
+  /v1/pki/certificate-authority/active/der:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns X.509 of active Certificate Authority (CA) in DER format
+      description:
+        Returns X.509 of active Certificate Authority (CA) in DER format
+      responses:
+        200:
+          description: Successful response returns certificate in DER format
+          content:
+            application/pkix-cert:
+              schema:
+                type: string
+                format: binary
+      x-authentication-required: false
+  /v1/pki/certificate-authority/{id}:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns X.509 details of Certificate Authority (CA) with provided ID
+      description:
+        Returns X.509 details of Certificate Authority (CA) with provided ID
+      parameters:
+        - name: id
+          in: path
+          description: UUID of the Certificate Authority (CA)
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response displays the details of the Certificate Authority (CA) with provided ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateRecord'
+        400:
+          description: Invalid ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Certificate with that ID does not exist
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read PKI
+  /v1/pki/certificate-authority/{id}/pem:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns current Certificate Authority (CA) with provided ID in PEM format
+      description:
+        Returns current Certificate Authority (CA) with provided ID in PEM format
+      parameters:
+        - name: id
+          in: path
+          description: UUID of the Certificate Authority (CA)
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response returns certificate in PEM format
+          content:
+            application/pem-certificate-chain:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Invalid ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Certificate with that ID does not exist
+          content:
+           application/json:
+              schema:
+               $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read PKI
+  /v1/pki/certificate-authority/{id}/der:
+    get:
+      tags:
+        - certificate-authority
+      summary:
+        Returns X.509 current Certificate Authority (CA) with provided ID in DER format
+      description:
+        Returns X.509 current Certificate Authority (CA) with provided ID in DER format
+      parameters:
+        - name: id
+          in: path
+          description: UUID of the Certificate Authority (CA)
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response returns certificate in DER format
+          content:
+            application/pkix-cert:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Invalid ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Certificate with that ID does not exist
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read PKI
+components:
+  schemas:
+    Signature:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          example: SHA256withRSA
+        algorithmOid:
+          type: string
+          example: 1.2.840.113549.1.1.11
+        value:
+          type: string
+          example: 6874f9b8c60a46c25b6b270c14b9a2949c87b25524868394309b20349f95edd624588ada274e5678a921199d26d0fe5b231fc794eb6e020b7a6c4790cf91ec5d9a5bd4da126f141a657cf4af78df6303327964c57721d82b85af1d46379ac7ec45a24ae3418576688f05fd075a1c9c3d137d0fd8831f4c88ce7698af9c747db983a40fb0480ebfb293bf4889e34a949d4a53251b1abef19d895bcea8e0ce590b22244ad1623624319e6a8b7e7d11aea3d94b77be1a94d28fda58e8df2e398c45e2e9c13473dcc81db01acac8f2c6d21cb5c44371c9ebfba632dcb46838a91808d4e82a35500f370dc71f4156528fbce93137c94eb33d83d41d49483d4dcca5e1
+    CertificateRecord:
+      type: object
+      properties:
+        subjectX500Principal:
+          type: string
+          example: CN=Jamf JSS Built-in Certificate Authority
+        issuerX500Principal:
+          type: string
+          example: CN=Jamf JSS Built-in Certificate Authority
+        serialNumber:
+          type: string
+          example: 00bc43bea0
+        version:
+          type: integer
+          example: 3
+        notAfter:
+          type: integer
+          example: 1927739379
+        notBefore:
+          type: integer
+          example: 1612120179
+        signature:
+          $ref: '#/components/schemas/Signature'
+        keyUsage:
+          type: array
+          items:
+            type: string
+          example:
+            - digitalSignature
+            - keyEncipherment
+            - keyCertSign
+            - cRLSign
+        keyUsageExtended:
+          type: array
+          items:
+            type: string
+          example:
+            - 1.3.6.1.5.5.7.3.1
+        sha1Fingerprint:
+          type: string
+          example: 448a7cc4d899d6a1821258133c24c023a5f558d9
+        sha256Fingerprint:
+          type: string
+          example: 660958e14891c67491822687d9ac0e3574562664458111ad875b680995ca472b

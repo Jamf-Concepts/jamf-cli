@@ -1,0 +1,1017 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - API Integrations
+  version: 0.0.1
+paths:
+  /v2/mobile-devices/detail:
+    get:
+      tags:
+        - mobile-devices
+      summary: Return paginated Mobile Device Inventory records
+      description: Return paginated Mobile Device Inventory records
+      parameters:
+        - name: section
+          in: query
+          description: 'section of mobile device details, if not specified, General section data is returned.
+            Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE'
+          required: false
+          schema:
+            type: array
+            example: [ GENERAL ]
+            default: [ GENERAL ]
+            items:
+              $ref: '#/components/schemas/MobileDeviceSection'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+            Sorting criteria in the format: property:asc/desc. Default sort
+            is displayName:asc. Multiple sort criteria are supported and must be separated with
+            a comma. 
+            
+            Fields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
+            `batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
+            `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
+            `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, 
+            `enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,
+            `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, `itunesStoreAccountActive`,
+            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
+            `lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,
+            `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,
+            `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,
+            `serialNumber`, `sharedIpad`, `supervised`, `tethered`,
+            `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
+            `deviceOwnershipType`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,
+            `poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,
+            `purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,
+            `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,
+            `hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,
+            `passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,
+            `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, 
+            `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, 
+            `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
+            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
+            
+            Example: `sort=displayName:desc,username:asc`
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ displayName:asc ]
+        - name: filter
+          in: query
+          description: |
+            Query in the RSQL format, allowing to filter mobile device collection.
+            Default filter is empty query - returning all results for the requested page.
+            
+            Fields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
+            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
+            `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
+            `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, 
+            `cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,
+            `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, 
+            `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, 
+            `residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,
+            `tethered`, `timeZone`, `udid`, `usedSpacePercentage`, 
+            `wifiMacAddress`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, 
+            `purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,
+            `vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, 
+            `fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,
+            `passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,
+            `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
+            `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
+            `imei`, `imei2`, `meid`, `personalHotspotEnabled`,
+            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`,
+            `groupId`, `groupName`
+            
+            This param can be combined with paging and sorting.
+            Example: `filter=displayName=="iPad"`
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDeviceInventorySearchResults'
+      x-required-privileges:
+        - Read Mobile Devices
+  /v2/mobile-devices/{id}/paired-devices:
+    get:
+      tags:
+        - mobile-devices
+      summary: |
+        Return paginated Mobile Device Inventory records of all paired devices for the device
+      description: Return paginated Mobile Device Inventory records of all paired devices for the device
+      parameters:
+        - name: id
+          in: path
+          description: instance id of mobile device record
+          required: true
+          schema:
+            type: string
+        - name: section
+          in: query
+          description: 'section of mobile device details, if not specified, Paired Devices section data is returned.
+            Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE'
+          required: false
+          schema:
+            type: array
+            example: [ GENERAL ]
+            default: [ GENERAL ]
+            items:
+              $ref: '#/components/schemas/MobileDeviceSection'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+            Sorting criteria in the format: property:asc/desc. Default sort
+            is displayName:asc. Multiple sort criteria are supported and must be separated with
+            a comma.
+            
+            Fields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`,
+            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`,
+            `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
+            `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
+            `enrollmentSessionTokenValid`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastEnrolledDate`, `lastCloudBackupDate`,
+            `lastInventoryUpdateDate`, `locales`, `lostModeEnabled`,
+            `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`,
+            `preferredVoiceNumber`, `serialNumber`, `supervised`, `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
+            `deviceOwnershipType`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,
+            `poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,
+            `purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,
+            `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,
+            `hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,
+            `passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,
+            `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`,
+            `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`,
+            `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
+            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
+            
+            Example: `sort=displayName:desc,username:asc`
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ displayName:asc ]
+        - name: filter
+          in: query
+          description: |
+            Query in the RSQL format, allowing to filter mobile device collection.
+            Default filter is empty query - returning all results for the requested page.
+            
+            Fields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`,
+            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`,
+            `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
+            `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
+            `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastInventoryUpdateDate`, `locales`,
+            `lostModeEnabled`, `managed`, `model`,
+            `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `serialNumber`, `supervised`, `timeZone`, `udid`, `usedSpacePercentage`,
+            `wifiMacAddress`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`,
+            `purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,
+            `vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`,
+            `fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,
+            `passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,
+            `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
+            `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
+            `imei`, `imei2`, `meid`, `personalHotspotEnabled`,
+            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`,
+            `groupId`, `groupName`
+            
+            This param can be combined with paging and sorting.
+            Example: `filter=displayName=="iPad"`
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDeviceInventorySearchResults'
+      x-required-privileges:
+        - Read Mobile Devices
+components:
+  schemas:
+    MobileDeviceSection:
+      type: string
+      example: GENERAL
+      enum:
+        - GENERAL
+        - HARDWARE
+        - USER_AND_LOCATION
+        - PURCHASING
+        - SECURITY
+        - APPLICATIONS
+        - EBOOKS
+        - NETWORK
+        - SERVICE_SUBSCRIPTIONS
+        - CERTIFICATES
+        - PROFILES
+        - USER_PROFILES
+        - PROVISIONING_PROFILES
+        - SHARED_USERS
+        - GROUPS
+        - EXTENSION_ATTRIBUTES
+    MobileDeviceInventorySearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          nullable: false
+          example: 2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceResponse'
+    MobileDeviceResponse:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/MobileDeviceIosInventory'
+        - $ref: '#/components/schemas/MobileDeviceTvOsInventory'
+        - $ref: '#/components/schemas/MobileDeviceWatchOsInventory'
+      discriminator:
+        propertyName: deviceType
+        mapping:
+          iOS: '#/components/schemas/MobileDeviceIosInventory'
+          tvOS: '#/components/schemas/MobileDeviceTvOsInventory'
+          watchOS: '#/components/schemas/MobileDeviceWatchOsInventory'
+    MobileDeviceInventory:
+      type: object
+      required:
+        - deviceType
+      properties:
+        mobileDeviceId:
+          type: string
+          example: 1
+          minLength: 1
+          readOnly: true
+        deviceType:
+          type: string
+          description: Based on the value of this type either ios, appleTv, watch or visionOS objects will be populated.
+          example: iOS
+        hardware:
+          $ref: '#/components/schemas/MobileDeviceHardware'
+        userAndLocation:
+          $ref: '#/components/schemas/MobileDeviceUserAndLocation'
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceApplicationInventoryDetail'
+        certificates:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceCertificate'
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceProfile'
+        groups:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceInventoryGroup'
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttribute'
+    MobileDeviceIosInventory:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceInventory'
+        - type: object
+          properties:
+            general:
+              $ref: '#/components/schemas/MobileDeviceIosGeneral'
+            security:
+              $ref: '#/components/schemas/MobileDeviceSecurity'
+            ebooks:
+              type: array
+              items:
+                $ref: '#/components/schemas/MobileDeviceEbookInventoryDetail'
+            network:
+              $ref: '#/components/schemas/MobileDeviceNetwork'
+            serviceSubscriptions:
+              type: array
+              items:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceServiceSubscriptions'
+            provisioningProfiles:
+              type: array
+              items:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles'
+            sharedUsers:
+              type: array
+              items:
+                $ref: '#/components/schemas/MobileDeviceSharedUser'
+            purchasing:
+              $ref: '#/components/schemas/MobileDevicePurchasing'
+            userProfiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/MobileDeviceUserProfile'
+    MobileDeviceTvOsInventory:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceInventory'
+        - type: object
+          properties:
+            general:
+              $ref: '#/components/schemas/MobileDeviceTvOsGeneral'
+            purchasing:
+              $ref: '#/components/schemas/MobileDevicePurchasing'
+            userProfiles:
+              type: array
+              items:
+                $ref: '#/components/schemas/MobileDeviceUserProfile'
+    MobileDeviceWatchOsInventory:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceInventory'
+        - type: object
+          properties:
+            general:
+              $ref: '#/components/schemas/MobileDeviceWatchOsGeneral'
+            security:
+              $ref: '#/components/schemas/MobileDeviceSecurity'
+            provisioningProfiles:
+              type: array
+              items:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles'
+    MobileDeviceGeneral:
+      type: object
+      properties:
+        udid:
+          type: string
+          example: 0dad565fb40b010a9e490440188063a378721069
+        displayName:
+          type: string
+          example: Banezicron
+        assetTag:
+          type: string
+          example: 8675309
+        siteId:
+          type: string
+          example: -1
+        lastInventoryUpdateDate:
+          type: string
+          format: date-time
+          example: 2022-10-17T11:48:56.307Z
+        osVersion:
+          type: string
+          example: 11.4
+        osRapidSecurityResponse:
+          type: string
+          example: (a)
+        osBuild:
+          type: string
+          example: 15F79
+        osSupplementalBuildVersion:
+          type: string
+          example: 22A103310o
+        softwareUpdateDeviceId:
+          type: string
+          example: J132AP
+        ipAddress:
+          type: string
+          example: 10.0.0.1
+        managed:
+          type: boolean
+          example: true
+        supervised:
+          type: boolean
+          example: true
+        deviceOwnershipType:
+          type: string
+          description: >
+            The enrollment method used for the device.
+            **Note:** The `PersonalDeviceProfile` enrollment method was removed as of 11.25.
+          enum:
+            - Institutional
+            - UserEnrollment
+            - AccountDrivenUserEnrollment
+            - AccountDrivenDeviceEnrollment
+          example: Institutional
+        enrollmentMethodPrestage:
+          $ref: '#/components/schemas/EnrollmentMethodPrestage'
+        enrollmentSessionTokenValid:
+          type: boolean
+          example: false
+        lastEnrolledDate:
+          type: string
+          format: date-time
+          example: 2022-10-17T11:48:56.307Z
+        mdmProfileExpirationDate:
+          type: string
+          format: date-time
+          example: 2022-10-17T11:48:56.307Z
+        timeZone:
+          type: string
+          description: IANA time zone database name
+          example: Europe/Warsaw
+        declarativeDeviceManagementEnabled:
+          type: boolean
+          example: true
+        managementId:
+          type: string
+          example: 9932fad3-29e9-4b71-bc7c-77dcefce819d
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttribute'
+        lastLoggedInUsernameSelfService:
+          type: string
+          example: admin
+          nullable: true
+        lastLoggedInUsernameSelfServiceTimestamp:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+          nullable: true
+    MobileDeviceIosGeneral:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceGeneral'
+        - type: object
+          properties:
+            sharedIpad:
+              type: boolean
+              example: false
+            diagnosticAndUsageReportingEnabled:
+              type: boolean
+              example: false
+            appAnalyticsEnabled:
+              type: boolean
+              example: false
+            residentUsers:
+              type: integer
+              example: 0
+            quotaSize:
+              type: integer
+              example: 1024
+            temporarySessionOnly:
+              type: boolean
+              example: false
+            temporarySessionTimeout:
+              type: integer
+              example: 30
+            userSessionTimeout:
+              type: integer
+              example: 30
+            syncedToComputer:
+              type: integer
+              example: 30
+            maximumSharediPadUsersStored:
+              type: integer
+              example: 16
+            lastBackupDate:
+              type: string
+              format: date-time
+              example: 2022-10-17T11:48:56.307Z
+            deviceLocatorServiceEnabled:
+              type: boolean
+              example: false
+            doNotDisturbEnabled:
+              type: boolean
+              example: false
+            cloudBackupEnabled:
+              type: boolean
+              example: false
+            lastCloudBackupDate:
+              type: string
+              format: date-time
+              example: 2022-10-17T11:48:56.307Z
+            locationServicesForSelfServiceMobileEnabled:
+              type: boolean
+              example: false
+            itunesStoreAccountActive:
+              type: boolean
+              example: false
+            exchangeDeviceId:
+              type: string
+              example: eas-1
+            tethered:
+              type: boolean
+              example: false
+    MobileDeviceTvOsGeneral:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceGeneral'
+        - type: object
+          properties:
+            airPlayPassword:
+              type: string
+              example: 1234
+            locales:
+              type: string
+              example: "null"
+            languages:
+              type: string
+              example: english
+    MobileDeviceWatchOsGeneral:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceGeneral'
+        - type: object
+          properties:
+            diagnosticAndUsageReportingEnabled:
+              type: boolean
+              example: false
+            appAnalyticsEnabled:
+              type: boolean
+              example: false
+            deviceLocatorServiceEnabled:
+              type: boolean
+              example: false
+            doNotDisturbEnabled:
+              type: boolean
+              example: false
+            lastCloudBackupDate:
+              type: string
+              format: date-time
+              example: 2022-10-17T11:48:56.307Z
+            itunesStoreAccountActive:
+              type: boolean
+              example: false
+    MobileDeviceHardware:
+      type: object
+      properties:
+        capacityMb:
+          type: integer
+          example: 100
+        availableSpaceMb:
+          type: integer
+          example: 30
+        usedSpacePercentage:
+          type: integer
+          example: 70
+        batteryLevel:
+          type: integer
+          example: 60
+        batteryHealth:
+          type: string
+          description: |
+            - NON_GENUINE: The battery isn’t a genuine Apple battery.
+            - NORMAL: The battery is operating normally.
+            - SERVICE_RECOMMENDED: The system recommends battery service.
+            - UNKNOWN: The system couldn’t determine battery health information.
+            - UNSUPPORTED: The device doesn’t support battery health reporting.
+          enum:
+            - NON_GENUINE
+            - NORMAL
+            - SERVICE_RECOMMENDED
+            - UNKNOWN
+            - UNSUPPORTED
+          default: UNKNOWN
+        serialNumber:
+          type: string
+          example: 5c28fdae
+        wifiMacAddress:
+          type: string
+          example: ee:00:7c:f0:e5:ff
+        bluetoothMacAddress:
+          type: string
+          example: ee:00:7c:f0:e5:aa
+        modemFirmwareVersion:
+          type: string
+          example: iPad7,11
+        model:
+          type: string
+          example: iPad 7th Generation (Wi-Fi)
+        modelIdentifier:
+          type: string
+          example: iPad7,11
+        modelNumber:
+          type: string
+          example: MW742LL
+        bluetoothLowEnergyCapable:
+          type: boolean
+          example: false
+        deviceId:
+          type: string
+          example: c6a49c6d-8c09-4d71-a37d-2f6a9dfbb69b
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttribute'
+    MobileDeviceUserAndLocation:
+      type: object
+      properties:
+        username:
+          type: string
+          example: admin
+        realName:
+          type: string
+          example: IT Bob
+        emailAddress:
+          type: string
+          example: ITBob@jamf.com
+        position:
+          type: string
+          example: IT Team Lead
+        phoneNumber:
+          type: string
+          example: 555-555-5555
+        departmentId:
+          type: string
+          example: 1
+        buildingId:
+          type: string
+          example: 1
+        room:
+          type: string
+          example: room
+        building:
+          type: string
+          example: Building 1
+        department:
+          type: string
+          example: Department 1
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttribute'
+    MobileDevicePurchasing:
+      type: object
+      properties:
+        purchased:
+          type: boolean
+          example: true
+        leased:
+          type: boolean
+          example: false
+        poNumber:
+          type: string
+          example: "8675309"
+        vendor:
+          type: string
+          example: Apple
+        appleCareId:
+          type: string
+          example: "9546567.0"
+        purchasePrice:
+          type: string
+          example: $399
+        purchasingAccount:
+          type: string
+          example: IT Budget
+        poDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        warrantyExpiresDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        leaseExpiresDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        lifeExpectancy:
+          type: integer
+          example: 7
+        purchasingContact:
+          type: string
+          example: Nick in IT
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttribute'
+    MobileDeviceSecurity:
+      type: object
+      description: This section only available for Ios type.
+      properties:
+        dataProtected:
+          type: boolean
+          example: false
+        blockLevelEncryptionCapable:
+          type: boolean
+          example: true
+        fileLevelEncryptionCapable:
+          type: boolean
+          example: true
+        passcodePresent:
+          type: boolean
+          example: false
+        passcodeCompliant:
+          type: boolean
+          example: true
+        passcodeCompliantWithProfile:
+          type: boolean
+          example: true
+        hardwareEncryption:
+          type: integer
+          example: 3
+        activationLockEnabled:
+          type: boolean
+          example: false
+        jailBreakDetected:
+          type: boolean
+          example: false
+        attestationStatus:
+          type: string
+          example: SUCCESS
+          readOnly: true
+          enum:
+            - PENDING
+            - SUCCESS
+            - CERTIFICATE_INVALID
+            - DEVICE_PROPERTIES_MISMATCH
+            - MDA_UNSUPPORTED_DUE_TO_HARDWARE
+            - MDA_UNSUPPORTED_DUE_TO_SOFTWARE
+        lastAttestationAttemptDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+          readOnly: true
+        lastSuccessfulAttestationDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+          readOnly: true
+        passcodeLockGracePeriodEnforcedSeconds:
+          type: integer
+          example: 3
+        personalDeviceProfileCurrent:
+          type: boolean
+          default: false
+          readOnly: true
+          deprecated: true
+          description: >
+            **Deprecated as of 11.25.** This field always returns false
+        lostModeEnabled:
+          type: boolean
+          example: false
+        lostModePersistent:
+          type: boolean
+          example: false
+        lostModeMessage:
+          type: string
+          example: Lost phone
+        lostModePhoneNumber:
+          type: string
+          example: 555-555-5555
+        lostModeFootnote:
+          type: string
+          example: Note
+        lostModeLocation:
+          $ref: '#/components/schemas/MobileDeviceLostModeLocation'
+        bootstrapTokenEscrowed:
+          type: string
+          example: NOT_SUPPORTED
+          description: Indicates the bootstrap token escrow status for the device
+          enum:
+            - ESCROWED
+            - NOT_ESCROWED
+            - NOT_SUPPORTED
+    MobileDeviceLostModeLocation:
+      type: object
+      properties:
+        lastLocationUpdate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        lostModeLocationHorizontalAccuracyMeters:
+          type: number
+          example: 7.0
+        lostModeLocationVerticalAccuracyMeters:
+          type: number
+          example: 5.0
+        lostModeLocationAltitudeMeters:
+          type: number
+          example: 7.9
+        lostModeLocationSpeedMetersPerSecond:
+          type: number
+          example: 10.0
+        lostModeLocationCourseDegrees:
+          type: number
+          example: 15.0
+        lostModeLocationTimestamp:
+          type: string
+          example: "2023-04-21 12:30:00 UTC"
+    MobileDeviceApplicationInventoryDetail:
+      type: object
+      properties:
+        identifier:
+          type: string
+          example: com.apple.airport.mobileairportutility
+        name:
+          type: string
+          example: AirPort Utility
+        version:
+          type: string
+          example: "135.24"
+        shortVersion:
+          type: string
+          example: "7.0"
+        managementStatus:
+          type: string
+          example: Managed
+        validationStatus:
+          type: boolean
+          example: true
+        bundleSize:
+          type: string
+          example: 1024
+        dynamicSize:
+          type: string
+          example: 1423
+    MobileDeviceEbookInventoryDetail:
+      type: object
+      properties:
+        author:
+          type: string
+          example: Homer J Simpson
+        title:
+          type: string
+          example: The Odyssey
+        version:
+          type: string
+          example: "0.1"
+        kind:
+          type: string
+          example: "PDF"
+        managementState:
+          type: string
+          example: "Managed"
+    MobileDeviceNetwork:
+      type: object
+      description: This section only avaiable for Ios type.
+      properties:
+        cellularTechnology:
+          type: string
+          example: Unknown
+        voiceRoamingEnabled:
+          type: boolean
+          example: false
+        imei:
+          type: string
+          example: 59 105109 176278 3
+        iccid:
+          type: string
+          example: 8991101200003204514
+        meid:
+          type: string
+          example: "15302309236898"
+        eid:
+          type: string
+          readOnly: true
+          description: EID or "embedded identity document" is a number associated with the eSIM on a device
+          example: "12547444452496388545569920380795"
+        carrierSettingsVersion:
+          type: string
+          example: "33.1"
+        currentCarrierNetwork:
+          type: string
+          example: Verizon Wireless
+        currentMobileCountryCode:
+          type: string
+          example: "311"
+        currentMobileNetworkCode:
+          type: string
+          example: "480"
+        homeCarrierNetwork:
+          type: string
+          example: Verizon
+        homeMobileCountryCode:
+          type: string
+          example: US
+        homeMobileNetworkCode:
+          type: string
+          example: "480"
+        dataRoamingEnabled:
+          type: boolean
+          example: true
+        roaming:
+          type: boolean
+          example: false
+        personalHotspotEnabled:
+          type: boolean
+          example: false
+        phoneNumber:
+          type: string
+          example: 555-555-5555 ext 5
+        preferredVoiceNumber:
+          type: string
+          example: 555-555-5555
+    MobileDeviceCertificate:
+      type: object
+      properties:
+        commonName:
+          type: string
+          example: 3B259E4B-FAD5-4860-B1DD-336ADA786EBA
+        identity:
+          type: boolean
+          example: false
+        expirationDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+    MobileDeviceProfile:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Test WiFi
+        version:
+          type: string
+          example: "1"
+        uuid:
+          type: string
+          example: D29DD9FB-0D5B-422F-A3A2-ABBC5848E949
+        identifier:
+          type: string
+          example: ac2-server4.D0EFAC2D-326C-4BB6-87E6-2BCB88490AAA
+        removable:
+          type: boolean
+          example: true
+        lastInstalled:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+    MobileDeviceUserProfile:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Test WiFi
+        version:
+          type: string
+          example: "1"
+        uuid:
+          type: string
+          example: D29DD9FB-0D5B-422F-A3A2-ABBC5848E949
+        identifier:
+          type: string
+          example: ac2-server4.D0EFAC2D-326C-4BB6-87E6-2BCB88490AAA
+        removable:
+          type: boolean
+          example: true
+        lastInstalled:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        username:
+          type: string
+          example: "admin"
+    MobileDeviceSharedUser:
+      type: object
+      properties:
+        managedAppleId:
+          type: string
+          example: "astark@jamf.edu"
+        loggedIn:
+          type: boolean
+          example: true
+        dataToSync:
+          type: boolean
+          example: true
+    MobileDeviceExtensionAttribute:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 1
+        name:
+          type: string
+          example: Example EA
+        type:
+          type: string
+          example: STRING
+          enum:
+            - STRING
+            - INTEGER
+            - DATE
+        value:
+          type: array
+          items:
+            type: string
+            example: EA Value
+        extensionAttributeCollectionAllowed:
+          type: boolean
+          example: false
+        inventoryDisplay:
+          type: string
+          example: General
+    EnrollmentMethodPrestage:
+      type: object
+      properties:
+        mobileDevicePrestageId:
+          type: string
+          example: 5
+        profileName:
+          type: string
+          example: All Mobiles

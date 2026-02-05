@@ -1,0 +1,198 @@
+openapi: 3.0.1
+info:
+  title: jamf Pro API - Self Service Settings Endpoints
+  version: 0.1.0
+paths:
+  /v1/self-service/settings:
+    get:
+      tags:
+      - self-service
+      summary: |
+        Get an object representation of Self Service settings
+      description: |
+        gets an object representation of Self Service settings
+      responses:
+        200:
+          description: |
+            successful GET
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfServiceSettings'
+      x-required-privileges:
+      - Read Self Service
+    put:
+      tags:
+      - self-service
+      summary: |
+        Put an object representation of Self Service settings
+      description: |
+        puts an object representation of Self Service settings
+      requestBody:
+        description: |
+          object that contains all editable global fields to alter Self Service settings
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelfServiceSettings'
+        required: true
+      responses:
+        200:
+          description: |
+            successful PUT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelfServiceSettings'
+      x-required-privileges:
+      - Update Self Service
+  /v1/self-service/settings/history:
+    get:
+      tags:
+      - self-service
+      summary: |
+        Get a page of Self Service settings history
+      description: |
+        Get a page of Self Service settings history
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+      responses:
+        200:
+          description: Details of Self Service settings history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+      - Read Self Service
+    post:
+      tags:
+        - self-service
+      summary: |
+        Add Self Service settings history notes
+      description: |
+        Add Self Service settings history notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Self Service settings history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+        - Update Self Service
+components:
+  schemas:
+    SelfServiceSettings:
+      type: object
+      properties:
+        installSettings:
+          $ref: '#/components/schemas/SelfServiceInstallSettings'
+        loginSettings:
+          $ref: '#/components/schemas/SelfServiceLoginSettings'
+        configurationSettings:
+          $ref: '#/components/schemas/SelfServiceInteractionSettings'
+      description: |
+        object representation of Self Service settings
+    SelfServiceInstallSettings:
+      required:
+      - installLocation
+      type: object
+      properties:
+        installAutomatically:
+          type: boolean
+          description: |
+            true if Self Service is installed automatically, false if not
+          default: false
+        installLocation:
+          type: string
+          description: |
+            path at which Self Service is installed. Required if installAutomatically is true
+          example: /Applications
+      description: |
+        object representation of Self Service settings regarding installation
+    SelfServiceLoginSettings:
+      required:
+      - authType
+      - userLoginLevel
+      type: object
+      properties:
+        userLoginLevel:
+          type: string
+          description: |
+            login setting to tell clients how to let users log in
+          example: NotRequired
+          enum:
+          - NotRequired
+          - Anonymous
+          - Required
+        allowRememberMe:
+          type: boolean
+          description: |
+            true if remember me functionality is allowed, false if not
+          default: false
+        useFido2:
+          type: boolean
+          description: |
+            true if use FIDO2 functionality is allowed, false if not
+          default: false
+        authType:
+          type: string
+          description: |
+            login type to be used when asking users to log in
+          example: Basic
+          enum:
+          - Basic
+          - Saml
+      description: |
+        object representation of Self Service settings regarding login
+    SelfServiceInteractionSettings:
+      required:
+      - bookmarksName
+      type: object
+      properties:
+        notificationsEnabled:
+          type: boolean
+          description: |
+            global Self Service setting for if notifications are on or off
+          default: false
+        alertUserApprovedMdm:
+          type: boolean
+          description: |
+            whether users should be notified they need to approve organization's MDM profile
+          default: true
+        defaultLandingPage:
+          type: string
+          description: |
+            the default landing page in Self Service
+          example: HOME
+          enum:
+          - HOME
+          - BROWSE
+          - HISTORY
+          - NOTIFICATIONS
+          default: HOME
+        defaultHomeCategoryId:
+          type: integer
+          description: |
+            id for the default home category in Self Service
+          format: int32
+          default: -1
+          minimum: -4
+        bookmarksName:
+          type: string
+          description: |
+            renamed string for bookmarks if the admin wishes
+          example: Bookmarks
+      description: |
+        object representation of Self Service settings regarding user interaction

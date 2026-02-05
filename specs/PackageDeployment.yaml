@@ -1,0 +1,133 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Package Deployment
+  version: 0.0.1
+paths:
+  /v1/deploy-package:
+    post:
+      tags:
+        - mdm
+      summary: Deploy packages using MDM
+      description: Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/InstallPackage'
+        required: true
+      parameters:
+        - in: query
+          name: verbose
+          schema:
+            type: boolean
+            default: false
+          required: false
+          example: true
+          description: Enables the 'verbose' response, which includes information about the commands queued as
+            well as information about commands that failed to queue.
+      x-required-privileges:
+        - Send Computer Remote Command to Install Package
+      x-action: true
+      responses:
+        200:
+          description: Package deployment was successfully processed. See response body for further information.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VerbosePackageDeploymentResponse'
+        202:
+          description: Package deployment was queued up
+        403:
+          description: Insufficient privileges to perform this action or Package Deployment is not enabled.
+components:
+  schemas:
+    InstallPackage:
+      required:
+        - manifest
+      type: object
+      properties:
+        manifest:
+          $ref: '#/components/schemas/PackageManifest'
+        installAsManaged:
+          type: boolean
+          example: false
+        devices:
+          type: array
+          items:
+            type: integer
+          example: [ 1, 2, 3 ]
+        groupId:
+          type: string
+          example: '1'
+      description: Either devices or groupId must be provided
+    PackageManifest:
+      required:
+        - url
+        - hash
+        - hashType
+        - bundleId
+        - bundleVersion
+        - title
+        - sizeInBytes
+      type: object
+      properties:
+        url:
+          type: string
+          example: 'https://example.jamf.com/this/package'
+        hash:
+          type: string
+          example: 'dcb02a41cd6d842943459a88c96a5f72'
+        hashType:
+          type: string
+          enum: [MD5, SHA256]
+          example: 'MD5'
+        displayImageUrl:
+          type: string
+          example: 'https://example.jamf.com/img/display/this/package.jpg'
+        fullSizeImageUrl:
+          type: string
+          example: 'https://example.jamf.com/img/full/this/package.jpg'
+        bundleId:
+          type: string
+          example: 'com.jamf.example'
+        bundleVersion:
+          type: string
+          example: '0.1.0'
+        subtitle:
+          type: string
+          example: 'Subtitle'
+        title:
+          type: string
+          example: 'Title'
+        sizeInBytes:
+          type: integer
+          example: 12345
+    VerbosePackageDeploymentResponse:
+      type: object
+      properties:
+        queuedCommands:
+          type: array
+          items:
+            type: object
+            properties:
+              device:
+                type: integer
+                example: 1
+              commandUuid:
+                type: string
+                example: 'aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              device:
+                type: integer
+                example: 2
+              group:
+                type: integer
+                example: 3
+              reason:
+                type: string
+                example: 'Device does not support the InstallEnterpriseApplication command'
+            description: The error will contain either the 'device' or 'group' property

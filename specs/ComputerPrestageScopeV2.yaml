@@ -1,0 +1,198 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Computer Prestage Scope
+  version: 0.0.1
+paths:
+  /v2/computer-prestages/scope:
+    get:
+      tags:
+        - computer-prestages
+      summary: |
+        Get all device Scope for all Computer Prestages
+      description: Get all device scope for all computer prestages
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeV2'
+      x-required-privileges:
+        - Read Computer PreStage Enrollments
+  /v2/computer-prestages/{id}/scope:
+    get:
+      tags:
+        - computer-prestages
+      summary: |
+        Get device Scope for a specific Computer Prestage
+      description: Get device scope for a specific computer prestage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer Prestage identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Computer PreStage Enrollments
+      x-action: true
+    put:
+      tags:
+        - computer-prestages
+      summary: |
+        Replace device Scope for a specific Computer Prestage
+      description: Replace device scope for a specific computer prestage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer Prestage identifier
+          schema:
+            type: string
+      requestBody:
+        description: Serial Numbers to scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Computer PreStage Enrollments
+    post:
+      tags:
+        - computer-prestages
+      summary: |
+        Add device Scope for a specific Computer Prestage
+      description: Add device scope for a specific computer prestage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer Prestage identifier
+          schema:
+            type: string
+      requestBody:
+        description: Serial Numbers to scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Computer PreStage Enrollments
+      x-action: true
+  /v2/computer-prestages/{id}/scope/delete-multiple:
+    post:
+      tags:
+        - computer-prestages
+      summary: |
+        Remove device Scope for a specific Computer Prestage
+      description: Remove device scope for a specific computer prestage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer Prestage identifier
+          schema:
+            type: string
+      requestBody:
+        description: Serial Numbers to remove from scope
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeUpdate'
+        required: true
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageScopeResponseV2'
+        400:
+          description: One or more serial numbers are not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Computer Prestage with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: Optimistic Lock Error - The prestage you are trying to update
+            has been updated by another process
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Computer PreStage Enrollments
+      x-action: true

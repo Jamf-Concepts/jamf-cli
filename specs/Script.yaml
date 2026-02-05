@@ -1,0 +1,354 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - scripts
+  version: 0.0.1
+paths:
+  /v1/scripts:
+    get:
+      tags:
+      - scripts
+      summary: |
+         Search for sorted and paged Scripts
+      description: Search for sorted and paged scripts
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is name:asc. Multiple sort criteria are supported and must be separated with a comma. 
+          Fields allowed in the query: `id`, `name`, `info`, `notes`, `priority`, `categoryId`, `categoryName`,
+          `parameter4` up to `parameter11`, `osRequirements`, `scriptContents`.
+          Example: sort=date:desc,name:asc '
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [name:asc]
+      - name: filter
+        in: query
+        description: 'Query in the RSQL format, allowing to filter scripts collection.
+           Default search is empty query - returning all results for the requested page.
+           Fields allowed in the query: `id`, `name`, `info`, `notes`, `priority`, `categoryId`, `categoryName`,
+           `parameter4` up to `parameter11`, `osRequirements`, `scriptContents`.
+           This param can be combined with paging and sorting.
+           Example: filter=categoryName=="Category" and name=="*script name*"'
+        schema:
+          type: string
+          default: ''
+      responses:
+        200:
+          description: Found scripts matching search params.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ScriptsSearchResults'
+      x-required-privileges:
+      - Read Scripts
+    post:
+      tags:
+      - scripts
+      summary: |
+         Create a Script
+      description: Creates a script
+      requestBody:
+        description: new script to create. ids defined in this body will be ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Script'
+        required: true
+      responses:
+        201:
+          description: Script created successfully
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+      - Create Scripts
+  /v1/scripts/{id}:
+    get:
+      tags:
+      - scripts
+      summary: |
+         Retrieve a full script object
+      description: Retrieves a full script object
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Script object identifier
+        schema:
+          type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Script'
+        404:
+          description: Script with that ID does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Scripts
+    put:
+      tags:
+      - scripts
+      summary: |
+         Replace the script at the id with the supplied information
+      description: Replaces the script at the id with the supplied information
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Script object identifier
+        schema:
+          type: string
+      requestBody:
+        description: new script to upload to existing id. ids defined in this body
+          will be ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Script'
+        required: true
+      responses:
+        200:
+          description: Script at id was updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Script'
+        404:
+          description: Script with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Scripts
+    delete:
+      tags:
+      - scripts
+      summary: |
+         Delete a Script at the specified id
+      description: Deletes a script at the specified id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Script object identifier
+        schema:
+          type: string
+      responses:
+        204:
+          description: Successful response
+      x-required-privileges:
+      - Delete Scripts
+  /v1/scripts/{id}/download:
+    get:
+      tags:
+      - scripts
+      summary: |
+         Download a text file of the Script contents
+      description: Download a text file of the script contents
+      parameters:
+      - name: id
+        in: path
+        description: id of the script to be downloaded
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: The script of the specified id
+          content:
+            'text/plain':
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Not found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Scripts
+  /v1/scripts/{id}/history:
+    get:
+      tags:
+      - scripts
+      summary: |
+        Get specified Script history object
+      description: |
+        Gets specified Script history object
+      parameters:
+      - name: id
+        in: path
+        description: id of script history record
+        required: true
+        schema:
+          type: string
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [date:desc]
+      - name: filter
+        in: query
+        description: 'Query in the RSQL format, allowing to filter history notes collection.
+          Default filter is empty query - returning all results for the requested page.
+          Fields allowed in the query: username, date, note, details.
+          This param can be combined with paging and sorting.
+          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+        schema:
+          type: string
+          default: ''
+      responses:
+        200:
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+        404:
+          description: Specified script does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Scripts
+    post:
+      tags:
+      - scripts
+      summary: |
+        Add specified Script history object notes
+      description: |
+        Adds specified Script history object notes
+      parameters:
+      - name: id
+        in: path
+        description: instance id of script history record
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of script history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        404:
+          description: Specified script does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Script history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Scripts
+components:
+  schemas:
+    Script:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: '1'
+          minLength: 1
+        name:
+          type: string
+          example: Install Developer Utils Script
+        info:
+          type: string
+          example: Installs utilities for developers
+        notes:
+          type: string
+          example: Should be able to be re-run without problem.
+        priority:
+          type: string
+          example: AFTER
+          enum:
+          - BEFORE
+          - AFTER
+          - AT_REBOOT
+        categoryId:
+          type: string
+          example: 1
+        categoryName:
+          type: string
+          example: Developer Tools
+        parameter4:
+          type: string
+          example: "1"
+        parameter5:
+          type: string
+          example: "2"
+        parameter6:
+          type: string
+          example: "3"
+        parameter7:
+          type: string
+          example: "4"
+        parameter8:
+          type: string
+          example: "5"
+        parameter9:
+          type: string
+          example: "6"
+        parameter10:
+          type: string
+          example: "7"
+        parameter11:
+          type: string
+          example: "8"
+        osRequirements:
+          type: string
+          example: 10.10.x
+        scriptContents:
+          type: string
+          example: echo "Trivial script."
+    ScriptsSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 3
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/Script'

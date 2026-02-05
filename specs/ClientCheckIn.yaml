@@ -1,0 +1,151 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Client Check-In
+  version: 0.2.0
+paths:
+  /v3/check-in:
+    get:
+      tags:
+        - client-check-in
+      summary: |
+        Get Client Check-In settings
+      description: |
+        Gets `Client Check-In` object.
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ClientCheckInV3'
+      x-required-privileges:
+        - Read Computer Check-In
+    put:
+      tags:
+        - client-check-in
+      summary: |
+        Update Client Check-In object
+      description: |
+        Update Client Check-In object
+      requestBody:
+        description: Client Check-In object to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ClientCheckInV3'
+        required: true
+      responses:
+        200:
+          description: Client Check-In was updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ClientCheckInV3'
+      x-required-privileges:
+        - Update Computer Check-In
+  /v3/check-in/history:
+    get:
+      tags:
+        - client-check-in
+      summary: |
+        Get Client Check-In history object
+      description: |
+        Gets Client Check-In history object
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                  is name:asc. Multiple sort criteria are supported and must be separated with
+                  a comma. Example: sort=date:desc,username:asc '
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - date:desc
+            default:
+              - date:desc
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter history notes collection.
+                Default filter is empty query - returning all results for the requested page.
+                Fields allowed in the query: username, date, note, details.
+                This param can be combined with paging and sorting.
+                Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Details of Client Check-In history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResultsV1'
+      x-required-privileges:
+        - Read Computer Check-In
+    post:
+      tags:
+        - client-check-in
+      summary: |
+        Add a Note to Client Check-In History
+      description: |
+        Adds Client Check-In history object notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of Client Check-In history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        503:
+          description: Client Check-In history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Computer Check-In
+components:
+  schemas:
+    ClientCheckInV3:
+      type: object
+      properties:
+        checkInFrequency:
+          type: integer
+          format: int32
+          default: 15
+          description: Suggested values are 5, 15, 30, or 60. Web interface will not display correctly if not one of those. Minimum is 5, maximum is 60.
+        createHooks:
+          type: boolean
+          default: false
+        hookLog:
+          type: boolean
+          default: false
+        hookPolicies:
+          type: boolean
+          default: false
+        createStartupScript:
+          type: boolean
+          default: false
+        startupLog:
+          type: boolean
+          default: false
+        startupPolicies:
+          type: boolean
+          default: false
+        startupSsh:
+          type: boolean
+          default: false
+        enableLocalConfigurationProfiles:
+          type: boolean
+          default: false

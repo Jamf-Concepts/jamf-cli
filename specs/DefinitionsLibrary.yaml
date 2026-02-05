@@ -1,0 +1,1587 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Definitions Library
+  description: These definitions exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    HrefResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          minLength: 1
+        href:
+          type: string
+          example: 'https://yourJamfProUrl.jamf/api/v1/resource/1'
+    Ids:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            example: 1
+    IdAndNameV2:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: A name
+    Udids:
+      type: object
+      properties:
+        udids:
+          type: array
+          items:
+            type: string
+            example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
+    ActivationCode:
+        type: object
+        required:
+            - activationCode
+        properties:
+            activationCode:
+                type: string
+                description: Activation Code for Jamf Pro. Hyphens are optional.
+                minLength: 32
+                maxLength: 39
+                example: A1A1-B2B2-C3C3-D4D4-E5E5-F6F6-G7G7-H8H8
+    CsaToken:
+        type: object
+        properties:
+            tenantId:
+                type: string
+                description: The tenant ID
+                example: '12345678'
+                nullable: true
+            subject:
+                type: string
+                description: Salesforce CRM account ID
+                example: 001C000000wkzDLIAY
+            refreshExpiration:
+                type: integer
+                format: int64
+                example: 1584544108
+            scopes:
+                type: array
+                items:
+                    type: string
+                example:
+                    - read mobile_device
+                    - write mobile_device
+            legacyJamfSalesforceIds:
+                type: array
+                items:
+                  type: string
+                example:
+                  - 001C000000wkzXXXXX
+                  - 001C000000wkzYYYYY
+    WebLink:
+      type: object
+      properties:
+        name:
+          type: string
+          example: A popular search engine
+        url:
+          type: string
+          example: https://duckduckgo.com
+    DayOfWeek:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+        - SATURDAY
+        - SUNDAY
+    TimeFrame:
+      type: object
+      properties:
+        beginTime:
+          type: string
+          example: "08:30:00"
+        endTime:
+          type: string
+          example: "15:45:00"
+    ObjectHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+          minimum: 1
+        username:
+          type: string
+          example: admin
+        date:
+          type: string
+          example: 2019-02-04T21:09:31.661Z
+        note:
+          type: string
+          example: Sso settings update
+        details:
+          type: string
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+    HistorySearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 1
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/ObjectHistory'
+    ObjectHistoryV1:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          minLength: 1
+        username:
+          type: string
+          example: admin
+        date:
+          type: string
+          example: 2019-02-04T21:09:31.661Z
+        note:
+          type: string
+          example: Sso settings update
+        details:
+          type: string
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+    HistorySearchResultsV1:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectHistoryV1'
+    ObjectHistoryNote:
+      type: object
+      properties:
+        note:
+          type: string
+          example: A generic note can sometimes be useful, but generally not.
+      required:
+        - note
+    Site:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Eau Claire
+    V1Site:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: Eau Claire
+    SiteObject:
+      type: object
+      required:
+        - siteId
+        - objectType
+        - objectId
+      properties:
+        siteId:
+          type: string
+          example: 1
+        objectType:
+          type: string
+          example: User
+          enum:
+            - Computer
+            - Peripheral
+            - Licensed Software
+            - Licensed Software Template
+            - Policy
+            - macOS Configuration Profile
+            - Restricted Software
+            - Managed Preference Profile
+            - Computer Group
+            - Mobile Device
+            - Apple TV
+            - User Group
+            - iOS Configuration Profile
+            - Mobile Device App
+            - E-book
+            - Mobile Device Group
+            - Classroom
+            - Advanced Computer Search
+            - Advanced Mobile Search
+            - Advanced User Search
+            - Advanced User Content Search
+            - Computer Invitation
+            - Mobile Device Invitation
+            - Mobile Device Enrollment Profile
+            - Device Enrollment Program Instance
+            - Mobile Device Prestage
+            - Computer DEP Prestage
+            - Enrollment Customization
+            - VPP Location
+            - VPP Subscription
+            - VPP Invitation
+            - VPP Assignment
+            - User
+            - Network Integration
+            - Mac App
+            - App Installer
+            - Self Service Plugin
+            - Software Title
+            - Patch Software Title Summary
+            - Patch Policy
+            - Patch Software Title Configuration
+            - Change Password
+            - Mobile Device Inventory
+            - Computer Inventory
+            - Change Management
+            - Licensed Software License
+            - Unknown
+        objectId:
+          type: string
+          example: 1
+    SmartSearchCriterion:
+      type: object
+      required:
+        - name
+        - andOr
+        - searchType
+        - value
+      properties:
+        name:
+          type: string
+          example: Account
+        priority:
+          type: integer
+          example: 0
+        andOr:
+          type: string
+          example: and
+        searchType:
+          type: string
+          example: is
+        value:
+          type: string
+          example: test
+        openingParen:
+          type: boolean
+          example: false
+        closingParen:
+          type: boolean
+          example: false
+    RecalculationResults:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 3
+    AccountPreferences:
+      type: object
+      properties:
+        language:
+          type: string
+          example: en
+        dateFormat:
+          type: string
+          example: MM/dd/yyyy
+        region:
+          type: string
+          example: Europe
+        timezone:
+          type: string
+          example: Etc/GMT
+        isDisableRelativeDates:
+          type: boolean
+          example: false
+    AccountPreferencesV1:
+      type: object
+      properties:
+        language:
+          type: string
+          example: en
+        dateFormat:
+          type: string
+          example: MM/dd/yyyy
+        region:
+          type: string
+          example: Europe
+        timezone:
+          type: string
+          example: Etc/GMT
+        disableRelativeDates:
+          type: boolean
+          example: false
+    AccountPreferencesV5:
+        type: object
+        required:
+            - language
+            - dateFormat
+            - timezone
+            - resultsPerPage
+            - disableRelativeDates
+            - disablePageLeaveCheck
+            - disableTablePagination
+            - disableShortcutsTooltips
+            - configProfilesSortingMethod
+            - computerSearchMethod
+            - computerApplicationSearchMethod
+            - computerApplicationUsageSearchMethod
+            - computerLocalUserAccountSearchMethod
+            - computerPackageReceiptSearchMethod
+            - computerPrinterSearchMethod
+            - computerServiceSearchMethod
+            - mobileDeviceSearchMethod
+            - mobileDeviceAppSearchMethod
+            - userSearchMethod
+            - userAllContentSearchMethod
+            - userMobileDeviceAppSearchMethod
+            - userMacAppStoreAppSearchMethod
+            - userEbookSearchMethod
+            - userInterfaceDisplayTheme
+        properties:
+            language:
+                type: string
+                description: Language codes supported by Jamf Pro
+                enum:
+                    - en
+                    - de
+                    - fr
+                    - es
+                    - ja
+                    - zh-hant
+                default: en
+                nullable: false
+            dateFormat:
+                type: string
+                example: MM/dd/yyyy
+                nullable: false
+            timezone:
+                type: string
+                example: America/Chicago
+                nullable: false
+            resultsPerPage:
+                type: integer
+                example: 50
+                default: 100
+            userInterfaceDisplayTheme:
+                $ref: '#/components/schemas/AccountPreferencesUserInterfaceDisplayTheme'
+            disableRelativeDates:
+                type: boolean
+                example: false
+                nullable: false
+            disablePageLeaveCheck:
+                type: boolean
+                example: true
+                nullable: false
+            disableTablePagination:
+                type: boolean
+                example: true
+                nullable: false
+            disableShortcutsTooltips:
+                type: boolean
+                example: true
+                nullable: false
+            configProfilesSortingMethod:
+                type: string
+                example: ALPHABETICALLY
+                nullable: false
+            computerSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerApplicationSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerApplicationUsageSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerFontSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerPluginSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerSoftwareUpdateSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerLocalUserAccountSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerPackageReceiptSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerPrinterSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerPeripheralSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            computerServiceSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            mobileDeviceSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            mobileDeviceAppSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            userSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            userAllContentSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            userMobileDeviceAppSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            userMacAppStoreAppSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+            userEbookSearchMethod:
+                $ref: '#/components/schemas/AccountPreferencesSearchType'
+    AccountPreferencesV6:
+      type: object
+      required:
+        - language
+        - dateFormat
+        - timezone
+        - resultsPerPage
+        - disableRelativeDates
+        - disablePageLeaveCheck
+        - disableTablePagination
+        - disableShortcutsTooltips
+        - configProfilesSortingMethod
+        - computerSearchMethod
+        - computerApplicationSearchMethod
+        - computerApplicationUsageSearchMethod
+        - computerLocalUserAccountSearchMethod
+        - computerPackageReceiptSearchMethod
+        - computerPrinterSearchMethod
+        - computerServiceSearchMethod
+        - mobileDeviceSearchMethod
+        - mobileDeviceAppSearchMethod
+        - userSearchMethod
+        - userAllContentSearchMethod
+        - userMobileDeviceAppSearchMethod
+        - userMacAppStoreAppSearchMethod
+        - userEbookSearchMethod
+        - userInterfaceDisplayTheme
+      properties:
+        language:
+          type: string
+          description: Language codes supported by Jamf Pro
+          enum:
+            - en
+            - de
+            - fr
+            - es
+            - ja
+            - zh-hant
+          default: en
+          nullable: false
+        dateFormat:
+          type: string
+          example: MM/dd/yyyy
+          nullable: false
+        timezone:
+          type: string
+          example: America/Chicago
+          nullable: false
+        resultsPerPage:
+          type: integer
+          example: 50
+          default: 100
+        userInterfaceDisplayTheme:
+          $ref: '#/components/schemas/AccountPreferencesUserInterfaceDisplayTheme'
+        disableRelativeDates:
+          type: boolean
+          example: false
+          nullable: false
+        disablePageLeaveCheck:
+          type: boolean
+          example: true
+          nullable: false
+        disableTablePagination:
+          type: boolean
+          example: true
+          nullable: false
+        disableShortcutsTooltips:
+          type: boolean
+          example: true
+          nullable: false
+        configProfilesSortingMethod:
+          type: string
+          example: ALPHABETICALLY
+          nullable: false
+        computerSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerApplicationSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerApplicationUsageSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerSoftwareUpdateSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerLocalUserAccountSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPackageReceiptSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPrinterSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPeripheralSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerServiceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        mobileDeviceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        mobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userAllContentSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userMobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userMacAppStoreAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userEbookSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+    AccountPreferencesSearchType:
+        type: string
+        enum:
+            - EXACT_MATCH
+            - STARTS_WITH
+            - CONTAINS
+        example: EXACT_MATCH
+        nullable: false
+    AccountPreferencesUserInterfaceDisplayTheme:
+        type: string
+        enum:
+            - MATCH_SYSTEM
+            - LIGHT
+            - DARK
+        example: MATCH_SYSTEM
+        nullable: false
+    PrestageScopeUpdate:
+      type: object
+      properties:
+        serialNumbers:
+          type: array
+          items:
+            type: string
+          example:
+            - DMQVGC0DHLF0
+            - C02L29ECF8J1
+        versionLock:
+          type: integer
+          example: 1
+      required:
+        - serialNumbers
+        - versionLock
+    BrandingImageUrl:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://jamfpro.jamf/image?1
+    ApiError:
+      type: object
+      properties:
+        httpStatus:
+          type: integer
+          description: HTTP status of the response
+          example: 400
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiErrorCause'
+
+    ApiErrorCause:
+      type: object
+      required:
+        - field
+      properties:
+        code:
+          type: string
+          description: Error-specific code that can be used to identify localization
+            string, etc.
+          example: "8675309"
+        field:
+          type: string
+          description: Name of the field that caused the error.
+          example: Name
+        description:
+          type: string
+          description: A general description of error for troubleshooting/debugging.
+            Generally this text should not be displayed to a user; instead refer
+            to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going
+            to go 100% failure in 72 hours
+        id:
+          type: string
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+
+    InventoryPreloadExtensionAttribute:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          type: string
+          example: foo
+        value:
+          type: string
+          example: 42
+
+    InventoryPreloadCsvValidationSuccess:
+      type: object
+      properties:
+        recordCount:
+          type: integer
+          example: 10
+
+    PrestageDependency:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Name
+        humanReadableName:
+          type: string
+          example: Computer PreStage
+        hyperlink:
+          type: string
+          example: /mobile-prestage/id
+    PrestageDependencies:
+      type: object
+      properties:
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrestageDependency'
+    EnrollmentCustomizationBrandingSettings:
+      type: object
+      required:
+        - textColor
+        - buttonColor
+        - buttonTextColor
+        - backgroundColor
+        - iconUrl
+      properties:
+        textColor:
+          type: string
+          example: 0000FF
+        buttonColor:
+          type: string
+          example: 0000FF
+        buttonTextColor:
+          type: string
+          example: 0000FF
+        backgroundColor:
+          type: string
+          example: 0000FF
+        iconUrl:
+          type: string
+          example: https://jamfUrl/api/v2/enrollment-customizations/images/1
+    ExportParameters:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 0
+          example: 0
+          nullable: true
+        pageSize:
+          type: integer
+          default: 100
+          example: 100
+          nullable: true
+        sort:
+          type: array
+          description: "Sorting criteria in the format: [<property>[:asc/desc]. Default direction when not stated is ascending."
+          items:
+            type: string
+          default: [ 'id:desc' ]
+          example: [ 'id:asc' ]
+          nullable: true
+        filter:
+          type: string
+          example: 'id>=100'
+          nullable: true
+        fields:
+          type: array
+          description: Used to change default order or ignore some of the fields. When null or empty array, all fields will be exported.
+          items:
+            $ref: '#/components/schemas/ExportField'
+          nullable: true
+    ExportField:
+      type: object
+      description: Field to be included in the export operation.
+      properties:
+        fieldName:
+          type: string
+          description: English name of the field to be exported.
+          example: id
+        fieldLabelOverride:
+          type: string
+          description: Name which should be used for the label in the response - can be in any language. When null the fieldName itself will be used as the label.
+          example: identiteit
+          nullable: true
+###############--V2--#################
+    PrestageScopeV2:
+      type: object
+      properties:
+        serialsByPrestageId:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            ABCD: 1
+            XYZ: 12
+    PrestageScopeAssignmentV2:
+      type: object
+      properties:
+        serialNumber:
+          type: string
+          example: XYZ
+        assignmentDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        userAssigned:
+          type: string
+          example: admin
+    PrestageScopeResponseV2:
+      type: object
+      properties:
+        prestageId:
+          type: string
+          example: 1
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrestageScopeAssignmentV2'
+        versionLock:
+          type: integer
+          example: 1
+    LocationInformationV2:
+      type: object
+      properties:
+        username:
+          type: string
+          example: name
+        realname:
+          type: string
+          example: realName
+        phone:
+          type: string
+          example: 123-456-7890
+        email:
+          type: string
+          example: test@jamf.com
+        room:
+          type: string
+          example: room
+        position:
+          type: string
+          example: postion
+        departmentId:
+          type: string
+          example: 1
+        buildingId:
+          type: string
+          example: 1
+        id:
+          type: string
+          example: -1
+        versionLock:
+          type: integer
+          example: 1
+      required:
+        - versionLock
+        - username
+        - realname
+        - phone
+        - email
+        - room
+        - position
+        - departmentId
+        - buildingId
+        - id
+    LocationInformationV3:
+      type: object
+      properties:
+        username:
+          type: string
+          example: name
+        realname:
+          type: string
+          example: realName
+        phone:
+          type: string
+          example: 123-456-7890
+        email:
+          type: string
+          example: test@jamf.com
+        room:
+          type: string
+          example: room
+        position:
+          type: string
+          example: postion
+        departmentId:
+          type: string
+          example: 1
+        buildingId:
+          type: string
+          example: 1
+        id:
+          type: string
+          example: -1
+        versionLock:
+          type: integer
+          example: 1
+      required:
+        - versionLock
+        - username
+        - realname
+        - phone
+        - email
+        - room
+        - position
+        - departmentId
+        - buildingId
+        - id
+    DeviceEnrollmentPrestageV2:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Example Mobile Prestage Name
+        mandatory:
+          type: boolean
+          example: false
+        mdmRemovable:
+          type: boolean
+          example: true
+        supportPhoneNumber:
+          type: string
+          example: "5555555555"
+        supportEmailAddress:
+          type: string
+          example: example@example.com
+        department:
+          type: string
+          example: Oxbow
+        defaultPrestage:
+          type: boolean
+          example: false
+        enrollmentSiteId:
+          type: string
+          example: -1
+        keepExistingSiteMembership:
+          type: boolean
+          example: true
+        keepExistingLocationInformation:
+          type: boolean
+          example: true
+        requireAuthentication:
+          type: boolean
+          example: true
+        authenticationPrompt:
+          type: string
+          example: LDAP authentication prompt
+        preventActivationLock:
+          type: boolean
+          example: true
+        enableDeviceBasedActivationLock:
+          type: boolean
+          example: true
+        deviceEnrollmentProgramInstanceId:
+          type: string
+          example: 5
+        skipSetupItems:
+          type: object
+          additionalProperties:
+            type: boolean
+          example:
+            Location: true
+            Privacy: false
+        locationInformation:
+          $ref: '#/components/schemas/LocationInformationV2'
+        purchasingInformation:
+          $ref: '#/components/schemas/PrestagePurchasingInformationV2'
+        anchorCertificates:
+          type: array
+          description: The Base64 encoded PEM Certificate
+          items:
+            type: string
+            example: xNE5HRgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+        enrollmentCustomizationId:
+          type: string
+          example: 2
+        language:
+          type: string
+          example: en
+        region:
+          type: string
+          example: US
+        autoAdvanceSetup:
+          type: boolean
+          example: true
+      required:
+        - keepExistingSiteMembership
+        - enrollmentSiteId
+        - displayName
+        - supportPhoneNumber
+        - supportEmailAddress
+        - department
+        - mandatory
+        - mdmRemovable
+        - defaultPrestage
+        - keepExistingLocationInformation
+        - requireAuthentication
+        - authenticationPrompt
+        - deviceEnrollmentProgramInstanceId
+        - locationInformation
+        - purchasingInformation
+        - preventActivationLock
+        - enableDeviceBasedActivationLock
+        - autoAdvanceSetup
+    DeviceEnrollmentPrestageV3:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Example Mobile Prestage Name
+        mandatory:
+          type: boolean
+          example: false
+        mdmRemovable:
+          type: boolean
+          example: true
+        supportPhoneNumber:
+          type: string
+          example: "5555555555"
+        supportEmailAddress:
+          type: string
+          example: example@example.com
+        department:
+          type: string
+          example: Oxbow
+        defaultPrestage:
+          type: boolean
+          example: false
+        enrollmentSiteId:
+          type: string
+          example: -1
+        keepExistingSiteMembership:
+          type: boolean
+          example: true
+        keepExistingLocationInformation:
+          type: boolean
+          example: true
+        requireAuthentication:
+          type: boolean
+          example: true
+        authenticationPrompt:
+          type: string
+          example: LDAP authentication prompt
+        preventActivationLock:
+          type: boolean
+          example: true
+        enableDeviceBasedActivationLock:
+          type: boolean
+          example: true
+        deviceEnrollmentProgramInstanceId:
+          type: string
+          example: 5
+        skipSetupItems:
+          type: object
+          additionalProperties:
+            type: boolean
+          example:
+            Location: true
+            Privacy: false
+        locationInformation:
+          $ref: '#/components/schemas/LocationInformationV3'
+        purchasingInformation:
+          $ref: '#/components/schemas/PrestagePurchasingInformationV3'
+        anchorCertificates:
+          type: array
+          description: The Base64 encoded PEM Certificate
+          items:
+            type: string
+            example: xNE5HRgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+        enrollmentCustomizationId:
+          type: string
+          example: 2
+        language:
+          type: string
+          example: en
+        region:
+          type: string
+          example: US
+        autoAdvanceSetup:
+          type: boolean
+          example: true
+      required:
+        - keepExistingSiteMembership
+        - enrollmentSiteId
+        - displayName
+        - supportPhoneNumber
+        - supportEmailAddress
+        - department
+        - mandatory
+        - mdmRemovable
+        - defaultPrestage
+        - keepExistingLocationInformation
+        - requireAuthentication
+        - authenticationPrompt
+        - deviceEnrollmentProgramInstanceId
+        - locationInformation
+        - purchasingInformation
+        - preventActivationLock
+        - enableDeviceBasedActivationLock
+        - autoAdvanceSetup
+    PrestagePurchasingInformationV2:
+      type: object
+      properties:
+        id:
+          type: string
+          example: -1
+        leased:
+          type: boolean
+          example: true
+        purchased:
+          type: boolean
+          example: true
+        appleCareId:
+          type: string
+          example: abcd
+        poNumber:
+          type: string
+          example: 53-1
+        vendor:
+          type: string
+          example: Example Vendor
+        purchasePrice:
+          type: string
+          example: $500
+        lifeExpectancy:
+          type: integer
+          example: 5
+        purchasingAccount:
+          type: string
+          example: admin
+        purchasingContact:
+          type: string
+          example: yes
+        leaseDate:
+          type: string
+          example: 2019-01-01
+        poDate:
+          type: string
+          example: 2019-01-01
+        warrantyDate:
+          type: string
+          example: 2019-01-01
+        versionLock:
+          type: integer
+          example: 1
+      required:
+        - id
+        - leased
+        - purchased
+        - appleCareId
+        - poNumber
+        - vendor
+        - purchasePrice
+        - lifeExpectancy
+        - purchasingAccount
+        - purchasingContact
+        - leaseDate
+        - poDate
+        - warrantyDate
+        - versionLock
+    PrestagePurchasingInformationV3:
+      type: object
+      properties:
+        id:
+          type: string
+          example: -1
+        leased:
+          type: boolean
+          example: true
+        purchased:
+          type: boolean
+          example: true
+        appleCareId:
+          type: string
+          example: abcd
+        poNumber:
+          type: string
+          example: 53-1
+        vendor:
+          type: string
+          example: Example Vendor
+        purchasePrice:
+          type: string
+          example: $500
+        lifeExpectancy:
+          type: integer
+          example: 5
+        purchasingAccount:
+          type: string
+          example: admin
+        purchasingContact:
+          type: string
+          example: yes
+        leaseDate:
+          type: string
+          example: 2019-01-01
+        poDate:
+          type: string
+          example: 2019-01-01
+        warrantyDate:
+          type: string
+          example: 2019-01-01
+        versionLock:
+          type: integer
+          example: 1
+      required:
+        - id
+        - leased
+        - purchased
+        - appleCareId
+        - poNumber
+        - vendor
+        - purchasePrice
+        - lifeExpectancy
+        - purchasingAccount
+        - purchasingContact
+        - leaseDate
+        - poDate
+        - warrantyDate
+        - versionLock
+    MobileDeviceV2:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 1
+        name:
+          type: string
+          example: iPad
+        serialNumber:
+          type: string
+          example: DMQVGC0DHLA0
+        wifiMacAddress:
+          type: string
+          example: C4:84:66:92:78:00
+        udid:
+          type: string
+          example: 0dad565fb40b010a9e490440188063a378721069
+        phoneNumber:
+          type: string
+          example: 651-555-5555 Ext111
+        model:
+          type: string
+          example: iPad 5th Generation (Wi-Fi)
+        modelIdentifier:
+          type: string
+          example: iPad6,11
+        username:
+          type: string
+          example: admin
+        type:
+          type: string
+          example: ios
+          enum:
+            - ios
+            - tvos
+            - watchos
+            - visionos
+            - unknown
+        managementId:
+          type: string
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+        softwareUpdateDeviceId:
+            type: string
+            example: J132AP
+    AccountSettingsRequest:
+        type: object
+        properties:
+            id:
+                type: string
+                description: id of Account Settings
+                example: "1"
+                nullable: false
+            payloadConfigured:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            localAdminAccountEnabled:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            adminUsername:
+                type: string
+                example: "admin"
+                default: ""
+                minLength: 0
+                nullable: false
+            adminPassword:
+                type: string
+                example: "password"
+                default: ""
+                minLength: 0
+                writeOnly: true
+                nullable: false
+            hiddenAdminAccount:
+                type: boolean
+                example: false
+                default: false
+                nullable: false
+            localUserManaged:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            userAccountType:
+                type: string
+                enum: [ ADMINISTRATOR, STANDARD, SKIP ]
+                default: STANDARD
+                nullable: false
+            versionLock:
+                type: integer
+                example: 4
+                default: 0
+                nullable: false
+            prefillPrimaryAccountInfoFeatureEnabled:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            prefillType:
+                type: string
+                description: Values accepted are only CUSTOM and DEVICE_OWNER
+                example: "DEVICE_OWNER"
+                default: "CUSTOM"
+                nullable: false
+            prefillAccountFullName:
+                type: string
+                example: "TestUser FullName"
+                default: ""
+                minLength: 0
+                nullable: false
+            prefillAccountUserName:
+                type: string
+                example: "UserName"
+                default: ""
+                minLength: 0
+                nullable: false
+            preventPrefillInfoFromModification:
+                type: boolean
+                example: false
+                default: false
+                nullable: false
+    AccountSettingsResponse:
+        type: object
+        properties:
+            id:
+                type: string
+                description: id of Account Settings
+                example: "1"
+                nullable: false
+            payloadConfigured:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            localAdminAccountEnabled:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            adminUsername:
+                type: string
+                example: "admin"
+                default: ""
+                minLength: 0
+                nullable: false
+            hiddenAdminAccount:
+                type: boolean
+                example: false
+                default: false
+                nullable: false
+            localUserManaged:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            userAccountType:
+                type: string
+                enum: [ ADMINISTRATOR, STANDARD, SKIP ]
+                default: STANDARD
+                nullable: false
+            versionLock:
+                type: integer
+                example: 4
+                default: 0
+                minimum: 0
+                nullable: false
+            prefillPrimaryAccountInfoFeatureEnabled:
+                type: boolean
+                example: true
+                default: false
+                nullable: false
+            prefillType:
+                type: string
+                description: Values accepted are only CUSTOM and DEVICE_OWNER
+                example: "DEVICE_OWNER"
+                default: "CUSTOM"
+                nullable: false
+            prefillAccountFullName:
+                type: string
+                example: "TestUser FullName"
+                default: ""
+                minLength: 0
+                nullable: false
+            prefillAccountUserName:
+                type: string
+                example: "UserName"
+                default: ""
+                minLength: 0
+                nullable: false
+            preventPrefillInfoFromModification:
+                type: boolean
+                example: false
+                default: false
+                nullable: false
+    MobileDeviceSearchResultsV2:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MobileDeviceV2'
+    MobileDeviceProvisioningProfiles:
+        type: object
+        properties:
+            displayName:
+                type: string
+                example: jamfnation
+            uuid:
+                type: string
+                example: 89AF33FC-123C-1231-AEFD-9C3ED123AFCC
+            expirationDate:
+                type: string
+                format: date-time
+                example: 2018-10-24T21:57:37.000Z
+    MobileDeviceServiceSubscriptions:
+        type: object
+        properties:
+            carrierSettingsVersion:
+                type: string
+                example: "47.1"
+            currentCarrierNetwork:
+                type: string
+                example: "T-Mobile Wi-Fi"
+            currentMobileCountryCode:
+                type: string
+                example: "310"
+            currentMobileNetworkCode:
+                type: string
+                example: "260"
+            subscriberCarrierNetwork:
+                type: string
+                example: "T-Mobile Wi-Fi"
+            eid:
+                type: string
+                example: "89049032007008882600085727376656"
+            iccid:
+                type: string
+                example: "8901 2605 7071 8002 130"
+            imei:
+                type: string
+                example: "35 882334 083223 0"
+            dataPreferred:
+                type: boolean
+                example: true
+            roaming:
+                type: boolean
+                example: true
+            voicePreferred:
+                type: boolean
+                example: true
+            label:
+                type: string
+                example: "Primary"
+            labelId:
+                type: string
+                example: "D1F4AEC5-2FCD-4A6D-A09E-A940F60F856B"
+                description: The unique identifier for this subscription.
+            meid:
+                type: string
+                example: "35882334083223"
+            phoneNumber:
+                type: string
+                example: "+15128145868"
+            slot:
+                type: string
+                example: "CTSubscriptionSlotOne"
+                description: The description of the slot that contains the SIM representing this subscription.
+    MobileDeviceInventoryGroup:
+      type: object
+      properties:
+        groupId:
+          type: string
+          example: 1
+        groupName:
+          type: string
+          example: "Test Group"
+          minLength: 1
+        groupDescription:
+          type: string
+          example: "Test Group Description"
+          minLength: 0
+        smart:
+          type: boolean
+          example: false
+    DssDeclarations:
+        type: object
+        properties:
+            declarations:
+                type: array
+                nullable: false
+                default: []
+                items:
+                    $ref: '#/components/schemas/DssDeclaration'
+    DssDeclaration:
+        type: object
+        properties:
+            uuid:
+                type: string
+                nullable: false
+                example: "72676372-af55-432f-acd8-12984522e472"
+            payloadJson:
+                type: string
+                nullable: true
+                example: "{}"
+            type:
+                type: string
+                readOnly: true
+                nullable: true
+                example: "com.apple.configuration.management.status-subscriptions"
+            group:
+                type: string
+                nullable: true
+                enum:
+                    - ACTIVATION
+                    - ASSET
+                    - CONFIGURATION
+                    - MANAGEMENT
+                example: "activation"
+    ExtensionAttributeValue:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: "EA Name"
+          nullable: false
+        value:
+          type: string
+          example: "EA Value"
+          nullable: true
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+    page-size:
+      name: page-size
+      in: query
+      schema:
+        type: integer
+        default: 100
+    size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 100
+      deprecated: true
+    pagesize:
+      name: pagesize
+      in: query
+      schema:
+        type: integer
+        default: 100
+      deprecated: true
+    sort:
+      name: sort
+      in: query
+      description: 'Sorting criteria in the format: property,asc/desc. Default sort
+        order is descending. Multiple sort criteria are supported and must be entered
+        on separate lines in Swagger UI. In the URI the ''sort'' query param is not
+        duplicated for each sort criterion, e.g., ...&sort=name%2Casc,date%2Cdesc'
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+        default:
+          - date:desc
+          - username:asc
+    filter:
+      name: filter
+      in: query
+      description: 'Query in the RSQL format, allowing to filter history notes collection.
+        Default filter is empty query - returning all results for the requested page.
+        Fields allowed in the query: username, date, note, details.
+        This param can be combined with paging and sorting.
+        Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+      schema:
+        type: string
+        default: ''
+    export-fields:
+      name: export-fields
+      in: query
+      description: 'Export fields parameter, used to change default order
+        or ignore some of the response properties. Default is empty array, which means that all fields
+        of the response entity will be serialized. Example: export-fields=id,username'
+      schema:
+        type: array
+        items:
+          type: string
+        default: []
+    export-labels:
+      name: export-labels
+      in: query
+      description: 'Export labels parameter, used to customize fieldnames/columns in the exported file.
+        Default is empty array, which means that response properties names will be used.
+        Number of the provided labels must match the number of export-fields
+        Example: export-labels=identifier,name with matching: export-fields=id,username'
+      schema:
+        type: array
+        items:
+          type: string
+        default: [ ]

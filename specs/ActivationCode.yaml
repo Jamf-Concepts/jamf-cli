@@ -1,0 +1,190 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Activation Code endpoints
+    version: 0.1.0
+paths:
+    /v1/activation-code:
+        put:
+            tags:
+                - activation-code
+            summary: Updates Activation Code
+            description: Updates Activation Code in Jamf Pro.
+            requestBody:
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ActivationCode'
+            responses:
+                202:
+                    description: Update successful.
+            x-required-privileges:
+                - Update Activation Code
+    /v1/activation-code/organization-name:
+        patch:
+            tags:
+                - activation-code
+            summary: Updates Organization Name
+            description: Updates Organization Name in Jamf Pro.
+            requestBody:
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/OrganizationName'
+            responses:
+                202:
+                    description: Update successful.
+            x-required-privileges:
+                - Update Activation Code
+    /v1/activation-code/history:
+        get:
+            tags:
+                - activation-code
+            summary: Get Activation Code history object
+            description: Get Activation Code history object
+            parameters:
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                - name: sort
+                  in: query
+                  description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                  is date:desc. Fields allowed in the query: id, username, date, note, details 
+                  Multiple sort criteria are supported and must be separated
+                  with a comma. Example: sort=date:desc,note:asc '
+                  explode: true
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                      default: [ date:desc ]
+                - name: filter
+                  in: query
+                  description: 'Query in the RSQL format, allowing to filter history notes collection.
+                    Default filter is empty query - returning all results for the requested page.
+                    Fields allowed in the query: id, username, date, note, details.
+                    This param can be combined with paging and sorting.
+                    Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+                  schema:
+                      type: string
+                      default: ''
+            responses:
+                200:
+                    description: Details of Activation Code history was found.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+                404:
+                    description: Activation Code object does not exist.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Activation Code
+        post:
+            tags:
+                - activation-code
+            summary: |
+                Add Activation Code object note
+            description: |
+                Adds Activation Code object note.
+            requestBody:
+                description: Activation Code history notes to create.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+                required: true
+            responses:
+                201:
+                    description: Notes of Activation Code history were added.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+                503:
+                    description: Activation Code history cannot be saved.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Activation Code
+    /v1/activation-code/history/export:
+        post:
+            tags:
+                - activation-code
+            summary: |
+                Export history object collection in specified format for Activation Code
+            description: |
+                Export history object collection in specified format for Activation Code
+            parameters:
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                - name: sort
+                  in: query
+                  description: 'Sorting criteria in the format: property:asc/desc. Default sort
+               is date:desc. Multiple sort criteria are supported and must be separated
+               with a comma. Example: sort=date:desc,name:asc '
+                  explode: true
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                      default: [ date:desc ]
+                - name: filter
+                  in: query
+                  description: 'Query in the RSQL format, allowing to filter history notes collection.
+               Default filter is empty query - returning all results for the requested page.
+               Fields allowed in the query: username, date, note, details.
+               This param can be combined with paging and sorting.
+               Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+                  schema:
+                      type: string
+                      default: ''
+            requestBody:
+                description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+                required: false
+            responses:
+                200:
+                    description: Export successful
+                    content:
+                        text/csv:
+                            schema:
+                                format: binary
+                                example: |
+                                    id,username,date,note,details
+                                    1,admin,2019-02-04 21:09:31,Buildings update,Some details
+                400:
+                    description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Export currently unavailable, all export-related resources are in use. Try again later.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Activation Code
+            x-action: true
+components:
+    schemas:
+        OrganizationName:
+            type: object
+            required:
+                - organizationName
+            properties:
+                organizationName:
+                    type: string
+                    description: The Organization Name for Jamf Pro.
+                    example: Your Organization Name
+                    nullable: false

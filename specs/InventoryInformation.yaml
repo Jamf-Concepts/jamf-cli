@@ -1,0 +1,51 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Inventory Information
+  version: 0.0.1
+paths:
+  /v1/inventory-information:
+    get:
+      tags:
+      - inventory-information
+      summary: |
+        Get statistics about managed/unmanaged devices and computers in the inventory
+      description: |
+        Gets statistics about managed/unmanaged devices and computers in the inventory.
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InventoryInformation'
+      x-authentication-required: true
+components:
+  schemas:
+    InventoryInformation:
+      type: object
+      description: 'Jamf Pro Inventory statistics object. Aggregates managed/unmanaged devices and computers counters'
+      properties:
+        managedComputers:
+          minimum: 0
+          type: integer
+          description: Number of managed computers in inventory.
+          example: 1200
+          readOnly: true
+        unmanagedComputers:
+          minimum: 0
+          type: integer
+          description: Number of unmanaged computers in inventory.
+          example: 1100
+          readOnly: true
+        managedDevices:
+          minimum: 0
+          type: integer
+          description: Number of managed devices in inventory.
+          example: 1200
+          readOnly: true
+        unmanagedDevices:
+          minimum: 0
+          type: integer
+          description: Number of unmanaged devices in inventory.
+          example: 1100
+          readOnly: true

@@ -1,0 +1,29 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - version
+  version: 0.0.1
+paths:
+  /v1/jamf-pro-version:
+    get:
+      tags:
+      - jamf-pro-version
+      summary: |
+        Return information about the Jamf Pro including the current version
+      description: |
+        Returns information about the Jamf Pro including the current version.
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/JamfProVersion'
+      x-authentication-required: true
+components:
+  schemas:
+    JamfProVersion:
+      type: object
+      properties:
+        version:
+          type: string
+          example: 10.9.0

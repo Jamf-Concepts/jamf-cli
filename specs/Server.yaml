@@ -1,0 +1,19 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Server
+  version: 0.0.1
+paths:
+  /settings/issueTomcatSslCertificate:
+    post:
+      tags:
+      - tomcat-settings-preview
+      summary: |
+         Generate a SSL Certificate using Jamf Certificate Authority
+      description: generate a SSL Certificate using Jamf Certificate Authority
+      responses:
+        204:
+          description: SSL certificate created successfully
+      x-required-privileges:
+      - Update Apache Tomcat Settings
+      x-action: true
+components: {}

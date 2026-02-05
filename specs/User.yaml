@@ -1,0 +1,112 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - User
+  version: 0.0.1
+servers:
+- url: /
+paths:
+  /user/updateSession:
+    post:
+      tags:
+      - user-session-preview
+      summary: |
+        Update values in the User's current session
+      description: |
+        Updates values in the user's current session.
+      requestBody:
+        description: Values to update in user's current session.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Session'
+        required: false
+      responses:
+        200:
+          description: The user's current session has been sucessfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+      x-authentication-required: true
+  /user:
+    get:
+      tags:
+      - user-session-preview
+      summary: |
+        Return all Jamf Pro user acounts
+      description: |
+        Return all Jamf Pro user acounts.
+      responses:
+        200:
+          description: List of all Jamf Pro user acounts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+      x-required-privileges:
+      - Read Accounts
+components:
+  schemas:
+    Session:
+      type: object
+      properties:
+        currentSiteId:
+          type: integer
+          example: 1
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: admin
+        realName:
+          type: string
+          example: IT Bob
+        email:
+          type: string
+          example: ITBob@Jamf.com
+        preferences:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferences'
+        isMultiSiteAdmin:
+          type: boolean
+          example: false
+        accessLevel:
+          type: string
+          example: FullAccess
+          enum:
+          - FullAccess
+          - SiteAccess
+          - GroupBasedAccess
+        privilegeSet:
+          type: string
+          example: CUSTOM
+          enum:
+          - ADMINISTRATOR
+          - AUDITOR
+          - ENROLLMENT
+          - CUSTOM
+        privilegesBySite:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            1:
+              - Read SSO Settings
+              - Delete eBooks
+        groupIds:
+          type: array
+          items:
+            type: integer
+          example:
+            - 1
+            - 3
+        currentSiteId:
+          type: integer
+          example: 1

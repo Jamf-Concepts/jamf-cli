@@ -1,0 +1,303 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - department
+  version: 0.0.1
+paths:
+  /v1/departments:
+    get:
+      tags:
+      - departments
+      summary: |
+        Search for Departments
+      description: |
+        Search for Departments
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is id:asc. Multiple sort criteria are supported and must be separated with
+          a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [id:asc]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter department collection.
+                      Default filter is empty query - returning all results for the requested page.
+                      Fields allowed in the query: id, name.
+                      Example: name=="*department*"'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DepartmentsSearchResults'
+      x-required-privileges:
+      - Read Departments
+    post:
+      tags:
+      - departments
+      summary: |
+        Create department record
+      description: |
+        Create department record
+      requestBody:
+        description: department object to create. ids defined in this body will be
+          ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      responses:
+        201:
+          description: Department record was created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      x-required-privileges:
+      - Create Departments
+  /v1/departments/{id}:
+    get:
+      tags:
+      - departments
+      summary: |
+        Get specified Department object
+      description: |
+        Gets specified Department object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of department record
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Details of department were found
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Department'
+        404:
+          description: Specified department object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Departments
+    put:
+      tags:
+      - departments
+      summary: |
+        Update specified department object
+      description: |
+        Update specified department object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of department record
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: department object to create. ids defined in this body will be
+          ignored
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      responses:
+        200:
+          description: Department update
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Department'
+      x-required-privileges:
+      - Update Departments
+    delete:
+      tags:
+      - departments
+      summary: |
+        Remove specified department record
+      description: |
+        Removes specified department record
+      parameters:
+      - name: id
+        in: path
+        description: instance id of department record
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Department record was deleted
+      x-required-privileges:
+      - Delete Departments
+  /v1/departments/delete-multiple:
+    post:
+      tags:
+      - departments
+      summary: |
+        Deletes all departments by ids passed in body
+      description: |
+        Deletes all departments by ids passed in body
+      requestBody:
+        description: ids of departments to be deleted. pass in an array of ids
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+        required: true
+      responses:
+        204:
+          description: All department ids passed in request sucessfully deleted.
+        400:
+          description: 'Request processed.  Returns ids and error codes of any departments
+            unable to be deleted.  Expected error codes: INVALID_ID - id does not
+            exist SYSTEM_EXCEPTION - a system exception occured trying to delete the
+            department.'
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Delete Departments
+      x-action: true
+  /v1/departments/{id}/history:
+    get:
+      tags:
+      - departments
+      summary: |
+        Get specified Department history object
+      description: |
+        Gets specified Department history object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of department history record
+        required: true
+        schema:
+          type: string
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [date:desc]
+      - name: filter
+        in: query
+        description: 'Query in the RSQL format, allowing to filter history notes collection.
+          Default filter is empty query - returning all results for the requested page.
+          Fields allowed in the query: username, date, note, details.
+          This param can be combined with paging and sorting.
+          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+        schema:
+          type: string
+          default: ''
+      responses:
+        200:
+          description: Details of department history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+        404:
+          description: Specified department object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Departments
+    post:
+      tags:
+      - departments
+      summary: |
+        Add specified Department history object notes
+      description: |
+        Adds specified Department history object notes
+      parameters:
+      - name: id
+        in: path
+        description: instance id of department history record
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of department history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        404:
+          description: Specified department object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Department history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Departments
+components:
+  schemas:
+    Department:
+      required:
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          minLength: 1
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 225
+          example: Department of Redundancy Department
+    DepartmentsSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 3
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/Department'

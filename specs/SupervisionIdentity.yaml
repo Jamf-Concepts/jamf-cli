@@ -1,0 +1,282 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Supervision Identity
+  version: 0.0.1
+paths:
+  /v1/supervision-identities:
+    get:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Search for sorted and paged Supervision Identities
+      description: Search for sorted and paged supervision identities
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Multiple
+          sort criteria are supported and must be separated with a comma. Example:
+          sort=date:desc,name:asc '
+        schema:
+          type: string
+          default: id:asc
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SupervisionIdentitySearchResults'
+      x-required-privileges:
+      - Read Apple Configurator Enrollment
+    post:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Create a Supervision Identity for the supplied information
+      description: Creates a Supervision Identity for the supplied information
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/SupervisionIdentityCreate'
+        required: true
+      responses:
+        201:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SupervisionIdentity'
+        500:
+          description: Something went wrong
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Apple Configurator Enrollment
+  /v1/supervision-identities/{id}:
+    get:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Retrieve a Supervision Identity with the supplied id
+      description: Retrieves a Supervision Identity with the supplied id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Supervision Identity identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SupervisionIdentity'
+        404:
+          description: Supervision Identity with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Apple Configurator Enrollment
+    put:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Update a Supervision Identity with the supplied information
+      description: Updates a Supervision Identity with the supplied information
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Supervision Identity identifier
+        schema:
+          type: integer
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/SupervisionIdentityUpdate'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SupervisionIdentity'
+        404:
+          description: Supervision Identity with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Something went wrong
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Apple Configurator Enrollment
+    delete:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Delete a Supervision Identity with the supplied id
+      description: Deletes a Supervision Identity with the supplied id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Supervision Identity identifier
+        schema:
+          type: integer
+      responses:
+        204:
+          description: Success
+        404:
+          description: Supervision Identity with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Apple Configurator Enrollment
+  /v1/supervision-identities/{id}/download:
+    get:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Download the Supervision Identity .p12 file
+      description: Download the Supervision Identity .p12 file
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Supervision Identity identifier
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Success
+          content:
+            'application/octet-stream':
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Not Found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read Apple Configurator Enrollment
+  /v1/supervision-identities/upload:
+    post:
+      tags:
+      - supervision-identities-preview
+      summary: |
+         Upload the Supervision Identity .p12 file
+      description: Uploads the Supervision Identity .p12 file
+      requestBody:
+        description: The base 64 encoded .p12 file alone with other needed information
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/SupervisionIdentityCertificateUpload'
+        required: true
+      responses:
+        201:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SupervisionIdentity'
+        500:
+          description: Something went wrong
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Apple Configurator Enrollment
+      x-action: true
+components:
+  schemas:
+    SupervisionIdentity:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        displayName:
+          type: string
+          example: Supervision Identity
+        commonName:
+          type: string
+          example: Jamf Identity - Supervision Identity
+        expirationDate:
+          type: string
+          example: 2000-10-31
+    SupervisionIdentitySearchResults:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupervisionIdentity'
+    SupervisionIdentityCertificateUpload:
+      required:
+      - displayName
+      - password
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Supervision Identity
+        password:
+          type: string
+          format: password
+          example: jamf1234
+        certificateData:
+          description: The base 64 encoded supervision identity certificate data
+          example: U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+          format: byte
+    SupervisionIdentityCreate:
+      required:
+      - displayName
+      - password
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Supervision Identity
+        password:
+          type: string
+          format: password
+          example: jamf1234
+    SupervisionIdentityUpdate:
+      required:
+      - displayName
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Supervision Identity

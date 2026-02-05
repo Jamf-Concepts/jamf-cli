@@ -1,0 +1,140 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Icon
+  version: 0.1.0
+paths:
+  /v1/icon:
+    post:
+      tags:
+        - icon
+      summary: |
+        Upload an icon
+      description: Uploads an icon
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  description: The file to upload
+                  format: binary
+        required: true
+      responses:
+        201:
+          description: Icon successfully uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IconResponse'
+        400:
+          description: 'Failure, field required: "file".'
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Upload Failed.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-authentication-required: true
+  /v1/icon/{id}:
+    get:
+      tags:
+        - icon
+      summary: |
+        Get an icon
+      description: Get an icon
+      parameters:
+        - name: id
+          in: path
+          description: id of the icon
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/IconResponse'
+      x-authentication-required: true
+  /v1/icon/download/{id}:
+    get:
+      tags:
+        - icon
+      summary: |
+        Download a self service icon
+      description: Download a self service icon
+      parameters:
+        - name: id
+          in: path
+          description: id of the self service icon
+          required: true
+          schema:
+            type: string
+        - name: res
+          in: query
+          description: request a specific resolution of original, 300, or 512; invalid options will result in original resolution
+          required: false
+          schema:
+            type: string
+            default: 'original'
+            example: '300'
+        - name: scale
+          in: query
+          description: request a scale; 0 results in original image, non-0 results in scaled to 300
+          required: false
+          schema:
+            type: string
+            default: '0'
+            example: '1'
+      responses:
+        200:
+          description: Successful response
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+      x-authentication-required: true
+  /v1/branding-images/download/{id}:
+    get:
+      tags:
+        - branding
+      summary: |
+        Download a self service branding image
+      description: Download a self service branding image
+      parameters:
+        - name: id
+          in: path
+          description: id of the self service branding image
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+      x-authentication-required: true
+components:
+  schemas:
+    IconResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://stage-ics.services.jamfcloud.com/icon/hash_c315ef577b84505de1bfcb50b0c4b1c963da30b2a805f84b24ad09f282b7fad4
+        id:
+          type: integer
+          example: 5

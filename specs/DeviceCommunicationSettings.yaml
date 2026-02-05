@@ -1,0 +1,147 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Device Communication Settings
+  version: 0.0.1
+paths:
+  /v1/device-communication-settings:
+    get:
+      tags:
+      - device-communication-settings
+      summary: |
+        Retrieves all settings for device communication
+      description: |
+        Retrieves all device communication settings, including automatic renewal of the MDM profile.
+      responses:
+        200:
+          description: Successful response - Device Communication Settings retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DeviceCommunicationSettings'
+      x-required-privileges:
+      - Read Automatically Renew MDM Profile Settings
+    put:
+      tags:
+      - device-communication-settings
+      summary: |
+        Update device communication settings
+      description: |
+        Update device communication settings
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/DeviceCommunicationSettings'
+        required: true
+      responses:
+        200:
+          description: Successful response - Device communication Settings updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DeviceCommunicationSettings'
+      x-required-privileges:
+      - Update Automatically Renew MDM Profile Settings
+  /v1/device-communication-settings/history:
+    get:
+      tags:
+        - device-communication-settings
+      summary: |
+        Get Device Communication settings history
+      description: |
+        Gets Device Communication settings history
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [date:desc]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter history notes collection.
+          Default filter is empty query - returning all results for the requested page.
+          Fields allowed in the query: username, date, note, details.
+          This param can be combined with paging and sorting.
+          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Details of Device Communication Settings history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+        - Read Automatically Renew MDM Profile Settings
+    post:
+      tags:
+        - device-communication-settings
+      summary: |
+        Add Device Communication Settings history notes
+      description: |
+        Adds Device Communication Settings history notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Device Communication Settings history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        503:
+          description: Device Communication Settings history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Automatically Renew MDM Profile Settings
+components:
+  schemas:
+    DeviceCommunicationSettings:
+      type: object
+      properties:
+        autoRenewMobileDeviceMdmProfileWhenCaRenewed:
+          type: boolean
+          example: true
+        autoRenewMobileDeviceMdmProfileWhenDeviceIdentityCertExpiring:
+          type: boolean
+          example: true
+        autoRenewComputerMdmProfileWhenCaRenewed:
+          type: boolean
+          example: true
+        autoRenewComputerMdmProfileWhenDeviceIdentityCertExpiring:
+          type: boolean
+          example: true
+        mdmProfileMobileDeviceExpirationLimitInDays:
+          type: integer
+          enum:
+            - 90
+            - 120
+            - 180
+          default: 180
+        mdmProfileComputerExpirationLimitInDays:
+          type: integer
+          enum:
+            - 90
+            - 120
+            - 180
+          default: 180
+

@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: Jamf Pro API - Remove Mobile Device MDM Profile
+  description: Jamf Pro API - Remove Mobile Device MDM Profile
+  version: 0.0.1
+paths:
+  /v2/mobile-devices/{id}/unmanage:
+    post:
+      tags:
+        - mobile-devices
+      summary: |
+        Unmanage a Mobile Device
+      description: Unmanage a Mobile Device
+      parameters:
+        - name: id
+          in: path
+          description: Id of the mobile device to remove the MDM profile from
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Command to remove the mdm profile was queued
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/UnmanageMobileDeviceResponse'
+        403:
+          description: Insufficient privileges to perform this action.
+        500:
+          description: Failure, unable to queue command.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Unmanage Mobile Devices
+      x-action: true
+components:
+  schemas:
+    UnmanageMobileDeviceResponse:
+      type: object
+      required:
+        - deviceId
+        - commandUuid
+      properties:
+        deviceId:
+          type: string
+          example: 1234
+          description: Id of the mobile device whose MDM profile was removed
+        commandUuid:
+          type: string
+          example: "1234-5678-90ab-cdef-1234567890ab"
+          description: Uuid of the command queued that removes the MDM profile

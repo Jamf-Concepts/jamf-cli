@@ -1,0 +1,77 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - CSA Endpoints
+  version: 0.0.1
+paths:
+  /v1/csa/token:
+    get:
+      tags:
+      - csa
+      summary: |
+        Get details regarding the CSA token exchange
+      description: |
+        Get details regarding the CSA token exchange
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/CsaToken'
+        404:
+          description: CSA token exchange has not been initialized
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Cloud Services Settings
+    delete:
+      tags:
+      - csa
+      summary: |
+        Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services
+      description: |
+        Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services
+      responses:
+        204:
+          description: CSA Token Exchange successfully deleted
+        404:
+          description: CSA Token Exchange has not been initialized
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        409:
+          description: CSA manual enablement feature toggle is disabled
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Cloud Services Settings
+  /v1/csa/tenant-id:
+    get:
+      tags:
+        - csa
+      summary: Returns the CSA tenant ID.
+      description: Returns the CSA tenant ID.
+      x-authentication-required: true
+      responses:
+        200:
+          description: CSA tenant ID is returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CsaTenantIdInfo'
+components:
+    schemas:
+        CsaTenantIdInfo:
+            type: object
+            properties:
+                tenantId:
+                    readOnly: true
+                    type: string
+                    nullable: true
+                    example: '123'
+                    description: The tenant ID

@@ -1,0 +1,49 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Database Connection
+  version: 0.1.0
+paths:
+  /v1/system/initialize-database-connection:
+    post:
+      tags:
+        - jamf-pro-initialization
+      summary: |
+        Provide Database Password during startup
+      description: Provide database password during startup. Endpoint is accessible when database password was not configured
+        and Jamf Pro server has not been initialized yet.
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/DatabasePassword'
+        required: true
+      responses:
+        202:
+          description: OK
+        400:
+          description: Incorrect database password.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        429:
+          description: Limit of requests per second was exceeded
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-authentication-required: false
+      x-action: true
+components:
+  schemas:
+    DatabasePassword:
+      type: object
+      properties:
+        password:
+          type: string
+          example: 12345
+          format: password
+          minLength: 1
+          writeOnly: true
+      required:
+        - password
