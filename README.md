@@ -161,7 +161,3 @@ make lint
 # Generate commands from OpenAPI specs
 make generate
 ```
-
-## License
-
-MIT
