@@ -2,8 +2,12 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
@@ -188,5 +192,140 @@ func TestFormatError_NonJSON(t *testing.T) {
 	err := exitcode.New(exitcode.General, "something broke")
 	if FormatError(err) {
 		t.Error("FormatError should return false for non-json format")
+	}
+}
+
+// mockHTTPClient records whether Do was called and with what method.
+type mockHTTPClient struct {
+	called bool
+	method string
+	path   string
+}
+
+func (m *mockHTTPClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+	m.called = true
+	m.method = method
+	m.path = path
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"id":1}`)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func TestDryRunClient_GET_PassesThrough(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	resp, err := client.Do(context.Background(), "GET", "/v1/computers", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !mock.called {
+		t.Fatal("GET should pass through to inner client")
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestDryRunClient_HEAD_PassesThrough(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	_, err := client.Do(context.Background(), "HEAD", "/v1/computers", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !mock.called {
+		t.Fatal("HEAD should pass through to inner client")
+	}
+}
+
+func TestDryRunClient_POST_Intercepted(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	body := strings.NewReader(`{"name":"Test"}`)
+	resp, err := client.Do(context.Background(), "POST", "/v1/categories", body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.called {
+		t.Fatal("POST should NOT pass through to inner client")
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	// Verify synthetic body is valid JSON
+	data, _ := io.ReadAll(resp.Body)
+	if string(data) != "{}" {
+		t.Errorf("body = %q, want %q", string(data), "{}")
+	}
+}
+
+func TestDryRunClient_PUT_Intercepted(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	_, err := client.Do(context.Background(), "PUT", "/v1/categories/1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.called {
+		t.Fatal("PUT should NOT pass through to inner client")
+	}
+}
+
+func TestDryRunClient_PATCH_Intercepted(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	_, err := client.Do(context.Background(), "PATCH", "/v1/categories/1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.called {
+		t.Fatal("PATCH should NOT pass through to inner client")
+	}
+}
+
+func TestDryRunClient_DELETE_Intercepted(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	_, err := client.Do(context.Background(), "DELETE", "/v1/categories/1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.called {
+		t.Fatal("DELETE should NOT pass through to inner client")
+	}
+}
+
+func TestDryRunClient_StderrOutput(t *testing.T) {
+	mock := &mockHTTPClient{}
+	client := &dryRunClient{inner: mock}
+
+	// Capture stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	body := strings.NewReader(`{"name":"Test"}`)
+	client.Do(context.Background(), "POST", "/v1/categories", body)
+
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	if !strings.Contains(output, "[dry-run] POST /v1/categories") {
+		t.Errorf("expected dry-run method/path in stderr, got: %s", output)
+	}
+	if !strings.Contains(output, `{"name":"Test"}`) {
+		t.Errorf("expected request body in stderr, got: %s", output)
 	}
 }

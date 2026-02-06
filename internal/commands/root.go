@@ -76,6 +76,34 @@ func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Rea
 	return c.inner.Do(ctx, method, path, body)
 }
 
+// dryRunClient wraps an HTTPClient to intercept mutating requests.
+// GET/HEAD pass through; POST/PUT/PATCH/DELETE print what would happen
+// and return a synthetic empty response.
+type dryRunClient struct {
+	inner generated.HTTPClient
+}
+
+func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if method == "GET" || method == "HEAD" {
+		return c.inner.Do(ctx, method, path, body)
+	}
+
+	fmt.Fprintf(os.Stderr, "[dry-run] %s %s\n", method, path)
+
+	if body != nil {
+		data, err := io.ReadAll(body)
+		if err == nil && len(data) > 0 {
+			fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", string(data))
+		}
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("{}")),
+		Header:     make(http.Header),
+	}, nil
+}
+
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &generated.CLIContext{}
@@ -246,7 +274,12 @@ device management, inventory/reporting, and configuration management.`,
 			// Create client and formatter now that auth is resolved
 			var httpClient generated.HTTPClient = &cliClient{client.New(serverURL, authProvider, client.WithVerbose(verbose))}
 
-			// Wrap with spinner unless --quiet or --verbose suppresses it
+			// Dry-run wraps first (innermost) — intercepts before spinner
+			if dryRun {
+				httpClient = &dryRunClient{inner: httpClient}
+			}
+
+			// Spinner wraps outermost — only runs for requests that reach the network
 			if !quiet && !verbose {
 				httpClient = &spinnerClient{inner: httpClient}
 			}
