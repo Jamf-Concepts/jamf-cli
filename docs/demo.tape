@@ -5,9 +5,9 @@
 Output docs/demo.gif
 
 Set Shell "bash"
-Set FontSize 13
-Set Width 1100
-Set Height 550
+Set FontSize 11
+Set Width 1300
+Set Height 350
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 35ms
 Set Padding 16
@@ -27,15 +27,10 @@ Type "jamfpro-cli version"
 Enter
 Sleep 1.5s
 
-# Scene 2: Command discovery — table format
-Type "jamfpro-cli commands -o table | head -15"
+# Scene 2: List computers (limited to 3)
+Type "jamfpro-cli comp list --limit 3 -o table"
 Enter
-Sleep 3s
-
-# Scene 3: Command discovery — JSON piped to jq
-Type "jamfpro-cli commands -o json | jq '.[0:3]'"
-Enter
-Sleep 3s
+Sleep 4s
 
 # Final pause
 Sleep 1s
