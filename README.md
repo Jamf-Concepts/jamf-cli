@@ -121,6 +121,108 @@ jamfpro-cli computers list -o table --wide
 - `◐ Pending` (yellow)
 - `● Failed/Error` (red)
 
+## Available Commands
+
+### Device Management
+
+| Command | Description |
+|---------|-------------|
+| `computers` | Manage computers |
+| `mobile-devices` | Manage mobile devices |
+| `computer-groups` | Manage computer groups |
+| `computer-smart-groups` | Manage computer smart groups |
+| `mobile-device-groups` | Manage mobile device groups |
+| `mobile-device-smart-groups` | Manage mobile device smart groups |
+
+### Enrollment & Prestage
+
+| Command | Description |
+|---------|-------------|
+| `computer-prestages-v-3s` | Manage computer prestages |
+| `computer-prestage-scope-v-2s` | Manage computer prestage scopes |
+| `mobile-device-prestages-v-3s` | Manage mobile device prestages |
+| `mobile-device-prestage-scope-v-2s` | Manage mobile device prestage scopes |
+| `device-enrollment-instances` | Manage device enrollment instances |
+| `enrollment-settings` | Manage enrollment settings |
+| `enrollment-customization-panels` | Manage enrollment customization panels |
+| `reenrollments` | Manage reenrollments |
+
+### Inventory & Reporting
+
+| Command | Description |
+|---------|-------------|
+| `mobile-device-inventory-details` | Manage mobile device inventory details |
+| `inventory-preloads` | Manage inventory preloads |
+| `inventory-preload-v-2s` | Manage inventory preloads (v2) |
+| `inventory-informations` | Manage inventory information |
+
+### Configuration
+
+| Command | Description |
+|---------|-------------|
+| `scripts` | Manage scripts |
+| `categories` | Manage categories |
+| `departments` | Manage departments |
+| `buildings` | Manage buildings |
+| `sites` | Manage sites |
+| `ebooks` | Manage ebooks |
+| `mobile-device-apps` | Manage mobile device apps |
+| `mobile-device-extension-attributes` | Manage mobile device extension attributes |
+
+### MDM & Security
+
+| Command | Description |
+|---------|-------------|
+| `mdm-renewals` | Manage MDM renewals |
+| `renew-mdm-profiles` | Manage MDM profile renewals |
+| `remove-computer-mdm-profiles` | Remove computer MDM profiles |
+| `remove-mobile-device-mdm-profiles` | Remove mobile device MDM profiles |
+| `erase-device-computers` | Erase computers |
+| `erase-device-mobiles` | Erase mobile devices |
+| `local-admin-password-v-2s` | Manage local admin passwords (LAPS) |
+| `certificate-authorities` | Manage certificate authorities |
+
+### Users & Groups
+
+| Command | Description |
+|---------|-------------|
+| `users` | Manage users |
+| `user-smart-groups` | Manage user smart groups |
+| `static-user-groups` | Manage static user groups |
+| `user-preferences` | Manage user preferences |
+| `ldap-rs` | Manage LDAP servers |
+
+### Server Administration
+
+| Command | Description |
+|---------|-------------|
+| `jamf-pro-versions` | Get Jamf Pro version info |
+| `jamf-pro-informations` | Get Jamf Pro server info |
+| `jamf-pro-server-urls` | Manage server URLs |
+| `servers` | Manage servers |
+| `systems` | Manage system settings |
+| `caches` | Manage caches |
+| `database-connections` | Manage database connections |
+| `activation-codes` | Manage activation codes |
+
+### Self Service
+
+| Command | Description |
+|---------|-------------|
+| `self-service-settings` | Manage Self Service settings |
+| `self-service-brandings` | Manage Self Service branding |
+| `notifications` | Manage notifications |
+
+### Other
+
+| Command | Description |
+|---------|-------------|
+| `config` | Manage CLI configuration and profiles |
+| `completion` | Generate shell completion scripts |
+| `version` | Print version information |
+
+Use `jamfpro-cli [command] --help` for detailed usage of any command.
+
 ## Exit Codes
 
 | Code | Meaning |
