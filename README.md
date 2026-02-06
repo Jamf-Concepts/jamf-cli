@@ -2,6 +2,8 @@
 
 CLI tool for Jamf Pro Server API automation.
 
+![jamfpro-cli demo](docs/demo.gif)
+
 ## 📦 Installation
 
 ### Homebrew (macOS/Linux)
