@@ -24,6 +24,10 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
+	if e.Err != nil && e.Message == e.Err.Error() {
+		// Wrap sets Message = Err.Error(); avoid "msg: msg" stutter.
+		return e.Err.Error()
+	}
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Err)
 	}

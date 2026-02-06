@@ -55,7 +55,16 @@ func TestError_Error(t *testing.T) {
 func TestError_ErrorWithWrapped(t *testing.T) {
 	inner := errors.New("connection refused")
 	e := Wrap(General, inner)
-	want := "connection refused: connection refused"
+	want := "connection refused"
+	if e.Error() != want {
+		t.Errorf("Error() = %q, want %q", e.Error(), want)
+	}
+}
+
+func TestError_ErrorWithDistinctMessage(t *testing.T) {
+	inner := errors.New("connection refused")
+	e := &Error{Code: General, Message: "network error", Err: inner}
+	want := "network error: connection refused"
 	if e.Error() != want {
 		t.Errorf("Error() = %q, want %q", e.Error(), want)
 	}

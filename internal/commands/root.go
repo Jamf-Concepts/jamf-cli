@@ -481,6 +481,8 @@ func FormatError(err error) bool {
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	enc.Encode(envelope)
+	if err := enc.Encode(envelope); err != nil {
+		return false // stdout broken (e.g. SIGPIPE); fall back to stderr
+	}
 	return true
 }
