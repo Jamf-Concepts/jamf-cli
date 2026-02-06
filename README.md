@@ -6,6 +6,8 @@ CLI tool for Jamf Pro Server API automation.
 
 ### Homebrew (macOS/Linux)
 
+> **TODO:** Homebrew tap not yet available. Requires creating the `ktn-jamf/homebrew-tap` repo and publishing a formula.
+
 ```bash
 brew install ktn-jamf/tap/jamfpro-cli
 ```
@@ -78,7 +80,15 @@ profiles:
     url: https://jamf-staging.company.com
     auth-method: token
     token: env:JAMF_STAGING_TOKEN
+
+  dev:
+    url: https://jamf-dev.company.com
+    auth-method: basic
+    username: admin
+    password: env:JAMF_DEV_PASSWORD
 ```
+
+Three auth methods are supported: `oauth2` (client credentials), `token` (static bearer token), and `basic` (username/password exchanged for a bearer token via `/api/v1/auth/token`).
 
 ### 🔐 Secrets
 
@@ -125,6 +135,19 @@ $ jamfpro-cli config validate --connectivity
 | `--no-input` | | Never prompt; fail if input required |
 | `--no-color` | | Disable colored output |
 | `--dry-run` | `-n` | Preview changes without executing |
+
+### Connection Flags
+
+| Flag | Description |
+|------|-------------|
+| `--url` | Jamf Pro server URL (or `JAMF_URL` env) |
+| `--token` | API bearer token (or `JAMF_TOKEN` env) |
+| `--token-file` | Path to file containing API token |
+| `--token-stdin` | Read API token from stdin |
+| `--client-id` | OAuth2 client ID (or `JAMF_CLIENT_ID` env) |
+| `--client-secret` | OAuth2 client secret (or `JAMF_CLIENT_SECRET` env) |
+| `--username` | Basic auth username (or `JAMF_USERNAME` env) |
+| `--password` | Basic auth password (or `JAMF_PASSWORD` env) |
 
 ## 📋 Output Formats
 
@@ -238,6 +261,20 @@ echo "Prod:" && jamfpro-cli comp list -p prod -o json | jq length
 echo "Staging:" && jamfpro-cli comp list -p staging -o json | jq length
 ```
 
+### Dry-run preview
+
+Use `--dry-run` (`-n`) to see what a mutating command would do without executing it. Read operations (list, get) run normally; writes (create, update, delete) are intercepted.
+
+```bash
+$ echo '{"name":"Test Category","priority":1}' | jamfpro-cli cat create --dry-run
+[dry-run] POST /v1/categories
+[dry-run] Request body:
+{"name":"Test Category","priority":1}
+{}
+```
+
+The `[dry-run]` lines go to stderr; `{}` is the synthetic response on stdout.
+
 ### Scripting with plain output
 
 ```bash
@@ -347,6 +384,7 @@ jamfpro-cli comp list -o json | jq -e '.[] | select(.serialNumber=="C02X1234")' 
 
 | Command | Description |
 |---------|-------------|
+| `commands` | List all available commands (structured output for scripts/AI agents) |
 | `config` | Manage CLI configuration and profiles |
 | `config setup` | Bootstrap OAuth2 credentials from admin account |
 | `config validate` | Validate config file and profile settings |
@@ -354,6 +392,32 @@ jamfpro-cli comp list -o json | jq -e '.[] | select(.serialNumber=="C02X1234")' 
 | `version` | Print version information |
 
 Use `jamfpro-cli [command] --help` for detailed usage of any command.
+
+### 🤖 Command Discovery
+
+The `commands` subcommand outputs the full command catalog in any format. No auth required.
+
+```bash
+# Machine-readable catalog for scripts and AI agents
+jamfpro-cli commands -o json
+
+# Human-readable table
+jamfpro-cli commands -o table
+
+# Include aliases and flags columns
+jamfpro-cli commands -o table --wide
+```
+
+```json
+[
+  {
+    "aliases": "comp",
+    "command": "computers list",
+    "description": "Return a list of Computers",
+    "flags": "--all, --limit, --page, --page-size, --sort"
+  }
+]
+```
 
 ## 🚦 Exit Codes
 
@@ -366,6 +430,20 @@ Use `jamfpro-cli [command] --help` for detailed usage of any command.
 | 4 | Not found |
 | 5 | Permission denied |
 | 6 | Rate limited |
+
+### Structured JSON errors
+
+When `-o json` is active, errors are emitted as JSON on stdout instead of plain text on stderr. This keeps `jq` pipelines and AI agent integrations working even on failure.
+
+```json
+{
+  "error": "authentication",
+  "message": "authentication failed (HTTP 401): ...",
+  "exitCode": 3
+}
+```
+
+The `error` field maps to: `general`, `usage`, `authentication`, `not_found`, `permission_denied`, `rate_limited`. Non-JSON output formats retain the default behavior (plain text on stderr).
 
 ## 🐚 Shell Completion
 
