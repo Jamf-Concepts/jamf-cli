@@ -12,6 +12,7 @@ import (
 // Config represents the CLI configuration
 type Config struct {
 	DefaultProfile string             `yaml:"default-profile"`
+	DefaultOutput  string             `yaml:"default-output,omitempty"`
 	Profiles       map[string]Profile `yaml:"profiles"`
 }
 

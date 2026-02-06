@@ -154,6 +154,11 @@ device management, inventory/reporting, and configuration management.`,
 				}
 			}
 
+			// Apply default output from config if flag not explicitly set
+			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
+				outputFmt = cfg.DefaultOutput
+			}
+
 			// Token file fallback: read token from a file
 			if token == "" && tokenFile != "" {
 				data, err := os.ReadFile(tokenFile)

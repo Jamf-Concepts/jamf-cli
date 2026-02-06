@@ -49,6 +49,7 @@ Example config:
 
 ```yaml
 default-profile: prod
+default-output: table
 
 profiles:
   prod:
