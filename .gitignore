@@ -31,3 +31,4 @@ secrets/
 # internal/commands/generated_*.go
 
 .claude/
+completions/

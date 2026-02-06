@@ -6,11 +6,11 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
-    - mkdir -p dist/completions
-    - sh -c "go run ./cmd/jamfpro-cli completion bash > dist/completions/jamfpro-cli.bash"
-    - sh -c "go run ./cmd/jamfpro-cli completion zsh > dist/completions/_jamfpro-cli"
-    - sh -c "go run ./cmd/jamfpro-cli completion fish > dist/completions/jamfpro-cli.fish"
-    - sh -c "go run ./cmd/jamfpro-cli completion powershell > dist/completions/jamfpro-cli.ps1"
+    - mkdir -p completions
+    - sh -c "go run ./cmd/jamfpro-cli completion bash > completions/jamfpro-cli.bash"
+    - sh -c "go run ./cmd/jamfpro-cli completion zsh > completions/_jamfpro-cli"
+    - sh -c "go run ./cmd/jamfpro-cli completion fish > completions/jamfpro-cli.fish"
+    - sh -c "go run ./cmd/jamfpro-cli completion powershell > completions/jamfpro-cli.ps1"
 
 builds:
   - id: jamfpro-cli
@@ -43,7 +43,7 @@ archives:
     files:
       - README.md
       - LICENSE*
-      - dist/completions/*
+      - completions/*
 
 checksum:
   name_template: "checksums.txt"
@@ -75,9 +75,9 @@ brews:
       system "#{bin}/jamfpro-cli", "version"
     install: |
       bin.install "jamfpro-cli"
-      bash_completion.install "dist/completions/jamfpro-cli.bash" => "jamfpro-cli"
-      zsh_completion.install "dist/completions/_jamfpro-cli"
-      fish_completion.install "dist/completions/jamfpro-cli.fish"
+      bash_completion.install "completions/jamfpro-cli.bash" => "jamfpro-cli"
+      zsh_completion.install "completions/_jamfpro-cli"
+      fish_completion.install "completions/jamfpro-cli.fish"
 
 nfpms:
   - id: packages
