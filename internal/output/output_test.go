@@ -788,44 +788,6 @@ func TestPrintRaw_Table_FallbackToAllColumns(t *testing.T) {
 	}
 }
 
-func TestIsImportantColumn(t *testing.T) {
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		// Identifiers
-		{"serialNumber", true},
-		{"SerialNumber", true},
-		{"SERIALNUMBER", true},
-		// Computer fields
-		{"lastContactDate", true},
-		{"lastReportDate", true},
-		{"operatingSystemVersion", true},
-		{"jamfBinaryVersion", true},
-		{"JamfBinaryVersion", true},
-		// Mobile device fields
-		{"lastInventoryUpdateTimestamp", true},
-		{"osVersion", true},
-		{"type", true},
-		{"model", true},
-		// Generic
-		{"version", true},
-		// Should NOT match
-		{"name", false},
-		{"id", false},
-		{"description", false},
-		{"serial", false}, // must be exact match
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := isImportantColumn(tc.name)
-			if result != tc.expect {
-				t.Errorf("isImportantColumn(%q) = %v, want %v", tc.name, result, tc.expect)
-			}
-		})
-	}
-}
-
 func TestDefaultColumns_WithImportantColumns(t *testing.T) {
 	allKeys := []string{"id", "name", "serialNumber", "lastContactDate", "udid", "extra", "status"}
 	result := defaultColumns(allKeys)
@@ -1079,7 +1041,8 @@ func TestIsDateColumn(t *testing.T) {
 	}
 }
 
-func TestFormatDateValue(t *testing.T) {
+func TestFormatDateValue_Absolute(t *testing.T) {
+	// Test absolute formatting (wide mode always uses absolute)
 	tests := []struct {
 		input    string
 		expected string
@@ -1101,11 +1064,62 @@ func TestFormatDateValue(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
-			result, _ := formatDateValue(tc.input)
+			result, _ := formatDateValue(tc.input, true)
 			if result != tc.expected {
-				t.Errorf("formatDateValue(%q) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("formatDateValue(%q, wide) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestFormatDateValue_RelativeTimestamps(t *testing.T) {
+	// Fix nowFunc for deterministic tests
+	fixedNow := time.Date(2026, 2, 5, 12, 0, 0, 0, time.UTC)
+	origNow := nowFunc
+	nowFunc = func() time.Time { return fixedNow }
+	defer func() { nowFunc = origNow }()
+
+	tests := []struct {
+		name     string
+		offset   time.Duration
+		expected string
+	}{
+		{"just now (30s)", 30 * time.Second, "just now"},
+		{"minutes ago", 15 * time.Minute, "15m ago"},
+		{"hours ago", 5 * time.Hour, "5h ago"},
+		{"days ago", 3 * 24 * time.Hour, "3d ago"},
+		{"weeks ago", 14 * 24 * time.Hour, "2w ago"},
+		{"old date (absolute)", 60 * 24 * time.Hour, "Dec 07, 2025 12:00 PM"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := fixedNow.Add(-tc.offset).Format(time.RFC3339)
+			result, _ := formatDateValue(ts, false)
+			if result != tc.expected {
+				t.Errorf("formatDateValue(%q, false) = %q, want %q", ts, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFormatDateValue_WideAlwaysAbsolute(t *testing.T) {
+	fixedNow := time.Date(2026, 2, 5, 12, 0, 0, 0, time.UTC)
+	origNow := nowFunc
+	nowFunc = func() time.Time { return fixedNow }
+	defer func() { nowFunc = origNow }()
+
+	// A recent time (5 minutes ago) should still show absolute in wide mode
+	ts := fixedNow.Add(-5 * time.Minute).Format(time.RFC3339)
+	result, isRecent := formatDateValue(ts, true)
+	if !isRecent {
+		t.Error("expected recent time to be flagged as recent")
+	}
+	// Should be absolute, not "5m ago"
+	if strings.Contains(result, "ago") || result == "just now" {
+		t.Errorf("wide mode should show absolute date, got %q", result)
+	}
+	if !strings.Contains(result, "2026") {
+		t.Errorf("expected absolute date with year, got %q", result)
 	}
 }
 
@@ -1115,23 +1129,23 @@ func TestFormatDateValue_RecentDetection(t *testing.T) {
 	recentTime := now.Add(-1 * time.Hour).Format(time.RFC3339)
 	oldTime := now.Add(-48 * time.Hour).Format(time.RFC3339)
 
-	_, isRecent := formatDateValue(recentTime)
+	_, isRecent := formatDateValue(recentTime, false)
 	if !isRecent {
 		t.Errorf("expected time from 1 hour ago to be recent")
 	}
 
-	_, isRecent = formatDateValue(oldTime)
+	_, isRecent = formatDateValue(oldTime, false)
 	if isRecent {
 		t.Errorf("expected time from 48 hours ago to not be recent")
 	}
 
 	// Empty and invalid should not be recent
-	_, isRecent = formatDateValue("")
+	_, isRecent = formatDateValue("", false)
 	if isRecent {
 		t.Errorf("expected empty string to not be recent")
 	}
 
-	_, isRecent = formatDateValue("not-a-date")
+	_, isRecent = formatDateValue("not-a-date", false)
 	if isRecent {
 		t.Errorf("expected invalid date to not be recent")
 	}

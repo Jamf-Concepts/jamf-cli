@@ -15,6 +15,7 @@ import (
 	"github.com/ktn-jamf/jamfpro-cli/internal/commands/generated"
 	"github.com/ktn-jamf/jamfpro-cli/internal/config"
 	"github.com/ktn-jamf/jamfpro-cli/internal/output"
+	"github.com/ktn-jamf/jamfpro-cli/internal/spinner"
 )
 
 // Global flags
@@ -27,6 +28,7 @@ var (
 	noColor      bool
 	dryRun       bool
 	wide         bool
+	outFile      string
 	serverURL    string
 	token        string
 	tokenFile    string
@@ -57,9 +59,22 @@ func (o *cliOutput) PrintResponse(resp *http.Response) error {
 	return o.Formatter.PrintRaw(body)
 }
 
+// spinnerClient wraps an HTTPClient to show a loading spinner during requests.
+type spinnerClient struct {
+	inner generated.HTTPClient
+}
+
+func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	s := spinner.New("Loading...")
+	s.Start()
+	defer s.Stop()
+	return c.inner.Do(ctx, method, path, body)
+}
+
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &generated.CLIContext{}
+	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
 		Use:   "jamfpro-cli",
@@ -203,9 +218,38 @@ device management, inventory/reporting, and configuration management.`,
 			}
 
 			// Create client and formatter now that auth is resolved
-			cliCtx.Client = &cliClient{client.New(serverURL, authProvider, client.WithVerbose(verbose))}
-			cliCtx.Output = &cliOutput{output.New(outputFmt, noColor, wide)}
+			var httpClient generated.HTTPClient = &cliClient{client.New(serverURL, authProvider, client.WithVerbose(verbose))}
 
+			// Wrap with spinner unless --quiet or --verbose suppresses it
+			if !quiet && !verbose {
+				httpClient = &spinnerClient{inner: httpClient}
+			}
+
+			cliCtx.Client = httpClient
+
+			// Redirect output to file if --out-file is set (disables color)
+			if outFile != "" {
+				f, err := os.Create(outFile)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				outFileHandle = f
+				noColor = true
+			}
+
+			formatter := output.New(outputFmt, noColor, wide)
+			if outFileHandle != nil {
+				formatter.SetWriter(outFileHandle)
+			}
+
+			cliCtx.Output = &cliOutput{formatter}
+
+			return nil
+		},
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			if outFileHandle != nil {
+				return outFileHandle.Close()
+			}
 			return nil
 		},
 	}
@@ -219,6 +263,7 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
+	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
@@ -247,6 +292,9 @@ device management, inventory/reporting, and configuration management.`,
 
 	// Register generated resource commands with CLIContext
 	generated.RegisterCommands(cmd, cliCtx)
+
+	// Apply short aliases (e.g., "comp" for "computers")
+	applyAliases(cmd)
 
 	return cmd
 }

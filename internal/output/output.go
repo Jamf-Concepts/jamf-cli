@@ -42,12 +42,20 @@ const (
 	FormatPlain Format = "plain"
 )
 
+// nowFunc is the function used to get the current time. Override in tests.
+var nowFunc = time.Now
+
 // Formatter handles output formatting
 type Formatter struct {
 	format  Format
 	writer  io.Writer
 	noColor bool
 	wide    bool
+}
+
+// SetWriter replaces the output destination.
+func (f *Formatter) SetWriter(w io.Writer) {
+	f.writer = w
 }
 
 // New creates a new formatter
@@ -165,7 +173,7 @@ func (f *Formatter) printTable(data interface{}) error {
 			val := formatValue(row[k])
 			// Apply date formatting for width calculation
 			if isDateColumn(k) {
-				val, _ = formatDateValue(val)
+				val, _ = formatDateValue(val, f.wide)
 			}
 			if len(val) > widths[i] {
 				widths[i] = len(val)
@@ -200,7 +208,7 @@ func (f *Formatter) printTable(data interface{}) error {
 
 			// Apply date formatting and colorization
 			if isDateColumn(k) {
-				formattedDate, isRecent := formatDateValue(val)
+				formattedDate, isRecent := formatDateValue(val, f.wide)
 				val = formattedDate
 				if isRecent {
 					displayVal = f.colorize(formattedDate, colorGreen)
@@ -369,37 +377,6 @@ func defaultColumns(allKeys []string) []string {
 	return result
 }
 
-// isImportantColumn returns true if the column is commonly useful in default output.
-// These columns are shown in addition to id, name, and status columns.
-func isImportantColumn(name string) bool {
-	lower := strings.ToLower(name)
-	// Common important columns for device/computer/mobile listings
-	important := []string{
-		// Identifiers
-		"serialnumber",
-		// Computers: last contact/inventory
-		"lastcontactdate",
-		"lastreportdate",
-		// Mobile devices: last inventory
-		"lastinventoryupdatetimestamp",
-		// OS version (computers use operatingSystemVersion, mobile uses osVersion)
-		"operatingsystemversion",
-		"osversion",
-		"version",
-		// Jamf agent version
-		"jamfbinaryversion",
-		// Mobile devices: type and model
-		"type",
-		"model",
-	}
-	for _, p := range important {
-		if lower == p {
-			return true
-		}
-	}
-	return false
-}
-
 // formatValue converts a value to its string representation for table/csv/plain output.
 func formatValue(v interface{}) string {
 	switch val := v.(type) {
@@ -480,14 +457,17 @@ func isDateColumn(name string) bool {
 	return false
 }
 
-// formatDateValue converts ISO 8601 dates to human-readable format
-// Returns the formatted string and whether it's recent (within 24 hours)
-func formatDateValue(value string) (string, bool) {
-	if value == "" {
-		return "", false
+// absoluteDate formats a time as a human-readable absolute date string.
+func absoluteDate(t time.Time) string {
+	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
+		return t.Format("Jan 02, 2006")
 	}
+	return t.Format("Jan 02, 2006 3:04 PM")
+}
 
-	// Try parsing common ISO 8601 formats
+// parseDate attempts to parse a string as a date using common ISO 8601 formats.
+// Returns the parsed time and true on success, or zero time and false on failure.
+func parseDate(value string) (time.Time, bool) {
 	formats := []string{
 		time.RFC3339Nano,
 		time.RFC3339,
@@ -495,29 +475,59 @@ func formatDateValue(value string) (string, bool) {
 		"2006-01-02T15:04:05Z",
 		"2006-01-02",
 	}
-
-	var t time.Time
-	var err error
 	for _, format := range formats {
-		t, err = time.Parse(format, value)
-		if err == nil {
-			break
+		if t, err := time.Parse(format, value); err == nil {
+			return t, true
 		}
 	}
+	return time.Time{}, false
+}
 
-	if err != nil {
-		// Not a parseable date, return as-is
+// relativeDate returns a short relative time string for recent dates.
+// For dates older than 30 days or in the future, it returns the absolute format.
+func relativeDate(t time.Time) string {
+	d := nowFunc().Sub(t)
+	if d < 0 {
+		return absoluteDate(t)
+	}
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%dw ago", int(d.Hours()/(24*7)))
+	default:
+		return absoluteDate(t)
+	}
+}
+
+// formatDateValue converts ISO 8601 dates to human-readable format.
+// In wide mode, always returns absolute dates. Otherwise returns relative
+// times for recent dates. The second return value indicates whether the
+// date is recent (within 24 hours).
+func formatDateValue(value string, wide bool) (string, bool) {
+	if value == "" {
+		return "", false
+	}
+
+	t, ok := parseDate(value)
+	if !ok {
 		return value, false
 	}
 
-	// Check if within past 24 hours
-	isRecent := time.Since(t) < 24*time.Hour && time.Since(t) >= 0
+	d := nowFunc().Sub(t)
+	isRecent := d >= 0 && d < 24*time.Hour
 
-	// Format as "Jan 02, 2006 3:04 PM" or just "Jan 02, 2006" if midnight
-	if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
-		return t.Format("Jan 02, 2006"), isRecent
+	if wide {
+		return absoluteDate(t), isRecent
 	}
-	return t.Format("Jan 02, 2006 3:04 PM"), isRecent
+
+	return relativeDate(t), isRecent
 }
 
 // formatStatusValue applies color and symbol to status-like values
