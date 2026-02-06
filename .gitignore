@@ -30,3 +30,4 @@ secrets/
 # Generated files (uncomment if you want to track generated code)
 # internal/commands/generated_*.go
 
+.claude/
