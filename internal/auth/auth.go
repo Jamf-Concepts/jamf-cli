@@ -31,7 +31,7 @@ func NewTokenProvider(token string) *TokenProvider {
 
 func (p *TokenProvider) GetToken(ctx context.Context) (string, error) {
 	if p.token == "" {
-		return "", fmt.Errorf("no token configured")
+		return "", fmt.Errorf("no token configured: provide one via --token, JAMF_TOKEN env var, or a config profile")
 	}
 	return p.token, nil
 }
@@ -60,8 +60,14 @@ func (p *BasicProvider) GetToken(ctx context.Context) (string, error) {
 	if p.token != "" {
 		return p.token, nil
 	}
-	// TODO: Implement token exchange via /api/v1/auth/token
-	return "", fmt.Errorf("basic auth token exchange not yet implemented")
+
+	token, err := BasicAuthExchange(ctx, p.baseURL, p.username, p.password)
+	if err != nil {
+		return "", fmt.Errorf("basic auth token exchange: %w", err)
+	}
+
+	p.token = token
+	return p.token, nil
 }
 
 func (p *BasicProvider) Name() string {
@@ -135,9 +141,12 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		return "", 0, fmt.Errorf("OAuth2 token exchange failed: invalid client credentials. Verify your client-id and client-secret are correct.")
+	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return "", 0, fmt.Errorf("token exchange failed (HTTP %d): %s", resp.StatusCode, string(body))
+		return "", 0, fmt.Errorf("OAuth2 token exchange failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp struct {
@@ -150,7 +159,7 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	}
 
 	if tokenResp.AccessToken == "" {
-		return "", 0, fmt.Errorf("token exchange returned empty access_token")
+		return "", 0, fmt.Errorf("OAuth2 token exchange returned empty access_token. Check that the API integration is enabled in Jamf Pro.")
 	}
 
 	if tokenResp.ExpiresIn <= 0 {
@@ -196,7 +205,7 @@ func BasicAuthExchange(ctx context.Context, baseURL, username, password string) 
 		return "", fmt.Errorf("parsing auth response: %w", err)
 	}
 	if result.Token == "" {
-		return "", fmt.Errorf("auth exchange returned empty token")
+		return "", fmt.Errorf("basic auth exchange returned empty token. Check that your account is not disabled or locked.")
 	}
 	return result.Token, nil
 }

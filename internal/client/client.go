@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
+	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -57,7 +58,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	token, err := c.auth.GetToken(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting auth token: %w", err)
+		return nil, exitcode.Wrap(exitcode.Authentication, fmt.Errorf("getting auth token: %w", err))
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -77,6 +78,24 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	if c.verbose {
 		fmt.Printf("<-- %d %s\n", resp.StatusCode, resp.Status)
+	}
+
+	// Map HTTP error status codes to structured exit codes
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusUnauthorized:
+			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamfpro-cli config validate", string(body)))
+		case http.StatusForbidden:
+			return nil, exitcode.New(exitcode.PermissionDenied, fmt.Sprintf("permission denied (HTTP 403): %s\nThe authenticated account lacks the required API privileges.", string(body)))
+		case http.StatusNotFound:
+			return nil, exitcode.New(exitcode.NotFound, fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path))
+		case http.StatusTooManyRequests:
+			return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited (HTTP 429): server is throttling requests. Wait a moment and try again."))
+		default:
+			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, string(body)))
+		}
 	}
 
 	return resp, nil
@@ -112,5 +131,8 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 		return resp, nil
 	}
 
-	return nil, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr)
+	if lastErr != nil {
+		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
+	}
+	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
 }

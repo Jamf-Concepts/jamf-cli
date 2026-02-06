@@ -22,6 +22,7 @@ type Profile struct {
 	AuthMethod   string `yaml:"auth-method"` // token, basic, oauth2
 	Token        string `yaml:"token,omitempty"`
 	Username     string `yaml:"username,omitempty"`
+	Password     string `yaml:"password,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
 }
@@ -107,7 +108,7 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 	}
 
 	if name == "" {
-		return nil, "", fmt.Errorf("no profile specified and no default profile configured")
+		return nil, "", fmt.Errorf("no profile specified and no default profile configured. Run: jamfpro-cli config add-profile <name> --url <url>")
 	}
 
 	p, ok := cfg.Profiles[name]
