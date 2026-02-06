@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,11 +10,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
 	"github.com/ktn-jamf/jamfpro-cli/internal/client"
 	"github.com/ktn-jamf/jamfpro-cli/internal/commands/generated"
 	"github.com/ktn-jamf/jamfpro-cli/internal/config"
+	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
 	"github.com/ktn-jamf/jamfpro-cli/internal/output"
 	"github.com/ktn-jamf/jamfpro-cli/internal/spinner"
 )
@@ -35,6 +38,8 @@ var (
 	tokenStdin   bool
 	clientID     string
 	clientSecret string
+	username     string
+	password     string
 )
 
 // cliClient wraps our client to implement generated.HTTPClient
@@ -86,12 +91,13 @@ device management, inventory/reporting, and configuration management.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Skip for completion, help, version, and config commands
+			// Skip for completion, help, version, config, and commands
 			skipCommands := map[string]bool{
 				"completion": true,
 				"help":       true,
 				"version":    true,
 				"config":     true,
+				"commands":   true,
 			}
 			// Check command and all parents
 			for c := cmd; c != nil; c = c.Parent() {
@@ -116,6 +122,14 @@ device management, inventory/reporting, and configuration management.`,
 			}
 			if clientSecret == "" {
 				clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
+			}
+
+			// Environment variable fallback for basic auth credentials
+			if username == "" {
+				username = os.Getenv("JAMF_USERNAME")
+			}
+			if password == "" {
+				password = os.Getenv("JAMF_PASSWORD")
 			}
 
 			// Config profile fallback: fill gaps from profile
@@ -151,7 +165,16 @@ device management, inventory/reporting, and configuration management.`,
 							clientSecret = resolved
 						}
 					case "basic":
-						return fmt.Errorf("basic authentication is not yet implemented")
+						if username == "" && p.Username != "" {
+							username = p.Username
+						}
+						if password == "" && p.Password != "" {
+							resolved, err := config.ResolveSecret(p.Password)
+							if err != nil {
+								return fmt.Errorf("resolving password from profile: %w", err)
+							}
+							password = resolved
+						}
 					default: // "token" or empty
 						// Fill in token from profile if not set by flag or env
 						if token == "" && p.Token != "" {
@@ -194,15 +217,15 @@ device management, inventory/reporting, and configuration management.`,
 
 			// Validate we have server URL and some form of auth
 			if serverURL == "" {
-				return fmt.Errorf("server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
+				return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
 			}
 
 			// Detect partial OAuth2 credentials
 			if (clientID != "") != (clientSecret != "") {
 				if clientID != "" {
-					return fmt.Errorf("--client-secret is required when --client-id is provided")
+					return exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
 				}
-				return fmt.Errorf("--client-id is required when --client-secret is provided")
+				return exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
 			}
 
 			// Determine auth provider
@@ -213,8 +236,11 @@ device management, inventory/reporting, and configuration management.`,
 			} else if token != "" {
 				// Static bearer token
 				authProvider = auth.NewTokenProvider(token)
+			} else if username != "" && password != "" {
+				// Basic auth token exchange
+				authProvider = auth.NewBasicProvider(serverURL, username, password)
 			} else {
-				return fmt.Errorf("authentication required: use --client-id/--client-secret, --token, --token-file, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+				return exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, --username/--password, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
 			}
 
 			// Create client and formatter now that auth is resolved
@@ -272,6 +298,8 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
 	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (or JAMF_CLIENT_ID env)")
 	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (or JAMF_CLIENT_SECRET env)")
+	cmd.PersistentFlags().StringVar(&username, "username", "", "basic auth username (or JAMF_USERNAME env)")
+	cmd.PersistentFlags().StringVar(&password, "password", "", "basic auth password (or JAMF_PASSWORD env)")
 
 	// Version command
 	cmd.AddCommand(&cobra.Command{
@@ -290,6 +318,9 @@ device management, inventory/reporting, and configuration management.`,
 	// Completion command
 	cmd.AddCommand(newCompletionCmd())
 
+	// Commands discovery subcommand
+	cmd.AddCommand(newCommandsCmd(cmd))
+
 	// Register generated resource commands with CLIContext
 	generated.RegisterCommands(cmd, cliCtx)
 
@@ -297,4 +328,126 @@ device management, inventory/reporting, and configuration management.`,
 	applyAliases(cmd)
 
 	return cmd
+}
+
+// commandEntry represents a single leaf command for structured output.
+type commandEntry struct {
+	Command     string   `json:"command"`
+	Description string   `json:"description"`
+	Aliases     []string `json:"aliases,omitempty"`
+	Flags       []string `json:"flags,omitempty"`
+}
+
+// newCommandsCmd creates the "commands" subcommand that outputs the full
+// command tree in a machine-readable format.
+func newCommandsCmd(root *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use:   "commands",
+		Short: "List all available commands",
+		Long:  `List all available commands in a structured format for discovery by scripts and AI agents.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entries := collectCommands(root, "")
+			formatter := output.New(outputFmt, noColor, wide)
+			// Structured formats always get full detail; table/plain
+			// show only command+description unless --wide is set.
+			full := wide || outputFmt == "json" || outputFmt == "yaml" || outputFmt == "csv"
+			return formatter.Print(commandEntriesToMaps(entries, full))
+		},
+	}
+}
+
+// collectCommands recursively walks the command tree and returns leaf commands.
+func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
+	var entries []commandEntry
+	for _, child := range cmd.Commands() {
+		if child.Hidden || child.Name() == "help" || child.Name() == "commands" {
+			continue
+		}
+
+		fullPath := child.Name()
+		if prefix != "" {
+			fullPath = prefix + " " + child.Name()
+		}
+
+		// Leaf command: has RunE or Run
+		if child.RunE != nil || child.Run != nil {
+			entry := commandEntry{
+				Command:     fullPath,
+				Description: child.Short,
+			}
+
+			// Collect aliases: for leaf commands under a top-level group
+			// (e.g., "computers list"), expose the group's aliases ("comp")
+			// so agents know "comp list" also works.
+			if len(child.Aliases) > 0 {
+				entry.Aliases = child.Aliases
+			} else if len(cmd.Aliases) > 0 {
+				entry.Aliases = cmd.Aliases
+			}
+
+			// Collect non-hidden local flags
+			var flags []string
+			child.LocalFlags().VisitAll(func(f *pflag.Flag) {
+				if !f.Hidden {
+					flags = append(flags, "--"+f.Name)
+				}
+			})
+			entry.Flags = flags
+
+			entries = append(entries, entry)
+		}
+
+		// Recurse into subcommands
+		if child.HasSubCommands() {
+			entries = append(entries, collectCommands(child, fullPath)...)
+		}
+	}
+	return entries
+}
+
+// commandEntriesToMaps converts command entries to the []map[string]interface{}
+// format expected by the output formatter. When full is true, aliases and flags
+// columns are included; otherwise only command and description are emitted
+// for a compact table.
+func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(entries))
+	for i, e := range entries {
+		m := map[string]interface{}{
+			"command":     e.Command,
+			"description": e.Description,
+		}
+		if full {
+			aliases := ""
+			if len(e.Aliases) > 0 {
+				aliases = strings.Join(e.Aliases, ", ")
+			}
+			flags := ""
+			if len(e.Flags) > 0 {
+				flags = strings.Join(e.Flags, ", ")
+			}
+			m["aliases"] = aliases
+			m["flags"] = flags
+		}
+		result[i] = m
+	}
+	return result
+}
+
+// FormatError writes a structured JSON error to stdout when the output format
+// is "json". Returns true if the error was handled, false otherwise (caller
+// should fall back to plain stderr).
+func FormatError(err error) bool {
+	if outputFmt != "json" {
+		return false
+	}
+	code := exitcode.CodeFrom(err)
+	envelope := map[string]interface{}{
+		"error":    exitcode.CodeName(code),
+		"message":  err.Error(),
+		"exitCode": code,
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(envelope)
+	return true
 }

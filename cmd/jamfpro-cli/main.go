@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/commands"
+	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
 )
 
 var (
@@ -16,7 +17,9 @@ var (
 func main() {
 	cmd := commands.NewRootCmd(version, commit, date)
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		if !commands.FormatError(err) {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		os.Exit(exitcode.CodeFrom(err))
 	}
 }
