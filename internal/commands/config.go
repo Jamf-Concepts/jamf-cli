@@ -1,16 +1,21 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/config"
+	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -21,6 +26,7 @@ func newConfigCmd() *cobra.Command {
 
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigPathCmd())
+	cmd.AddCommand(newConfigListCmd())
 	cmd.AddCommand(newConfigAddProfileCmd())
 	cmd.AddCommand(newConfigRemoveProfileCmd())
 	cmd.AddCommand(newConfigSetDefaultCmd())
@@ -63,6 +69,125 @@ func newConfigPathCmd() *cobra.Command {
 	}
 }
 
+// healthResult holds the outcome of a single health check.
+type healthResult struct {
+	Status  string
+	Healthy bool
+}
+
+// checkHealth probes the Jamf Pro /healthCheck.html endpoint.
+// Returns a status string and whether the instance is healthy.
+func checkHealth(baseURL string) healthResult {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(strings.TrimRight(baseURL, "/") + "/healthCheck.html")
+	if err != nil {
+		return healthResult{"offline", false}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return healthResult{fmt.Sprintf("HTTP %d", resp.StatusCode), false}
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	var checks []string
+	if err := json.Unmarshal(body, &checks); err != nil {
+		return healthResult{"unknown", false}
+	}
+	if len(checks) == 0 {
+		return healthResult{"ok", true}
+	}
+	return healthResult{checks[0], false}
+}
+
+func newConfigListCmd() *cobra.Command {
+	var status bool
+
+	cmd := &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all profiles",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			if len(cfg.Profiles) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+				return nil
+			}
+
+			// Determine active profile: flag > env > default
+			active := profile
+			if active == "" {
+				active = os.Getenv("JAMF_PROFILE")
+			}
+			if active == "" {
+				active = cfg.DefaultProfile
+			}
+
+			names := make([]string, 0, len(cfg.Profiles))
+			for name := range cfg.Profiles {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+
+			// Run health checks in parallel when --status is set
+			var results map[string]healthResult
+			if status {
+				results = make(map[string]healthResult, len(names))
+				var mu sync.Mutex
+				var wg sync.WaitGroup
+				for _, name := range names {
+					wg.Add(1)
+					go func(n string) {
+						defer wg.Done()
+						r := checkHealth(cfg.Profiles[n].URL)
+						mu.Lock()
+						results[n] = r
+						mu.Unlock()
+					}(name)
+				}
+				wg.Wait()
+			}
+
+			w := cmd.OutOrStdout()
+			for _, name := range names {
+				p := cfg.Profiles[name]
+				marker := " "
+				if name == active {
+					marker = "*"
+				}
+
+				if !status {
+					fmt.Fprintf(w, "  %s %-20s %-40s %s\n", marker, name, p.URL, p.AuthMethod)
+					continue
+				}
+
+				r := results[name]
+				var statusCol string
+				if noColor {
+					statusCol = r.Status
+				} else if r.Healthy {
+					statusCol = "\033[32m●\033[0m " + r.Status
+				} else if r.Status == "offline" || strings.HasPrefix(r.Status, "HTTP") {
+					statusCol = "\033[31m●\033[0m " + r.Status
+				} else {
+					statusCol = "\033[33m●\033[0m " + r.Status
+				}
+				fmt.Fprintf(w, "  %s %-20s %-40s %-8s %s\n", marker, name, p.URL, p.AuthMethod, statusCol)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&status, "status", "s", false, "check instance health via /healthCheck.html")
+
+	return cmd
+}
+
 func newConfigAddProfileCmd() *cobra.Command {
 	var (
 		profileURL       string
@@ -70,6 +195,8 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileTok       string
 		profileClientID  string
 		profileClientSec string
+		storeInKeychain  bool
+		touchID          bool
 	)
 
 	cmd := &cobra.Command{
@@ -99,11 +226,27 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			p := config.Profile{
-				URL:          profileURL,
-				AuthMethod:   authMethod,
-				Token:        profileTok,
-				ClientID:     profileClientID,
-				ClientSecret: profileClientSec,
+				URL:        profileURL,
+				AuthMethod: authMethod,
+				TouchID:    touchID,
+			}
+
+			// Store secrets in keychain or as literal values
+			if storeInKeychain {
+				store := keychain.New()
+				if err := storeSecretInKeychain(store, name, "token", profileTok, &p.Token); err != nil {
+					return err
+				}
+				if err := storeSecretInKeychain(store, name, "client-id", profileClientID, &p.ClientID); err != nil {
+					return err
+				}
+				if err := storeSecretInKeychain(store, name, "client-secret", profileClientSec, &p.ClientSecret); err != nil {
+					return err
+				}
+			} else {
+				p.Token = profileTok
+				p.ClientID = profileClientID
+				p.ClientSecret = profileClientSec
 			}
 
 			cfg.Profiles[name] = p
@@ -127,13 +270,29 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, basic, oauth2")
-	cmd.Flags().StringVar(&profileTok, "token", "", "API token (literal, env:VAR, or file:/path)")
+	cmd.Flags().StringVar(&profileTok, "token", "", "API token (literal, env:VAR, file:/path, or keychain:ref)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (literal, env:VAR, or file:/path)")
+	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (literal, env:VAR, file:/path, or keychain:ref)")
+	cmd.Flags().BoolVar(&storeInKeychain, "store-in-keychain", false, "store secret values in the system keychain")
+	cmd.Flags().BoolVar(&touchID, "touch-id", false, "require Touch ID for keychain access (Phase 2, stored but not yet enforced)")
 
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
+}
+
+// storeSecretInKeychain stores a non-empty secret value in the keychain and
+// writes the keychain reference into dest. If value is empty, dest is left unchanged.
+func storeSecretInKeychain(store keychain.Store, profile, field, value string, dest *string) error {
+	if value == "" {
+		return nil
+	}
+	account := profile + "/" + field
+	if err := store.Set(keychain.DefaultService, account, value); err != nil {
+		return fmt.Errorf("storing %s in keychain: %w", field, err)
+	}
+	*dest = keychain.KeychainRef(profile, field)
+	return nil
 }
 
 func newConfigRemoveProfileCmd() *cobra.Command {
@@ -149,9 +308,13 @@ func newConfigRemoveProfileCmd() *cobra.Command {
 				return err
 			}
 
-			if _, ok := cfg.Profiles[name]; !ok {
+			p, ok := cfg.Profiles[name]
+			if !ok {
 				return fmt.Errorf("profile %q not found", name)
 			}
+
+			// Clean up any keychain items referenced by this profile
+			cleanupKeychainRefs(cmd, p)
 
 			delete(cfg.Profiles, name)
 
@@ -167,6 +330,31 @@ func newConfigRemoveProfileCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Profile %q removed.\n", name)
 			return nil
 		},
+	}
+}
+
+// cleanupKeychainRefs scans a profile's secret fields for keychain: prefixes
+// and deletes the corresponding keychain items. Failures are warned but not fatal.
+func cleanupKeychainRefs(cmd *cobra.Command, p config.Profile) {
+	fields := map[string]string{
+		"token":         p.Token,
+		"password":      p.Password,
+		"client-id":     p.ClientID,
+		"client-secret": p.ClientSecret,
+	}
+
+	store := keychain.New()
+	for field, value := range fields {
+		after, ok := strings.CutPrefix(value, "keychain:")
+		if !ok {
+			continue
+		}
+		service, account := keychain.ParseRef(after)
+		if err := store.Delete(service, account); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to remove keychain item %s/%s (%s): %v\n", service, account, field, err)
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed keychain item: %s/%s\n", service, account)
+		}
 	}
 }
 
@@ -329,6 +517,11 @@ func newConfigValidateCmd() *cobra.Command {
 					} else {
 						pass("username set")
 					}
+				}
+
+				// Touch ID info
+				if p.TouchID {
+					fmt.Fprintf(w, "  ℹ touch-id is set; will be enforced in a future version\n")
 				}
 
 				// Optional connectivity check

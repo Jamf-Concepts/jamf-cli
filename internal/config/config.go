@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
 )
 
 // Config represents the CLI configuration
@@ -25,6 +27,7 @@ type Profile struct {
 	Password     string `yaml:"password,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
+	TouchID      bool   `yaml:"touch-id,omitempty"` // Phase 2: require Touch ID for keychain access
 }
 
 // ConfigPath returns the path to the config file, preferring XDG
@@ -119,10 +122,22 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 	return &p, name, nil
 }
 
+// KeychainStore allows overriding the keychain implementation for testing.
+// When nil, the real system keychain is used.
+var KeychainStore keychain.Store
+
+func getKeychainStore() keychain.Store {
+	if KeychainStore != nil {
+		return KeychainStore
+	}
+	return keychain.New()
+}
+
 // ResolveSecret resolves a secret value that may contain special prefixes:
-//   - "env:VAR_NAME"   — reads the value from environment variable VAR_NAME
-//   - "file:/path"     — reads the value from the file at /path
-//   - anything else    — returned as-is (literal value)
+//   - "env:VAR_NAME"        — reads the value from environment variable VAR_NAME
+//   - "file:/path"          — reads the value from the file at /path
+//   - "keychain:ref"        — reads the value from the system keychain
+//   - anything else         — returned as-is (literal value)
 func ResolveSecret(value string) (string, error) {
 	if after, ok := strings.CutPrefix(value, "env:"); ok {
 		envVal := os.Getenv(after)
@@ -138,6 +153,16 @@ func ResolveSecret(value string) (string, error) {
 			return "", fmt.Errorf("reading secret file %s: %w", after, err)
 		}
 		return strings.TrimSpace(string(data)), nil
+	}
+
+	if after, ok := strings.CutPrefix(value, "keychain:"); ok {
+		store := getKeychainStore()
+		service, account := keychain.ParseRef(after)
+		secret, err := store.Get(service, account)
+		if err != nil {
+			return "", fmt.Errorf("reading keychain item %s/%s: %w", service, account, err)
+		}
+		return secret, nil
 	}
 
 	return value, nil

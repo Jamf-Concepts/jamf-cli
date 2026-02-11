@@ -134,6 +134,11 @@ device management, inventory/reporting, and configuration management.`,
 				}
 			}
 
+			// Environment variable fallback for profile
+			if profile == "" {
+				profile = os.Getenv("JAMF_PROFILE")
+			}
+
 			// Environment variable fallback for server URL
 			if serverURL == "" {
 				serverURL = os.Getenv("JAMF_URL")
@@ -314,7 +319,7 @@ device management, inventory/reporting, and configuration management.`,
 	}
 
 	// Global flags
-	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use")
+	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show debug info")

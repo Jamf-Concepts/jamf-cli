@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ktn-jamf/jamfpro-cli/internal/config"
+	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
 )
 
 // runValidateCmd executes "config validate" with a temp config file and returns
@@ -211,5 +214,106 @@ profiles:
 	}
 	if !strings.Contains(out, "token resolvable") {
 		t.Errorf("expected 'token resolvable' in output:\n%s", out)
+	}
+}
+
+// mockKeychainStore implements keychain.Store for testing.
+type mockKeychainStore struct {
+	items map[string]string
+}
+
+func newMockKeychainStore() *mockKeychainStore {
+	return &mockKeychainStore{items: make(map[string]string)}
+}
+
+func (m *mockKeychainStore) Get(service, account string) (string, error) {
+	key := service + "/" + account
+	if v, ok := m.items[key]; ok {
+		return v, nil
+	}
+	return "", keychain.ErrNotFound
+}
+
+func (m *mockKeychainStore) Set(service, account, secret string) error {
+	key := service + "/" + account
+	m.items[key] = secret
+	return nil
+}
+
+func (m *mockKeychainStore) Delete(service, account string) error {
+	key := service + "/" + account
+	delete(m.items, key)
+	return nil
+}
+
+func TestConfigValidate_KeychainSecret(t *testing.T) {
+	mock := newMockKeychainStore()
+	mock.items["jamfpro-cli/prod/client-secret"] = "resolved-secret"
+	mock.items["jamfpro-cli/prod/client-id"] = "resolved-id"
+
+	old := config.KeychainStore
+	config.KeychainStore = mock
+	defer func() { config.KeychainStore = old }()
+
+	yaml := `
+profiles:
+  prod:
+    url: https://jamf.example.com
+    auth-method: oauth2
+    client-id: "keychain:jamfpro-cli/prod/client-id"
+    client-secret: "keychain:jamfpro-cli/prod/client-secret"
+`
+	out, err := runValidateCmd(t, yaml)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
+	}
+	if !strings.Contains(out, "client-id resolvable") {
+		t.Errorf("expected 'client-id resolvable' in output:\n%s", out)
+	}
+	if !strings.Contains(out, "client-secret resolvable") {
+		t.Errorf("expected 'client-secret resolvable' in output:\n%s", out)
+	}
+}
+
+func TestConfigValidate_KeychainSecret_NotFound(t *testing.T) {
+	mock := newMockKeychainStore()
+
+	old := config.KeychainStore
+	config.KeychainStore = mock
+	defer func() { config.KeychainStore = old }()
+
+	yaml := `
+profiles:
+  prod:
+    url: https://jamf.example.com
+    auth-method: oauth2
+    client-id: "keychain:jamfpro-cli/prod/client-id"
+    client-secret: "keychain:jamfpro-cli/prod/client-secret"
+`
+	out, err := runValidateCmd(t, yaml)
+	if err == nil {
+		t.Fatal("expected error for missing keychain items")
+	}
+	if !strings.Contains(out, "not resolvable") {
+		t.Errorf("expected 'not resolvable' in output:\n%s", out)
+	}
+}
+
+func TestConfigValidate_TouchIDInfo(t *testing.T) {
+	yaml := `
+profiles:
+  prod:
+    url: https://jamf.example.com
+    auth-method: oauth2
+    client-id: my-client
+    client-secret: my-secret
+    touch-id: true
+`
+	out, err := runValidateCmd(t, yaml)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
+	}
+	if !strings.Contains(out, "touch-id is set") {
+		t.Errorf("expected touch-id info in output:\n%s", out)
 	}
 }

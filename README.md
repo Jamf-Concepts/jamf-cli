@@ -1,10 +1,12 @@
-# 🍎 jamfpro-cli
+# jamfpro-cli
 
 CLI tool for Jamf Pro Server API automation.
 
+**[Documentation Wiki](https://github.com/jamf/jamfpro-cli/wiki)** — full guides, configuration reference, and workflow recipes.
+
 ![jamfpro-cli demo](docs/demo.gif)
 
-## 📦 Installation
+## Installation
 
 ### Homebrew (macOS/Linux)
 
@@ -24,48 +26,34 @@ Download from [GitHub Releases](https://github.com/ktn-jamf/jamfpro-cli/releases
 go install github.com/ktn-jamf/jamfpro-cli/cmd/jamfpro-cli@latest
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # One-time setup: create OAuth2 credentials from an admin account
 jamfpro-cli config setup --url https://jamf.company.com
 
-# Or configure manually with an existing token
+# Or configure manually with existing credentials
 jamfpro-cli config add-profile prod \
   --url https://jamf.company.com \
   --auth-method oauth2 \
   --client-id abc123 \
   --client-secret "env:JAMF_CLIENT_SECRET"
 
-# Verify your config is valid
+# Verify your config
 jamfpro-cli config validate
 
-# List computers as a table
+# List computers
 jamfpro-cli comp list -o table
 
-RESULTS (3 total)
-
- ID   NAME              ISMANAGED   SERIALNUMBER   LASTCONTACTDATE
-──────────────────────────────────────────────────────────────────
- 36   MacBook Pro 16    ● true      C02X1234       3h ago
- 42   iMac Office       ● true      C02Y5678       2d ago
- 99   Mac mini Server   ● true      C02Z9012       1w ago
-
-# Get details for a single mobile device
-jamfpro-cli md get 42
-
-# Export a full inventory report
+# Export inventory
 jamfpro-cli comp list -o csv --out-file inventory.csv
 ```
 
-## ⚙️ Configuration
+See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
 
-Config file location (XDG-compliant):
+## Configuration
 
-- `~/.config/jamfpro-cli/config.yaml` (preferred)
-- `~/.jamfpro-cli/config.yaml` (fallback)
-
-### Example config
+Config file: `~/.config/jamfpro-cli/config.yaml`
 
 ```yaml
 default-profile: prod
@@ -77,142 +65,13 @@ profiles:
     auth-method: oauth2
     client-id: abc123
     client-secret: env:JAMF_PROD_SECRET
-
-  staging:
-    url: https://jamf-staging.company.com
-    auth-method: token
-    token: env:JAMF_STAGING_TOKEN
-
-  dev:
-    url: https://jamf-dev.company.com
-    auth-method: basic
-    username: admin
-    password: env:JAMF_DEV_PASSWORD
 ```
 
-Three auth methods are supported: `oauth2` (client credentials), `token` (static bearer token), and `basic` (username/password exchanged for a bearer token via `/api/v1/auth/token`).
+Three auth methods: `oauth2` (client credentials), `token` (static bearer), `basic` (username/password exchange). Four secret formats: literal, `env:VAR`, `file:/path`, `keychain:service/account`.
 
-### 🔐 Secrets
+See the wiki for full details: [Configuration & Profiles](https://github.com/jamf/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/jamf/jamfpro-cli/wiki/Secrets-&-Keychain)
 
-Secret values support three formats:
-
-- **Literal:** `my-secret-value`
-- **Environment variable:** `env:JAMF_CLIENT_SECRET`
-- **File:** `file:/run/secrets/jamf-token`
-
-### ✅ Validate
-
-Check your config file for errors before running commands:
-
-```bash
-$ jamfpro-cli config validate
-Config file: /Users/admin/.config/jamfpro-cli/config.yaml
-  ✓ File exists
-  ✓ Valid YAML
-  ✓ Default output format: table
-  ✓ Default profile: prod
-
-Profile "prod":
-  ✓ URL: https://jamf.company.com
-  ✓ Auth method: oauth2
-  ✓ client-id resolvable
-  ✓ client-secret resolvable
-
-✓ All checks passed.
-
-# Also test server reachability
-$ jamfpro-cli config validate --connectivity
-```
-
-## 🚩 Global Flags
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--profile` | `-p` | Config profile to use |
-| `--output` | `-o` | Output format: table, json, csv, yaml, plain |
-| `--wide` | `-w` | Show all columns in table output |
-| `--out-file` | | Write output to file instead of stdout |
-| `--quiet` | `-q` | Suppress non-error output |
-| `--verbose` | `-v` | Show debug info |
-| `--no-input` | | Never prompt; fail if input required |
-| `--no-color` | | Disable colored output |
-| `--dry-run` | `-n` | Preview changes without executing |
-
-### Connection Flags
-
-| Flag | Description |
-|------|-------------|
-| `--url` | Jamf Pro server URL (or `JAMF_URL` env) |
-| `--token` | API bearer token (or `JAMF_TOKEN` env) |
-| `--token-file` | Path to file containing API token |
-| `--token-stdin` | Read API token from stdin |
-| `--client-id` | OAuth2 client ID (or `JAMF_CLIENT_ID` env) |
-| `--client-secret` | OAuth2 client secret (or `JAMF_CLIENT_SECRET` env) |
-| `--username` | Basic auth username (or `JAMF_USERNAME` env) |
-| `--password` | Basic auth password (or `JAMF_PASSWORD` env) |
-
-## 📋 Output Formats
-
-### Table
-
-The default for interactive use. Smart column selection, status indicators, and relative timestamps:
-
-```text
-$ jamfpro-cli comp list -o table
-RESULTS (4 total)
-
- ID   NAME              ISMANAGED   SERIALNUMBER   LASTCONTACTDATE
-──────────────────────────────────────────────────────────────────
- 36   MacBook Pro 16    ● true      C02X1234       just now
- 42   iMac Office       ● true      C02Y5678       5h ago
- 71   MacBook Air       ○ false     C02Z9012       3d ago
- 99   Mac mini Server   ● true      C02W3456       Sep 15, 2025 2:30 PM
-```
-
-- **Relative timestamps** for dates within 30 days (`just now`, `5m ago`, `3h ago`, `2d ago`, `1w ago`)
-- **Absolute dates** for older dates and in `--wide` mode
-- **Status indicators:** `● active` (green) `○ inactive` (dim) `◐ pending` (yellow) `● error` (red)
-- **Smart columns:** shows id, name, status, and key fields by default; `--wide` shows everything
-
-### JSON
-
-For scripting and piping to `jq`:
-
-```bash
-# Get all computer names
-jamfpro-cli comp list -o json | jq '.[].name'
-
-# Find computers with old OS versions
-jamfpro-cli comp list -o json | jq '.[] | select(.operatingSystemVersion < "15")'
-```
-
-### CSV
-
-For spreadsheets and data analysis:
-
-```bash
-# Export to file
-jamfpro-cli comp list -o csv --out-file fleet-report.csv
-
-# Pipe to other tools
-jamfpro-cli comp list -o csv | column -t -s,
-```
-
-### Plain
-
-Tab-separated, no headers. Built for Unix pipelines:
-
-```bash
-# Get just the IDs
-jamfpro-cli comp list -o plain | cut -f1
-
-# Count managed devices
-jamfpro-cli comp list -o plain | awk -F'\t' '$5=="true"' | wc -l
-```
-
-## ⌨️ Command Aliases
-
-Common commands have short aliases:
+## Command Aliases
 
 | Command | Alias |
 |---------|-------|
@@ -224,254 +83,37 @@ Common commands have short aliases:
 | `departments` | `dept` |
 | `config` | `cfg` |
 
-```bash
-jamfpro-cli comp list          # same as: jamfpro-cli computers list
-jamfpro-cli md list -o table   # same as: jamfpro-cli mobile-devices list -o table
-jamfpro-cli scr list           # same as: jamfpro-cli scripts list
-```
+Full command catalog: [Command Reference](https://github.com/jamf/jamfpro-cli/wiki/Command-Reference) · [Output Formats](https://github.com/jamf/jamfpro-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/jamf/jamfpro-cli/wiki/Common-Workflows)
 
-## 💡 Common Workflows
-
-### Daily fleet check
-
-```bash
-# Quick overview of your fleet
-jamfpro-cli comp list -o table
-
-# Devices that haven't checked in recently (pipe JSON through jq)
-jamfpro-cli comp list -o json \
-  | jq '[.[] | select(.lastContactDate < "2025-01-01")] | length'
-```
-
-### Inventory export
-
-```bash
-# Full inventory to CSV
-jamfpro-cli comp list -o csv --out-file computers.csv
-jamfpro-cli md list -o csv --out-file mobile-devices.csv
-
-# Specific fields via jq
-jamfpro-cli comp list -o json \
-  | jq -r '.[] | [.id, .name, .serialNumber] | @csv' > serials.csv
-```
-
-### Multi-environment management
-
-```bash
-# Compare device counts across environments
-echo "Prod:" && jamfpro-cli comp list -p prod -o json | jq length
-echo "Staging:" && jamfpro-cli comp list -p staging -o json | jq length
-```
-
-### Dry-run preview
-
-Use `--dry-run` (`-n`) to see what a mutating command would do without executing it. Read operations (list, get) run normally; writes (create, update, delete) are intercepted.
-
-```bash
-$ echo '{"name":"Test Category","priority":1}' | jamfpro-cli cat create --dry-run
-[dry-run] POST /v1/categories
-[dry-run] Request body:
-{"name":"Test Category","priority":1}
-{}
-```
-
-The `[dry-run]` lines go to stderr; `{}` is the synthetic response on stdout.
-
-### Scripting with plain output
-
-```bash
-# Delete all scripts by ID
-jamfpro-cli scr list -o json | jq -r '.[].id' | while read id; do
-  jamfpro-cli scr delete "$id"
-done
-
-# Check if a serial number exists
-jamfpro-cli comp list -o json | jq -e '.[] | select(.serialNumber=="C02X1234")' > /dev/null \
-  && echo "Found" || echo "Not found"
-```
-
-## 📚 Available Commands
-
-### 💻 Device Management
-
-| Command | Description |
-|---------|-------------|
-| `computers` | Manage computers |
-| `mobile-devices` | Manage mobile devices |
-| `computer-groups` | Manage computer groups |
-| `computer-smart-groups` | Manage computer smart groups |
-| `mobile-device-groups` | Manage mobile device groups |
-| `mobile-device-smart-groups` | Manage mobile device smart groups |
-
-### 📲 Enrollment & Prestage
-
-| Command | Description |
-|---------|-------------|
-| `computer-prestages-v-3s` | Manage computer prestages |
-| `computer-prestage-scope-v-2s` | Manage computer prestage scopes |
-| `mobile-device-prestages-v-3s` | Manage mobile device prestages |
-| `mobile-device-prestage-scope-v-2s` | Manage mobile device prestage scopes |
-| `device-enrollment-instances` | Manage device enrollment instances |
-| `enrollment-settings` | Manage enrollment settings |
-| `enrollment-customization-panels` | Manage enrollment customization panels |
-| `reenrollments` | Manage reenrollments |
-
-### 📊 Inventory & Reporting
-
-| Command | Description |
-|---------|-------------|
-| `mobile-device-inventory-details` | Manage mobile device inventory details |
-| `inventory-preloads` | Manage inventory preloads |
-| `inventory-preload-v-2s` | Manage inventory preloads (v2) |
-| `inventory-informations` | Manage inventory information |
-
-### 🔧 Configuration
-
-| Command | Description |
-|---------|-------------|
-| `scripts` | Manage scripts |
-| `categories` | Manage categories |
-| `departments` | Manage departments |
-| `buildings` | Manage buildings |
-| `sites` | Manage sites |
-| `ebooks` | Manage ebooks |
-| `mobile-device-apps` | Manage mobile device apps |
-| `mobile-device-extension-attributes` | Manage mobile device extension attributes |
-
-### 🔒 MDM & Security
-
-| Command | Description |
-|---------|-------------|
-| `mdm-renewals` | Manage MDM renewals |
-| `renew-mdm-profiles` | Manage MDM profile renewals |
-| `remove-computer-mdm-profiles` | Remove computer MDM profiles |
-| `remove-mobile-device-mdm-profiles` | Remove mobile device MDM profiles |
-| `erase-device-computers` | Erase computers |
-| `erase-device-mobiles` | Erase mobile devices |
-| `local-admin-password-v-2s` | Manage local admin passwords (LAPS) |
-| `certificate-authorities` | Manage certificate authorities |
-
-### 👥 Users & Groups
-
-| Command | Description |
-|---------|-------------|
-| `users` | Manage users |
-| `user-smart-groups` | Manage user smart groups |
-| `static-user-groups` | Manage static user groups |
-| `user-preferences` | Manage user preferences |
-| `ldap-rs` | Manage LDAP servers |
-
-### 🖥️ Server Administration
-
-| Command | Description |
-|---------|-------------|
-| `jamf-pro-versions` | Get Jamf Pro version info |
-| `jamf-pro-informations` | Get Jamf Pro server info |
-| `jamf-pro-server-urls` | Manage server URLs |
-| `servers` | Manage servers |
-| `systems` | Manage system settings |
-| `caches` | Manage caches |
-| `database-connections` | Manage database connections |
-| `activation-codes` | Manage activation codes |
-
-### 🛍️ Self Service
-
-| Command | Description |
-|---------|-------------|
-| `self-service-settings` | Manage Self Service settings |
-| `self-service-brandings` | Manage Self Service branding |
-| `notifications` | Manage notifications |
-
-### 🔹 Other
-
-| Command | Description |
-|---------|-------------|
-| `commands` | List all available commands (structured output for scripts/AI agents) |
-| `config` | Manage CLI configuration and profiles |
-| `config setup` | Bootstrap OAuth2 credentials from admin account |
-| `config validate` | Validate config file and profile settings |
-| `completion` | Generate shell completion scripts |
-| `version` | Print version information |
-
-Use `jamfpro-cli [command] --help` for detailed usage of any command.
-
-### 🤖 Command Discovery
-
-The `commands` subcommand outputs the full command catalog in any format. No auth required.
-
-```bash
-# Machine-readable catalog for scripts and AI agents
-jamfpro-cli commands -o json
-
-# Human-readable table
-jamfpro-cli commands -o table
-
-# Include aliases and flags columns
-jamfpro-cli commands -o table --wide
-```
-
-```json
-[
-  {
-    "aliases": "comp",
-    "command": "computers list",
-    "description": "Return a list of Computers",
-    "flags": "--all, --limit, --page, --page-size, --sort"
-  }
-]
-```
-
-## 🚦 Exit Codes
+## Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
 | 1 | General error |
-| 2 | Invalid usage (bad flags) |
+| 2 | Invalid usage |
 | 3 | Authentication error |
 | 4 | Not found |
 | 5 | Permission denied |
 | 6 | Rate limited |
 
-### Structured JSON errors
+See [Error Handling & Exit Codes](https://github.com/jamf/jamfpro-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
 
-When `-o json` is active, errors are emitted as JSON on stdout instead of plain text on stderr. This keeps `jq` pipelines and AI agent integrations working even on failure.
-
-```json
-{
-  "error": "authentication",
-  "message": "authentication failed (HTTP 401): ...",
-  "exitCode": 3
-}
-```
-
-The `error` field maps to: `general`, `usage`, `authentication`, `not_found`, `permission_denied`, `rate_limited`. Non-JSON output formats retain the default behavior (plain text on stderr).
-
-## 🐚 Shell Completion
+## Shell Completion
 
 ```bash
-# Bash
-jamfpro-cli completion bash > /etc/bash_completion.d/jamfpro-cli
-
-# Zsh
-jamfpro-cli completion zsh > "${fpath[1]}/_jamfpro-cli"
-
-# Fish
-jamfpro-cli completion fish > ~/.config/fish/completions/jamfpro-cli.fish
+jamfpro-cli completion install
 ```
 
-## 🛠️ Development
+Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide#shell-completion) for manual installation.
+
+## Development
 
 ```bash
-# Build
-make build
-
-# Test
-make test
-
-# Lint
-make lint
-
-# Generate commands from OpenAPI specs
-make generate
+make build       # Build binary
+make test        # Run tests
+make lint        # Lint code
+make generate    # Generate commands from OpenAPI specs
 ```
+
+See [Architecture & Development](https://github.com/jamf/jamfpro-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
