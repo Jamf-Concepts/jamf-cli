@@ -17,6 +17,7 @@ import (
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
 	"github.com/ktn-jamf/jamfpro-cli/internal/config"
+	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
 )
 
 // setupClient wraps a bearer token for making authenticated API calls during setup.
@@ -197,11 +198,12 @@ func normalizeURL(url string) string {
 
 func newConfigSetupCmd() *cobra.Command {
 	var (
-		setupURL     string
-		setupUser    string
-		setupPass    string
-		setupScope   string
-		setupProfile string
+		setupURL        string
+		setupUser       string
+		setupPass       string
+		setupScope      string
+		setupProfile    string
+		storeInKeychain bool
 	)
 
 	cmd := &cobra.Command{
@@ -343,6 +345,27 @@ config profile. The username and password are not stored.`,
 				}
 			}
 
+			// Step 7b: Offer keychain storage
+			useKeychain := storeInKeychain
+			if !useKeychain && !noInput {
+				fmt.Fprint(cmd.OutOrStdout(), "Store client secret in system keychain? [Y/n]: ")
+				line, _ := reader.ReadString('\n')
+				answer := strings.TrimSpace(strings.ToLower(line))
+				useKeychain = answer == "" || answer == "y" || answer == "yes"
+			}
+
+			profileClientSecret := clientSecret
+			if useKeychain {
+				store := keychain.New()
+				account := setupProfile + "/client-secret"
+				if err := store.Set(keychain.DefaultService, account, clientSecret); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store secret in keychain: %v\n", err)
+					fmt.Fprintln(cmd.ErrOrStderr(), "Falling back to storing secret in config file.")
+				} else {
+					profileClientSecret = keychain.KeychainRef(setupProfile, "client-secret")
+				}
+			}
+
 			cfg, err := config.Load()
 			if err != nil {
 				return err
@@ -352,7 +375,7 @@ config profile. The username and password are not stored.`,
 				URL:          setupURL,
 				AuthMethod:   "oauth2",
 				ClientID:     clientID,
-				ClientSecret: clientSecret,
+				ClientSecret: profileClientSecret,
 			}
 			cfg.DefaultProfile = setupProfile
 
@@ -362,11 +385,16 @@ config profile. The username and password are not stored.`,
 
 			fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Profile %q saved and set as default.\n", setupProfile)
 			fmt.Fprintf(cmd.OutOrStdout(), "  Client ID:     %s\n", clientID)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Client secret stored in %s\n", config.ConfigPath())
-			fmt.Fprintln(cmd.OutOrStdout())
-			fmt.Fprintln(cmd.OutOrStdout(), "  Note: For production use, consider moving the secret to an")
-			fmt.Fprintln(cmd.OutOrStdout(), "  environment variable and updating the profile with:")
-			fmt.Fprintf(cmd.OutOrStdout(), "    jamfpro-cli config add-profile %s --url %s --auth-method oauth2 --client-id %s --client-secret \"env:JAMF_CLIENT_SECRET\"\n", setupProfile, setupURL, clientID)
+			if strings.HasPrefix(profileClientSecret, "keychain:") {
+				fmt.Fprintln(cmd.OutOrStdout(), "  Client secret stored in system keychain")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Client secret stored in %s\n", config.ConfigPath())
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintln(cmd.OutOrStdout(), "  Note: For production use, consider moving the secret to the")
+				fmt.Fprintln(cmd.OutOrStdout(), "  system keychain or an environment variable:")
+				fmt.Fprintf(cmd.OutOrStdout(), "    jamfpro-cli config add-profile %s --url %s --auth-method oauth2 --client-id %s --client-secret \"env:JAMF_CLIENT_SECRET\"\n", setupProfile, setupURL, clientID)
+				fmt.Fprintln(cmd.OutOrStdout(), "  Or re-run setup and choose keychain storage when prompted.")
+			}
 
 			return nil
 		},
@@ -377,6 +405,7 @@ config profile. The username and password are not stored.`,
 	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (prompted if omitted)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\")")
+	cmd.Flags().BoolVar(&storeInKeychain, "store-in-keychain", false, "store client secret in the system keychain")
 
 	return cmd
 }
