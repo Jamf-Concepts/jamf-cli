@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,6 +26,7 @@ func newConfigCmd() *cobra.Command {
 
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigPathCmd())
+	cmd.AddCommand(newConfigListCmd())
 	cmd.AddCommand(newConfigAddProfileCmd())
 	cmd.AddCommand(newConfigRemoveProfileCmd())
 	cmd.AddCommand(newConfigSetDefaultCmd())
@@ -63,6 +67,125 @@ func newConfigPathCmd() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), config.ConfigPath())
 		},
 	}
+}
+
+// healthResult holds the outcome of a single health check.
+type healthResult struct {
+	Status  string
+	Healthy bool
+}
+
+// checkHealth probes the Jamf Pro /healthCheck.html endpoint.
+// Returns a status string and whether the instance is healthy.
+func checkHealth(baseURL string) healthResult {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(strings.TrimRight(baseURL, "/") + "/healthCheck.html")
+	if err != nil {
+		return healthResult{"offline", false}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return healthResult{fmt.Sprintf("HTTP %d", resp.StatusCode), false}
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	var checks []string
+	if err := json.Unmarshal(body, &checks); err != nil {
+		return healthResult{"unknown", false}
+	}
+	if len(checks) == 0 {
+		return healthResult{"ok", true}
+	}
+	return healthResult{checks[0], false}
+}
+
+func newConfigListCmd() *cobra.Command {
+	var status bool
+
+	cmd := &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all profiles",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			if len(cfg.Profiles) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+				return nil
+			}
+
+			// Determine active profile: flag > env > default
+			active := profile
+			if active == "" {
+				active = os.Getenv("JAMF_PROFILE")
+			}
+			if active == "" {
+				active = cfg.DefaultProfile
+			}
+
+			names := make([]string, 0, len(cfg.Profiles))
+			for name := range cfg.Profiles {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+
+			// Run health checks in parallel when --status is set
+			var results map[string]healthResult
+			if status {
+				results = make(map[string]healthResult, len(names))
+				var mu sync.Mutex
+				var wg sync.WaitGroup
+				for _, name := range names {
+					wg.Add(1)
+					go func(n string) {
+						defer wg.Done()
+						r := checkHealth(cfg.Profiles[n].URL)
+						mu.Lock()
+						results[n] = r
+						mu.Unlock()
+					}(name)
+				}
+				wg.Wait()
+			}
+
+			w := cmd.OutOrStdout()
+			for _, name := range names {
+				p := cfg.Profiles[name]
+				marker := " "
+				if name == active {
+					marker = "*"
+				}
+
+				if !status {
+					fmt.Fprintf(w, "  %s %-20s %-40s %s\n", marker, name, p.URL, p.AuthMethod)
+					continue
+				}
+
+				r := results[name]
+				var statusCol string
+				if noColor {
+					statusCol = r.Status
+				} else if r.Healthy {
+					statusCol = "\033[32m●\033[0m " + r.Status
+				} else if r.Status == "offline" || strings.HasPrefix(r.Status, "HTTP") {
+					statusCol = "\033[31m●\033[0m " + r.Status
+				} else {
+					statusCol = "\033[33m●\033[0m " + r.Status
+				}
+				fmt.Fprintf(w, "  %s %-20s %-40s %-8s %s\n", marker, name, p.URL, p.AuthMethod, statusCol)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&status, "status", "s", false, "check instance health via /healthCheck.html")
+
+	return cmd
 }
 
 func newConfigAddProfileCmd() *cobra.Command {
