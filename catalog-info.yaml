@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: jamfpro-cli
+  description: Jamf Pro CLI
+  tags:
+  - api
+  - ai
+spec:
+  type: research
+  lifecycle: production
+  owner: jamf-pro
+  system: jamf-pro-server
