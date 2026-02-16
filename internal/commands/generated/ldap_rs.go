@@ -27,13 +27,13 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieve all LDAP Servers.",
-		Long:  "Retrieves all not migrated, LDAP Servers.",
+		Short: "Retrieve all Servers including LDAP and Cloud Identity Providers.",
+		Long:  "Retrieve all Servers including LDAP and Cloud Identity Providers.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/ldap/ldap-servers"
+			path := "/ldap/servers"
 
 			// Build query string
 			var queryParts []string

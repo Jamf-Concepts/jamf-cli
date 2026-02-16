@@ -68,14 +68,14 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the latest sync state for a single Device Enrollment Instance",
-		Long:  "Get the latest sync state for a single instance",
+		Short: "Get all instance sync states for a single Device Enrollment Instance",
+		Long:  "Get all instance sync states for a single instance",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/device-enrollments/{id}/syncs/latest"
+			path := "/v1/device-enrollments/{id}/syncs"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

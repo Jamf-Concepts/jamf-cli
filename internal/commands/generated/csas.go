@@ -31,13 +31,13 @@ func newCsasListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get details regarding the CSA token exchange",
-		Long:  "Get details regarding the CSA token exchange",
+		Short: "Returns the CSA tenant ID.",
+		Long:  "Returns the CSA tenant ID.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/csa/token"
+			path := "/v1/csa/tenant-id"
 
 			// Build query string
 			var queryParts []string
