@@ -848,12 +848,19 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		return overviewItem{resource, value, ""}
 	}
 
-	// Build notifications section: only include alert_detail if non-empty
+	// Build notifications section: list each alert type on its own line
 	notifItems := []overviewItem{
 		getItem("Active Alerts", "alerts"),
 	}
 	if detail := get("alert_detail"); detail != "" && detail != "N/A" {
-		notifItems = append(notifItems, item("Alert Types", detail))
+		types := strings.Split(detail, ", ")
+		for i, t := range types {
+			label := ""
+			if i == 0 {
+				label = "Alert Types"
+			}
+			notifItems = append(notifItems, overviewItem{label, t, "red"})
+		}
 	}
 
 	// Color failed commands red if count > 0
@@ -865,12 +872,14 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	sections := []overviewSection{
 		{
 			Name: "Instance Info",
-			Items: []overviewItem{
+			Items: append([]overviewItem{
 				item("Server URL", serverURL),
 				item("Jamf Pro Version", get("version")),
 				item("Health Status", get("health")),
 				item("SLASA Status", get("slasa")),
-			},
+				item("CSA Scopes", get("csa_scopes")),
+				{}, // blank separator
+			}, notifItems...),
 		},
 		{
 			Name: "Inventory Summary",
@@ -880,10 +889,6 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 				item("Managed Devices", get("managed_devices")),
 				item("Unmanaged Devices", get("unmanaged_devices")),
 			},
-		},
-		{
-			Name:  "Notifications",
-			Items: notifItems,
 		},
 		{
 			Name: "Jamf Pro Features",
@@ -897,27 +902,19 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			},
 		},
 		{
-			Name: "Cloud Services (CSA)",
-			Items: []overviewItem{
-				item("Scopes", get("csa_scopes")),
-			},
-		},
-		{
-			Name: "Enrollment Settings",
+			Name: "Enrollment",
 			Items: []overviewItem{
 				item("macOS Enterprise Enrollment", get("enroll_macos_enterprise")),
 				item("iOS Enterprise Enrollment", get("enroll_ios_enterprise")),
 				item("iOS Personal Enrollment", get("enroll_ios_personal")),
 				item("Account-Driven User Enrollment", get("enroll_adue")),
 				item("Account-Driven Device (macOS)", get("enroll_adde_macos")),
-			},
-		},
-		{
-			Name: "Self Service",
-			Items: []overviewItem{
-				item("Install Automatically", get("ss_install_auto")),
-				item("Login Required", get("ss_login_required")),
-				item("Notifications", get("ss_notifications")),
+				{}, // blank separator
+				item("DEP Instances", get("dep_instances")),
+				getItem("DEP Token Expires", "dep_token_expires"),
+				item("DEP Sync Status", get("dep_sync_status")),
+				item("Computer Prestages", get("computer_prestages")),
+				item("Mobile Device Prestages", get("md_prestages")),
 			},
 		},
 		{
@@ -930,49 +927,30 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			},
 		},
 		{
-			Name: "LAPS",
+			Name: "Security & MDM",
 			Items: []overviewItem{
-				item("Auto Deploy", get("laps_auto_deploy")),
-				item("Auto Rotate", get("laps_auto_rotate")),
-			},
-		},
-		{
-			Name: "MDM Profile Renewal",
-			Items: []overviewItem{
-				item("Auto Renew (Computers)", get("mdm_renew_computer")),
-				item("Auto Renew (Mobile)", get("mdm_renew_mobile")),
+				item("LAPS Auto Deploy", get("laps_auto_deploy")),
+				item("LAPS Auto Rotate", get("laps_auto_rotate")),
+				item("MDM Auto Renew (Computers)", get("mdm_renew_computer")),
+				item("MDM Auto Renew (Mobile)", get("mdm_renew_mobile")),
 				item("Computer Cert Expiry Limit", get("mdm_cert_computer_days")),
 				item("Mobile Cert Expiry Limit", get("mdm_cert_mobile_days")),
-			},
-		},
-		{
-			Name: "MDM Commands",
-			Items: []overviewItem{
-				item("Pending Computer", get("pending_computer_cmds")),
-				item("Pending Mobile Device", get("pending_mobile_cmds")),
+				getItem("Built-in CA Expires", "ca_expires"),
+				item("Pending Computer Commands", get("pending_computer_cmds")),
+				item("Pending Mobile Commands", get("pending_mobile_cmds")),
 				failedCmdsItem,
 			},
 		},
 		{
-			Name: "Certificate Authority",
-			Items: []overviewItem{
-				getItem("Built-in CA Expires", "ca_expires"),
-			},
-		},
-		{
-			Name: "Organizational Structure",
+			Name: "Organization",
 			Items: []overviewItem{
 				item("Sites", get("sites")),
 				item("Buildings", get("buildings")),
 				item("Departments", get("departments")),
 				item("Categories", get("categories")),
-			},
-		},
-		{
-			Name: "Device Groups",
-			Items: []overviewItem{
 				item("Computer Groups", get("computer_groups")),
 				item("Mobile Device Smart Groups", get("md_smart_groups")),
+				item("Static User Groups", get("static_user_groups")),
 			},
 		},
 		{
@@ -985,40 +963,35 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 				item("Scripts", get("scripts")),
 				item("eBooks", get("ebooks")),
 				item("JCDS Files", get("jcds_files")),
-			},
-		},
-		{
-			Name: "Patch Management",
-			Items: []overviewItem{
-				item("Patch Titles Tracked", get("patch_titles")),
-			},
-		},
-		{
-			Name: "Enrollment",
-			Items: []overviewItem{
-				item("DEP Instances", get("dep_instances")),
-				getItem("DEP Token Expires", "dep_token_expires"),
-				item("DEP Sync Status", get("dep_sync_status")),
-				item("Computer Prestages", get("computer_prestages")),
-				item("Mobile Device Prestages", get("md_prestages")),
-			},
-		},
-		{
-			Name: "Integrations",
-			Items: []overviewItem{
+				item("Patch Titles", get("patch_titles")),
 				item("LDAP/IdP Servers", get("ldap_servers")),
 				item("Webhooks", get("webhooks")),
 			},
 		},
 		{
-			Name: "Users & Access",
+			Name: "Self Service",
 			Items: []overviewItem{
-				item("Static User Groups", get("static_user_groups")),
+				item("Install Automatically", get("ss_install_auto")),
+				item("Login Required", get("ss_login_required")),
+				item("Notifications", get("ss_notifications")),
 			},
 		},
 	}
 
 	return sections, nil
+}
+
+// isNumericValue returns true if the string looks like a count (digits and commas only).
+func isNumericValue(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c != ',' && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // printOverviewTable renders a grouped overview table with ANSI colors.
@@ -1036,40 +1009,66 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 	red := "\033[31m"
 	dim := "\033[2m"
 
-	fmt.Fprintln(w, colorize("INSTANCE OVERVIEW", bold))
-	fmt.Fprintln(w, strings.Repeat("─", 50))
+	const labelWidth = 30
+	const totalWidth = 62
 
-	for i, section := range sections {
-		if i > 0 {
-			fmt.Fprintln(w)
-		}
-		fmt.Fprintln(w, colorize(section.Name, bold))
+	// Title
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, colorize("  INSTANCE OVERVIEW", bold))
+	fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))
+
+	for _, section := range sections {
+		// Section header with dim separator
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "  %s\n", colorize(section.Name, bold))
+		fmt.Fprintln(w, colorize("  "+strings.Repeat("─", totalWidth), dim))
 
 		for _, item := range section.Items {
+			// Empty item = blank separator line within a section
+			if item.Resource == "" && item.Value == "" {
+				fmt.Fprintln(w)
+				continue
+			}
+
 			displayValue := item.Value
+			visibleLen := len(item.Value)
 
 			switch {
 			case item.ColorHint == "red":
 				displayValue = colorize("● "+item.Value, red)
+				visibleLen += 2
 			case item.ColorHint == "yellow":
 				displayValue = colorize("● "+item.Value, yellow)
+				visibleLen += 2
 			case item.Value == "ok" || item.Value == "ACCEPTED" || item.Value == "None":
 				displayValue = colorize("● "+item.Value, green)
+				visibleLen += 2
 			case item.Value == "enabled":
 				displayValue = colorize("● "+item.Value, green)
+				visibleLen += 2
 			case strings.HasPrefix(item.Value, "SUCCESSFUL"):
 				displayValue = colorize("● "+item.Value, green)
+				visibleLen += 2
 			case item.Value == "disabled":
 				displayValue = colorize("○ "+item.Value, dim)
+				visibleLen += 2
 			case item.Value == "offline" || strings.HasPrefix(item.Value, "HTTP"):
 				displayValue = colorize("● "+item.Value, red)
+				visibleLen += 2
 			case item.Value == "N/A" || item.Value == "Not configured" || item.Value == "None configured":
 				displayValue = colorize(item.Value, dim)
 			}
 
-			fmt.Fprintf(w, "  %-28s %s\n", item.Resource, displayValue)
+			// Right-align values that fit; left-align long values (e.g. alert types)
+			padding := totalWidth - labelWidth - visibleLen
+			if padding >= 1 {
+				fmt.Fprintf(w, "  %-*s%*s%s\n", labelWidth, item.Resource, padding, "", displayValue)
+			} else {
+				fmt.Fprintf(w, "  %-*s %s\n", labelWidth, item.Resource, displayValue)
+			}
 		}
 	}
+	fmt.Fprintln(w)
 }
 
 // overviewToRows flattens sections into []map[string]interface{} for structured output.
