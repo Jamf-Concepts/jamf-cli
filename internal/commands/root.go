@@ -173,8 +173,11 @@ device management, inventory/reporting, and configuration management.`,
 
 			// Only attempt profile resolution if config has profiles
 			if len(cfg.Profiles) > 0 {
-				p, _, err := config.GetProfile(cfg, profile)
+				p, profileName, err := config.GetProfile(cfg, profile)
 				if err == nil {
+					// Warn about plaintext secrets in profile
+					warnPlaintextSecrets(cmd, profileName, p)
+
 					// Fill in server URL from profile if not set by flag or env
 					if serverURL == "" {
 						serverURL = p.URL
@@ -247,6 +250,9 @@ device management, inventory/reporting, and configuration management.`,
 				}
 				token = strings.TrimSpace(string(data))
 			}
+
+			// Warn about secrets passed via CLI flags (visible in process listings)
+			warnFlagSecrets(cmd)
 
 			// Validate we have server URL and some form of auth
 			if serverURL == "" {
@@ -478,6 +484,45 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]interf
 		result[i] = m
 	}
 	return result
+}
+
+// warnFlagSecrets emits a stderr warning when secret values are passed directly
+// via CLI flags, since they are visible in process listings (ps aux).
+func warnFlagSecrets(cmd *cobra.Command) {
+	var flagNames []string
+	for _, name := range []string{"token", "client-secret", "password"} {
+		if cmd.Flags().Changed(name) {
+			flagNames = append(flagNames, "--"+name)
+		}
+	}
+	if len(flagNames) == 0 {
+		return
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"Warning: %s visible in process listings. Use a config profile, env var, or --token-stdin instead.\n",
+		strings.Join(flagNames, ", "))
+}
+
+// warnPlaintextSecrets emits a stderr warning if the profile contains secret
+// values stored as plaintext literals instead of secure references.
+func warnPlaintextSecrets(cmd *cobra.Command, profileName string, p *config.Profile) {
+	var fields []string
+	if p.Token != "" && !config.IsSecretRef(p.Token) {
+		fields = append(fields, "token")
+	}
+	if p.Password != "" && !config.IsSecretRef(p.Password) {
+		fields = append(fields, "password")
+	}
+	if p.ClientSecret != "" && !config.IsSecretRef(p.ClientSecret) {
+		fields = append(fields, "client-secret")
+	}
+	if len(fields) == 0 {
+		return
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"Warning: profile %q has plaintext secrets (%s). Consider migrating to keychain:\n"+
+			"  jamfpro-cli config add-profile %s --url %s --auth-method %s [...] (without --no-keychain)\n",
+		profileName, strings.Join(fields, ", "), profileName, p.URL, p.AuthMethod)
 }
 
 // FormatError writes a structured JSON error to stdout when the output format

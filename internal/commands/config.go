@@ -48,7 +48,17 @@ func newConfigShowCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "# Config file: %s\n", config.ConfigPath())
 
-			data, err := yaml.Marshal(cfg)
+			// Mask plaintext secrets before display
+			masked := &config.Config{
+				DefaultProfile: cfg.DefaultProfile,
+				DefaultOutput:  cfg.DefaultOutput,
+				Profiles:       make(map[string]config.Profile, len(cfg.Profiles)),
+			}
+			for name, p := range cfg.Profiles {
+				masked.Profiles[name] = config.MaskedProfile(p)
+			}
+
+			data, err := yaml.Marshal(masked)
 			if err != nil {
 				return fmt.Errorf("marshalling config for display: %w", err)
 			}
@@ -195,7 +205,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileTok       string
 		profileClientID  string
 		profileClientSec string
-		storeInKeychain  bool
+		noKeychain       bool
 		touchID          bool
 	)
 
@@ -231,17 +241,33 @@ func newConfigAddProfileCmd() *cobra.Command {
 				TouchID:    touchID,
 			}
 
-			// Store secrets in keychain or as literal values
-			if storeInKeychain {
-				store := keychain.New()
+			// Store secrets in keychain (default) or as literal values
+			if !noKeychain {
+				store := config.GetKeychainStore()
+				keychainOK := true
 				if err := storeSecretInKeychain(store, name, "token", profileTok, &p.Token); err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store token in keychain: %v\n", err)
+					keychainOK = false
 				}
 				if err := storeSecretInKeychain(store, name, "client-id", profileClientID, &p.ClientID); err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store client-id in keychain: %v\n", err)
+					keychainOK = false
 				}
 				if err := storeSecretInKeychain(store, name, "client-secret", profileClientSec, &p.ClientSecret); err != nil {
-					return err
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store client-secret in keychain: %v\n", err)
+					keychainOK = false
+				}
+				if !keychainOK {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Falling back to storing secrets in config file.")
+					if p.Token == "" && profileTok != "" {
+						p.Token = profileTok
+					}
+					if p.ClientID == "" && profileClientID != "" {
+						p.ClientID = profileClientID
+					}
+					if p.ClientSecret == "" && profileClientSec != "" {
+						p.ClientSecret = profileClientSec
+					}
 				}
 			} else {
 				p.Token = profileTok
@@ -273,7 +299,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 	cmd.Flags().StringVar(&profileTok, "token", "", "API token (literal, env:VAR, file:/path, or keychain:ref)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
 	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (literal, env:VAR, file:/path, or keychain:ref)")
-	cmd.Flags().BoolVar(&storeInKeychain, "store-in-keychain", false, "store secret values in the system keychain")
+	cmd.Flags().BoolVar(&noKeychain, "no-keychain", false, "store secrets as plaintext in config file instead of system keychain")
 	cmd.Flags().BoolVar(&touchID, "touch-id", false, "require Touch ID for keychain access (Phase 2, stored but not yet enforced)")
 
 	_ = cmd.MarkFlagRequired("url")

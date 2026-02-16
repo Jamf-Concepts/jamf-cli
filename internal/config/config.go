@@ -126,11 +126,39 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 // When nil, the real system keychain is used.
 var KeychainStore keychain.Store
 
-func getKeychainStore() keychain.Store {
+// GetKeychainStore returns the configured keychain store, falling back to the
+// real system keychain when no override has been set via KeychainStore.
+func GetKeychainStore() keychain.Store {
 	if KeychainStore != nil {
 		return KeychainStore
 	}
 	return keychain.New()
+}
+
+// IsSecretRef returns true if the value uses a recognized secret reference
+// prefix (env:, file:, keychain:) rather than being a plaintext literal.
+func IsSecretRef(value string) bool {
+	return strings.HasPrefix(value, "env:") ||
+		strings.HasPrefix(value, "file:") ||
+		strings.HasPrefix(value, "keychain:")
+}
+
+// MaskedProfile returns a copy of the profile with plaintext secret values
+// replaced by "***". Secret references (env:, file:, keychain:) are preserved
+// since they don't contain the actual secret.
+func MaskedProfile(p Profile) Profile {
+	m := p
+	m.Token = maskIfLiteral(p.Token)
+	m.Password = maskIfLiteral(p.Password)
+	m.ClientSecret = maskIfLiteral(p.ClientSecret)
+	return m
+}
+
+func maskIfLiteral(value string) string {
+	if value == "" || IsSecretRef(value) {
+		return value
+	}
+	return "***"
 }
 
 // ResolveSecret resolves a secret value that may contain special prefixes:
@@ -156,7 +184,7 @@ func ResolveSecret(value string) (string, error) {
 	}
 
 	if after, ok := strings.CutPrefix(value, "keychain:"); ok {
-		store := getKeychainStore()
+		store := GetKeychainStore()
 		service, account := keychain.ParseRef(after)
 		secret, err := store.Get(service, account)
 		if err != nil {

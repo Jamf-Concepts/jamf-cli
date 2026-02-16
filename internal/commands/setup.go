@@ -203,7 +203,7 @@ func newConfigSetupCmd() *cobra.Command {
 		setupPass       string
 		setupScope      string
 		setupProfile    string
-		storeInKeychain bool
+		noKeychain      bool
 	)
 
 	cmd := &cobra.Command{
@@ -345,18 +345,10 @@ config profile. The username and password are not stored.`,
 				}
 			}
 
-			// Step 7b: Offer keychain storage
-			useKeychain := storeInKeychain
-			if !useKeychain && !noInput {
-				fmt.Fprint(cmd.OutOrStdout(), "Store client secret in system keychain? [Y/n]: ")
-				line, _ := reader.ReadString('\n')
-				answer := strings.TrimSpace(strings.ToLower(line))
-				useKeychain = answer == "" || answer == "y" || answer == "yes"
-			}
-
+			// Step 7b: Store in keychain by default unless --no-keychain
 			profileClientSecret := clientSecret
-			if useKeychain {
-				store := keychain.New()
+			if !noKeychain {
+				store := config.GetKeychainStore()
 				account := setupProfile + "/client-secret"
 				if err := store.Set(keychain.DefaultService, account, clientSecret); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store secret in keychain: %v\n", err)
@@ -405,7 +397,7 @@ config profile. The username and password are not stored.`,
 	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (prompted if omitted)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\")")
-	cmd.Flags().BoolVar(&storeInKeychain, "store-in-keychain", false, "store client secret in the system keychain")
+	cmd.Flags().BoolVar(&noKeychain, "no-keychain", false, "store client secret as plaintext in config file instead of system keychain")
 
 	return cmd
 }
