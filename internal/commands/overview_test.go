@@ -659,3 +659,185 @@ func TestPrintOverviewTable_ExpirationColors(t *testing.T) {
 		t.Error("missing plain CA expiration date")
 	}
 }
+
+func TestFetchClassicCount(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/policies": {200, `{"policies":[{"id":1,"name":"P1"},{"id":2,"name":"P2"}]}`},
+		},
+	}
+
+	got, err := fetchClassicCount(context.Background(), client, "/JSSResource/policies", "policies")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "2" {
+		t.Errorf("got %q, want %q", got, "2")
+	}
+}
+
+func TestFetchClassicCount_Empty(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/webhooks": {200, `{"webhooks":[]}`},
+		},
+	}
+
+	got, err := fetchClassicCount(context.Background(), client, "/JSSResource/webhooks", "webhooks")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "0" {
+		t.Errorf("got %q, want %q", got, "0")
+	}
+}
+
+func TestFetchClassicCount_MissingKey(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/policies": {200, `{"other_key":[]}`},
+		},
+	}
+
+	got, err := fetchClassicCount(context.Background(), client, "/JSSResource/policies", "policies")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "0" {
+		t.Errorf("got %q, want %q", got, "0")
+	}
+}
+
+func TestFetchClassicCount_HTTPError(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/policies": {403, `{"httpStatus":403}`},
+		},
+	}
+
+	_, err := fetchClassicCount(context.Background(), client, "/JSSResource/policies", "policies")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestFetchClassicNestedSize(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/computercommands": {200, `{
+				"computer_commands": {
+					"computer_command": [{"uuid":"a","command":"DeviceInformation"}],
+					"size": 68
+				}
+			}`},
+		},
+	}
+
+	got, err := fetchClassicNestedSize(context.Background(), client, "/JSSResource/computercommands", "computer_commands")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "68" {
+		t.Errorf("got %q, want %q", got, "68")
+	}
+}
+
+func TestFetchClassicNestedSize_Empty(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/computercommands": {200, `{
+				"computer_commands": {
+					"computer_command": [],
+					"size": 0
+				}
+			}`},
+		},
+	}
+
+	got, err := fetchClassicNestedSize(context.Background(), client, "/JSSResource/computercommands", "computer_commands")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "0" {
+		t.Errorf("got %q, want %q", got, "0")
+	}
+}
+
+func TestFetchClassicNestedSize_MissingOuter(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/computercommands": {200, `{"other_key": {}}`},
+		},
+	}
+
+	got, err := fetchClassicNestedSize(context.Background(), client, "/JSSResource/computercommands", "computer_commands")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "0" {
+		t.Errorf("got %q, want %q", got, "0")
+	}
+}
+
+func TestPrintOverviewTable_NotificationsNone(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Notifications",
+			Items: []overviewItem{
+				{"Active Alerts", "None", ""},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printOverviewTable(&buf, sections, true)
+	output := buf.String()
+
+	// "None" should render green (same as "ok")
+	if !strings.Contains(output, "\033[32m") {
+		t.Error("missing green color code for 'None' alerts")
+	}
+}
+
+func TestPrintOverviewTable_NotificationsActive(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Notifications",
+			Items: []overviewItem{
+				{"Active Alerts", "4 active", "red"},
+				{"Alert Types", "PUSH_CERT_EXPIRED, EXCEEDED_LICENSE_COUNT", ""},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printOverviewTable(&buf, sections, true)
+	output := buf.String()
+
+	if !strings.Contains(output, "\033[31m") {
+		t.Error("missing red color code for active alerts")
+	}
+	if !strings.Contains(output, "PUSH_CERT_EXPIRED") {
+		t.Error("missing alert type detail")
+	}
+}
+
+func TestPrintOverviewTable_DEPSyncSuccessful(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Enrollment",
+			Items: []overviewItem{
+				{"DEP Sync Status", "SUCCESSFUL (Feb 16 02:31 UTC)", ""},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printOverviewTable(&buf, sections, true)
+	output := buf.String()
+
+	// SUCCESSFUL should render green
+	if !strings.Contains(output, "\033[32m") {
+		t.Error("missing green color code for SUCCESSFUL sync")
+	}
+}

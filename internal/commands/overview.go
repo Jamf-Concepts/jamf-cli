@@ -99,6 +99,58 @@ func fetchArrayCount(ctx context.Context, client generated.HTTPClient, path stri
 	return formatCount(float64(len(arr))), nil
 }
 
+// fetchClassicCount performs a GET on a Classic API list endpoint and returns the
+// count of items. Classic endpoints wrap arrays as {"key": [...]}, so the caller
+// provides the wrapper key (e.g. "policies", "packages").
+func fetchClassicCount(ctx context.Context, client generated.HTTPClient, path, wrapperKey string) (string, error) {
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var wrapper map[string]json.RawMessage
+	if err := json.Unmarshal(body, &wrapper); err != nil {
+		return "", err
+	}
+	inner, ok := wrapper[wrapperKey]
+	if !ok {
+		return "0", nil
+	}
+	var arr []json.RawMessage
+	if err := json.Unmarshal(inner, &arr); err != nil {
+		return "0", nil
+	}
+	return formatCount(float64(len(arr))), nil
+}
+
+// fetchClassicNestedSize performs a GET on a Classic API endpoint that returns
+// a nested structure like {"computer_commands": {"computer_command": [...], "size": N}}.
+// It extracts the "size" field from the inner object.
+func fetchClassicNestedSize(ctx context.Context, client generated.HTTPClient, path, outerKey string) (string, error) {
+	data, err := fetchJSON(ctx, client, path)
+	if err != nil {
+		return "", err
+	}
+	inner, ok := data[outerKey].(map[string]interface{})
+	if !ok {
+		return "0", nil
+	}
+	if size, ok := inner["size"]; ok {
+		return formatCount(size), nil
+	}
+	return "0", nil
+}
+
 // formatCount converts a numeric value to a comma-formatted string.
 func formatCount(v interface{}) string {
 	var n int64
@@ -597,6 +649,185 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		send("static_user_groups", v, err)
 	}()
 
+	// 11. Notifications/Alerts
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := client.Do(ctx, "GET", "/v1/notifications", nil)
+		if err != nil {
+			send("alerts", "", err)
+			send("alert_detail", "", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			send("alerts", "", fmt.Errorf("HTTP %d", resp.StatusCode))
+			return
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			send("alerts", "", err)
+			return
+		}
+
+		var alerts []map[string]interface{}
+		if err := json.Unmarshal(body, &alerts); err != nil {
+			send("alerts", "", err)
+			return
+		}
+
+		count := len(alerts)
+		if count == 0 {
+			send("alerts", "None", nil)
+			sendWithColor("alert_detail", "", "", nil)
+			return
+		}
+
+		sendWithColor("alerts", fmt.Sprintf("%d active", count), "red", nil)
+		var types []string
+		for _, a := range alerts {
+			if t, ok := a["type"].(string); ok {
+				types = append(types, t)
+			}
+		}
+		send("alert_detail", strings.Join(types, ", "), nil)
+	}()
+
+	// 12. Pending MDM Commands (Classic API)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/computercommands", "computer_commands")
+		send("pending_computer_cmds", v, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/mobiledevicecommands", "mobile_device_commands")
+		send("pending_mobile_cmds", v, err)
+	}()
+
+	// 12b. Failed MDM Commands (Modern API v2 with RSQL filter)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError")
+		send("failed_cmds", v, err)
+	}()
+
+	// 13. Configuration Management (Classic API)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/policies", "policies")
+		send("policies", v, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/osxconfigurationprofiles", "os_x_configuration_profiles")
+		send("macos_profiles", v, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/mobiledeviceconfigurationprofiles", "configuration_profiles")
+		send("ios_profiles", v, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/packages", "packages")
+		send("packages", v, err)
+	}()
+
+	// 14. Patch Management (Classic API)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/patchsoftwaretitles", "patch_software_titles")
+		send("patch_titles", v, err)
+	}()
+
+	// 15. Integrations
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchClassicCount(ctx, client, "/JSSResource/webhooks", "webhooks")
+		send("webhooks", v, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v, err := fetchArrayCount(ctx, client, "/ldap/servers")
+		send("ldap_servers", v, err)
+	}()
+
+	// 16. DEP Sync Status (latest sync for first enrollment instance)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// First get enrollment instances to find the first ID
+		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
+		if err != nil {
+			send("dep_sync_status", "", err)
+			return
+		}
+		results, _ := data["results"].([]interface{})
+		if len(results) == 0 {
+			send("dep_sync_status", "No DEP instances", nil)
+			return
+		}
+		// Get the first instance ID
+		first, ok := results[0].(map[string]interface{})
+		if !ok {
+			send("dep_sync_status", "N/A", nil)
+			return
+		}
+		instanceID := ""
+		if id, ok := first["id"].(string); ok {
+			instanceID = id
+		} else if id, ok := first["id"].(float64); ok {
+			instanceID = strconv.Itoa(int(id))
+		}
+		if instanceID == "" {
+			send("dep_sync_status", "N/A", nil)
+			return
+		}
+		// Fetch latest sync state
+		syncPath := fmt.Sprintf("/v1/device-enrollments/%s/syncs/latest", instanceID)
+		syncData, err := fetchJSON(ctx, client, syncPath)
+		if err != nil {
+			send("dep_sync_status", "", err)
+			return
+		}
+		state, _ := syncData["syncState"].(string)
+		ts, _ := syncData["timestamp"].(string)
+		if state == "" {
+			send("dep_sync_status", "N/A", nil)
+			return
+		}
+		// Parse timestamp for display
+		display := state
+		if ts != "" {
+			if t, err := time.Parse("2006-01-02T15:04:05.999", ts); err == nil {
+				display = fmt.Sprintf("%s (%s)", state, t.Format("Jan 02 15:04 UTC"))
+			}
+		}
+		if state == "SUCCESSFUL" {
+			send("dep_sync_status", display, nil)
+		} else {
+			sendWithColor("dep_sync_status", display, "yellow", nil)
+		}
+	}()
+
 	wg.Wait()
 
 	// Get results (with "N/A" fallback)
@@ -617,6 +848,20 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		return overviewItem{resource, value, ""}
 	}
 
+	// Build notifications section: only include alert_detail if non-empty
+	notifItems := []overviewItem{
+		getItem("Active Alerts", "alerts"),
+	}
+	if detail := get("alert_detail"); detail != "" && detail != "N/A" {
+		notifItems = append(notifItems, item("Alert Types", detail))
+	}
+
+	// Color failed commands red if count > 0
+	failedCmdsItem := overviewItem{"Failed Commands", get("failed_cmds"), ""}
+	if v := get("failed_cmds"); v != "0" && v != "N/A" {
+		failedCmdsItem.ColorHint = "red"
+	}
+
 	sections := []overviewSection{
 		{
 			Name: "Instance Info",
@@ -626,6 +871,19 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 				item("Health Status", get("health")),
 				item("SLASA Status", get("slasa")),
 			},
+		},
+		{
+			Name: "Inventory Summary",
+			Items: []overviewItem{
+				item("Managed Computers", get("managed_computers")),
+				item("Unmanaged Computers", get("unmanaged_computers")),
+				item("Managed Devices", get("managed_devices")),
+				item("Unmanaged Devices", get("unmanaged_devices")),
+			},
+		},
+		{
+			Name:  "Notifications",
+			Items: notifItems,
 		},
 		{
 			Name: "Jamf Pro Features",
@@ -688,18 +946,17 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			},
 		},
 		{
-			Name: "Certificate Authority",
+			Name: "MDM Commands",
 			Items: []overviewItem{
-				getItem("Built-in CA Expires", "ca_expires"),
+				item("Pending Computer", get("pending_computer_cmds")),
+				item("Pending Mobile Device", get("pending_mobile_cmds")),
+				failedCmdsItem,
 			},
 		},
 		{
-			Name: "Inventory Summary",
+			Name: "Certificate Authority",
 			Items: []overviewItem{
-				item("Managed Computers", get("managed_computers")),
-				item("Unmanaged Computers", get("unmanaged_computers")),
-				item("Managed Devices", get("managed_devices")),
-				item("Unmanaged Devices", get("unmanaged_devices")),
+				getItem("Built-in CA Expires", "ca_expires"),
 			},
 		},
 		{
@@ -721,9 +978,19 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		{
 			Name: "Configuration & Deployment",
 			Items: []overviewItem{
+				item("Policies", get("policies")),
+				item("macOS Config Profiles", get("macos_profiles")),
+				item("iOS Config Profiles", get("ios_profiles")),
+				item("Packages", get("packages")),
 				item("Scripts", get("scripts")),
 				item("eBooks", get("ebooks")),
 				item("JCDS Files", get("jcds_files")),
+			},
+		},
+		{
+			Name: "Patch Management",
+			Items: []overviewItem{
+				item("Patch Titles Tracked", get("patch_titles")),
 			},
 		},
 		{
@@ -731,8 +998,16 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			Items: []overviewItem{
 				item("DEP Instances", get("dep_instances")),
 				getItem("DEP Token Expires", "dep_token_expires"),
+				item("DEP Sync Status", get("dep_sync_status")),
 				item("Computer Prestages", get("computer_prestages")),
 				item("Mobile Device Prestages", get("md_prestages")),
+			},
+		},
+		{
+			Name: "Integrations",
+			Items: []overviewItem{
+				item("LDAP/IdP Servers", get("ldap_servers")),
+				item("Webhooks", get("webhooks")),
 			},
 		},
 		{
@@ -778,9 +1053,11 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 				displayValue = colorize("● "+item.Value, red)
 			case item.ColorHint == "yellow":
 				displayValue = colorize("● "+item.Value, yellow)
-			case item.Value == "ok" || item.Value == "ACCEPTED":
+			case item.Value == "ok" || item.Value == "ACCEPTED" || item.Value == "None":
 				displayValue = colorize("● "+item.Value, green)
 			case item.Value == "enabled":
+				displayValue = colorize("● "+item.Value, green)
+			case strings.HasPrefix(item.Value, "SUCCESSFUL"):
 				displayValue = colorize("● "+item.Value, green)
 			case item.Value == "disabled":
 				displayValue = colorize("○ "+item.Value, dim)
