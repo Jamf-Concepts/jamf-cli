@@ -48,6 +48,8 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 }
 
 func TestConfigValidate_ValidConfig(t *testing.T) {
+	t.Setenv("TEST_VALIDATE_CLIENT_ID", "my-client")
+	t.Setenv("TEST_VALIDATE_CLIENT_SECRET", "my-secret")
 	yaml := `
 default-profile: prod
 default-output: table
@@ -55,8 +57,8 @@ profiles:
   prod:
     url: https://jamf.example.com
     auth-method: oauth2
-    client-id: my-client
-    client-secret: my-secret
+    client-id: "env:TEST_VALIDATE_CLIENT_ID"
+    client-secret: "env:TEST_VALIDATE_CLIENT_SECRET"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err != nil {
@@ -115,13 +117,14 @@ profiles: {}
 }
 
 func TestConfigValidate_DefaultProfileMissing(t *testing.T) {
+	t.Setenv("TEST_VALIDATE_TOKEN_DPM", "abc123")
 	yaml := `
 default-profile: ghost
 profiles:
   prod:
     url: https://jamf.example.com
     auth-method: token
-    token: abc123
+    token: "env:TEST_VALIDATE_TOKEN_DPM"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
@@ -133,11 +136,12 @@ profiles:
 }
 
 func TestConfigValidate_MissingURL(t *testing.T) {
+	t.Setenv("TEST_VALIDATE_TOKEN_MU", "abc123")
 	yaml := `
 profiles:
   broken:
     auth-method: token
-    token: abc123
+    token: "env:TEST_VALIDATE_TOKEN_MU"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
@@ -201,12 +205,13 @@ profiles:
 }
 
 func TestConfigValidate_TokenProfile(t *testing.T) {
+	t.Setenv("TEST_VALIDATE_TOKEN", "my-token-value")
 	yaml := `
 profiles:
   good:
     url: https://jamf.example.com
     auth-method: token
-    token: my-literal-token
+    token: "env:TEST_VALIDATE_TOKEN"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err != nil {
@@ -214,6 +219,23 @@ profiles:
 	}
 	if !strings.Contains(out, "token resolvable") {
 		t.Errorf("expected 'token resolvable' in output:\n%s", out)
+	}
+}
+
+func TestConfigValidate_LiteralTokenRejected(t *testing.T) {
+	yaml := `
+profiles:
+  broken:
+    url: https://jamf.example.com
+    auth-method: token
+    token: my-literal-token
+`
+	out, err := runValidateCmd(t, yaml)
+	if err == nil {
+		t.Fatal("expected error for literal token")
+	}
+	if !strings.Contains(out, "not resolvable") {
+		t.Errorf("expected 'not resolvable' in output:\n%s", out)
 	}
 }
 
@@ -300,13 +322,15 @@ profiles:
 }
 
 func TestConfigValidate_TouchIDInfo(t *testing.T) {
+	t.Setenv("TEST_VALIDATE_TID_CLIENT_ID", "my-client")
+	t.Setenv("TEST_VALIDATE_TID_CLIENT_SECRET", "my-secret")
 	yaml := `
 profiles:
   prod:
     url: https://jamf.example.com
     auth-method: oauth2
-    client-id: my-client
-    client-secret: my-secret
+    client-id: "env:TEST_VALIDATE_TID_CLIENT_ID"
+    client-secret: "env:TEST_VALIDATE_TID_CLIENT_SECRET"
     touch-id: true
 `
 	out, err := runValidateCmd(t, yaml)

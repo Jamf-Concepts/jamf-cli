@@ -48,17 +48,7 @@ func newConfigShowCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "# Config file: %s\n", config.ConfigPath())
 
-			// Mask plaintext secrets before display
-			masked := &config.Config{
-				DefaultProfile: cfg.DefaultProfile,
-				DefaultOutput:  cfg.DefaultOutput,
-				Profiles:       make(map[string]config.Profile, len(cfg.Profiles)),
-			}
-			for name, p := range cfg.Profiles {
-				masked.Profiles[name] = config.MaskedProfile(p)
-			}
-
-			data, err := yaml.Marshal(masked)
+			data, err := yaml.Marshal(cfg)
 			if err != nil {
 				return fmt.Errorf("marshalling config for display: %w", err)
 			}
@@ -205,7 +195,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileTok       string
 		profileClientID  string
 		profileClientSec string
-		noKeychain       bool
 		touchID          bool
 	)
 
@@ -241,38 +230,17 @@ func newConfigAddProfileCmd() *cobra.Command {
 				TouchID:    touchID,
 			}
 
-			// Store secrets in keychain (default) or as literal values
-			if !noKeychain {
-				store := config.GetKeychainStore()
-				keychainOK := true
-				if err := storeSecretInKeychain(store, name, "token", profileTok, &p.Token); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store token in keychain: %v\n", err)
-					keychainOK = false
-				}
-				if err := storeSecretInKeychain(store, name, "client-id", profileClientID, &p.ClientID); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store client-id in keychain: %v\n", err)
-					keychainOK = false
-				}
-				if err := storeSecretInKeychain(store, name, "client-secret", profileClientSec, &p.ClientSecret); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store client-secret in keychain: %v\n", err)
-					keychainOK = false
-				}
-				if !keychainOK {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Falling back to storing secrets in config file.")
-					if p.Token == "" && profileTok != "" {
-						p.Token = profileTok
-					}
-					if p.ClientID == "" && profileClientID != "" {
-						p.ClientID = profileClientID
-					}
-					if p.ClientSecret == "" && profileClientSec != "" {
-						p.ClientSecret = profileClientSec
-					}
-				}
-			} else {
-				p.Token = profileTok
-				p.ClientID = profileClientID
-				p.ClientSecret = profileClientSec
+			// Store secrets: values with env: or file: prefix are written
+			// directly to config; bare values go to the system keychain.
+			store := config.GetKeychainStore()
+			if err := storeOrRefSecret(store, name, "token", profileTok, &p.Token); err != nil {
+				return err
+			}
+			if err := storeOrRefSecret(store, name, "client-id", profileClientID, &p.ClientID); err != nil {
+				return err
+			}
+			if err := storeOrRefSecret(store, name, "client-secret", profileClientSec, &p.ClientSecret); err != nil {
+				return err
 			}
 
 			cfg.Profiles[name] = p
@@ -296,10 +264,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, basic, oauth2")
-	cmd.Flags().StringVar(&profileTok, "token", "", "API token (literal, env:VAR, file:/path, or keychain:ref)")
+	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or stored in keychain)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (literal, env:VAR, file:/path, or keychain:ref)")
-	cmd.Flags().BoolVar(&noKeychain, "no-keychain", false, "store secrets as plaintext in config file instead of system keychain")
+	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or stored in keychain)")
 	cmd.Flags().BoolVar(&touchID, "touch-id", false, "require Touch ID for keychain access (Phase 2, stored but not yet enforced)")
 
 	_ = cmd.MarkFlagRequired("url")
@@ -307,15 +274,21 @@ func newConfigAddProfileCmd() *cobra.Command {
 	return cmd
 }
 
-// storeSecretInKeychain stores a non-empty secret value in the keychain and
-// writes the keychain reference into dest. If value is empty, dest is left unchanged.
-func storeSecretInKeychain(store keychain.Store, profile, field, value string, dest *string) error {
+// storeOrRefSecret writes a secret for the given field. If value has an env:
+// or file: prefix it is stored directly as a reference. Otherwise the bare
+// value is placed in the system keychain and a keychain: reference is written.
+// Empty values are skipped.
+func storeOrRefSecret(store keychain.Store, profile, field, value string, dest *string) error {
 	if value == "" {
+		return nil
+	}
+	if strings.HasPrefix(value, "env:") || strings.HasPrefix(value, "file:") {
+		*dest = value
 		return nil
 	}
 	account := profile + "/" + field
 	if err := store.Set(keychain.DefaultService, account, value); err != nil {
-		return fmt.Errorf("storing %s in keychain: %w", field, err)
+		return fmt.Errorf("failed to store %s in keychain: %w", field, err)
 	}
 	*dest = keychain.KeychainRef(profile, field)
 	return nil

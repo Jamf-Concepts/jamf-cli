@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
@@ -40,98 +41,13 @@ func (m *mockStore) Delete(service, account string) error {
 	return nil
 }
 
-func TestIsSecretRef(t *testing.T) {
-	tests := []struct {
-		value string
-		want  bool
-	}{
-		{"env:MY_VAR", true},
-		{"file:/path/to/secret", true},
-		{"keychain:jamfpro-cli/prod/token", true},
-		{"keychain:prod/token", true},
-		{"my-plain-secret", false},
-		{"", false},
-		{"ENV:MY_VAR", false},       // case-sensitive
-		{"envoy-service", false},    // prefix must be exact
-		{"filecoin-token", false},   // not a file: prefix
-		{"keychainref-foo", false},  // not a keychain: prefix
+func TestResolveSecret_Literal_Rejected(t *testing.T) {
+	_, err := ResolveSecret("my-plain-secret")
+	if err == nil {
+		t.Fatal("expected error for literal secret, got nil")
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.value, func(t *testing.T) {
-			got := IsSecretRef(tt.value)
-			if got != tt.want {
-				t.Errorf("IsSecretRef(%q) = %v, want %v", tt.value, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMaskedProfile(t *testing.T) {
-	p := Profile{
-		URL:          "https://example.com",
-		AuthMethod:   "oauth2",
-		ClientID:     "my-client-id",
-		ClientSecret: "super-secret",
-		Token:        "keychain:jamfpro-cli/prod/token",
-		Password:     "env:JAMF_PASSWORD",
-	}
-
-	masked := MaskedProfile(p)
-
-	// URL and AuthMethod should not be masked
-	if masked.URL != p.URL {
-		t.Errorf("URL should not be masked, got %q", masked.URL)
-	}
-	if masked.AuthMethod != p.AuthMethod {
-		t.Errorf("AuthMethod should not be masked, got %q", masked.AuthMethod)
-	}
-
-	// ClientID is not a secret field, should not be masked
-	if masked.ClientID != "my-client-id" {
-		t.Errorf("ClientID should not be masked, got %q", masked.ClientID)
-	}
-
-	// Plaintext secret should be masked
-	if masked.ClientSecret != "***" {
-		t.Errorf("ClientSecret should be masked, got %q", masked.ClientSecret)
-	}
-
-	// Secret references should be preserved
-	if masked.Token != "keychain:jamfpro-cli/prod/token" {
-		t.Errorf("Token keychain ref should be preserved, got %q", masked.Token)
-	}
-	if masked.Password != "env:JAMF_PASSWORD" {
-		t.Errorf("Password env ref should be preserved, got %q", masked.Password)
-	}
-}
-
-func TestMaskedProfile_EmptyFields(t *testing.T) {
-	p := Profile{
-		URL:        "https://example.com",
-		AuthMethod: "token",
-	}
-
-	masked := MaskedProfile(p)
-
-	if masked.Token != "" {
-		t.Errorf("empty Token should stay empty, got %q", masked.Token)
-	}
-	if masked.Password != "" {
-		t.Errorf("empty Password should stay empty, got %q", masked.Password)
-	}
-	if masked.ClientSecret != "" {
-		t.Errorf("empty ClientSecret should stay empty, got %q", masked.ClientSecret)
-	}
-}
-
-func TestResolveSecret_Literal(t *testing.T) {
-	val, err := ResolveSecret("my-plain-secret")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if val != "my-plain-secret" {
-		t.Errorf("got %q, want %q", val, "my-plain-secret")
+	if !strings.Contains(err.Error(), "unrecognized secret format") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 

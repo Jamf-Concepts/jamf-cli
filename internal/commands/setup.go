@@ -198,12 +198,11 @@ func normalizeURL(url string) string {
 
 func newConfigSetupCmd() *cobra.Command {
 	var (
-		setupURL        string
-		setupUser       string
-		setupPass       string
-		setupScope      string
-		setupProfile    string
-		noKeychain      bool
+		setupURL     string
+		setupUser    string
+		setupPass    string
+		setupScope   string
+		setupProfile string
 	)
 
 	cmd := &cobra.Command{
@@ -345,18 +344,13 @@ config profile. The username and password are not stored.`,
 				}
 			}
 
-			// Step 7b: Store in keychain by default unless --no-keychain
-			profileClientSecret := clientSecret
-			if !noKeychain {
-				store := config.GetKeychainStore()
-				account := setupProfile + "/client-secret"
-				if err := store.Set(keychain.DefaultService, account, clientSecret); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to store secret in keychain: %v\n", err)
-					fmt.Fprintln(cmd.ErrOrStderr(), "Falling back to storing secret in config file.")
-				} else {
-					profileClientSecret = keychain.KeychainRef(setupProfile, "client-secret")
-				}
+			// Step 7b: Store client secret in keychain
+			store := config.GetKeychainStore()
+			account := setupProfile + "/client-secret"
+			if err := store.Set(keychain.DefaultService, account, clientSecret); err != nil {
+				return fmt.Errorf("failed to store client secret in keychain: %w", err)
 			}
+			profileClientSecret := keychain.KeychainRef(setupProfile, "client-secret")
 
 			cfg, err := config.Load()
 			if err != nil {
@@ -377,16 +371,7 @@ config profile. The username and password are not stored.`,
 
 			fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Profile %q saved and set as default.\n", setupProfile)
 			fmt.Fprintf(cmd.OutOrStdout(), "  Client ID:     %s\n", clientID)
-			if strings.HasPrefix(profileClientSecret, "keychain:") {
-				fmt.Fprintln(cmd.OutOrStdout(), "  Client secret stored in system keychain")
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "  Client secret stored in %s\n", config.ConfigPath())
-				fmt.Fprintln(cmd.OutOrStdout())
-				fmt.Fprintln(cmd.OutOrStdout(), "  Note: For production use, consider moving the secret to the")
-				fmt.Fprintln(cmd.OutOrStdout(), "  system keychain or an environment variable:")
-				fmt.Fprintf(cmd.OutOrStdout(), "    jamfpro-cli config add-profile %s --url %s --auth-method oauth2 --client-id %s --client-secret \"env:JAMF_CLIENT_SECRET\"\n", setupProfile, setupURL, clientID)
-				fmt.Fprintln(cmd.OutOrStdout(), "  Or re-run setup and choose keychain storage when prompted.")
-			}
+			fmt.Fprintln(cmd.OutOrStdout(), "  Client secret stored in system keychain")
 
 			return nil
 		},
@@ -397,7 +382,6 @@ config profile. The username and password are not stored.`,
 	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (prompted if omitted)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\")")
-	cmd.Flags().BoolVar(&noKeychain, "no-keychain", false, "store client secret as plaintext in config file instead of system keychain")
 
 	return cmd
 }

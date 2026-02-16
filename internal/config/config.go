@@ -135,38 +135,16 @@ func GetKeychainStore() keychain.Store {
 	return keychain.New()
 }
 
-// IsSecretRef returns true if the value uses a recognized secret reference
-// prefix (env:, file:, keychain:) rather than being a plaintext literal.
-func IsSecretRef(value string) bool {
-	return strings.HasPrefix(value, "env:") ||
-		strings.HasPrefix(value, "file:") ||
-		strings.HasPrefix(value, "keychain:")
-}
-
-// MaskedProfile returns a copy of the profile with plaintext secret values
-// replaced by "***". Secret references (env:, file:, keychain:) are preserved
-// since they don't contain the actual secret.
-func MaskedProfile(p Profile) Profile {
-	m := p
-	m.Token = maskIfLiteral(p.Token)
-	m.Password = maskIfLiteral(p.Password)
-	m.ClientSecret = maskIfLiteral(p.ClientSecret)
-	return m
-}
-
-func maskIfLiteral(value string) string {
-	if value == "" || IsSecretRef(value) {
-		return value
-	}
-	return "***"
-}
-
-// ResolveSecret resolves a secret value that may contain special prefixes:
+// ResolveSecret resolves a secret value that must use a recognized prefix:
 //   - "env:VAR_NAME"        — reads the value from environment variable VAR_NAME
 //   - "file:/path"          — reads the value from the file at /path
 //   - "keychain:ref"        — reads the value from the system keychain
-//   - anything else         — returned as-is (literal value)
+//
+// Empty strings are returned as-is. Any other value is rejected.
 func ResolveSecret(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
 	if after, ok := strings.CutPrefix(value, "env:"); ok {
 		envVal := os.Getenv(after)
 		if envVal == "" {
@@ -193,5 +171,5 @@ func ResolveSecret(value string) (string, error) {
 		return secret, nil
 	}
 
-	return value, nil
+	return "", fmt.Errorf("unrecognized secret format %q: must use env:, file:, or keychain: prefix", value)
 }
