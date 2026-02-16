@@ -1,0 +1,295 @@
+# Classic API (/JSSResource/) resource manifest.
+# Only resources with NO modern API equivalent are included here.
+# The generator reads this file and produces CLI commands with the classic- prefix.
+#
+# Defaults (omit to use):
+#   operations: [list, get, create, update, delete]
+#   lookups:    [id, name]
+
+resources:
+  # ── Computers & Policies ──────────────────────────────────────────
+  - name: policies
+    path: policies
+    description: Deployment policies
+    singular: policy
+
+  - name: osxconfigurationprofiles
+    path: osxconfigurationprofiles
+    description: macOS configuration profiles
+    cli_name: classic-macos-config-profiles
+    singular: os_x_configuration_profile
+
+  - name: computercommands
+    path: computercommands
+    description: Computer management commands
+    cli_name: classic-computer-commands
+    singular: computer_command
+    operations: [list, get, create]
+
+  - name: computerextensionattributes
+    path: computerextensionattributes
+    description: Computer extension attributes
+    cli_name: classic-computer-ext-attrs
+    singular: computer_extension_attribute
+
+  - name: computerconfigurations
+    path: computerconfigurations
+    description: Computer configurations
+    cli_name: classic-computer-configs
+    singular: computer_configuration
+
+  - name: computerapplications
+    path: computerapplications
+    description: Computer applications inventory
+    cli_name: classic-computer-apps
+    singular: computer_application
+    operations: [list, get]
+    lookups: [id]
+
+  - name: computerapplicationusage
+    path: computerapplicationusage
+    description: Computer application usage data
+    cli_name: classic-computer-app-usage
+    singular: computer_application_usage
+    operations: [get]
+    lookups: [id]
+
+  - name: computerhistory
+    path: computerhistory
+    description: Computer history records
+    cli_name: classic-computer-history
+    singular: computer_history
+    operations: [get]
+    lookups: [id]
+
+  - name: computerinvitations
+    path: computerinvitations
+    description: Computer enrollment invitations
+    cli_name: classic-computer-invitations
+    singular: computer_invitation
+    operations: [list, get, create, delete]
+    lookups: [id]
+
+  - name: advancedcomputersearches
+    path: advancedcomputersearches
+    description: Advanced computer searches
+    cli_name: classic-advanced-computer-searches
+    singular: advanced_computer_search
+
+  # ── Mobile Devices ────────────────────────────────────────────────
+  - name: mobiledevicecommands
+    path: mobiledevicecommands
+    description: Mobile device management commands
+    cli_name: classic-mobile-commands
+    singular: mobile_device_command
+    operations: [list, get, create]
+
+  - name: mobiledeviceconfigurationprofiles
+    path: mobiledeviceconfigurationprofiles
+    description: Mobile device configuration profiles
+    cli_name: classic-mobile-config-profiles
+    singular: mobile_device_configuration_profile
+
+  - name: mobiledeviceprovisioningprofiles
+    path: mobiledeviceprovisioningprofiles
+    description: Mobile device provisioning profiles
+    cli_name: classic-mobile-provisioning-profiles
+    singular: mobile_device_provisioning_profile
+
+  - name: mobiledevicehistory
+    path: mobiledevicehistory
+    description: Mobile device history records
+    cli_name: classic-mobile-history
+    singular: mobile_device_history
+    operations: [get]
+    lookups: [id]
+
+  - name: mobiledeviceinvitations
+    path: mobiledeviceinvitations
+    description: Mobile device enrollment invitations
+    cli_name: classic-mobile-invitations
+    singular: mobile_device_invitation
+    operations: [list, get, create, delete]
+    lookups: [id]
+
+  # ── Configuration & Content ───────────────────────────────────────
+  - name: packages
+    path: packages
+    description: Software packages
+    singular: package
+
+  - name: printers
+    path: printers
+    description: Printer configurations
+    singular: printer
+
+  - name: networksegments
+    path: networksegments
+    description: Network segments
+    cli_name: classic-network-segments
+    singular: network_segment
+
+  - name: dockitems
+    path: dockitems
+    description: Dock items
+    cli_name: classic-dock-items
+    singular: dock_item
+
+  - name: directorybindings
+    path: directorybindings
+    description: Directory bindings
+    cli_name: classic-directory-bindings
+    singular: directory_binding
+
+  - name: diskencryptionconfigurations
+    path: diskencryptionconfigurations
+    description: Disk encryption configurations
+    cli_name: classic-disk-encryption-configs
+    singular: disk_encryption_configuration
+
+  - name: restrictedsoftware
+    path: restrictedsoftware
+    description: Restricted software entries
+    cli_name: classic-restricted-software
+    singular: restricted_software
+
+  - name: allowedfileextensions
+    path: allowedfileextensions
+    description: Allowed file extensions
+    cli_name: classic-allowed-file-extensions
+    singular: allowed_file_extension
+    operations: [list, get, create, delete]
+    lookups: [id]
+
+  - name: macapplications
+    path: macapplications
+    description: Mac App Store applications
+    cli_name: classic-mac-apps
+    singular: mac_application
+
+  - name: ibeacons
+    path: ibeacons
+    description: iBeacon configurations
+    cli_name: classic-ibeacons
+    singular: ibeacon
+
+  - name: classes
+    path: classes
+    description: Class configurations for Apple Classroom
+    singular: class
+
+  # ── Administration ────────────────────────────────────────────────
+  - name: accounts
+    path: accounts
+    description: Jamf Pro user accounts and groups
+    singular: account
+    operations: [list, get]
+
+  - name: webhooks
+    path: webhooks
+    description: Webhook configurations
+    singular: webhook
+
+  - name: smtpserver
+    path: smtpserver
+    description: SMTP server configuration
+    cli_name: classic-smtp-server
+    singular: smtp_server
+    operations: [get, update]
+    lookups: [id]
+
+  - name: distributionpoints
+    path: distributionpoints
+    description: File distribution points
+    cli_name: classic-distribution-points
+    singular: distribution_point
+
+  - name: softwareupdateservers
+    path: softwareupdateservers
+    description: Software update servers
+    cli_name: classic-software-update-servers
+    singular: software_update_server
+
+  - name: licensedsoftware
+    path: licensedsoftware
+    description: Licensed software records
+    cli_name: classic-licensed-software
+    singular: licensed_software
+
+  - name: userextensionattributes
+    path: userextensionattributes
+    description: User extension attributes
+    cli_name: classic-user-ext-attrs
+    singular: user_extension_attribute
+
+  - name: vppaccounts
+    path: vppaccounts
+    description: Volume Purchase Program accounts
+    cli_name: classic-vpp-accounts
+    singular: vpp_account
+    lookups: [id]
+
+  - name: vppassignments
+    path: vppassignments
+    description: VPP license assignments
+    cli_name: classic-vpp-assignments
+    singular: vpp_assignment
+    lookups: [id]
+
+  - name: vppinvitations
+    path: vppinvitations
+    description: VPP invitations
+    cli_name: classic-vpp-invitations
+    singular: vpp_invitation
+    operations: [list, get, create, delete]
+    lookups: [id]
+
+  - name: gsxconnection
+    path: gsxconnection
+    description: Apple GSX connection settings
+    cli_name: classic-gsx-connection
+    singular: gsx_connection
+    operations: [get, update]
+    lookups: [id]
+
+  - name: jsonwebtokenconfigurations
+    path: jsonwebtokenconfigurations
+    description: JSON Web Token configurations
+    cli_name: classic-jwt-configs
+    singular: json_web_token_configuration
+    lookups: [id]
+
+  # ── Patch Management ──────────────────────────────────────────────
+  - name: patchsoftwaretitles
+    path: patchsoftwaretitles
+    description: Patch management software titles
+    cli_name: classic-patch-titles
+    singular: patch_software_title
+
+  - name: patchpolicies
+    path: patchpolicies
+    description: Patch policies
+    cli_name: classic-patch-policies
+    singular: patch_policy
+    lookups: [id]
+
+  - name: patchexternalsources
+    path: patchexternalsources
+    description: Patch management external sources
+    cli_name: classic-patch-external-sources
+    singular: patch_external_source
+
+  - name: patchinternalsources
+    path: patchinternalsources
+    description: Patch management internal sources
+    cli_name: classic-patch-internal-sources
+    singular: patch_internal_source
+    operations: [list, get]
+
+  - name: patchavailabletitles
+    path: patchavailabletitles
+    description: Available patch titles from sources
+    cli_name: classic-patch-available-titles
+    singular: patch_available_title
+    operations: [list, get]
+    lookups: [id]

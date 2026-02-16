@@ -359,11 +359,20 @@ device management, inventory/reporting, and configuration management.`,
 	// Commands discovery subcommand
 	cmd.AddCommand(newCommandsCmd(cmd))
 
+	// Overview command (requires auth — not in skipCommands)
+	cmd.AddCommand(newOverviewCmd(cliCtx))
+
 	// Register generated resource commands with CLIContext
 	generated.RegisterCommands(cmd, cliCtx)
 
+	// Register Classic API resource commands
+	generated.RegisterClassicCommands(cmd, cliCtx)
+
 	// Apply short aliases (e.g., "comp" for "computers")
 	applyAliases(cmd)
+
+	// Organize commands into logical groups for --help output
+	applyGroups(cmd)
 
 	return cmd
 }

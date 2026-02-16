@@ -58,12 +58,13 @@ sync-specs:
 	@go fmt ./internal/commands/generated/...
 	@echo "Done! Review changes with: git diff"
 
-# Generate CLI commands from OpenAPI specs
+# Generate CLI commands from OpenAPI specs and Classic API manifest
 generate:
-	@echo "Generating commands from OpenAPI specs..."
+	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 	go run ./generator/main.go --specs ./specs --output ./internal/commands/generated
 	@echo "Generated commands:"
-	@ls internal/commands/generated/*.go | grep -v registry | wc -l | xargs echo "  Resource files:"
+	@ls internal/commands/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
+	@ls internal/commands/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"
 
 # Release (requires goreleaser)
 release:
