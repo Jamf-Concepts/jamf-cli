@@ -1,0 +1,104 @@
+package classic
+
+import (
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
+	"github.com/iancoleman/strcase"
+	"gopkg.in/yaml.v3"
+)
+
+// manifest is the top-level YAML structure.
+type manifest struct {
+	Resources []manifestResource `yaml:"resources"`
+}
+
+// manifestResource is a single entry in the YAML manifest.
+type manifestResource struct {
+	Name        string   `yaml:"name"`
+	Path        string   `yaml:"path"`
+	CLIName     string   `yaml:"cli_name"`
+	Singular    string   `yaml:"singular"`
+	Description string   `yaml:"description"`
+	Operations  []string `yaml:"operations"`
+	Lookups     []string `yaml:"lookups"`
+}
+
+// ParseManifest reads the Classic API YAML manifest and returns a sorted
+// slice of ClassicResource structs with all defaults applied.
+func ParseManifest(path string) ([]ClassicResource, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading manifest: %w", err)
+	}
+
+	var m manifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("parsing manifest: %w", err)
+	}
+
+	var resources []ClassicResource
+	for _, entry := range m.Resources {
+		r, err := buildResource(entry)
+		if err != nil {
+			return nil, fmt.Errorf("resource %q: %w", entry.Name, err)
+		}
+		resources = append(resources, r)
+	}
+
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].CLIName < resources[j].CLIName
+	})
+
+	return resources, nil
+}
+
+// Default operations and lookups applied when the manifest entry omits them.
+var (
+	defaultOperations = []string{"list", "get", "create", "update", "delete"}
+	defaultLookups    = []string{"id", "name"}
+)
+
+func buildResource(entry manifestResource) (ClassicResource, error) {
+	if entry.Name == "" {
+		return ClassicResource{}, fmt.Errorf("name is required")
+	}
+	if entry.Path == "" {
+		return ClassicResource{}, fmt.Errorf("path is required")
+	}
+
+	cliName := entry.CLIName
+	if cliName == "" {
+		cliName = "classic-" + strcase.ToKebab(entry.Name)
+	}
+
+	singular := entry.Singular
+	if singular == "" {
+		singular = strings.TrimSuffix(entry.Name, "s")
+	}
+
+	operations := entry.Operations
+	if len(operations) == 0 {
+		operations = defaultOperations
+	}
+
+	lookups := entry.Lookups
+	if len(lookups) == 0 {
+		lookups = defaultLookups
+	}
+
+	goName := strcase.ToCamel(cliName)
+
+	return ClassicResource{
+		Name:        entry.Name,
+		Path:        entry.Path,
+		CLIName:     cliName,
+		GoName:      goName,
+		Singular:    singular,
+		Description: entry.Description,
+		Operations:  operations,
+		Lookups:     lookups,
+	}, nil
+}

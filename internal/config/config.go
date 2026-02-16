@@ -126,19 +126,25 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 // When nil, the real system keychain is used.
 var KeychainStore keychain.Store
 
-func getKeychainStore() keychain.Store {
+// GetKeychainStore returns the configured keychain store, falling back to the
+// real system keychain when no override has been set via KeychainStore.
+func GetKeychainStore() keychain.Store {
 	if KeychainStore != nil {
 		return KeychainStore
 	}
 	return keychain.New()
 }
 
-// ResolveSecret resolves a secret value that may contain special prefixes:
+// ResolveSecret resolves a secret value that must use a recognized prefix:
 //   - "env:VAR_NAME"        — reads the value from environment variable VAR_NAME
 //   - "file:/path"          — reads the value from the file at /path
 //   - "keychain:ref"        — reads the value from the system keychain
-//   - anything else         — returned as-is (literal value)
+//
+// Empty strings are returned as-is. Any other value is rejected.
 func ResolveSecret(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
 	if after, ok := strings.CutPrefix(value, "env:"); ok {
 		envVal := os.Getenv(after)
 		if envVal == "" {
@@ -156,7 +162,7 @@ func ResolveSecret(value string) (string, error) {
 	}
 
 	if after, ok := strings.CutPrefix(value, "keychain:"); ok {
-		store := getKeychainStore()
+		store := GetKeychainStore()
 		service, account := keychain.ParseRef(after)
 		secret, err := store.Get(service, account)
 		if err != nil {
@@ -165,5 +171,5 @@ func ResolveSecret(value string) (string, error) {
 		return secret, nil
 	}
 
-	return value, nil
+	return "", fmt.Errorf("unrecognized secret format %q: must use env:, file:, or keychain: prefix", value)
 }

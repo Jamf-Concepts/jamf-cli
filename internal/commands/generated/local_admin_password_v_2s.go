@@ -32,13 +32,13 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get the current LAPS settings.",
-		Long:  "Return information about the current LAPS settings.",
+		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
+		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/settings"
+			path := "/v2/local-admin-password/pending-rotations"
 
 			// Build query string
 			var queryParts []string
@@ -72,15 +72,16 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the LAPS capable admin accounts for a device.",
-		Long:  "Get a full list of admin accounts that are LAPS capable. Capable accounts are returned in the AutoSetupAdminAccounts from QueryResponses.",
+		Short: "Get LAPS password viewed history.",
+		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/{clientManagementId}/accounts"
+			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/audit"
 			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path = strings.Replace(path, "{username}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -113,14 +114,16 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update settings for LAPS.",
-		Long:  "Update settings for LAPS.",
+		Use:   "update <id>",
+		Short: "Set the LAPS password for a device.",
+		Long:  "Set the LAPS password for a device. This will set the password for all LAPS capable accounts.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/settings"
+			path := "/v2/local-admin-password/{clientManagementId}/set-password"
+			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -160,16 +163,15 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
-		Short: "Get LAPS historical records for target device and username.",
-		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
+		Short: "Get LAPS password viewed history, and rotation history.",
+		Long:  "Get the full history of all local admin passwords for all accounts for a specific management ID. History will include password, who viewed the password and when it was viewed. This will include rotation history as well.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/history"
+			path := "/v2/local-admin-password/{clientManagementId}/history"
 			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
-			path = strings.Replace(path, "{username}", args[0], 1)
 
 			// Build query string
 			var queryParts []string

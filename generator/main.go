@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ktn-jamf/jamfpro-cli/generator/classic"
 	"github.com/ktn-jamf/jamfpro-cli/generator/parser"
 )
 
@@ -86,4 +87,39 @@ func main() {
 
 	fmt.Println()
 	fmt.Printf("Successfully generated %d resource command(s)\n", len(resources))
+
+	// ── Classic API generation ─────────────────────────────────────
+	classicManifest := filepath.Join(specsDir, "classic", "resources.yaml")
+	if _, err := os.Stat(classicManifest); err == nil {
+		fmt.Println()
+		fmt.Println("Classic API generation")
+		fmt.Println("======================")
+		fmt.Printf("Manifest: %s\n\n", classicManifest)
+
+		classicResources, err := classic.ParseManifest(classicManifest)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing classic manifest: %v\n", err)
+			os.Exit(1)
+		}
+
+		classicGen := classic.NewGenerator(outputDir)
+		for _, r := range classicResources {
+			outPath, err := classicGen.Generate(r)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error generating classic %s: %v\n", r.CLIName, err)
+				continue
+			}
+			fmt.Printf("Generated: %s\n", outPath)
+		}
+
+		classicRegistryPath, err := classicGen.GenerateRegistry(classicResources)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating classic registry: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Generated: %s\n", classicRegistryPath)
+
+		fmt.Println()
+		fmt.Printf("Successfully generated %d classic resource command(s)\n", len(classicResources))
+	}
 }

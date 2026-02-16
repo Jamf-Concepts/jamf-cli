@@ -47,8 +47,9 @@ func New(baseURL string, authProvider auth.Provider, opts ...Option) *Client {
 
 // Do executes an HTTP request with authentication and retry logic
 func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	// Ensure path has /api prefix (OpenAPI paths omit it)
-	if !strings.HasPrefix(path, "/api") {
+	// Ensure path has /api prefix (OpenAPI paths omit it).
+	// Classic API paths start with /JSSResource and bypass the /api prefix.
+	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
 		path = "/api" + path
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)

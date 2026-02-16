@@ -19,10 +19,10 @@ func NewAuthenticationsCmd(ctx *CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newAuthenticationsListCmd(ctx))
+	cmd.AddCommand(newAuthenticationsCurrentCmd(ctx))
 	cmd.AddCommand(newAuthenticationsInvalidateTokenCmd(ctx))
 	cmd.AddCommand(newAuthenticationsKeepAliveCmd(ctx))
 	cmd.AddCommand(newAuthenticationsTokenCmd(ctx))
-	cmd.AddCommand(newAuthenticationsCurrentCmd(ctx))
 
 	return cmd
 }
@@ -39,7 +39,7 @@ func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/auth"
+			path := "/auth"
 
 			// Build query string
 			var queryParts []string
@@ -49,6 +49,52 @@ func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
 
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+
+	return cmd
+}
+
+func newAuthenticationsCurrentCmd(ctx *CLIContext) *cobra.Command {
+	var (
+	)
+
+	cmd := &cobra.Command{
+		Use:   "current",
+		Short: "Get the authorization details associated with the current API token",
+		Long:  "Get the authorization details associated with the current API token for the users current site",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/auth/current"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}
@@ -172,52 +218,6 @@ func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/auth/token"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-
-	return cmd
-}
-
-func newAuthenticationsCurrentCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "current",
-		Short: "Get the authorization details associated with the current API token",
-		Long:  "Get the authorization details associated with the current API token for the users current site",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/auth/current"
 
 			// Build query string
 			var queryParts []string

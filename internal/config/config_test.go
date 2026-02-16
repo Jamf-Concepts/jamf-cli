@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
@@ -40,13 +41,13 @@ func (m *mockStore) Delete(service, account string) error {
 	return nil
 }
 
-func TestResolveSecret_Literal(t *testing.T) {
-	val, err := ResolveSecret("my-plain-secret")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestResolveSecret_Literal_Rejected(t *testing.T) {
+	_, err := ResolveSecret("my-plain-secret")
+	if err == nil {
+		t.Fatal("expected error for literal secret, got nil")
 	}
-	if val != "my-plain-secret" {
-		t.Errorf("got %q, want %q", val, "my-plain-secret")
+	if !strings.Contains(err.Error(), "unrecognized secret format") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 

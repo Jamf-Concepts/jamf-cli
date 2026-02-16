@@ -44,13 +44,13 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get Smart Groups",
-		Long:  "Get Smart Groups",
+		Short: "Get Static Groups",
+		Long:  "Get Static Groups",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mobile-device-groups/smart-groups"
+			path := "/v1/mobile-device-groups/static-groups"
 
 			// Build query string
 			var queryParts []string
@@ -80,7 +80,7 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/mobile-device-groups/smart-groups"
+					pagePath := "/v1/mobile-device-groups/static-groups"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -160,7 +160,7 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Available criteria to sort on: groupId, groupName, siteId.")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter smart group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName==\"smartGroup1\"")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter department collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName==\"staticGroup1\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
@@ -216,13 +216,13 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a smart group",
-		Long:  "Create a smart group",
+		Short: "Create membership of a static group",
+		Long:  "Create membership of a static group",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mobile-device-groups/smart-groups"
+			path := "/v1/mobile-device-groups/static-groups"
 
 			// Build query string
 			var queryParts []string

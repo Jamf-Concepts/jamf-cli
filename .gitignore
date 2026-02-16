@@ -1,6 +1,7 @@
 # Build artifacts
 bin/
 dist/
+jamfpro-cli
 
 # Test coverage
 coverage.out

@@ -67,7 +67,7 @@ profiles:
     client-secret: env:JAMF_PROD_SECRET
 ```
 
-Three auth methods: `oauth2` (client credentials), `token` (static bearer), `basic` (username/password exchange). Four secret formats: literal, `env:VAR`, `file:/path`, `keychain:service/account`.
+Three auth methods: `oauth2` (client credentials), `token` (static bearer), `basic` (username/password exchange). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/jamf/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/jamf/jamfpro-cli/wiki/Secrets-&-Keychain)
 
