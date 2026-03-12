@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -1171,6 +1172,221 @@ func TestPrintRaw_Table_DateFormatting(t *testing.T) {
 	// Should NOT show ISO format
 	if strings.Contains(out, "2025-09-27T") {
 		t.Errorf("expected ISO date to be formatted, got:\n%s", out)
+	}
+}
+
+// --- New constructor tests ---
+
+func TestNew(t *testing.T) {
+	f := New("json", true, false)
+	if f.format != FormatJSON {
+		t.Errorf("format = %q, want %q", f.format, FormatJSON)
+	}
+	if !f.noColor {
+		t.Error("expected noColor=true")
+	}
+	if f.wide {
+		t.Error("expected wide=false")
+	}
+	if f.writer == nil {
+		t.Error("writer should default to non-nil (os.Stdout)")
+	}
+}
+
+func TestNew_Wide(t *testing.T) {
+	f := New("table", false, true)
+	if f.format != FormatTable {
+		t.Errorf("format = %q, want %q", f.format, FormatTable)
+	}
+	if f.noColor {
+		t.Error("expected noColor=false")
+	}
+	if !f.wide {
+		t.Error("expected wide=true")
+	}
+}
+
+// --- SetWriter tests ---
+
+func TestSetWriter(t *testing.T) {
+	f := New("json", true, false)
+	buf := &bytes.Buffer{}
+	f.SetWriter(buf)
+
+	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Error("expected output written to custom writer")
+	}
+	if !strings.Contains(buf.String(), "test") {
+		t.Error("expected 'test' in output")
+	}
+}
+
+// --- Print dispatcher tests ---
+
+func TestPrint_JSON(t *testing.T) {
+	f, buf := newTestFormatter("json")
+	data := []map[string]interface{}{{"id": float64(1)}}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should be valid JSON
+	var result []map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+}
+
+func TestPrint_YAML(t *testing.T) {
+	f, buf := newTestFormatter("yaml")
+	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "name: test") {
+		t.Errorf("expected YAML output, got:\n%s", buf.String())
+	}
+}
+
+func TestPrint_CSV(t *testing.T) {
+	f, buf := newTestFormatter("csv")
+	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected header + 1 row, got %d lines", len(lines))
+	}
+}
+
+func TestPrint_CSV_Empty(t *testing.T) {
+	f, buf := newTestFormatter("csv")
+	data := []map[string]interface{}{}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected empty output for empty data, got: %s", buf.String())
+	}
+}
+
+func TestPrint_CSV_UnsupportedType(t *testing.T) {
+	f, _ := newTestFormatter("csv")
+	err := f.Print("not a slice of maps")
+	if err == nil {
+		t.Fatal("expected error for unsupported CSV type")
+	}
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("expected 'not supported' in error, got: %v", err)
+	}
+}
+
+func TestPrint_Plain_String(t *testing.T) {
+	f, buf := newTestFormatter("plain")
+	if err := f.Print("hello world"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(buf.String()) != "hello world" {
+		t.Errorf("expected 'hello world', got: %s", buf.String())
+	}
+}
+
+func TestPrint_Table_NonSlice(t *testing.T) {
+	f, buf := newTestFormatter("table")
+	if err := f.Print("simple string"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "simple string") {
+		t.Errorf("expected fallback output, got: %s", buf.String())
+	}
+}
+
+func TestPrint_Table_Empty(t *testing.T) {
+	f, buf := newTestFormatter("table")
+	data := []map[string]interface{}{}
+	if err := f.Print(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected empty output for empty table, got: %s", buf.String())
+	}
+}
+
+// --- PrintError tests ---
+
+func TestPrintError_JSON(t *testing.T) {
+	f, buf := newTestFormatter("json")
+	testErr := fmt.Errorf("something went wrong")
+	details := map[string]interface{}{"field": "name"}
+	f.PrintError(testErr, "validation_error", details)
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\nOutput: %s", err, buf.String())
+	}
+	if result["error"] != "validation_error" {
+		t.Errorf("error = %v, want %q", result["error"], "validation_error")
+	}
+	if result["message"] != "something went wrong" {
+		t.Errorf("message = %v, want %q", result["message"], "something went wrong")
+	}
+	if result["field"] != "name" {
+		t.Errorf("field = %v, want %q", result["field"], "name")
+	}
+}
+
+func TestPrintError_NonJSON(t *testing.T) {
+	// PrintError in non-JSON mode writes to os.Stderr — just verify it doesn't panic
+	f, _ := newTestFormatter("table")
+	testErr := fmt.Errorf("something went wrong")
+	f.PrintError(testErr, "general", nil)
+	// No assertion needed — we're just ensuring it doesn't panic
+}
+
+// --- parseDate and relativeDate tests ---
+
+func TestParseDate(t *testing.T) {
+	tests := []struct {
+		input string
+		ok    bool
+	}{
+		{"2025-09-27T07:26:37.424Z", true},
+		{"2025-09-27T14:30:00Z", true},
+		{"2025-09-27T19:45:37+00:00", true},
+		{"2025-09-27", true},
+		{"not-a-date", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			_, ok := parseDate(tt.input)
+			if ok != tt.ok {
+				t.Errorf("parseDate(%q) ok = %v, want %v", tt.input, ok, tt.ok)
+			}
+		})
+	}
+}
+
+func TestAbsoluteDate_MidnightOmitsTime(t *testing.T) {
+	ts := time.Date(2025, 9, 27, 0, 0, 0, 0, time.UTC)
+	got := absoluteDate(ts)
+	if strings.Contains(got, "AM") || strings.Contains(got, "PM") {
+		t.Errorf("midnight should omit time, got: %q", got)
+	}
+	if !strings.Contains(got, "Sep 27, 2025") {
+		t.Errorf("expected 'Sep 27, 2025', got: %q", got)
+	}
+}
+
+func TestAbsoluteDate_WithTime(t *testing.T) {
+	ts := time.Date(2025, 9, 27, 14, 30, 0, 0, time.UTC)
+	got := absoluteDate(ts)
+	if !strings.Contains(got, "2:30 PM") {
+		t.Errorf("expected '2:30 PM' in output, got: %q", got)
 	}
 }
 

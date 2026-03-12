@@ -822,6 +822,82 @@ func TestPrintOverviewTable_NotificationsActive(t *testing.T) {
 	}
 }
 
+func TestFormatCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		input interface{}
+		want  string
+	}{
+		{"float64 zero", float64(0), "0"},
+		{"float64 small", float64(42), "42"},
+		{"float64 large", float64(1234567), "1,234,567"},
+		{"int", int(99), "99"},
+		{"int64", int64(5000), "5,000"},
+		{"non-numeric string", "hello", "hello"},
+		{"nil", nil, "<nil>"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatCount(tt.input)
+			if got != tt.want {
+				t.Errorf("formatCount(%v) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatEpochExpiration(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		epoch     float64
+		wantColor string
+		wantWord  string
+	}{
+		{"expired", float64(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Unix()), "red", "expired"},
+		{"expiring soon", float64(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC).Unix()), "red", "days"},
+		{"expiring mid", float64(time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC).Unix()), "yellow", "days"},
+		{"far future", float64(time.Date(2028, 1, 1, 0, 0, 0, 0, time.UTC).Unix()), "", "Jan 01, 2028"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			formatted, color := formatEpochExpiration(tt.epoch, now)
+			if color != tt.wantColor {
+				t.Errorf("color = %q, want %q", color, tt.wantColor)
+			}
+			if !strings.Contains(formatted, tt.wantWord) {
+				t.Errorf("formatted = %q, want to contain %q", formatted, tt.wantWord)
+			}
+		})
+	}
+}
+
+func TestIsNumericValue(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"0", true},
+		{"42", true},
+		{"1,234", true},
+		{"1,234,567", true},
+		{"", false},
+		{"N/A", false},
+		{"enabled", false},
+		{"1.5", false},
+		{"-1", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := isNumericValue(tt.input)
+			if got != tt.want {
+				t.Errorf("isNumericValue(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPrintOverviewTable_DEPSyncSuccessful(t *testing.T) {
 	sections := []overviewSection{
 		{
