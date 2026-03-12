@@ -80,7 +80,7 @@ func TestSetupClient_CreateAPIRole(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["displayName"] != "test-role" {
 			t.Errorf("expected displayName=test-role, got %v", body["displayName"])
 		}

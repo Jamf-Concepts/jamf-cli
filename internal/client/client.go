@@ -94,7 +94,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		case http.StatusNotFound:
 			return nil, exitcode.New(exitcode.NotFound, fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path))
 		case http.StatusTooManyRequests:
-			return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited (HTTP 429): server is throttling requests. Wait a moment and try again."))
+			return nil, exitcode.New(exitcode.RateLimited, "rate limited (HTTP 429): server is throttling requests, wait a moment and try again")
 		default:
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, string(body)))
 		}

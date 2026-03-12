@@ -105,13 +105,13 @@ func (f *Formatter) printCSV(data interface{}) error {
 			return nil
 		}
 		headers := sortedKeys(v[0])
-		w.Write(headers)
+		_ = w.Write(headers)
 		for _, row := range v {
 			vals := make([]string, len(headers))
 			for i, h := range headers {
 				vals[i] = formatValue(row[h])
 			}
-			w.Write(vals)
+			_ = w.Write(vals)
 		}
 	default:
 		return fmt.Errorf("CSV output not supported for type %T", data)
@@ -130,12 +130,12 @@ func (f *Formatter) printPlain(data interface{}) error {
 			for i, k := range keys {
 				vals[i] = formatValue(row[k])
 			}
-			fmt.Fprintln(f.writer, strings.Join(vals, "\t"))
+			_, _ = fmt.Fprintln(f.writer, strings.Join(vals, "\t"))
 		}
 	case string:
-		fmt.Fprintln(f.writer, v)
+		_, _ = fmt.Fprintln(f.writer, v)
 	default:
-		fmt.Fprintf(f.writer, "%v\n", data)
+		_, _ = fmt.Fprintf(f.writer, "%v\n", data)
 	}
 	return nil
 }
@@ -143,7 +143,7 @@ func (f *Formatter) printPlain(data interface{}) error {
 func (f *Formatter) printTable(data interface{}) error {
 	rows, ok := data.([]map[string]interface{})
 	if !ok {
-		fmt.Fprintf(f.writer, "%v\n", data)
+		_, _ = fmt.Fprintf(f.writer, "%v\n", data)
 		return nil
 	}
 	if len(rows) == 0 {
@@ -182,7 +182,7 @@ func (f *Formatter) printTable(data interface{}) error {
 	}
 
 	// Summary header
-	fmt.Fprintf(f.writer, "%s (%d total)\n\n",
+	_, _ = fmt.Fprintf(f.writer, "%s (%d total)\n\n",
 		f.colorize("RESULTS", colorBold), len(rows))
 
 	// Header row
@@ -190,14 +190,14 @@ func (f *Formatter) printTable(data interface{}) error {
 	for i, k := range keys {
 		headerParts = append(headerParts, fmt.Sprintf("%-*s", widths[i], strings.ToUpper(k)))
 	}
-	fmt.Fprintf(f.writer, " %s\n", strings.Join(headerParts, "   "))
+	_, _ = fmt.Fprintf(f.writer, " %s\n", strings.Join(headerParts, "   "))
 
 	// Separator line
 	totalWidth := 1
 	for _, w := range widths {
 		totalWidth += w + 3
 	}
-	fmt.Fprintln(f.writer, strings.Repeat("─", totalWidth))
+	_, _ = fmt.Fprintln(f.writer, strings.Repeat("─", totalWidth))
 
 	// Data rows
 	for _, row := range rows {
@@ -224,7 +224,7 @@ func (f *Formatter) printTable(data interface{}) error {
 			padding := widths[i] - len(val) + len(displayVal)
 			valParts = append(valParts, fmt.Sprintf("%-*s", padding, displayVal))
 		}
-		fmt.Fprintf(f.writer, " %s\n", strings.Join(valParts, "   "))
+		_, _ = fmt.Fprintf(f.writer, " %s\n", strings.Join(valParts, "   "))
 	}
 
 	return nil
@@ -291,7 +291,7 @@ func (f *Formatter) PrintError(err error, code string, details map[string]interf
 		for k, v := range details {
 			errObj[k] = v
 		}
-		f.printJSON(errObj)
+		_ = f.printJSON(errObj)
 	} else {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 	}

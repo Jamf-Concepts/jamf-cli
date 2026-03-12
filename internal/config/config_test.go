@@ -188,7 +188,7 @@ func TestLoad_ValidYAML(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	configDir := filepath.Join(dir, "jamfpro-cli")
-	os.MkdirAll(configDir, 0700)
+	_ = os.MkdirAll(configDir, 0700)
 
 	yaml := `default-profile: prod
 profiles:
@@ -202,7 +202,7 @@ profiles:
     auth-method: token
     token: env:STAGING_TOKEN
 `
-	os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yaml), 0600)
 
 	cfg, err := Load()
 	if err != nil {
@@ -230,8 +230,8 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	configDir := filepath.Join(dir, "jamfpro-cli")
-	os.MkdirAll(configDir, 0700)
-	os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("{{not valid yaml:::"), 0600)
+	_ = os.MkdirAll(configDir, 0700)
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("{{not valid yaml:::"), 0600)
 
 	_, err := Load()
 	if err == nil {

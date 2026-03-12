@@ -873,31 +873,6 @@ func TestFormatEpochExpiration(t *testing.T) {
 	}
 }
 
-func TestIsNumericValue(t *testing.T) {
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"0", true},
-		{"42", true},
-		{"1,234", true},
-		{"1,234,567", true},
-		{"", false},
-		{"N/A", false},
-		{"enabled", false},
-		{"1.5", false},
-		{"-1", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := isNumericValue(tt.input)
-			if got != tt.want {
-				t.Errorf("isNumericValue(%q) = %v, want %v", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestPrintOverviewTable_DEPSyncSuccessful(t *testing.T) {
 	sections := []overviewSection{
 		{

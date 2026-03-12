@@ -220,7 +220,7 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					return fmt.Errorf("--url is required when --no-input is set")
 				}
-				fmt.Fprint(cmd.OutOrStdout(), "Jamf Pro server URL: ")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Jamf Pro server URL: ")
 				line, _ := reader.ReadString('\n')
 				setupURL = strings.TrimSpace(line)
 			}
@@ -230,7 +230,7 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					return fmt.Errorf("--username is required when --no-input is set")
 				}
-				fmt.Fprint(cmd.OutOrStdout(), "Username: ")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Username: ")
 				line, _ := reader.ReadString('\n')
 				setupUser = strings.TrimSpace(line)
 			}

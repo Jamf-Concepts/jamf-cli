@@ -491,7 +491,7 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	os.Stdout = w
 
 	root.SetArgs([]string{"version"})
-	root.Execute()
+	_ = root.Execute()
 
 	w.Close()
 	os.Stdout = oldStdout

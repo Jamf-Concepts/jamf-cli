@@ -28,12 +28,6 @@ type overviewItem struct {
 	ColorHint string // optional: "red", "yellow" for expiration coloring
 }
 
-type fetchResult struct {
-	Key   string
-	Value string
-	Err   error
-}
-
 // fetchJSON performs a GET request and returns the parsed JSON object.
 func fetchJSON(ctx context.Context, client generated.HTTPClient, path string) (map[string]interface{}, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -979,19 +973,6 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	}
 
 	return sections, nil
-}
-
-// isNumericValue returns true if the string looks like a count (digits and commas only).
-func isNumericValue(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, c := range s {
-		if c != ',' && (c < '0' || c > '9') {
-			return false
-		}
-	}
-	return true
 }
 
 // printOverviewTable renders a grouped overview table with ANSI colors.
