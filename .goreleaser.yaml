@@ -63,11 +63,11 @@ changelog:
 brews:
   - name: jamfpro-cli
     repository:
-      owner: ktn-jamf
+      owner: jamf
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/ktn-jamf/jamfpro-cli"
+    homepage: "https://github.com/jamf/jamfpro-cli"
     description: "CLI tool for Jamf Pro Server API automation"
     license: "MIT"
     skip_upload: auto
@@ -82,9 +82,9 @@ brews:
 nfpms:
   - id: packages
     package_name: jamfpro-cli
-    vendor: ktn-jamf
-    homepage: "https://github.com/ktn-jamf/jamfpro-cli"
-    maintainer: "ktn-jamf"
+    vendor: jamf
+    homepage: "https://github.com/jamf/jamfpro-cli"
+    maintainer: "jamf"
     description: "CLI tool for Jamf Pro Server API automation"
     license: MIT
     formats:

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/config"
-	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
+	"github.com/jamf/jamfpro-cli/internal/config"
+	"github.com/jamf/jamfpro-cli/internal/keychain"
 )
 
 // failingKeychainStore always returns an error on Set, simulating keychain unavailability.

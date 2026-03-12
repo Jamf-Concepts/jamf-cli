@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
-	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
+	"github.com/jamf/jamfpro-cli/internal/auth"
+	"github.com/jamf/jamfpro-cli/internal/exitcode"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -69,7 +70,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	if c.verbose {
-		fmt.Printf("--> %s %s\n", method, req.URL)
+		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, req.URL)
 	}
 
 	resp, err := c.doWithRetry(ctx, req)
@@ -78,7 +79,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	if c.verbose {
-		fmt.Printf("<-- %d %s\n", resp.StatusCode, resp.Status)
+		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
 	}
 
 	// Map HTTP error status codes to structured exit codes

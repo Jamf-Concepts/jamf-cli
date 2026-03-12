@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/commands"
-	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
+	"github.com/jamf/jamfpro-cli/internal/commands"
+	"github.com/jamf/jamfpro-cli/internal/exitcode"
 )
 
 var (

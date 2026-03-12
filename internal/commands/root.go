@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
-	"github.com/ktn-jamf/jamfpro-cli/internal/client"
-	"github.com/ktn-jamf/jamfpro-cli/internal/commands/generated"
-	"github.com/ktn-jamf/jamfpro-cli/internal/config"
-	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
-	"github.com/ktn-jamf/jamfpro-cli/internal/output"
-	"github.com/ktn-jamf/jamfpro-cli/internal/spinner"
+	"github.com/jamf/jamfpro-cli/internal/auth"
+	"github.com/jamf/jamfpro-cli/internal/client"
+	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/jamf/jamfpro-cli/internal/config"
+	"github.com/jamf/jamfpro-cli/internal/exitcode"
+	"github.com/jamf/jamfpro-cli/internal/output"
+	"github.com/jamf/jamfpro-cli/internal/spinner"
 )
 
 // Global flags
@@ -119,6 +119,11 @@ device management, inventory/reporting, and configuration management.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Respect NO_COLOR env var (https://no-color.org)
+			if _, ok := os.LookupEnv("NO_COLOR"); ok {
+				noColor = true
+			}
+
 			// Skip for completion, help, version, config, and commands
 			skipCommands := map[string]bool{
 				"completion": true,

@@ -40,7 +40,7 @@ CLIs are the natural interface for AI agents and LLM-driven automation. A well-s
 **Primary:** jamfpro-cli v2.0.0 is published to GitHub Releases and Homebrew, installable by any customer in under 60 seconds, covering all currently-public Jamf Pro API endpoints, with CI/CD that can sync specs from a public release within one working day.
 
 **Secondary:**
-- Homebrew install works end-to-end: `brew install ktn-jamf/tap/jamfpro-cli`
+- Homebrew install works end-to-end: `brew install jamf/tap/jamfpro-cli`
 - CI pipeline runs tests, builds, and publishes on tag push with zero manual steps
 - Spec sync workflow documented and tested against at least one real Jamf Pro release
 - At least 3 internal team members have dogfooded the tool against a real Jamf Pro instance
@@ -62,7 +62,7 @@ CLIs are the natural interface for AI agents and LLM-driven automation. A well-s
 
 | Item | Priority | Effort | Notes |
 |------|----------|--------|-------|
-| Create `ktn-jamf/homebrew-tap` repo | P0 | Small | Empty repo with README. GoReleaser config already references it. |
+| Create `jamf/homebrew-tap` repo | P0 | Small | Empty repo with README. GoReleaser config already references it. |
 | GitHub Actions: CI workflow | P0 | Medium | `.github/workflows/ci.yaml` — `make test`, `make lint`, `make build` on PR and push to main. |
 | GitHub Actions: Release workflow | P0 | Medium | `.github/workflows/release.yaml` — triggered on `v*` tag push. Runs GoReleaser. Requires `HOMEBREW_TAP_TOKEN` secret. |
 | Test full release cycle | P0 | Medium | Push `v2.0.0-rc.1` tag, verify: GitHub Release with all archives, Homebrew formula pushed, `brew install` works. |
@@ -85,7 +85,7 @@ CLIs are the natural interface for AI agents and LLM-driven automation. A well-s
 | Task | Status | Details |
 |------|--------|---------|
 | ~~Add LICENSE file~~ | **Done** | MIT license at repo root. |
-| Create `ktn-jamf/homebrew-tap` repo | TODO | Empty repo with README. GoReleaser config already references it. |
+| Create `jamf/homebrew-tap` repo | TODO | Empty repo with README. GoReleaser config already references it. |
 | GitHub Actions: CI workflow | TODO | `.github/workflows/ci.yaml` — `make test`, `make lint`, `make build` on PR and push to main. Matrix: Go 1.24, ubuntu-latest + macos-latest. |
 | GitHub Actions: Release workflow | TODO | `.github/workflows/release.yaml` — triggered on `v*` tag push. Runs GoReleaser. Requires `HOMEBREW_TAP_TOKEN` secret. |
 | Test full release cycle | TODO | Push `v2.0.0-rc.1` tag, verify: GitHub Release with all 6 archives, Homebrew formula pushed, `brew install` works. |
