@@ -41,13 +41,13 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Search for sorted and paged macOS branding configurations",
-		Long:  "Search for sorted and paged macOS branding configurations",
+		Short: "Search for sorted and paged iOS branding configurations",
+		Long:  "Search for sorted and paged iOS branding configurations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/self-service/branding/macos"
+			path := "/v1/self-service/branding/ios"
 
 			// Build query string
 			var queryParts []string
@@ -74,7 +74,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/self-service/branding/macos"
+					pagePath := "/v1/self-service/branding/ios"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -208,13 +208,13 @@ func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a Self Service macOS branding configuration with the supplied",
-		Long:  "Create a Self Service macOS branding configuration with the supplied details",
+		Short: "Upload an image",
+		Long:  "Uploads an image",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/self-service/branding/macos"
+			path := "/self-service/branding/images"
 
 			// Build query string
 			var queryParts []string

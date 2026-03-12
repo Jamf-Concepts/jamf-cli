@@ -114,16 +114,14 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Set the LAPS password for a device.",
-		Long:  "Set the LAPS password for a device. This will set the password for all LAPS capable accounts.",
-		Args:  cobra.ExactArgs(1),
+		Use:   "update",
+		Short: "Update settings for LAPS.",
+		Long:  "Update settings for LAPS.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/{clientManagementId}/set-password"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path := "/v2/local-admin-password/settings"
 
 			// Build query string
 			var queryParts []string

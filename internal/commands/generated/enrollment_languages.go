@@ -3,7 +3,6 @@ package generated
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,107 +31,22 @@ func NewEnrollmentLanguagesCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get an array of the language codes that have Enrollment messaging",
-		Long:  "Returns an array of the language codes that have enrollment messaging currently configured.",
+		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes",
+		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/enrollment/languages"
+			path := "/v3/enrollment/language-codes"
 
 			// Build query string
 			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
-				}
-			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
-				pageNum := 0
-				pageSize := 100
-
-				for {
-					// Build page-specific query
-					pagePath := "/v3/enrollment/languages"
-					var pageQuery []string
-					// Carry forward non-pagination query params
-					for _, qp := range queryParts {
-						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
-							pageQuery = append(pageQuery, qp)
-						}
-					}
-					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
-					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
-					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
-
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
-					if err != nil {
-						return err
-					}
-
-					body, err := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if err != nil {
-						return err
-					}
-
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
-					// Parse pagination response: {"totalCount": N, "results": [...]}
-					var pageResp struct {
-						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
-					}
-					if err := json.Unmarshal(body, &pageResp); err != nil {
-						// Not a paginated response; output as-is
-						return ctx.Output.PrintRaw(body)
-					}
-
-					allResults = append(allResults, pageResp.Results...)
-
-					// Check limit
-					if flagLimit > 0 && len(allResults) >= flagLimit {
-						allResults = allResults[:flagLimit]
-						break
-					}
-
-					// Check if we've fetched everything
-					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
-						break
-					}
-
-					pageNum++
-				}
-
-				// Output combined results as JSON array
-				combined, err := json.MarshalIndent(allResults, "", "  ")
-				if err != nil {
-					return err
-				}
-				return ctx.Output.PrintRaw(combined)
 			}
 
 			// Make request
@@ -151,11 +65,6 @@ func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is 'languageCode:asc'. Multiple sort criteria are supported and must be separated with a comma. Example: 'sort=date:desc,name:asc'. ")
-	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
 	return cmd
 }

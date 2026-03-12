@@ -41,13 +41,13 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Download the Inventory Preload CSV template",
-		Long:  "Retrieves the Inventory Preload CSV file template.",
+		Short: "Retrieve a list of extension attribute columns",
+		Long:  "Retrieve a list of extension attribute columns currently associated with inventory preload records",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/inventory-preload/csv-template"
+			path := "/v2/inventory-preload/ea-columns"
 
 			// Build query string
 			var queryParts []string
@@ -123,13 +123,13 @@ func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a new Inventory Preload record using JSON",
-		Long:  "Create a new Inventory Preload record using JSON.",
+		Short: "Create one or more new Inventory Preload records using CSV",
+		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/inventory-preload/records"
+			path := "/v2/inventory-preload/csv"
 
 			// Build query string
 			var queryParts []string

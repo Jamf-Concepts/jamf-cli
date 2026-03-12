@@ -179,7 +179,7 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/{id}"
+			path := "/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -267,7 +267,7 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/{id}"
+			path := "/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -388,7 +388,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/inventory-preload/history"
+			path := "/v1/inventory-preload/history"
 
 			// Build query string
 			var queryParts []string
@@ -419,7 +419,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/inventory-preload/history"
+					pagePath := "/v1/inventory-preload/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -565,7 +565,7 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/validate-csv"
+			path := "/inventory-preload/validate-csv"
 
 			// Build query string
 			var queryParts []string

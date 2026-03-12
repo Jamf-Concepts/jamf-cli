@@ -34,15 +34,16 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get all Panels for single Enrollment Customization",
-		Long:  "Get all panels for single enrollment customization",
+		Short: "Get the markdown output of a single Text Panel for a single Enrollment",
+		Long:  "Get the markdown output of a single Text panel for a single enrollment customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/all"
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
 			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{panel-id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -75,16 +76,14 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create <id>",
-		Short: "Create an SSO Panel for a single Enrollment Customization",
-		Long:  "Create an SSO panel for a single enrollment customization",
-		Args:  cobra.ExactArgs(1),
+		Use:   "create",
+		Short: "Parse the given string as markdown text and return Html output",
+		Long:  "Parse the given string as markdown text and return Html output",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/sso"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/v1/enrollment-customization/parse-markdown"
 
 			// Build query string
 			var queryParts []string
@@ -175,8 +174,8 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a single SSO Panel from an Enrollment Customization",
-		Long:  "Delete a single SSO panel from an Enrollment Customization",
+		Short: "Delete a single Panel from an Enrollment Customization",
+		Long:  "Delete a single panel from an Enrollment Customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -200,7 +199,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
+			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 			path = strings.Replace(path, "{panel-id}", args[0], 1)
 

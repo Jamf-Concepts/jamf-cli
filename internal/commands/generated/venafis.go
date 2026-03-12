@@ -26,8 +26,8 @@ func NewVenafisCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafisDeleteCmd(ctx))
 	cmd.AddCommand(newVenafisHistoryCmd(ctx))
 	cmd.AddCommand(newVenafisAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
 	cmd.AddCommand(newVenafisPatchCmd(ctx))
+	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
 
 	return cmd
 }
@@ -38,14 +38,14 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get configuration profile data using specified Venafi CA object",
-		Long:  "Get configuration profile data using specified Venafi CA object",
+		Short: "Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/dependent-profiles"
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -377,54 +377,6 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "regenerate <id>",
-		Short: "Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:  "Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/pki/venafi/{id}/jamf-public-key/regenerate"
-			path = strings.Replace(path, "{id}", args[0], 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-
-	return cmd
-}
-
 func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
@@ -455,6 +407,54 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+
+	return cmd
+}
+
+func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
+	var (
+	)
+
+	cmd := &cobra.Command{
+		Use:   "regenerate <id>",
+		Short: "Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/jamf-public-key/regenerate"
+			path = strings.Replace(path, "{id}", args[0], 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}

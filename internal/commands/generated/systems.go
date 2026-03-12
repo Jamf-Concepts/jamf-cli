@@ -18,25 +18,25 @@ func NewSystemsCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage systems in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSystemsInitializeCmd(ctx))
 	cmd.AddCommand(newSystemsPlatformInitializeCmd(ctx))
+	cmd.AddCommand(newSystemsInitializeCmd(ctx))
 
 	return cmd
 }
 
-func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
+func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "initialize",
-		Short: "Set up fresh installed Jamf Pro Server",
-		Long:  "Set up fresh installed Jamf Pro Server",
+		Use:   "platform-initialize",
+		Short: "Set up fresh installed Jamf Pro Server for Platform",
+		Long:  "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/system/initialize"
+			path := "/v1/system/platform-initialize"
 
 			// Build query string
 			var queryParts []string
@@ -70,19 +70,19 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
+func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "platform-initialize",
-		Short: "Set up fresh installed Jamf Pro Server for Platform",
-		Long:  "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
+		Use:   "initialize",
+		Short: "Set up fresh installed Jamf Pro Server",
+		Long:  "Set up fresh installed Jamf Pro Server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/system/platform-initialize"
+			path := "/v1/system/initialize"
 
 			// Build query string
 			var queryParts []string

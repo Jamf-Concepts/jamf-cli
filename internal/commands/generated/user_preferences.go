@@ -33,14 +33,14 @@ func newUserPreferencesGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the user setting for the authenticated user and key",
-		Long:  "Gets the user setting for the authenticated user and key.",
+		Short: "Get the user preferences for the authenticated user and key.",
+		Long:  "Gets the user preferences for the authenticated user and key.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/user/preferences/{keyId}"
+			path := "/v1/user/preferences/settings/{keyId}"
 			path = strings.Replace(path, "{keyId}", args[0], 1)
 
 			// Build query string

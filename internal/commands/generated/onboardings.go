@@ -39,13 +39,13 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
-		Long:  "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
+		Short: "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Long:  "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/onboarding/eligible-configuration-profiles"
+			path := "/v1/onboarding/eligible-apps"
 
 			// Build query string
 			var queryParts []string
@@ -72,7 +72,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/onboarding/eligible-configuration-profiles"
+					pagePath := "/v1/onboarding/eligible-apps"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

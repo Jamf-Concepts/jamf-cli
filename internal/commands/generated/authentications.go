@@ -79,7 +79,7 @@ func newAuthenticationsInvalidateTokenCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/auth/invalidate-token"
+			path := "/auth/invalidateToken"
 
 			// Build query string
 			var queryParts []string
@@ -125,7 +125,7 @@ func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/auth/keep-alive"
+			path := "/auth/keepAlive"
 
 			// Build query string
 			var queryParts []string

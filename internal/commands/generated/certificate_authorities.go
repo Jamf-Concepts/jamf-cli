@@ -68,14 +68,14 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
-		Long:  "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
+		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
+		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/certificate-authority/{id}/der"
+			path := "/v1/pki/certificate-authority/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

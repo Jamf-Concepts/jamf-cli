@@ -162,14 +162,16 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update Application Request Settings",
-		Long:  "Update app request settings",
+		Use:   "update <id>",
+		Short: "Update specified Form Input Field object",
+		Long:  "Update specified form input field object",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/app-request/settings"
+			path := "/v1/app-request/form-input-fields/{id}"
+			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
