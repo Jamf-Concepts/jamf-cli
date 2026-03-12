@@ -189,12 +189,6 @@ func enabledDisabled(v interface{}) string {
 	return "disabled"
 }
 
-// formatEpochDate converts Unix epoch seconds to a human-readable date string.
-func formatEpochDate(epoch float64) string {
-	t := time.Unix(int64(epoch), 0).UTC()
-	return t.Format("Jan 02, 2006")
-}
-
 // formatExpirationDate formats a date string and adds proximity context.
 // Returns the formatted date and a color hint: "red", "yellow", or "".
 func formatExpirationDate(dateStr string, now time.Time) (string, string) {
