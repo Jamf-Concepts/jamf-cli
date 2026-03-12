@@ -55,7 +55,7 @@ func TestSetupClient_FetchPrivileges(t *testing.T) {
 			t.Error("missing or incorrect authorization header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"privileges": []string{"Read Computers", "Create Computers"},
 		})
 	}))
@@ -85,7 +85,7 @@ func TestSetupClient_CreateAPIRole(t *testing.T) {
 			t.Errorf("expected displayName=test-role, got %v", body["displayName"])
 		}
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]string{"id": "role-42"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "role-42"})
 	}))
 	defer server.Close()
 
@@ -118,7 +118,7 @@ func TestSetupClient_CreateAPIIntegration(t *testing.T) {
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 		}
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]int{"id": 7})
+		_ = json.NewEncoder(w).Encode(map[string]int{"id": 7})
 	}))
 	defer server.Close()
 
@@ -138,7 +138,7 @@ func TestSetupClient_GenerateClientCredentials(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"clientId":     "cid-abc",
 			"clientSecret": "csec-xyz",
 		})
@@ -161,7 +161,7 @@ func TestSetupClient_GenerateClientCredentials(t *testing.T) {
 func TestSetupClient_GenerateClientCredentials_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("server error"))
+		_, _ = w.Write([]byte("server error"))
 	}))
 	defer server.Close()
 

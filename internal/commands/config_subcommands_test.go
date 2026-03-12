@@ -24,7 +24,7 @@ profiles:
     auth-method: token
     token: env:MY_TOKEN
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigShowCmd()
 	buf := &bytes.Buffer{}
@@ -107,7 +107,7 @@ profiles:
     url: https://beta.jamfcloud.com
     auth-method: oauth2
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigListCmd()
 	buf := &bytes.Buffer{}
@@ -146,7 +146,7 @@ profiles:
     auth-method: token
     token: env:TOKEN2
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigRemoveProfileCmd()
 	buf := &bytes.Buffer{}
@@ -185,7 +185,7 @@ func TestConfigRemoveProfile_NotFound(t *testing.T) {
     url: https://example.com
     auth-method: token
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigRemoveProfileCmd()
 	buf := &bytes.Buffer{}
@@ -214,7 +214,7 @@ func TestConfigSetDefault_Valid(t *testing.T) {
     url: https://beta.jamfcloud.com
     auth-method: token
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigSetDefaultCmd()
 	buf := &bytes.Buffer{}
@@ -246,7 +246,7 @@ func TestConfigSetDefault_NotFound(t *testing.T) {
     url: https://alpha.jamfcloud.com
     auth-method: token
 `
-	os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
 
 	cmd := newConfigSetDefaultCmd()
 	buf := &bytes.Buffer{}
@@ -271,7 +271,7 @@ func TestCheckHealth_Healthy(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]string{})
+		_ = json.NewEncoder(w).Encode([]string{})
 	}))
 	defer srv.Close()
 
@@ -287,7 +287,7 @@ func TestCheckHealth_Healthy(t *testing.T) {
 func TestCheckHealth_Unhealthy(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]string{"DataLayer:UNHEALTHY"})
+		_ = json.NewEncoder(w).Encode([]string{"DataLayer:UNHEALTHY"})
 	}))
 	defer srv.Close()
 
@@ -328,7 +328,7 @@ func TestCheckHealth_Non200(t *testing.T) {
 func TestCheckHealth_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("not json"))
+		_, _ = w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 

@@ -310,7 +310,7 @@ func TestCSA404_NotConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result string
 	if resp.StatusCode == http.StatusNotFound {

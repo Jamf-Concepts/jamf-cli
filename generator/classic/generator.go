@@ -37,7 +37,7 @@ func (g *Generator) Generate(resource ClassicResource) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, resource); err != nil {
 		return "", fmt.Errorf("executing template: %w", err)
@@ -59,7 +59,7 @@ func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error
 	if err != nil {
 		return "", fmt.Errorf("creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sorted := make([]ClassicResource, len(resources))
 	copy(sorted, resources)

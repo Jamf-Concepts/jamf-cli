@@ -20,7 +20,7 @@ func TestDo_ModernAPIPathPrefix(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -41,7 +41,7 @@ func TestDo_ClassicAPIPathNoPrefix(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -62,7 +62,7 @@ func TestDo_ExplicitAPIPrefix(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -84,7 +84,7 @@ func TestDo_SetsJSONHeaders(t *testing.T) {
 		gotAccept = r.Header.Get("Accept")
 		gotContentType = r.Header.Get("Content-Type")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -109,7 +109,7 @@ func TestDo_SetsBearerAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -131,7 +131,7 @@ func TestDo_ClassicAPIWithBody(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		gotBody = string(b)
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"id": 1}`))
+		_, _ = w.Write([]byte(`{"id": 1}`))
 	}))
 	defer srv.Close()
 
@@ -142,7 +142,7 @@ func TestDo_ClassicAPIWithBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if gotBody != input {
 		t.Errorf("body = %q, want %q", gotBody, input)
@@ -154,7 +154,7 @@ func TestDo_ClassicAPIWithBody(t *testing.T) {
 func TestDo_Forbidden403(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("insufficient privileges"))
+		_, _ = w.Write([]byte("insufficient privileges"))
 	}))
 	defer srv.Close()
 
@@ -176,7 +176,7 @@ func TestDo_Forbidden403(t *testing.T) {
 func TestDo_NotFound404(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		_, _ = w.Write([]byte("not found"))
 	}))
 	defer srv.Close()
 
@@ -198,7 +198,7 @@ func TestDo_NotFound404(t *testing.T) {
 func TestDo_ServerError500(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error"))
+		_, _ = w.Write([]byte("internal server error"))
 	}))
 	defer srv.Close()
 
@@ -220,7 +220,7 @@ func TestDo_ServerError500(t *testing.T) {
 func TestDo_Unauthorized401(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("invalid token"))
+		_, _ = w.Write([]byte("invalid token"))
 	}))
 	defer srv.Close()
 
@@ -239,7 +239,7 @@ func TestDo_Unauthorized401(t *testing.T) {
 func TestDo_RateLimited429(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)
-		w.Write([]byte("too many requests"))
+		_, _ = w.Write([]byte("too many requests"))
 	}))
 	defer srv.Close()
 
@@ -260,7 +260,7 @@ func TestDo_RateLimited429(t *testing.T) {
 func TestDo_VerboseOutput(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -273,7 +273,7 @@ func TestDo_VerboseOutput(t *testing.T) {
 
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	if err != nil {
@@ -319,12 +319,12 @@ func TestDoWithRetry_SucceedsAfterFailure(t *testing.T) {
 				t.Fatal("server does not support hijacking")
 			}
 			conn, _, _ := hj.Hijack()
-			conn.Close()
+			_ = conn.Close()
 			return
 		}
 		// Second request: succeed
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -333,7 +333,7 @@ func TestDoWithRetry_SucceedsAfterFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if atomic.LoadInt32(&counter) != 2 {
 		t.Errorf("expected 2 attempts, got %d", counter)
@@ -347,11 +347,11 @@ func TestDoWithRetry_RateLimitRetry(t *testing.T) {
 		if n == 1 {
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("rate limited"))
+			_, _ = w.Write([]byte("rate limited"))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 	defer srv.Close()
 
@@ -360,7 +360,7 @@ func TestDoWithRetry_RateLimitRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if atomic.LoadInt32(&counter) != 2 {
 		t.Errorf("expected 2 attempts (429 then success), got %d", counter)
@@ -379,7 +379,7 @@ func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
 			t.Fatal("server does not support hijacking")
 		}
 		conn, _, _ := hj.Hijack()
-		conn.Close()
+		_ = conn.Close()
 	}))
 	defer srv.Close()
 

@@ -139,7 +139,7 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	if err != nil {
 		return "", 0, fmt.Errorf("token exchange request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		return "", 0, fmt.Errorf("OAuth2 token exchange failed: invalid client credentials, verify your client-id and client-secret are correct")
@@ -187,7 +187,7 @@ func BasicAuthExchange(ctx context.Context, baseURL, username, password string) 
 	if err != nil {
 		return "", fmt.Errorf("cannot reach server at %s: %w", baseURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		return "", fmt.Errorf("invalid username or password")

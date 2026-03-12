@@ -85,7 +85,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	// Map HTTP error status codes to structured exit codes
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
 			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamfpro-cli config validate", string(body)))
@@ -125,7 +125,7 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 					delay = d
 				}
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			time.Sleep(delay)
 			continue
 		}

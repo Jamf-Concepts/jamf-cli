@@ -77,7 +77,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, resource); err != nil {
 		return "", fmt.Errorf("executing template: %w", err)
@@ -99,7 +99,7 @@ func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Sort resources by name
 	sort.Slice(resources, func(i, j int) bool {
