@@ -37,12 +37,12 @@ func NewBuildingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
@@ -106,14 +106,10 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -151,10 +147,6 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -171,7 +163,8 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -198,20 +191,18 @@ func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newBuildingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -242,20 +233,18 @@ func newBuildingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -288,21 +277,18 @@ func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -349,10 +335,6 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -371,9 +353,9 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
 	)
 
 	cmd := &cobra.Command{
@@ -435,10 +417,6 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -453,12 +431,12 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
@@ -525,14 +503,10 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -570,10 +544,6 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -590,7 +560,8 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -623,14 +594,11 @@ func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
@@ -639,10 +607,10 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
@@ -698,10 +666,6 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -721,10 +685,10 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
@@ -782,10 +746,6 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -800,3 +760,4 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

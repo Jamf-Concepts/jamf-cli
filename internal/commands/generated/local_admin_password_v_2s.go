@@ -27,7 +27,8 @@ func NewLocalAdminPasswordV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -52,20 +53,18 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -93,20 +92,18 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -137,20 +134,18 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
@@ -178,14 +173,12 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

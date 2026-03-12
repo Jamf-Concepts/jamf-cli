@@ -26,7 +26,8 @@ func NewCsasCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCsasListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -51,21 +52,18 @@ func newCsasListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -110,10 +108,6 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -129,3 +123,4 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

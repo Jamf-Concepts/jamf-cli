@@ -35,12 +35,12 @@ func NewCategoriesCmd(ctx *CLIContext) *cobra.Command {
 
 func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
@@ -104,14 +104,10 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -149,10 +145,6 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -169,7 +161,8 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCategoriesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -196,20 +189,18 @@ func newCategoriesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newCategoriesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -240,20 +231,18 @@ func newCategoriesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newCategoriesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -286,21 +275,18 @@ func newCategoriesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -347,10 +333,6 @@ func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -369,9 +351,9 @@ func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
 	)
 
 	cmd := &cobra.Command{
@@ -433,10 +415,6 @@ func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -451,12 +429,12 @@ func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 
 func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
@@ -523,14 +501,10 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -568,10 +542,6 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -588,7 +558,8 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCategoriesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -621,14 +592,12 @@ func newCategoriesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

@@ -46,10 +46,6 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"dockitems": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -66,6 +62,7 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -79,10 +76,6 @@ func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"dock_item": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -114,10 +107,6 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
@@ -132,6 +121,7 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -155,14 +145,11 @@ func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -188,14 +175,11 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -234,10 +218,6 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -252,3 +232,4 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

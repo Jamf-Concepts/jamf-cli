@@ -22,6 +22,9 @@ func NewClassicPatchAvailableTitlesCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
 
+
+
+
 	return cmd
 }
 
@@ -36,10 +39,6 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps list responses: {"patchavailabletitles": [...]}
 			body, err := io.ReadAll(resp.Body)
@@ -57,6 +56,7 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -70,10 +70,6 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"patch_available_title": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -90,3 +86,7 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

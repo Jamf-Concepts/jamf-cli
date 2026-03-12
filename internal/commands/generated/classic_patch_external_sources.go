@@ -46,10 +46,6 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"patchexternalsources": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -66,6 +62,7 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -79,10 +76,6 @@ func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"patch_external_source": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -114,10 +107,6 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
@@ -132,6 +121,7 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 }
+
 
 func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -155,14 +145,11 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -188,14 +175,11 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -234,10 +218,6 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -252,3 +232,4 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

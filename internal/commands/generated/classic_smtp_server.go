@@ -19,12 +19,16 @@ func NewClassicSmtpServerCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicSmtpServerGetCmd(ctx))
+
 
 	cmd.AddCommand(newClassicSmtpServerUpdateCmd(ctx))
 
+
 	return cmd
 }
+
 
 func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -39,10 +43,6 @@ func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"smtp_server": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -59,6 +59,8 @@ func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
 
 func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -84,11 +86,9 @@ func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
+

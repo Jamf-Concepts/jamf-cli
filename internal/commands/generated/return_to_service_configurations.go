@@ -30,7 +30,8 @@ func NewReturnToServiceConfigurationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -55,20 +56,18 @@ func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -95,20 +94,18 @@ func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -139,20 +136,18 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -185,21 +180,18 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -246,10 +238,6 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -265,3 +253,4 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

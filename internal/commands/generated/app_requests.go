@@ -30,7 +30,8 @@ func NewAppRequestsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -55,20 +56,18 @@ func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -95,20 +94,18 @@ func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -139,20 +136,18 @@ func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -183,21 +178,18 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -244,10 +236,6 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -263,3 +251,4 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

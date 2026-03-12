@@ -26,6 +26,7 @@ func NewClassicAllowedFileExtensionsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicAllowedFileExtensionsDeleteCmd(ctx))
 
 	return cmd
@@ -43,10 +44,6 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"allowedfileextensions": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -63,6 +60,7 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,10 +74,6 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"allowed_file_extension": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -96,6 +90,7 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -119,14 +114,12 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
+
 
 func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -165,10 +158,6 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -183,3 +172,4 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -18,10 +18,15 @@ func NewClassicMobileHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage mobile device history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicMobileHistoryGetCmd(ctx))
+
+
+
 
 	return cmd
 }
+
 
 func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -36,10 +41,6 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"mobile_device_history": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -56,3 +57,7 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

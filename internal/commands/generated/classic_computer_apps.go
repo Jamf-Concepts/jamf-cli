@@ -22,6 +22,9 @@ func NewClassicComputerAppsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerAppsGetCmd(ctx))
 
+
+
+
 	return cmd
 }
 
@@ -36,10 +39,6 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps list responses: {"computerapplications": [...]}
 			body, err := io.ReadAll(resp.Body)
@@ -57,6 +56,7 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -70,10 +70,6 @@ func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"computer_application": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -90,3 +86,7 @@ func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

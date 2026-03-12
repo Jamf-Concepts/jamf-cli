@@ -36,7 +36,8 @@ func NewInventoryPreloadV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,20 +62,18 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -101,20 +100,18 @@ func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -145,20 +142,18 @@ func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
 
 func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -191,21 +186,18 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -252,10 +244,6 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -274,12 +262,12 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
@@ -343,14 +331,10 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -388,10 +372,6 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -408,7 +388,8 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -439,14 +420,11 @@ func newInventoryPreloadV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
@@ -455,10 +433,10 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
@@ -514,10 +492,6 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -534,7 +508,8 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "csv-validate",
@@ -565,21 +540,18 @@ func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -630,10 +602,6 @@ func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -644,3 +612,4 @@ func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

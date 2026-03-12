@@ -46,10 +46,6 @@ func newClassicComputerConfigsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"computerconfigurations": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -66,6 +62,7 @@ func newClassicComputerConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -79,10 +76,6 @@ func newClassicComputerConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"computer_configuration": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -114,10 +107,6 @@ func newClassicComputerConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
@@ -132,6 +121,7 @@ func newClassicComputerConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -155,14 +145,11 @@ func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -188,14 +175,11 @@ func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -234,10 +218,6 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -252,3 +232,4 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

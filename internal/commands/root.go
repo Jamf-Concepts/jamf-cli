@@ -104,6 +104,122 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	}, nil
 }
 
+// resolveAuth determines the server URL and auth provider using the priority
+// chain: CLI flags > environment variables > config profile. It reads and
+// fills gaps in the package-level flag variables.
+func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
+	// Environment variable fallbacks
+	if profile == "" {
+		profile = os.Getenv("JAMF_PROFILE")
+	}
+	if serverURL == "" {
+		serverURL = os.Getenv("JAMF_URL")
+	}
+	if token == "" {
+		token = os.Getenv("JAMF_TOKEN")
+	}
+	if clientID == "" {
+		clientID = os.Getenv("JAMF_CLIENT_ID")
+	}
+	if clientSecret == "" {
+		clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
+	}
+	if username == "" {
+		username = os.Getenv("JAMF_USERNAME")
+	}
+	if password == "" {
+		password = os.Getenv("JAMF_PASSWORD")
+	}
+
+	// Config profile: fill remaining gaps
+	if len(cfg.Profiles) > 0 {
+		p, _, err := config.GetProfile(cfg, profile)
+		if err == nil {
+			if serverURL == "" {
+				serverURL = p.URL
+			}
+			switch p.AuthMethod {
+			case "oauth2":
+				if clientID == "" && p.ClientID != "" {
+					resolved, err := config.ResolveSecret(p.ClientID)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+					}
+					clientID = resolved
+				}
+				if clientSecret == "" && p.ClientSecret != "" {
+					resolved, err := config.ResolveSecret(p.ClientSecret)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+					}
+					clientSecret = resolved
+				}
+			case "basic":
+				if username == "" && p.Username != "" {
+					username = p.Username
+				}
+				if password == "" && p.Password != "" {
+					resolved, err := config.ResolveSecret(p.Password)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving password from profile: %w", err)
+					}
+					password = resolved
+				}
+			default: // "token" or empty
+				if token == "" && p.Token != "" {
+					resolved, err := config.ResolveSecret(p.Token)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+					}
+					token = resolved
+				}
+			}
+		}
+		if err != nil && profile != "" {
+			return "", nil, fmt.Errorf("loading profile: %w", err)
+		}
+	}
+
+	// Token from file or stdin
+	if token == "" && tokenFile != "" {
+		data, err := os.ReadFile(tokenFile)
+		if err != nil {
+			return "", nil, fmt.Errorf("reading token file %s: %w", tokenFile, err)
+		}
+		token = strings.TrimSpace(string(data))
+	}
+	if token == "" && tokenStdin {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", nil, fmt.Errorf("reading token from stdin: %w", err)
+		}
+		token = strings.TrimSpace(string(data))
+	}
+
+	// Validate
+	if serverURL == "" {
+		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
+	}
+	if (clientID != "") != (clientSecret != "") {
+		if clientID != "" {
+			return "", nil, exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
+		}
+		return "", nil, exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
+	}
+
+	// Construct auth provider
+	switch {
+	case clientID != "" && clientSecret != "":
+		return serverURL, auth.NewOAuth2Provider(serverURL, clientID, clientSecret), nil
+	case token != "":
+		return serverURL, auth.NewTokenProvider(token), nil
+	case username != "" && password != "":
+		return serverURL, auth.NewBasicProvider(serverURL, username, password), nil
+	default:
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, --username/--password, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+	}
+}
+
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &generated.CLIContext{}
@@ -132,102 +248,21 @@ device management, inventory/reporting, and configuration management.`,
 				"config":     true,
 				"commands":   true,
 			}
-			// Check command and all parents
 			for c := cmd; c != nil; c = c.Parent() {
 				if skipCommands[c.Name()] {
 					return nil
 				}
 			}
 
-			// Environment variable fallback for profile
-			if profile == "" {
-				profile = os.Getenv("JAMF_PROFILE")
-			}
-
-			// Environment variable fallback for server URL
-			if serverURL == "" {
-				serverURL = os.Getenv("JAMF_URL")
-			}
-
-			// Environment variable fallback for token
-			if token == "" {
-				token = os.Getenv("JAMF_TOKEN")
-			}
-
-			// Environment variable fallback for OAuth2 client credentials
-			if clientID == "" {
-				clientID = os.Getenv("JAMF_CLIENT_ID")
-			}
-			if clientSecret == "" {
-				clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
-			}
-
-			// Environment variable fallback for basic auth credentials
-			if username == "" {
-				username = os.Getenv("JAMF_USERNAME")
-			}
-			if password == "" {
-				password = os.Getenv("JAMF_PASSWORD")
-			}
-
-			// Config profile fallback: fill gaps from profile
+			// Load config and resolve auth
 			cfg, err := config.Load()
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
 
-			// Only attempt profile resolution if config has profiles
-			if len(cfg.Profiles) > 0 {
-				p, _, err := config.GetProfile(cfg, profile)
-				if err == nil {
-					// Fill in server URL from profile if not set by flag or env
-					if serverURL == "" {
-						serverURL = p.URL
-					}
-
-					// Handle auth method from profile
-					switch p.AuthMethod {
-					case "oauth2":
-						if clientID == "" && p.ClientID != "" {
-							resolved, err := config.ResolveSecret(p.ClientID)
-							if err != nil {
-								return fmt.Errorf("resolving client-id from profile: %w", err)
-							}
-							clientID = resolved
-						}
-						if clientSecret == "" && p.ClientSecret != "" {
-							resolved, err := config.ResolveSecret(p.ClientSecret)
-							if err != nil {
-								return fmt.Errorf("resolving client-secret from profile: %w", err)
-							}
-							clientSecret = resolved
-						}
-					case "basic":
-						if username == "" && p.Username != "" {
-							username = p.Username
-						}
-						if password == "" && p.Password != "" {
-							resolved, err := config.ResolveSecret(p.Password)
-							if err != nil {
-								return fmt.Errorf("resolving password from profile: %w", err)
-							}
-							password = resolved
-						}
-					default: // "token" or empty
-						// Fill in token from profile if not set by flag or env
-						if token == "" && p.Token != "" {
-							resolved, err := config.ResolveSecret(p.Token)
-							if err != nil {
-								return fmt.Errorf("resolving token from profile: %w", err)
-							}
-							token = resolved
-						}
-					}
-				}
-				// If profile not found but was explicitly requested, error out
-				if err != nil && profile != "" {
-					return fmt.Errorf("loading profile: %w", err)
-				}
+			resolvedURL, authProvider, err := resolveAuth(cfg)
+			if err != nil {
+				return err
 			}
 
 			// Apply default output from config if flag not explicitly set
@@ -235,68 +270,17 @@ device management, inventory/reporting, and configuration management.`,
 				outputFmt = cfg.DefaultOutput
 			}
 
-			// Token file fallback: read token from a file
-			if token == "" && tokenFile != "" {
-				data, err := os.ReadFile(tokenFile)
-				if err != nil {
-					return fmt.Errorf("reading token file %s: %w", tokenFile, err)
-				}
-				token = strings.TrimSpace(string(data))
-			}
-
-			// Token stdin fallback: read token from stdin
-			if token == "" && tokenStdin {
-				data, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading token from stdin: %w", err)
-				}
-				token = strings.TrimSpace(string(data))
-			}
-
-			// Validate we have server URL and some form of auth
-			if serverURL == "" {
-				return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
-			}
-
-			// Detect partial OAuth2 credentials
-			if (clientID != "") != (clientSecret != "") {
-				if clientID != "" {
-					return exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
-				}
-				return exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
-			}
-
-			// Determine auth provider
-			var authProvider auth.Provider
-			if clientID != "" && clientSecret != "" {
-				// OAuth2 client credentials
-				authProvider = auth.NewOAuth2Provider(serverURL, clientID, clientSecret)
-			} else if token != "" {
-				// Static bearer token
-				authProvider = auth.NewTokenProvider(token)
-			} else if username != "" && password != "" {
-				// Basic auth token exchange
-				authProvider = auth.NewBasicProvider(serverURL, username, password)
-			} else {
-				return exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, --username/--password, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
-			}
-
-			// Create client and formatter now that auth is resolved
-			var httpClient generated.HTTPClient = &cliClient{client.New(serverURL, authProvider, client.WithVerbose(verbose))}
-
-			// Dry-run wraps first (innermost) — intercepts before spinner
+			// Build HTTP client with decorators
+			var httpClient generated.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verbose))}
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}
-
-			// Spinner wraps outermost — only runs for requests that reach the network
 			if !quiet && !verbose {
 				httpClient = &spinnerClient{inner: httpClient}
 			}
-
 			cliCtx.Client = httpClient
 
-			// Redirect output to file if --out-file is set (disables color)
+			// Build output formatter
 			if outFile != "" {
 				f, err := os.Create(outFile)
 				if err != nil {
@@ -305,12 +289,10 @@ device management, inventory/reporting, and configuration management.`,
 				outFileHandle = f
 				noColor = true
 			}
-
 			formatter := output.New(outputFmt, noColor, wide)
 			if outFileHandle != nil {
 				formatter.SetWriter(outFileHandle)
 			}
-
 			cliCtx.Output = &cliOutput{formatter}
 
 			return nil

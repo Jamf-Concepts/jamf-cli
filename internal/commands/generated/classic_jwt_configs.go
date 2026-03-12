@@ -45,10 +45,6 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"jsonwebtokenconfigurations": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -65,6 +61,7 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -78,10 +75,6 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"json_web_token_configuration": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -98,6 +91,7 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -121,14 +115,11 @@ func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -154,14 +145,11 @@ func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
 
 func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -200,10 +188,6 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -218,3 +202,4 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

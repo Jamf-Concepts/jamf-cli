@@ -18,10 +18,15 @@ func NewClassicComputerHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicComputerHistoryGetCmd(ctx))
+
+
+
 
 	return cmd
 }
+
 
 func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -36,10 +41,6 @@ func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"computer_history": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -56,3 +57,7 @@ func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

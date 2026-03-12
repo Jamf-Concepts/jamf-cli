@@ -26,6 +26,7 @@ func NewClassicMobileInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileInvitationsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicMobileInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -43,10 +44,6 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"mobiledeviceinvitations": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -63,6 +60,7 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,10 +74,6 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"mobile_device_invitation": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -96,6 +90,7 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -119,14 +114,12 @@ func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
+
 
 func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -165,10 +158,6 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -183,3 +172,4 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

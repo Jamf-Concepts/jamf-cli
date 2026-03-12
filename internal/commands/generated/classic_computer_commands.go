@@ -26,6 +26,8 @@ func NewClassicComputerCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerCommandsCreateCmd(ctx))
 
+
+
 	return cmd
 }
 
@@ -40,10 +42,6 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps list responses: {"computercommands": [...]}
 			body, err := io.ReadAll(resp.Body)
@@ -61,6 +59,7 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -74,10 +73,6 @@ func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"computer_command": {...}}
 			body, err := io.ReadAll(resp.Body)
@@ -109,10 +104,6 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
@@ -127,6 +118,7 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
 
 func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -150,11 +142,10 @@ func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 }
+
+
+
