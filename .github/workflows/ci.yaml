@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+
+      - name: Test
+        run: make test
+
+      - name: Verify generated code is up-to-date
+        run: |
+          make generate
+          go fmt ./internal/commands/generated/...
+          if ! git diff --quiet -- internal/commands/generated/; then
+            echo "::error::Generated code is out of date. Run 'make generate' and commit the result."
+            git diff --stat -- internal/commands/generated/
+            exit 1
+          fi
+
+      - name: Build
+        run: make build

@@ -1,0 +1,110 @@
+name: Sync Specs
+
+on:
+  workflow_dispatch:
+    inputs:
+      jamf_pro_version:
+        description: "Jamf Pro version (e.g., 11.15.0)"
+        required: true
+        type: string
+      server_repo_ref:
+        description: "Git ref in jamf-pro-server (branch, tag, or SHA)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run (show diff only, do not create PR)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      JAMF_PRO_VERSION: ${{ inputs.jamf_pro_version }}
+      SERVER_REPO_REF: ${{ inputs.server_repo_ref }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Checkout jamfpro-cli
+        uses: actions/checkout@v6
+
+      - name: Checkout jamf-pro-server
+        uses: actions/checkout@v6
+        with:
+          repository: jamf/jamf-pro-server
+          ref: ${{ inputs.server_repo_ref }}
+          token: ${{ secrets.SERVER_REPO_TOKEN }}
+          path: jamf-pro-server
+          sparse-checkout: |
+            api/api-impl/src/main/resources/swagger_docs/uapi
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Sync specs and regenerate
+        run: make sync-specs JAMF_SERVER_PATH=./jamf-pro-server
+
+      - name: Run tests
+        run: make test
+
+      - name: Generate diff summary
+        id: diff
+        run: |
+          ADDED=$(git diff --name-only --diff-filter=A -- specs/ internal/commands/generated/)
+          MODIFIED=$(git diff --name-only --diff-filter=M -- specs/ internal/commands/generated/)
+          DELETED=$(git diff --name-only --diff-filter=D -- specs/ internal/commands/generated/)
+
+          NEW_SPECS=$(echo "$ADDED" | grep '^specs/' | grep -c '\.yaml$' || true)
+          MOD_SPECS=$(echo "$MODIFIED" | grep '^specs/' | grep -c '\.yaml$' || true)
+          DEL_SPECS=$(echo "$DELETED" | grep '^specs/' | grep -c '\.yaml$' || true)
+          NEW_CMDS=$(echo "$ADDED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
+          MOD_CMDS=$(echo "$MODIFIED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
+          DEL_CMDS=$(echo "$DELETED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "summary<<$EOF"
+            echo "## Spec Sync Summary — Jamf Pro v${JAMF_PRO_VERSION}"
+            echo ""
+            echo "**Source:** \`jamf-pro-server@${SERVER_REPO_REF}\`"
+            echo ""
+            echo "### Specs"
+            echo "- Added: ${NEW_SPECS}"
+            echo "- Modified: ${MOD_SPECS}"
+            echo "- Removed: ${DEL_SPECS}"
+            echo ""
+            echo "### Generated Commands"
+            echo "- Added: ${NEW_CMDS}"
+            echo "- Modified: ${MOD_CMDS}"
+            echo "- Removed: ${DEL_CMDS}"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dry run — print diff and stop
+        if: inputs.dry_run
+        run: |
+          echo "$DIFF_SUMMARY"
+          echo ""
+          git diff --stat
+          echo ""
+          echo "Dry run complete. No PR created."
+        env:
+          DIFF_SUMMARY: ${{ steps.diff.outputs.summary }}
+
+      - name: Create pull request
+        if: ${{ !inputs.dry_run }}
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: sync/jamf-pro-v${{ inputs.jamf_pro_version }}
+          commit-message: "feat: sync specs with Jamf Pro v${{ inputs.jamf_pro_version }}"
+          title: "feat: sync specs with Jamf Pro v${{ inputs.jamf_pro_version }}"
+          body: ${{ steps.diff.outputs.summary }}
+          labels: specs,automated
