@@ -382,7 +382,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/history"
+			path := "/inventory-preload/history"
 
 			// Build query string
 			var queryParts []string
@@ -413,7 +413,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/inventory-preload/history"
+					pagePath := "/inventory-preload/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

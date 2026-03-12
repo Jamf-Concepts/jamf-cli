@@ -37,14 +37,14 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:  "Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
+		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path := "/v1/pki/venafi/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -76,16 +76,14 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "create <id>",
-		Short: "Uploads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:  "Uploads the PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Args:  cobra.ExactArgs(1),
+		Use:   "create",
+		Short: "Create a PKI configuration in Jamf Pro for Venafi",
+		Long:  "Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/proxy-trust-store"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/v1/pki/venafi"
 
 			// Build query string
 			var queryParts []string
@@ -126,8 +124,8 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Removes the PKI Proxy Server public key used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:  "Removes the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Short: "Delete a Venafi PKI configuration from Jamf Pro",
+		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -151,7 +149,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path := "/v1/pki/venafi/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

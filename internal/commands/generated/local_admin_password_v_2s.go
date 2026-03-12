@@ -31,13 +31,13 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get the current LAPS settings.",
-		Long:  "Return information about the current LAPS settings.",
+		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
+		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/local-admin-password/settings"
+			path := "/v2/local-admin-password/pending-rotations"
 
 			// Build query string
 			var queryParts []string

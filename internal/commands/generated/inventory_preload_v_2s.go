@@ -40,13 +40,13 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieve a list of extension attribute columns",
-		Long:  "Retrieve a list of extension attribute columns currently associated with inventory preload records",
+		Short: "Download all Inventory Preload records",
+		Long:  "Returns all Inventory Preload records as a CSV file.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/inventory-preload/ea-columns"
+			path := "/v2/inventory-preload/csv"
 
 			// Build query string
 			var queryParts []string

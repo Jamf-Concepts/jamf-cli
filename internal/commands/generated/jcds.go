@@ -23,9 +23,9 @@ func NewJcdsCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newJcdsListCmd(ctx))
 	cmd.AddCommand(newJcdsGetCmd(ctx))
 	cmd.AddCommand(newJcdsDeleteCmd(ctx))
+	cmd.AddCommand(newJcdsFilesCmd(ctx))
 	cmd.AddCommand(newJcdsRefreshInventoryCmd(ctx))
 	cmd.AddCommand(newJcdsRenewCredentialsCmd(ctx))
-	cmd.AddCommand(newJcdsFilesCmd(ctx))
 
 	return cmd
 }
@@ -177,6 +177,50 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "files",
+		Short: "Initiate an upload to the Jamf Cloud Distribution Service",
+		Long:  "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/jcds/files"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagFileName string
@@ -240,50 +284,6 @@ func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/jcds/renew-credentials"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "files",
-		Short: "Initiate an upload to the Jamf Cloud Distribution Service",
-		Long:  "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/jcds/files"
 
 			// Build query string
 			var queryParts []string

@@ -33,16 +33,15 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the markdown output of a single Text Panel for a single Enrollment",
-		Long:  "Get the markdown output of a single Text panel for a single enrollment customization",
+		Short: "Get all Panels for single Enrollment Customization",
+		Long:  "Get all panels for single enrollment customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
+			path := "/v1/enrollment-customization/{id}/all"
 			path = strings.Replace(path, "{id}", args[0], 1)
-			path = strings.Replace(path, "{panel-id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -118,14 +117,14 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a single SSO Panel for a single Enrollment Customization",
-		Long:  "Update a single SSO panel for a single enrollment customization",
+		Short: "Update a single LDAP Panel for a single Enrollment Customization",
+		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
+			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 			path = strings.Replace(path, "{panel-id}", args[0], 1)
 

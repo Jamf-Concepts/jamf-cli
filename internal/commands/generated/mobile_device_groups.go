@@ -3,7 +3,6 @@ package generated
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,24 +32,62 @@ func NewMobileDeviceGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Return the list of all Mobile Device Groups",
+		Long:  "Returns the list of all mobile device groups.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/mobile-device-groups"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
-		flagAll      bool
-		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get Static Groups",
-		Long:  "Get Static Groups",
+		Use:   "get <id>",
+		Short: "Get Smart Group Membership by Id",
+		Long:  "Get Smart Group Membership by Id",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups"
+			path := "/v1/mobile-device-groups/smart-group-membership/{id}"
+			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -72,75 +109,6 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
-				pageNum := 0
-				pageSize := 100
-
-				for {
-					// Build page-specific query
-					pagePath := "/v1/mobile-device-groups/static-groups"
-					var pageQuery []string
-					// Carry forward non-pagination query params
-					for _, qp := range queryParts {
-						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
-							pageQuery = append(pageQuery, qp)
-						}
-					}
-					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
-					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
-					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
-
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
-					if err != nil {
-						return err
-					}
-
-					body, err := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if err != nil {
-						return err
-					}
-
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
-					// Parse pagination response: {"totalCount": N, "results": [...]}
-					var pageResp struct {
-						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
-					}
-					if err := json.Unmarshal(body, &pageResp); err != nil {
-						// Not a paginated response; output as-is
-						return ctx.Output.PrintRaw(body)
-					}
-
-					allResults = append(allResults, pageResp.Results...)
-
-					// Check limit
-					if flagLimit > 0 && len(allResults) >= flagLimit {
-						allResults = allResults[:flagLimit]
-						break
-					}
-
-					// Check if we've fetched everything
-					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
-						break
-					}
-
-					pageNum++
-				}
-
-				// Output combined results as JSON array
-				combined, err := json.MarshalIndent(allResults, "", "  ")
-				if err != nil {
-					return err
-				}
-				return ctx.Output.PrintRaw(combined)
-			}
-
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -159,50 +127,8 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Available criteria to sort on: groupId, groupName, siteId.")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter department collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName==\"staticGroup1\"")
-	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
-	return cmd
-}
-
-func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get Smart Group by Id",
-		Long:  "Get Smart Group by Id",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/mobile-device-groups/smart-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with a comma.   Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled',  'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osRapidSecurityResponse', 'osSupplementalBuildVersion', 'osVersion', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode',  'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode',  'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be sorted by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  Example: 'sort=displayName:desc,username:asc' ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId',  'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress',  'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model',  'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize',  'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage',  'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber',  'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection',  'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled',  'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be filtered by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
 
 	return cmd
 }
@@ -214,13 +140,13 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create membership of a static group",
-		Long:  "Create membership of a static group",
+		Short: "Create a smart group",
+		Long:  "Create a smart group",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups"
+			path := "/v1/mobile-device-groups/smart-groups"
 
 			// Build query string
 			var queryParts []string

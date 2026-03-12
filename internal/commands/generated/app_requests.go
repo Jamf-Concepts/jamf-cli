@@ -34,13 +34,13 @@ func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get Applicastion Request Settings",
-		Long:  "Get app request settings",
+		Short: "Search for Form Input Fields",
+		Long:  "Search for form input fields",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/app-request/settings"
+			path := "/v1/app-request/form-input-fields"
 
 			// Build query string
 			var queryParts []string
@@ -155,16 +155,14 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update specified Form Input Field object",
-		Long:  "Update specified form input field object",
-		Args:  cobra.ExactArgs(1),
+		Use:   "update",
+		Short: "Replace all Form Input Fields",
+		Long:  "Replace all form input fields. Will delete, update, and create all input fields accordingly.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/app-request/form-input-fields/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/v1/app-request/form-input-fields"
 
 			// Build query string
 			var queryParts []string

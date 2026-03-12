@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -42,13 +43,29 @@ func ParseSpec(specPath string) (*Resource, error) {
 		Schemas:      make(map[string]*Schema),
 	}
 
-	// Parse paths into operations
-	for path, pathItem := range doc.Paths.Map() {
+	// Parse paths into operations (sorted for deterministic output)
+	pathsMap := doc.Paths.Map()
+	sortedPaths := make([]string, 0, len(pathsMap))
+	for p := range pathsMap {
+		sortedPaths = append(sortedPaths, p)
+	}
+	sort.Strings(sortedPaths)
+
+	for _, path := range sortedPaths {
+		pathItem := pathsMap[path]
 		if pathItem == nil {
 			continue
 		}
 
-		for method, op := range pathItem.Operations() {
+		opsMap := pathItem.Operations()
+		sortedMethods := make([]string, 0, len(opsMap))
+		for m := range opsMap {
+			sortedMethods = append(sortedMethods, m)
+		}
+		sort.Strings(sortedMethods)
+
+		for _, method := range sortedMethods {
+			op := opsMap[method]
 			if op == nil {
 				continue
 			}
@@ -139,9 +156,17 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		}
 	}
 
-	// Parse responses
+	// Parse responses (sorted for deterministic output)
 	if op.Responses != nil {
-		for code, respRef := range op.Responses.Map() {
+		respMap := op.Responses.Map()
+		sortedCodes := make([]string, 0, len(respMap))
+		for code := range respMap {
+			sortedCodes = append(sortedCodes, code)
+		}
+		sort.Strings(sortedCodes)
+
+		for _, code := range sortedCodes {
+			respRef := respMap[code]
 			if respRef == nil || respRef.Value == nil {
 				continue
 			}

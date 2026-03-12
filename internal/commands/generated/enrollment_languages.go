@@ -34,13 +34,13 @@ func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes",
-		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes.",
+		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes but only those not already added to Enrollment",
+		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes, but only those not already added to Enrollment.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/enrollment/language-codes"
+			path := "/v3/enrollment/filtered-language-codes"
 
 			// Build query string
 			var queryParts []string
