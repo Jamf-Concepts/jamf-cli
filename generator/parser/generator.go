@@ -279,7 +279,7 @@ import (
 {{- if hasDelete .Operations }}
 	"net/http"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) }}
+{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) }}
 	"os"
 {{- end }}
 	"strings"
@@ -342,6 +342,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, args[0]{{ end }})
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -500,7 +504,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 			}
 {{ if eq .Method "DELETE" }}
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 {{ end }}

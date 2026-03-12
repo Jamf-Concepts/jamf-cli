@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ktn-jamf/jamfpro-cli/generator/classic"
-	"github.com/ktn-jamf/jamfpro-cli/generator/parser"
+	"github.com/jamf/jamfpro-cli/generator/classic"
+	"github.com/jamf/jamfpro-cli/generator/parser"
 )
 
 func main() {

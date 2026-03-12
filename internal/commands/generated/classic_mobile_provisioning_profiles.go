@@ -219,6 +219,10 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "This will delete mobile_device_provisioning_profile %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -239,7 +243,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 			}
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 

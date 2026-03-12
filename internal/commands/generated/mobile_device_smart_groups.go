@@ -18,26 +18,26 @@ func NewMobileDeviceSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage mobile-device-smart-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDeviceSmartGroupsRecalculateCmd(ctx))
 	cmd.AddCommand(newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx))
+	cmd.AddCommand(newMobileDeviceSmartGroupsRecalculateCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
+func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "recalculate <id>",
-		Short: "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
-		Long:  "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
+		Use:   "recalculate-smart-groups <id>",
+		Short: "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
+		Long:  "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/smart-mobile-device-groups/{id}/recalculate"
+			path := "/v1/mobile-devices/{id}/recalculate-smart-groups"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -72,20 +72,20 @@ func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
+func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "recalculate-smart-groups <id>",
-		Short: "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
-		Long:  "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
+		Use:   "recalculate <id>",
+		Short: "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
+		Long:  "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mobile-devices/{id}/recalculate-smart-groups"
+			path := "/v1/smart-mobile-device-groups/{id}/recalculate"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

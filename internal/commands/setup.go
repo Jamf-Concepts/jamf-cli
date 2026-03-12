@@ -15,9 +15,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/auth"
-	"github.com/ktn-jamf/jamfpro-cli/internal/config"
-	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
+	"github.com/jamf/jamfpro-cli/internal/auth"
+	"github.com/jamf/jamfpro-cli/internal/config"
+	"github.com/jamf/jamfpro-cli/internal/keychain"
 )
 
 // setupClient wraps a bearer token for making authenticated API calls during setup.

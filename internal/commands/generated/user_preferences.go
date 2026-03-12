@@ -33,14 +33,14 @@ func newUserPreferencesGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the user setting for the authenticated user and key",
-		Long:  "Gets the user setting for the authenticated user and key.",
+		Short: "Get the user preferences for the authenticated user and key.",
+		Long:  "Gets the user preferences for the authenticated user and key.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/user/preferences/{keyId}"
+			path := "/v1/user/preferences/settings/{keyId}"
 			path = strings.Replace(path, "{keyId}", args[0], 1)
 
 			// Build query string
@@ -137,6 +137,10 @@ func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -168,7 +172,7 @@ func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 

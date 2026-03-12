@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/commands/generated"
-	"github.com/ktn-jamf/jamfpro-cli/internal/output"
+	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/jamf/jamfpro-cli/internal/output"
 )
 
 type overviewSection struct {

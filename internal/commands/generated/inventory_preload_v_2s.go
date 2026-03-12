@@ -29,8 +29,8 @@ func NewInventoryPreloadV2SCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadV2SHistoryCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SExportCmd(ctx))
-	cmd.AddCommand(newInventoryPreloadV2SDeleteAllCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SCsvValidateCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadV2SDeleteAllCmd(ctx))
 
 	return cmd
 }
@@ -41,13 +41,13 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieve a list of extension attribute columns",
-		Long:  "Retrieve a list of extension attribute columns currently associated with inventory preload records",
+		Short: "Download the Inventory Preload CSV template",
+		Long:  "Retrieves the Inventory Preload CSV file template.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/inventory-preload/ea-columns"
+			path := "/v2/inventory-preload/csv-template"
 
 			// Build query string
 			var queryParts []string
@@ -123,13 +123,13 @@ func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a new Inventory Preload record using JSON",
-		Long:  "Create a new Inventory Preload record using JSON.",
+		Short: "Create one or more new Inventory Preload records using CSV",
+		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/inventory-preload/records"
+			path := "/v2/inventory-preload/csv"
 
 			// Build query string
 			var queryParts []string
@@ -231,6 +231,10 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -262,7 +266,7 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
@@ -539,70 +543,6 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
-	var (
-		flagYes bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-all",
-		Short: "Delete all Inventory Preload records",
-		Long:  "Deletes all Inventory Preload records.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Confirmation for destructive action
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-all\n")
-				return nil
-			}
-			if !flagYes {
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-all. Type 'yes' to confirm: ")
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			// Build request path
-			path := "/v2/inventory-preload/records/delete-all"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
 func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
@@ -645,6 +585,74 @@ func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
+
+	return cmd
+}
+
+func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
+	var (
+		flagYes bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-all",
+		Short: "Delete all Inventory Preload records",
+		Long:  "Deletes all Inventory Preload records.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Confirmation for destructive action
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "Would delete-all\n")
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete-all. Type 'yes' to confirm: ")
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Build request path
+			path := "/v2/inventory-preload/records/delete-all"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

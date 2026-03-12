@@ -10,20 +10,20 @@ CLI tool for Jamf Pro Server API automation.
 
 ### Homebrew (macOS/Linux)
 
-> **TODO:** Homebrew tap not yet available. Requires creating the `ktn-jamf/homebrew-tap` repo and publishing a formula.
+> **TODO:** Homebrew tap not yet available. Requires creating the `jamf/homebrew-tap` repo and publishing a formula.
 
 ```bash
-brew install ktn-jamf/tap/jamfpro-cli
+brew install jamf/tap/jamfpro-cli
 ```
 
 ### Binary releases
 
-Download from [GitHub Releases](https://github.com/ktn-jamf/jamfpro-cli/releases).
+Download from [GitHub Releases](https://github.com/jamf/jamfpro-cli/releases).
 
 ### From source
 
 ```bash
-go install github.com/ktn-jamf/jamfpro-cli/cmd/jamfpro-cli@latest
+go install github.com/jamf/jamfpro-cli/cmd/jamfpro-cli@latest
 ```
 
 ## Quick Start

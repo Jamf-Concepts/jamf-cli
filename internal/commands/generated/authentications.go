@@ -19,10 +19,10 @@ func NewAuthenticationsCmd(ctx *CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newAuthenticationsListCmd(ctx))
-	cmd.AddCommand(newAuthenticationsCurrentCmd(ctx))
-	cmd.AddCommand(newAuthenticationsInvalidateTokenCmd(ctx))
 	cmd.AddCommand(newAuthenticationsKeepAliveCmd(ctx))
 	cmd.AddCommand(newAuthenticationsTokenCmd(ctx))
+	cmd.AddCommand(newAuthenticationsCurrentCmd(ctx))
+	cmd.AddCommand(newAuthenticationsInvalidateTokenCmd(ctx))
 
 	return cmd
 }
@@ -49,6 +49,98 @@ func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
 
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+
+	return cmd
+}
+
+func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
+	var (
+	)
+
+	cmd := &cobra.Command{
+		Use:   "keep-alive",
+		Short: "Invalidate existing token and generates new token",
+		Long:  "Invalidates existing token and generates new token with extended expiration based on existing token credentials.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/auth/keep-alive"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+
+	return cmd
+}
+
+func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
+	var (
+	)
+
+	cmd := &cobra.Command{
+		Use:   "token",
+		Short: "Create a token based on other authentication details (basic, etc.)",
+		Long:  "Create a token based on other authentication details (basic, etc.).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/auth/token"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}
@@ -126,98 +218,6 @@ func newAuthenticationsInvalidateTokenCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/auth/invalidateToken"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-
-	return cmd
-}
-
-func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "keep-alive",
-		Short: "Invalidate existing token and generates new token",
-		Long:  "Invalidates existing token and generates new token with extended expiration based on existing token credentials.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/auth/keepAlive"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-
-	return cmd
-}
-
-func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "token",
-		Short: "Create a token based on other authentication details (basic, etc.)",
-		Long:  "Create a token based on other authentication details (basic, etc.).",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/auth/token"
 
 			// Build query string
 			var queryParts []string

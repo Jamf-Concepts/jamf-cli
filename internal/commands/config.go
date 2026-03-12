@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/config"
-	"github.com/ktn-jamf/jamfpro-cli/internal/keychain"
+	"github.com/jamf/jamfpro-cli/internal/config"
+	"github.com/jamf/jamfpro-cli/internal/keychain"
 )
 
 func newConfigCmd() *cobra.Command {

@@ -166,14 +166,14 @@ func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Read a single Self Service macOS branding configuration indicated by the provided id",
-		Long:  "Read a single Self Service macOS branding configuration indicated by the provided id.",
+		Short: "Read a single Self Service iOS branding configuration indicated by the provided id",
+		Long:  "Read a single Self Service iOS branding configuration indicated by the provided id.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/self-service/branding/macos/{id}"
+			path := "/v1/self-service/branding/ios/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -208,13 +208,13 @@ func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Upload an image",
-		Long:  "Uploads an image",
+		Short: "Create a Self Service iOS branding configuration with the supplied",
+		Long:  "Create a Self Service iOS branding configuration with the supplied details",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/self-service/branding/images"
+			path := "/v1/self-service/branding/ios"
 
 			// Build query string
 			var queryParts []string
@@ -254,14 +254,14 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a Self Service macOS branding configuration with the supplied details",
-		Long:  "Update a Self Service macOS branding configuration with the supplied details",
+		Short: "Update a Self Service iOS branding configuration with the supplied details",
+		Long:  "Update a Self Service iOS branding configuration with the supplied details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/self-service/branding/macos/{id}"
+			path := "/v1/self-service/branding/ios/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -304,8 +304,8 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete the Self Service macOS branding configuration indicated by the provided id",
-		Long:  "Delete the Self Service macOS branding configuration indicated by the provided id.",
+		Short: "Delete the Self Service iOS branding configuration indicated by the provided id",
+		Long:  "Delete the Self Service iOS branding configuration indicated by the provided id.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -316,6 +316,10 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -325,7 +329,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/self-service/branding/macos/{id}"
+			path := "/v1/self-service/branding/ios/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -347,7 +351,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
