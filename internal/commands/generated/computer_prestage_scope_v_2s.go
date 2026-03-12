@@ -136,6 +136,10 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -201,8 +205,8 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
-		Short: "Get device Scope for a specific Computer Prestage",
-		Long:  "Get device scope for a specific computer prestage",
+		Short: "Add device Scope for a specific Computer Prestage",
+		Long:  "Add device scope for a specific computer prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -218,7 +222,13 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}

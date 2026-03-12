@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,20 +24,24 @@ func NewLdapRsCmd(ctx *CLIContext) *cobra.Command {
 
 func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
+		flagQ string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieve all Servers including LDAP and Cloud Identity Providers.",
-		Long:  "Retrieve all Servers including LDAP and Cloud Identity Providers.",
+		Short: "Retrieve the configured access groups that contain the text in the search param",
+		Long:  "Retrieves the configured access groups that contain the text in the searchParam.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/ldap/servers"
+			path := "/v1/ldap/groups"
 
 			// Build query string
 			var queryParts []string
+			if flagQ != "" {
+				queryParts = append(queryParts, fmt.Sprintf("q=%s", flagQ))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -57,6 +62,7 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagQ, "q", "null", "Will perform a \"contains\" search on the names of access groups")
 
 	return cmd
 }

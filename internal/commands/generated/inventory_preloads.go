@@ -36,10 +36,9 @@ func NewInventoryPreloadsCmd(ctx *CLIContext) *cobra.Command {
 func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagPage int
-		flagSize int
 		flagPagesize int
-		flagPageSize int
 		flagSort string
+		flagSortBy string
 		flagAll  bool
 		flagLimit int
 	)
@@ -52,24 +51,21 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload"
+			path := "/inventory-preload"
 
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
 			}
-			if flagSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("size=%d", flagSize))
-			}
 			if flagPagesize != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("pagesize=%d", flagPagesize))
 			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
 			if flagSort != "" {
 				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+			}
+			if flagSortBy != "" {
+				queryParts = append(queryParts, fmt.Sprintf("sortBy=%s", flagSortBy))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -83,7 +79,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/inventory-preload"
+					pagePath := "/inventory-preload"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -161,10 +157,9 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagSize, "size", 100, "")
 	cmd.Flags().IntVar(&flagPagesize, "pagesize", 100, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringVar(&flagSort, "sort", "id:asc", "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringVar(&flagSort, "sort", "ASC", "")
+	cmd.Flags().StringVar(&flagSortBy, "sort-by", "id", "")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
@@ -184,7 +179,7 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/{id}"
+			path := "/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -225,7 +220,7 @@ func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload"
+			path := "/inventory-preload"
 
 			// Build query string
 			var queryParts []string
@@ -272,7 +267,7 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/{id}"
+			path := "/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -327,6 +322,10 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -336,7 +335,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/inventory-preload/{id}"
+			path := "/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -358,7 +357,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
@@ -568,7 +567,7 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/validate-csv"
+			path := "/inventory-preload/validate-csv"
 
 			// Build query string
 			var queryParts []string

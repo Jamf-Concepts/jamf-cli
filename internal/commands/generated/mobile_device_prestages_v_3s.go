@@ -169,14 +169,14 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Retrieve a Mobile Device Prestage with the supplied id",
-		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
+		Short: "Get attachments for a Mobile Device Prestage",
+		Long:  "Get attachments for a Mobile Device Prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/mobile-device-prestages/{id}"
+			path := "/v3/mobile-device-prestages/{id}/attachments"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -210,14 +210,16 @@ func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a Mobile Device Prestage",
-		Long:  "Create a mobile device prestage",
+		Use:   "create <id>",
+		Short: "Add an attachment to a Mobile Device Prestage",
+		Long:  "Add an attachment to a Mobile Device prestage",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/mobile-device-prestages"
+			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -319,6 +321,10 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -350,7 +356,7 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
@@ -385,6 +391,10 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)

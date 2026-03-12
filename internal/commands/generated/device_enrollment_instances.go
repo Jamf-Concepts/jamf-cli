@@ -27,8 +27,8 @@ func NewDeviceEnrollmentInstancesCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceEnrollmentInstancesDeleteCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesHistoryCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentInstancesDisownCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesUploadTokenCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstancesDisownCmd(ctx))
 
 	return cmd
 }
@@ -273,6 +273,10 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -304,7 +308,7 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
@@ -504,21 +508,19 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
+func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "disown <id>",
-		Short: "Disown devices from the given Device Enrollment Instance",
-		Long:  "Disowns devices from the given device enrollment instance",
-		Args:  cobra.ExactArgs(1),
+		Use:   "upload-token",
+		Short: "Create a Device Enrollment Instance with the supplied Token",
+		Long:  "Creates a device enrollment instance with the supplied token.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/device-enrollments/{id}/disown"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/v1/device-enrollments/upload-token"
 
 			// Build query string
 			var queryParts []string
@@ -552,20 +554,20 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command {
+func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload-token <id>",
-		Short: "Update a Device Enrollment Instance with the supplied Token",
-		Long:  "Updates a device enrollment instance with the supplied token.",
+		Use:   "disown <id>",
+		Short: "Disown devices from the given Device Enrollment Instance",
+		Long:  "Disowns devices from the given device enrollment instance",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/device-enrollments/{id}/upload-token"
+			path := "/v1/device-enrollments/{id}/disown"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -581,7 +583,7 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}

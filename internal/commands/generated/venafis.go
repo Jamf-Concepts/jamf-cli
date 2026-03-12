@@ -26,8 +26,8 @@ func NewVenafisCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafisDeleteCmd(ctx))
 	cmd.AddCommand(newVenafisHistoryCmd(ctx))
 	cmd.AddCommand(newVenafisAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newVenafisPatchCmd(ctx))
 	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
+	cmd.AddCommand(newVenafisPatchCmd(ctx))
 
 	return cmd
 }
@@ -38,14 +38,14 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
-		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
+		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}"
+			path := "/v1/pki/venafi/{id}/jamf-public-key"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -79,14 +79,16 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a PKI configuration in Jamf Pro for Venafi",
-		Long:  "Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates",
+		Use:   "create <id>",
+		Short: "Uploads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Uploads the PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi"
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -128,8 +130,8 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a Venafi PKI configuration from Jamf Pro",
-		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
+		Short: "Removes the PKI Proxy Server public key used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Removes the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -140,6 +142,10 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return nil
 			}
 			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
 				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -149,7 +155,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}"
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -171,7 +177,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Println("Deleted successfully")
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
@@ -371,54 +377,6 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "patch <id>",
-		Short: "Update a Venafi PKI configuration in Jamf Pro",
-		Long:  "Update a Venafi PKI configuration in Jamf Pro",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-
-	return cmd
-}
-
 func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
@@ -449,6 +407,54 @@ func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+
+	return cmd
+}
+
+func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
+	var (
+	)
+
+	cmd := &cobra.Command{
+		Use:   "patch <id>",
+		Short: "Update a Venafi PKI configuration in Jamf Pro",
+		Long:  "Update a Venafi PKI configuration in Jamf Pro",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}"
+			path = strings.Replace(path, "{id}", args[0], 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
 				return err
 			}

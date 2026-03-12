@@ -18,26 +18,26 @@ func NewUserSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage user-smart-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newUserSmartGroupsRecalculateCmd(ctx))
 	cmd.AddCommand(newUserSmartGroupsRecalculateSmartGroupsCmd(ctx))
+	cmd.AddCommand(newUserSmartGroupsRecalculateCmd(ctx))
 
 	return cmd
 }
 
-func newUserSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
+func newUserSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "recalculate <id>",
-		Short: "Recalculate the smart group for the given id and then return the ids for the users in the smart group",
-		Long:  "Recalculates the smart group for the given id and then returns the ids for the users in the smart group",
+		Use:   "recalculate-smart-groups <id>",
+		Short: "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
+		Long:  "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/smart-user-groups/{id}/recalculate"
+			path := "/v1/users/{id}/recalculate-smart-groups"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -72,20 +72,20 @@ func newUserSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newUserSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
+func newUserSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 	var (
 	)
 
 	cmd := &cobra.Command{
-		Use:   "recalculate-smart-groups <id>",
-		Short: "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
-		Long:  "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
+		Use:   "recalculate <id>",
+		Short: "Recalculate the smart group for the given id and then return the ids for the users in the smart group",
+		Long:  "Recalculates the smart group for the given id and then returns the ids for the users in the smart group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/users/{id}/recalculate-smart-groups"
+			path := "/v1/smart-user-groups/{id}/recalculate"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
