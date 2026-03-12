@@ -169,14 +169,14 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get attachments for a Mobile Device Prestage",
-		Long:  "Get attachments for a Mobile Device Prestage",
+		Short: "Retrieve a Mobile Device Prestage with the supplied id",
+		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path := "/v3/mobile-device-prestages/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

@@ -513,14 +513,16 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload-token",
-		Short: "Create a Device Enrollment Instance with the supplied Token",
-		Long:  "Creates a device enrollment instance with the supplied token.",
+		Use:   "upload-token <id>",
+		Short: "Update a Device Enrollment Instance with the supplied Token",
+		Long:  "Updates a device enrollment instance with the supplied token.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/device-enrollments/upload-token"
+			path := "/v1/device-enrollments/{id}/upload-token"
+			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -535,7 +537,7 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
 			}

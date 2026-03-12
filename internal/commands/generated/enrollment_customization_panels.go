@@ -34,16 +34,15 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a single LDAP panel for a single Enrollment Customization",
-		Long:  "Get a single LDAP panel for a single enrollment customization",
+		Short: "Get all Panels for single Enrollment Customization",
+		Long:  "Get all panels for single enrollment customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path := "/v1/enrollment-customization/{id}/all"
 			path = strings.Replace(path, "{id}", args[0], 1)
-			path = strings.Replace(path, "{panel-id}", args[0], 1)
 
 			// Build query string
 			var queryParts []string
@@ -125,14 +124,14 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a single LDAP Panel for a single Enrollment Customization",
-		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
+		Short: "Update a single SSO Panel for a single Enrollment Customization",
+		Long:  "Update a single SSO panel for a single enrollment customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 			path = strings.Replace(path, "{panel-id}", args[0], 1)
 
@@ -176,8 +175,8 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete an LDAP single panel from an Enrollment Customization",
-		Long:  "Delete an LDAP single Panel from an Enrollment Customization",
+		Short: "Delete a single SSO Panel from an Enrollment Customization",
+		Long:  "Delete a single SSO panel from an Enrollment Customization",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -201,7 +200,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 			path = strings.Replace(path, "{panel-id}", args[0], 1)
 

@@ -179,7 +179,7 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/inventory-preload/{id}"
+			path := "/v1/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -267,7 +267,7 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/inventory-preload/{id}"
+			path := "/v1/inventory-preload/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -309,16 +309,15 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an Inventory Preload record",
-		Long:  "Deletes an Inventory Preload record.",
-		Args:  cobra.ExactArgs(1),
+		Use:   "delete",
+		Short: "Delete all Inventory Preload records",
+		Long:  "Deletes all Inventory Preload records.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete\n")
 				return nil
 			}
 			if !flagYes {
@@ -326,7 +325,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -335,8 +334,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/inventory-preload/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/inventory-preload"
 
 			// Build query string
 			var queryParts []string
@@ -390,7 +388,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/inventory-preload/history"
+			path := "/inventory-preload/history"
 
 			// Build query string
 			var queryParts []string
@@ -421,7 +419,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/inventory-preload/history"
+					pagePath := "/inventory-preload/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -567,7 +565,7 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/inventory-preload/validate-csv"
+			path := "/v1/inventory-preload/validate-csv"
 
 			// Build query string
 			var queryParts []string

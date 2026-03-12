@@ -38,14 +38,14 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Short: "Get configuration profile data using specified Venafi CA object",
+		Long:  "Get configuration profile data using specified Venafi CA object",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/jamf-public-key"
+			path := "/v1/pki/venafi/{id}/dependent-profiles"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string

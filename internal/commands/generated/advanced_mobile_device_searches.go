@@ -32,32 +32,20 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagCriteria string
-		flagSite string
-		flagContains string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get Mobile Device Advanced Search criteria choices",
-		Long:  "Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are \"App Name\", \"Building\", and \"Display Name\".",
+		Short: "Get Advanced Search objects",
+		Long:  "Gets Advanced Search Objects",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/advanced-mobile-device-searches/choices"
+			path := "/v1/advanced-mobile-device-searches"
 
 			// Build query string
 			var queryParts []string
-			if flagCriteria != "" {
-				queryParts = append(queryParts, fmt.Sprintf("criteria=%s", flagCriteria))
-			}
-			if flagSite != "" {
-				queryParts = append(queryParts, fmt.Sprintf("site=%s", flagSite))
-			}
-			if flagContains != "" {
-				queryParts = append(queryParts, fmt.Sprintf("contains=%s", flagContains))
-			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -78,9 +66,6 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagCriteria, "criteria", "", "")
-	cmd.Flags().StringVar(&flagSite, "site", "-1", "")
-	cmd.Flags().StringVar(&flagContains, "contains", "null", "")
 
 	return cmd
 }

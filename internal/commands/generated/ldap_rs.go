@@ -35,7 +35,7 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/ldap/groups"
+			path := "/ldap/groups"
 
 			// Build query string
 			var queryParts []string

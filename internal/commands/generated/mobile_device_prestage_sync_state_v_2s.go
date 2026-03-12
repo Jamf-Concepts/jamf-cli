@@ -68,14 +68,14 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the latest Sync State for a single Prestage",
-		Long:  "Get the latest sync state for a single prestage",
+		Short: "Get all prestage sync states for a single prestage",
+		Long:  "Get all prestage sync states for a single prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/syncs/latest"
+			path := "/v2/mobile-device-prestages/{id}/syncs"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
