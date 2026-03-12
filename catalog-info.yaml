@@ -8,6 +8,6 @@ metadata:
   - ai
 spec:
   type: research
-  lifecycle: production
+  lifecycle: experimental
   owner: jamf-pro
   system: jamf-pro-server
