@@ -30,22 +30,22 @@ func NewOnboardingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
-		Long:  "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
+		Short: "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Long:  "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/onboarding/eligible-configuration-profiles"
+			path := "/v1/onboarding/eligible-apps"
 
 			// Build query string
 			var queryParts []string
@@ -72,7 +72,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/onboarding/eligible-configuration-profiles"
+					pagePath := "/v1/onboarding/eligible-apps"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -102,7 +102,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -160,12 +160,12 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 
 func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -236,7 +236,7 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -294,8 +294,7 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -335,7 +334,6 @@ func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
@@ -343,10 +341,10 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
 	)
 
 	cmd := &cobra.Command{
@@ -420,4 +418,3 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

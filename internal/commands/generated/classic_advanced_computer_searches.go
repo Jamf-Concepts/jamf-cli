@@ -66,7 +66,6 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -134,7 +133,6 @@ func newClassicAdvancedComputerSearchesGetByNameCmd(ctx *CLIContext) *cobra.Comm
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command
 		},
 	}
 }
-
 
 func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -199,7 +196,6 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command
 		},
 	}
 }
-
 
 func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -256,4 +252,3 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 
 	return cmd
 }
-

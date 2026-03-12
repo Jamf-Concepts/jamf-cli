@@ -30,8 +30,7 @@ func NewAppRequestsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -65,13 +64,11 @@ func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -107,13 +104,11 @@ func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -153,13 +148,11 @@ func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -199,13 +192,12 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -271,4 +263,3 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

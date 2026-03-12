@@ -28,19 +28,18 @@ func NewMdmRenewalsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get MDM renewal errors and strategies for a client management ID",
-		Long:  "Retrieves all MDM renewal errors and their associated renewal strategies for a specific client management ID",
+		Short: "Get device common details for a client management ID",
+		Long:  "Retrieves device common details associated with a specific client management ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/mdm-renewal/renewal-strategies/{clientManagementId}"
+			path := "/v1/mdm-renewal/device-common-details/{clientManagementId}"
 			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
 
 			// Build query string
@@ -65,13 +64,12 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -139,8 +137,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "patch",
@@ -180,7 +177,5 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

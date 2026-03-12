@@ -29,8 +29,7 @@ func NewClientCheckInsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newClientCheckInsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -64,13 +63,11 @@ func newClientCheckInsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newClientCheckInsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -110,18 +107,17 @@ func newClientCheckInsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -192,7 +188,7 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -250,8 +246,7 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -291,7 +286,5 @@ func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

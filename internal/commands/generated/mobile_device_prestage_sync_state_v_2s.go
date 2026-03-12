@@ -23,8 +23,7 @@ func NewMobileDevicePrestageSyncStateV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,24 +57,22 @@ func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the latest Sync State for a single Prestage",
-		Long:  "Get the latest sync state for a single prestage",
+		Short: "Get all prestage sync states for a single prestage",
+		Long:  "Get all prestage sync states for a single prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/syncs/latest"
+			path := "/v2/mobile-device-prestages/{id}/syncs"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -100,7 +97,5 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

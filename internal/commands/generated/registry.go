@@ -113,7 +113,7 @@ func handleErrorResponse(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)
 
 	var errResp struct {
-		HttpStatus int    `json:"httpStatus"`
+		HttpStatus int `json:"httpStatus"`
 		Errors     []struct {
 			Code        string `json:"code"`
 			Description string `json:"description"`

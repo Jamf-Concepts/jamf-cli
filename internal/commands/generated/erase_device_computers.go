@@ -26,7 +26,7 @@ func NewEraseDeviceComputersCmd(ctx *CLIContext) *cobra.Command {
 
 func newEraseDeviceComputersEraseCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -93,4 +93,3 @@ func newEraseDeviceComputersEraseCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

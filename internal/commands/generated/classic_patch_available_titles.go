@@ -22,9 +22,6 @@ func NewClassicPatchAvailableTitlesCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -60,7 +57,6 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -94,7 +90,3 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

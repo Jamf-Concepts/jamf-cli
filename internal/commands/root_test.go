@@ -160,7 +160,7 @@ func TestFormatError_JSON(t *testing.T) {
 	err := exitcode.New(exitcode.Authentication, "authentication failed (HTTP 401)")
 	handled := FormatError(err)
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if !handled {
@@ -168,7 +168,7 @@ func TestFormatError_JSON(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	var envelope map[string]interface{}
 	if jsonErr := json.Unmarshal(buf.Bytes(), &envelope); jsonErr != nil {
@@ -313,13 +313,13 @@ func TestDryRunClient_StderrOutput(t *testing.T) {
 	os.Stderr = w
 
 	body := strings.NewReader(`{"name":"Test"}`)
-	client.Do(context.Background(), "POST", "/v1/categories", body)
+	_, _ = client.Do(context.Background(), "POST", "/v1/categories", body)
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	if !strings.Contains(output, "[dry-run] POST /v1/categories") {
@@ -491,9 +491,9 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	os.Stdout = w
 
 	root.SetArgs([]string{"version"})
-	root.Execute()
+	_ = root.Execute()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	out, _ := io.ReadAll(r)

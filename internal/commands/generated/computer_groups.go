@@ -22,8 +22,7 @@ func NewComputerGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerGroupsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,7 +56,5 @@ func newComputerGroupsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

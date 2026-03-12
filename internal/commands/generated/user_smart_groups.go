@@ -18,63 +18,14 @@ func NewUserSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage user-smart-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newUserSmartGroupsRecalculateSmartGroupsCmd(ctx))
 	cmd.AddCommand(newUserSmartGroupsRecalculateCmd(ctx))
-
-	return cmd
-}
-
-func newUserSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "recalculate-smart-groups <id>",
-		Short: "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
-		Long:  "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/users/{id}/recalculate-smart-groups"
-			path = strings.Replace(path, "{id}", args[0], 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
+	cmd.AddCommand(newUserSmartGroupsRecalculateSmartGroupsCmd(ctx))
 
 	return cmd
 }
 
 func newUserSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate <id>",
@@ -116,7 +67,51 @@ func newUserSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
+func newUserSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "recalculate-smart-groups <id>",
+		Short: "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
+		Long:  "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/users/{id}/recalculate-smart-groups"
+			path = strings.Replace(path, "{id}", args[0], 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}

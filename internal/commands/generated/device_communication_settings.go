@@ -29,8 +29,7 @@ func NewDeviceCommunicationSettingsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceCommunicationSettingsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -64,13 +63,11 @@ func newDeviceCommunicationSettingsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceCommunicationSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -110,18 +107,17 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceCommunicationSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -192,7 +188,7 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -250,8 +246,7 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceCommunicationSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -291,7 +286,5 @@ func newDeviceCommunicationSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Com
 		},
 	}
 
-
 	return cmd
 }
-

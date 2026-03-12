@@ -66,7 +66,6 @@ func newClassicDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -134,7 +133,6 @@ func newClassicDistributionPointsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -199,7 +196,6 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -256,4 +252,3 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

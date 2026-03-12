@@ -35,11 +35,11 @@ func NewMobileDevicePrestagesV3SCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -107,7 +107,7 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -164,19 +164,18 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get attachments for a Mobile Device Prestage",
-		Long:  "Get attachments for a Mobile Device Prestage",
+		Short: "Retrieve a Mobile Device Prestage with the supplied id",
+		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path := "/v3/mobile-device-prestages/{id}"
 			path = strings.Replace(path, "{id}", args[0], 1)
 
 			// Build query string
@@ -201,25 +200,21 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "create <id>",
-		Short: "Add an attachment to a Mobile Device Prestage",
-		Long:  "Add an attachment to a Mobile Device prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:   "create",
+		Short: "Create a Mobile Device Prestage",
+		Long:  "Create a mobile device prestage",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v3/mobile-device-prestages/{id}/attachments"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path := "/v3/mobile-device-prestages"
 
 			// Build query string
 			var queryParts []string
@@ -249,13 +244,11 @@ func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -297,13 +290,12 @@ func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -372,9 +364,9 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -456,11 +448,11 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 
 func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -531,7 +523,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -588,8 +580,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -631,7 +622,5 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 		},
 	}
 
-
 	return cmd
 }
-

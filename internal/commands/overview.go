@@ -28,19 +28,13 @@ type overviewItem struct {
 	ColorHint string // optional: "red", "yellow" for expiration coloring
 }
 
-type fetchResult struct {
-	Key   string
-	Value string
-	Err   error
-}
-
 // fetchJSON performs a GET request and returns the parsed JSON object.
 func fetchJSON(ctx context.Context, client generated.HTTPClient, path string) (map[string]interface{}, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -81,7 +75,7 @@ func fetchArrayCount(ctx context.Context, client generated.HTTPClient, path stri
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -107,7 +101,7 @@ func fetchClassicCount(ctx context.Context, client generated.HTTPClient, path, w
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -346,7 +340,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			send("csa_scopes", "", err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == http.StatusNotFound {
 			send("csa_scopes", "Not configured", nil)
@@ -659,7 +653,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			send("alert_detail", "", err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			send("alerts", "", fmt.Errorf("HTTP %d", resp.StatusCode))
@@ -981,19 +975,6 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	return sections, nil
 }
 
-// isNumericValue returns true if the string looks like a count (digits and commas only).
-func isNumericValue(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, c := range s {
-		if c != ',' && (c < '0' || c > '9') {
-			return false
-		}
-	}
-	return true
-}
-
 // printOverviewTable renders a grouped overview table with ANSI colors.
 func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) {
 	colorize := func(text, code string) string {
@@ -1013,20 +994,20 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 	const totalWidth = 62
 
 	// Title
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, colorize("  INSTANCE OVERVIEW", bold))
-	fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, colorize("  INSTANCE OVERVIEW", bold))
+	_, _ = fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))
 
 	for _, section := range sections {
 		// Section header with dim separator
-		fmt.Fprintln(w)
-		fmt.Fprintf(w, "  %s\n", colorize(section.Name, bold))
-		fmt.Fprintln(w, colorize("  "+strings.Repeat("─", totalWidth), dim))
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintf(w, "  %s\n", colorize(section.Name, bold))
+		_, _ = fmt.Fprintln(w, colorize("  "+strings.Repeat("─", totalWidth), dim))
 
 		for _, item := range section.Items {
 			// Empty item = blank separator line within a section
 			if item.Resource == "" && item.Value == "" {
-				fmt.Fprintln(w)
+				_, _ = fmt.Fprintln(w)
 				continue
 			}
 
@@ -1062,13 +1043,13 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 			// Right-align values that fit; left-align long values (e.g. alert types)
 			padding := totalWidth - labelWidth - visibleLen
 			if padding >= 1 {
-				fmt.Fprintf(w, "  %-*s%*s%s\n", labelWidth, item.Resource, padding, "", displayValue)
+				_, _ = fmt.Fprintf(w, "  %-*s%*s%s\n", labelWidth, item.Resource, padding, "", displayValue)
 			} else {
-				fmt.Fprintf(w, "  %-*s %s\n", labelWidth, item.Resource, displayValue)
+				_, _ = fmt.Fprintf(w, "  %-*s %s\n", labelWidth, item.Resource, displayValue)
 			}
 		}
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 }
 
 // overviewToRows flattens sections into []map[string]interface{} for structured output.

@@ -66,7 +66,6 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -134,7 +133,6 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 	}
 }
 
-
 func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -199,7 +196,6 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -256,4 +252,3 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

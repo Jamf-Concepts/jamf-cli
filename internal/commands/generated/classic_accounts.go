@@ -23,9 +23,6 @@ func NewClassicAccountsCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicAccountsGetCmd(ctx))
 	cmd.AddCommand(newClassicAccountsGetByNameCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -60,7 +57,6 @@ func newClassicAccountsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -128,7 +124,3 @@ func newClassicAccountsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

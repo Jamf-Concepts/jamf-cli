@@ -61,7 +61,7 @@ func (o *cliOutput) PrintResponse(resp *http.Response) error {
 	if err != nil {
 		return err
 	}
-	return o.Formatter.PrintRaw(body)
+	return o.PrintRaw(body)
 }
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.

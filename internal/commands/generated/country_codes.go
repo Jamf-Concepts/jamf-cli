@@ -22,8 +22,7 @@ func NewCountryCodesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCountryCodesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,7 +56,5 @@ func newCountryCodesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

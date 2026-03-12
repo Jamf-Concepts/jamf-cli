@@ -23,18 +23,17 @@ func NewCertificateAuthoritiesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Returns X.509 of active Certificate Authority (CA) in DER format",
-		Long:  "Returns X.509 of active Certificate Authority (CA) in DER format",
+		Short: "Returns X.509 details of the active Certificate Authority (CA)",
+		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
 			// Build request path
-			path := "/v1/pki/certificate-authority/active/der"
+			path := "/v1/pki/certificate-authority/active"
 
 			// Build query string
 			var queryParts []string
@@ -58,13 +57,11 @@ func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +97,5 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

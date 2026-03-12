@@ -32,8 +32,7 @@ func NewMobileDeviceGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -67,16 +66,15 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagSort     []string
+		flagFilter   string
 	)
 
 	cmd := &cobra.Command{
@@ -187,8 +185,7 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -230,13 +227,12 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -304,8 +300,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
@@ -347,13 +342,12 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -420,4 +414,3 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

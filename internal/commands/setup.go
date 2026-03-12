@@ -58,7 +58,7 @@ func (c *setupClient) do(ctx context.Context, method, path string, body interfac
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB limit
 	return respBody, resp.StatusCode, nil
@@ -220,7 +220,7 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					return fmt.Errorf("--url is required when --no-input is set")
 				}
-				fmt.Fprint(cmd.OutOrStdout(), "Jamf Pro server URL: ")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Jamf Pro server URL: ")
 				line, _ := reader.ReadString('\n')
 				setupURL = strings.TrimSpace(line)
 			}
@@ -230,7 +230,7 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					return fmt.Errorf("--username is required when --no-input is set")
 				}
-				fmt.Fprint(cmd.OutOrStdout(), "Username: ")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Username: ")
 				line, _ := reader.ReadString('\n')
 				setupUser = strings.TrimSpace(line)
 			}
@@ -239,23 +239,23 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					return fmt.Errorf("--password is required when --no-input is set")
 				}
-				fmt.Fprint(cmd.OutOrStdout(), "Password: ")
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Password: ")
 				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 				if err != nil {
 					return fmt.Errorf("reading password: %w", err)
 				}
-				fmt.Fprintln(cmd.OutOrStdout()) // newline after hidden input
+				_, _ = fmt.Fprintln(cmd.OutOrStdout()) // newline after hidden input
 				setupPass = string(passBytes)
 			}
 
 			// Step 1: Authenticate with basic auth
-			fmt.Fprint(cmd.OutOrStdout(), "\nAuthenticating... ")
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), "\nAuthenticating... ")
 			bearerToken, err := auth.BasicAuthExchange(ctx, setupURL, setupUser, setupPass)
 			if err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "✗")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "✓")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			client := newSetupClient(setupURL, bearerToken)
 
@@ -264,11 +264,11 @@ config profile. The username and password are not stored.`,
 				if noInput {
 					setupScope = "standard"
 				} else {
-					fmt.Fprintln(cmd.OutOrStdout(), "\nAPI scope:")
-					fmt.Fprintln(cmd.OutOrStdout(), "  1. Read Only    — read access to all resources")
-					fmt.Fprintln(cmd.OutOrStdout(), "  2. Standard     — read, create, and update (no deletes)")
-					fmt.Fprintln(cmd.OutOrStdout(), "  3. Full Admin   — all privileges")
-					fmt.Fprint(cmd.OutOrStdout(), "Choose [1-3] (default 2): ")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nAPI scope:")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  1. Read Only    — read access to all resources")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  2. Standard     — read, create, and update (no deletes)")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  3. Full Admin   — all privileges")
+					_, _ = fmt.Fprint(cmd.OutOrStdout(), "Choose [1-3] (default 2): ")
 					line, _ := reader.ReadString('\n')
 					choice := strings.TrimSpace(line)
 					switch choice {
@@ -303,39 +303,39 @@ config profile. The username and password are not stored.`,
 			roleName := "jamfpro-cli-" + setupScope
 
 			// Step 4: Create API role
-			fmt.Fprintf(cmd.OutOrStdout(), "Creating API role %q... ", roleName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API role %q... ", roleName)
 			_, err = client.createAPIRole(ctx, roleName, rolePrivileges)
 			if err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "✗")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "✓")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			// Step 5: Create API integration
 			integrationName := "jamfpro-cli"
-			fmt.Fprintf(cmd.OutOrStdout(), "Creating API integration %q... ", integrationName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API integration %q... ", integrationName)
 			integrationID, err := client.createAPIIntegration(ctx, integrationName, []string{roleName})
 			if err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "✗")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "✓")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			// Step 6: Generate client credentials
-			fmt.Fprint(cmd.OutOrStdout(), "Generating client credentials... ")
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), "Generating client credentials... ")
 			clientID, clientSecret, err := client.generateClientCredentials(ctx, integrationID)
 			if err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "✗")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "✓")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			// Step 7: Save profile
 			if setupProfile == "" {
 				if noInput {
 					setupProfile = "default"
 				} else {
-					fmt.Fprint(cmd.OutOrStdout(), "\nProfile name [default]: ")
+					_, _ = fmt.Fprint(cmd.OutOrStdout(), "\nProfile name [default]: ")
 					line, _ := reader.ReadString('\n')
 					setupProfile = strings.TrimSpace(line)
 					if setupProfile == "" {
@@ -369,9 +369,9 @@ config profile. The username and password are not stored.`,
 				return fmt.Errorf("saving config: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Profile %q saved and set as default.\n", setupProfile)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Client ID:     %s\n", clientID)
-			fmt.Fprintln(cmd.OutOrStdout(), "  Client secret stored in system keychain")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Profile %q saved and set as default.\n", setupProfile)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  Client ID:     %s\n", clientID)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  Client secret stored in system keychain")
 
 			return nil
 		},

@@ -33,13 +33,13 @@ func NewSupervisionIdentitiesCmd(ctx *CLIContext) *cobra.Command {
 
 func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
-		flagSize int
+		flagPage     int
+		flagSize     int
 		flagPagesize int
 		flagPageSize int
-		flagSort string
-		flagAll  bool
-		flagLimit int
+		flagSort     string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -111,7 +111,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -170,8 +170,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSupervisionIdentitiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -207,13 +206,11 @@ func newSupervisionIdentitiesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSupervisionIdentitiesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -253,13 +250,11 @@ func newSupervisionIdentitiesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -301,13 +296,12 @@ func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -375,8 +369,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "upload",
@@ -416,7 +409,5 @@ func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

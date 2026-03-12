@@ -18,15 +18,10 @@ func NewClassicComputerAppUsageCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer application usage data via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicComputerAppUsageGetCmd(ctx))
-
-
-
 
 	return cmd
 }
-
 
 func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -61,7 +56,3 @@ func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

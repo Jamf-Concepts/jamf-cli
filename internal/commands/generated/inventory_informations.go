@@ -22,8 +22,7 @@ func NewInventoryInformationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryInformationsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,7 +56,5 @@ func newInventoryInformationsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

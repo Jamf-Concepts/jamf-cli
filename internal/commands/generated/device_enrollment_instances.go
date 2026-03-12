@@ -35,11 +35,11 @@ func NewDeviceEnrollmentInstancesCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -107,7 +107,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -164,8 +164,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -201,13 +200,11 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -249,13 +246,12 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -324,12 +320,12 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -403,7 +399,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -461,8 +457,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -504,13 +499,11 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comma
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "upload-token",
@@ -550,13 +543,11 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "disown <id>",
@@ -598,7 +589,5 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

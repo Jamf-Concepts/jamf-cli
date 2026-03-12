@@ -310,7 +310,7 @@ func TestCSA404_NotConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result string
 	if resp.StatusCode == http.StatusNotFound {
@@ -868,31 +868,6 @@ func TestFormatEpochExpiration(t *testing.T) {
 			}
 			if !strings.Contains(formatted, tt.wantWord) {
 				t.Errorf("formatted = %q, want to contain %q", formatted, tt.wantWord)
-			}
-		})
-	}
-}
-
-func TestIsNumericValue(t *testing.T) {
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"0", true},
-		{"42", true},
-		{"1,234", true},
-		{"1,234,567", true},
-		{"", false},
-		{"N/A", false},
-		{"enabled", false},
-		{"1.5", false},
-		{"-1", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := isNumericValue(tt.input)
-			if got != tt.want {
-				t.Errorf("isNumericValue(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

@@ -28,8 +28,7 @@ func NewComputerPrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -63,13 +62,11 @@ func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -111,15 +108,14 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -200,13 +196,12 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 }
 
 func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
-		Short: "Add device Scope for a specific Computer Prestage",
-		Long:  "Add device scope for a specific computer prestage",
+		Short: "Get device Scope for a specific Computer Prestage",
+		Long:  "Get device scope for a specific computer prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -222,13 +217,7 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -243,7 +232,5 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

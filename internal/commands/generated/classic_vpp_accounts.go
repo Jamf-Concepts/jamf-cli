@@ -65,7 +65,6 @@ func newClassicVppAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +99,6 @@ func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -131,7 +129,6 @@ func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -165,7 +162,6 @@ func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -222,4 +218,3 @@ func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

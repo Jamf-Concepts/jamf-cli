@@ -25,8 +25,7 @@ func NewMobileDeviceSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate-smart-groups <id>",
@@ -68,13 +67,11 @@ func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate <id>",
@@ -116,7 +113,5 @@ func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

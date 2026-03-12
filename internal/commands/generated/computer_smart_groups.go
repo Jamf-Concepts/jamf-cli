@@ -18,63 +18,14 @@ func NewComputerSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer-smart-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newComputerSmartGroupsRecalculateCmd(ctx))
 	cmd.AddCommand(newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx))
-
-	return cmd
-}
-
-func newComputerSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
-
-	cmd := &cobra.Command{
-		Use:   "recalculate <id>",
-		Short: "Recalculate the smart group for the given id",
-		Long:  "Recalculates the smart group for the given id and then returns the ids for the computers in the smart group",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-
-			// Build request path
-			path := "/v1/smart-computer-groups/{id}/recalculate"
-			path = strings.Replace(path, "{id}", args[0], 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
+	cmd.AddCommand(newComputerSmartGroupsRecalculateCmd(ctx))
 
 	return cmd
 }
 
 func newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate-smart-groups <id>",
@@ -116,7 +67,51 @@ func newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Com
 		},
 	}
 
-
 	return cmd
 }
 
+func newComputerSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "recalculate <id>",
+		Short: "Recalculate the smart group for the given id",
+		Long:  "Recalculates the smart group for the given id and then returns the ids for the computers in the smart group",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := context.Background()
+
+			// Build request path
+			path := "/v1/smart-computer-groups/{id}/recalculate"
+			path = strings.Replace(path, "{id}", args[0], 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Handle response
+			if resp.StatusCode >= 400 {
+				return handleErrorResponse(resp)
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}

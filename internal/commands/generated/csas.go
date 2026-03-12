@@ -26,8 +26,7 @@ func NewCsasCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCsasListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,13 +60,12 @@ func newCsasListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -131,4 +129,3 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

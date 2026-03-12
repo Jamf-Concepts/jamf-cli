@@ -24,8 +24,7 @@ func NewServersCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newServersIssueTomcatSslCertificateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "issue-tomcat-ssl-certificate",
@@ -65,7 +64,5 @@ func newServersIssueTomcatSslCertificateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

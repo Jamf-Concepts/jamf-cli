@@ -139,10 +139,10 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	if err != nil {
 		return "", 0, fmt.Errorf("token exchange request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return "", 0, fmt.Errorf("OAuth2 token exchange failed: invalid client credentials. Verify your client-id and client-secret are correct.")
+		return "", 0, fmt.Errorf("OAuth2 token exchange failed: invalid client credentials, verify your client-id and client-secret are correct")
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -159,7 +159,7 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	}
 
 	if tokenResp.AccessToken == "" {
-		return "", 0, fmt.Errorf("OAuth2 token exchange returned empty access_token. Check that the API integration is enabled in Jamf Pro.")
+		return "", 0, fmt.Errorf("OAuth2 token exchange returned empty access_token, check that the API integration is enabled in Jamf Pro")
 	}
 
 	if tokenResp.ExpiresIn <= 0 {
@@ -187,7 +187,7 @@ func BasicAuthExchange(ctx context.Context, baseURL, username, password string) 
 	if err != nil {
 		return "", fmt.Errorf("cannot reach server at %s: %w", baseURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		return "", fmt.Errorf("invalid username or password")
@@ -205,7 +205,7 @@ func BasicAuthExchange(ctx context.Context, baseURL, username, password string) 
 		return "", fmt.Errorf("parsing auth response: %w", err)
 	}
 	if result.Token == "" {
-		return "", fmt.Errorf("basic auth exchange returned empty token. Check that your account is not disabled or locked.")
+		return "", fmt.Errorf("basic auth exchange returned empty token, check that your account is not disabled or locked")
 	}
 	return result.Token, nil
 }

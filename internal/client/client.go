@@ -85,7 +85,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	// Map HTTP error status codes to structured exit codes
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
 			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamfpro-cli config validate", string(body)))
@@ -94,7 +94,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		case http.StatusNotFound:
 			return nil, exitcode.New(exitcode.NotFound, fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path))
 		case http.StatusTooManyRequests:
-			return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited (HTTP 429): server is throttling requests. Wait a moment and try again."))
+			return nil, exitcode.New(exitcode.RateLimited, "rate limited (HTTP 429): server is throttling requests, wait a moment and try again")
 		default:
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, string(body)))
 		}
@@ -125,7 +125,7 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 					delay = d
 				}
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			time.Sleep(delay)
 			continue
 		}

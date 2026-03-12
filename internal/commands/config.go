@@ -46,14 +46,14 @@ func newConfigShowCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "# Config file: %s\n", config.ConfigPath())
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "# Config file: %s\n", config.ConfigPath())
 
 			data, err := yaml.Marshal(cfg)
 			if err != nil {
 				return fmt.Errorf("marshalling config for display: %w", err)
 			}
 
-			fmt.Fprint(cmd.OutOrStdout(), string(data))
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), string(data))
 			return nil
 		},
 	}
@@ -64,7 +64,7 @@ func newConfigPathCmd() *cobra.Command {
 		Use:   "path",
 		Short: "Print config file path",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintln(cmd.OutOrStdout(), config.ConfigPath())
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), config.ConfigPath())
 		},
 	}
 }
@@ -83,7 +83,7 @@ func checkHealth(baseURL string) healthResult {
 	if err != nil {
 		return healthResult{"offline", false}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return healthResult{fmt.Sprintf("HTTP %d", resp.StatusCode), false}
@@ -114,7 +114,7 @@ func newConfigListCmd() *cobra.Command {
 			}
 
 			if len(cfg.Profiles) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamfpro-cli config add-profile <name> --url <url>")
 				return nil
 			}
 
@@ -161,7 +161,7 @@ func newConfigListCmd() *cobra.Command {
 				}
 
 				if !status {
-					fmt.Fprintf(w, "  %s %-20s %-40s %s\n", marker, name, p.URL, p.AuthMethod)
+					_, _ = fmt.Fprintf(w, "  %s %-20s %-40s %s\n", marker, name, p.URL, p.AuthMethod)
 					continue
 				}
 
@@ -176,7 +176,7 @@ func newConfigListCmd() *cobra.Command {
 				} else {
 					statusCol = "\033[33m●\033[0m " + r.Status
 				}
-				fmt.Fprintf(w, "  %s %-20s %-40s %-8s %s\n", marker, name, p.URL, p.AuthMethod, statusCol)
+				_, _ = fmt.Fprintf(w, "  %s %-20s %-40s %-8s %s\n", marker, name, p.URL, p.AuthMethod, statusCol)
 			}
 
 			return nil
@@ -254,9 +254,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Profile %q saved.\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Profile %q saved.\n", name)
 			if cfg.DefaultProfile == name {
-				fmt.Fprintf(cmd.OutOrStdout(), "Set as default profile.\n")
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Set as default profile.\n")
 			}
 			return nil
 		},
@@ -326,7 +326,7 @@ func newConfigRemoveProfileCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Profile %q removed.\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Profile %q removed.\n", name)
 			return nil
 		},
 	}
@@ -350,9 +350,9 @@ func cleanupKeychainRefs(cmd *cobra.Command, p config.Profile) {
 		}
 		service, account := keychain.ParseRef(after)
 		if err := store.Delete(service, account); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to remove keychain item %s/%s (%s): %v\n", service, account, field, err)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to remove keychain item %s/%s (%s): %v\n", service, account, field, err)
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed keychain item: %s/%s\n", service, account)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed keychain item: %s/%s\n", service, account)
 		}
 	}
 }
@@ -380,7 +380,7 @@ func newConfigSetDefaultCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Default profile set to %q.\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Default profile set to %q.\n", name)
 			return nil
 		},
 	}
@@ -397,10 +397,10 @@ func newConfigValidateCmd() *cobra.Command {
 			path := config.ConfigPath()
 			hasErrors := false
 
-			pass := func(msg string) { fmt.Fprintf(w, "  \u2713 %s\n", msg) }
-			fail := func(msg string) { fmt.Fprintf(w, "  \u2717 %s\n", msg); hasErrors = true }
+			pass := func(msg string) { _, _ = fmt.Fprintf(w, "  \u2713 %s\n", msg) }
+			fail := func(msg string) { _, _ = fmt.Fprintf(w, "  \u2717 %s\n", msg); hasErrors = true }
 
-			fmt.Fprintf(w, "Config file: %s\n", path)
+			_, _ = fmt.Fprintf(w, "Config file: %s\n", path)
 
 			// 1. File exists
 			data, err := os.ReadFile(path)
@@ -458,7 +458,7 @@ func newConfigValidateCmd() *cobra.Command {
 
 			for _, name := range names {
 				p := cfg.Profiles[name]
-				fmt.Fprintf(w, "\nProfile %q:\n", name)
+				_, _ = fmt.Fprintf(w, "\nProfile %q:\n", name)
 
 				// URL
 				if p.URL != "" {
@@ -520,7 +520,7 @@ func newConfigValidateCmd() *cobra.Command {
 
 				// Touch ID info
 				if p.TouchID {
-					fmt.Fprintf(w, "  ℹ touch-id is set; will be enforced in a future version\n")
+					_, _ = fmt.Fprintf(w, "  ℹ touch-id is set; will be enforced in a future version\n")
 				}
 
 				// Optional connectivity check
@@ -534,19 +534,19 @@ func newConfigValidateCmd() *cobra.Command {
 						if err != nil {
 							fail(fmt.Sprintf("Connectivity: %v", err))
 						} else {
-							resp.Body.Close()
+							_ = resp.Body.Close()
 							pass(fmt.Sprintf("Connectivity: reachable (HTTP %d)", resp.StatusCode))
 						}
 					}
 				}
 			}
 
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 			if hasErrors {
-				fmt.Fprintln(w, "\u2717 Validation completed with errors.")
+				_, _ = fmt.Fprintln(w, "\u2717 Validation completed with errors.")
 				return fmt.Errorf("config validation failed")
 			}
-			fmt.Fprintln(w, "\u2713 All checks passed.")
+			_, _ = fmt.Fprintln(w, "\u2713 All checks passed.")
 			return nil
 		},
 	}

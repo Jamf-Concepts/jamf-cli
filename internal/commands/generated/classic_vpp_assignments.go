@@ -65,7 +65,6 @@ func newClassicVppAssignmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +99,6 @@ func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -131,7 +129,6 @@ func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -165,7 +162,6 @@ func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -222,4 +218,3 @@ func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-
