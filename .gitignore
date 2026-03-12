@@ -28,8 +28,8 @@ secrets/
 .env
 .env.*
 
-# Generated command files (regenerated from specs via `go generate`)
-internal/commands/generated/
+# Generated files (uncomment if you want to track generated code)
+# internal/commands/generated_*.go
 
 .claude/
 completions/
