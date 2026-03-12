@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ktn-jamf/jamfpro-cli/internal/exitcode"
+	"github.com/jamf/jamfpro-cli/internal/exitcode"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {
@@ -327,5 +327,180 @@ func TestDryRunClient_StderrOutput(t *testing.T) {
 	}
 	if !strings.Contains(output, `{"name":"Test"}`) {
 		t.Errorf("expected request body in stderr, got: %s", output)
+	}
+}
+
+// resetGlobals resets all package-level flag variables to zero values.
+// Must be called before each PersistentPreRunE test to avoid state leaking.
+func resetGlobals() {
+	profile = ""
+	outputFmt = "json"
+	quiet = false
+	verbose = false
+	noInput = false
+	noColor = false
+	dryRun = false
+	wide = false
+	outFile = ""
+	serverURL = ""
+	token = ""
+	tokenFile = ""
+	tokenStdin = false
+	clientID = ""
+	clientSecret = ""
+	username = ""
+	password = ""
+}
+
+func TestPersistentPreRunE_MissingURL(t *testing.T) {
+	resetGlobals()
+	// Clear any env vars that could provide a URL
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "my-token")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // empty config dir — no profiles
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"computers", "list"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when URL is missing")
+	}
+	if !strings.Contains(err.Error(), "server URL is required") {
+		t.Errorf("error = %q, want to contain 'server URL is required'", err.Error())
+	}
+}
+
+func TestPersistentPreRunE_MissingAuth(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_USERNAME", "")
+	t.Setenv("JAMF_PASSWORD", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"computers", "list"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when auth is missing")
+	}
+	if !strings.Contains(err.Error(), "authentication required") {
+		t.Errorf("error = %q, want to contain 'authentication required'", err.Error())
+	}
+}
+
+func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "my-client-id")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_USERNAME", "")
+	t.Setenv("JAMF_PASSWORD", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"computers", "list"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for partial OAuth2 credentials")
+	}
+	if !strings.Contains(err.Error(), "--client-secret is required") {
+		t.Errorf("error = %q, want to contain '--client-secret is required'", err.Error())
+	}
+}
+
+func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "my-secret")
+	t.Setenv("JAMF_USERNAME", "")
+	t.Setenv("JAMF_PASSWORD", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"computers", "list"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for partial OAuth2 credentials")
+	}
+	if !strings.Contains(err.Error(), "--client-id is required") {
+		t.Errorf("error = %q, want to contain '--client-id is required'", err.Error())
+	}
+}
+
+func TestPersistentPreRunE_SkipsForConfigCommand(t *testing.T) {
+	resetGlobals()
+	// No URL, no auth — but config commands should skip validation
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"config", "validate"})
+
+	err := root.Execute()
+	// config validate may fail for its own reasons, but not from PersistentPreRunE
+	if err != nil && strings.Contains(err.Error(), "server URL is required") {
+		t.Error("config commands should skip PersistentPreRunE validation")
+	}
+}
+
+func TestPersistentPreRunE_SkipsForVersionCommand(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"version"})
+
+	err := root.Execute()
+	if err != nil {
+		t.Errorf("version command should not require auth, got: %v", err)
+	}
+}
+
+func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
+	resetGlobals()
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	root.SetArgs([]string{"version"})
+	root.Execute()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	out, _ := io.ReadAll(r)
+	output := string(out)
+
+	// Verify no ANSI escape sequences
+	if strings.Contains(output, "\033[") {
+		t.Errorf("output with NO_COLOR should not contain ANSI codes, got: %q", output)
 	}
 }
