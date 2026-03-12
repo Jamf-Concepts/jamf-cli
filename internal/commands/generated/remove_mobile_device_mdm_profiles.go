@@ -24,8 +24,7 @@ func NewRemoveMobileDeviceMdmProfilesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "unmanage <id>",
@@ -58,12 +57,9 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *CLIContext) *cobra.Command
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

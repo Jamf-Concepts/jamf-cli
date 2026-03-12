@@ -62,7 +62,6 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

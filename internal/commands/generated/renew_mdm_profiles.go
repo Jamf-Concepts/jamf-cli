@@ -24,8 +24,7 @@ func NewRenewMdmProfilesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "renew-profile",
@@ -56,12 +55,9 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

@@ -62,7 +62,6 @@ func newClassicPackagesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicPackagesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

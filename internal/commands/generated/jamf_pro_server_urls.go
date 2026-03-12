@@ -29,8 +29,7 @@ func NewJamfProServerUrlsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProServerUrlsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -55,18 +54,15 @@ func newJamfProServerUrlsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newJamfProServerUrlsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -97,24 +93,22 @@ func newJamfProServerUrlsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
-		flagSize int
+		flagPage     int
+		flagSize     int
 		flagPagesize int
 		flagPageSize int
-		flagSort string
-		flagAll  bool
-		flagLimit int
+		flagSort     string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -182,7 +176,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -220,7 +214,6 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -237,8 +230,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -269,12 +261,9 @@ func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

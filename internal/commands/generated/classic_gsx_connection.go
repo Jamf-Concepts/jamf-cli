@@ -19,16 +19,12 @@ func NewClassicGsxConnectionCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage apple gsx connection settings via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicGsxConnectionGetCmd(ctx))
-
 
 	cmd.AddCommand(newClassicGsxConnectionUpdateCmd(ctx))
 
-
 	return cmd
 }
-
 
 func newClassicGsxConnectionGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -60,8 +56,6 @@ func newClassicGsxConnectionGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicGsxConnectionUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -90,5 +84,3 @@ func newClassicGsxConnectionUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-

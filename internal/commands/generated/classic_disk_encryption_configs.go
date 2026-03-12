@@ -62,7 +62,6 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicDiskEncryptionConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

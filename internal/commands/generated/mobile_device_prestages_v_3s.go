@@ -35,11 +35,11 @@ func NewMobileDevicePrestagesV3SCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -103,7 +103,7 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -141,7 +141,6 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -156,8 +155,7 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -184,18 +182,15 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -226,18 +221,15 @@ func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -270,18 +262,16 @@ func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -328,7 +318,6 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -346,9 +335,9 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -412,7 +401,6 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -426,11 +414,11 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 
 func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -497,7 +485,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -535,7 +523,6 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -550,8 +537,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -584,12 +570,9 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

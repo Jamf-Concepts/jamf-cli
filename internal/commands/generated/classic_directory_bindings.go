@@ -62,7 +62,6 @@ func newClassicDirectoryBindingsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicDirectoryBindingsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

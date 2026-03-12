@@ -62,7 +62,6 @@ func newClassicWebhooksListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicWebhooksGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicWebhooksGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicWebhooksCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicWebhooksCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicWebhooksUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicWebhooksUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicWebhooksDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicWebhooksDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

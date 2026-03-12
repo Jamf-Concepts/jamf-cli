@@ -62,7 +62,6 @@ func newClassicMobileConfigProfilesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileConfigProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicMobileConfigProfilesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 	}
 }
 
-
 func newClassicMobileConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMobileConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMobileConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

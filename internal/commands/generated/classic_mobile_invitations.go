@@ -26,7 +26,6 @@ func NewClassicMobileInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileInvitationsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicMobileInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -60,7 +59,6 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -91,7 +89,6 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -118,8 +115,6 @@ func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
 
 func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -172,4 +167,3 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

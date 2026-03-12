@@ -28,8 +28,7 @@ func NewComputerPrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -54,18 +53,15 @@ func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -98,20 +94,18 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -175,7 +169,6 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -188,8 +181,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 }
 
 func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
@@ -216,12 +208,9 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

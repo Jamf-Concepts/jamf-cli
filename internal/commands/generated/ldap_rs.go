@@ -53,7 +53,6 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -62,4 +61,3 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

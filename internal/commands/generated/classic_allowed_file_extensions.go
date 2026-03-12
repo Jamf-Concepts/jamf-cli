@@ -26,7 +26,6 @@ func NewClassicAllowedFileExtensionsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicAllowedFileExtensionsDeleteCmd(ctx))
 
 	return cmd
@@ -60,7 +59,6 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -91,7 +89,6 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -118,8 +115,6 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
 
 func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -172,4 +167,3 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -62,7 +62,6 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicMobileProvisioningProfilesGetByNameCmd(ctx *CLIContext) *cobra.Co
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Comma
 		},
 	}
 }
-
 
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
 		},
 	}
 }
-
 
 func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 
 	return cmd
 }
-

@@ -61,7 +61,6 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -92,7 +91,6 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -119,7 +117,6 @@ func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -149,7 +146,6 @@ func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -202,4 +198,3 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

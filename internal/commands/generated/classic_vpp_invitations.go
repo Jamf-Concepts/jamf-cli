@@ -26,7 +26,6 @@ func NewClassicVppInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicVppInvitationsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicVppInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -60,7 +59,6 @@ func newClassicVppInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -91,7 +89,6 @@ func newClassicVppInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -118,8 +115,6 @@ func newClassicVppInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
 
 func newClassicVppInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -172,4 +167,3 @@ func newClassicVppInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

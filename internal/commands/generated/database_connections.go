@@ -24,8 +24,7 @@ func NewDatabaseConnectionsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "initialize-database-connection",
@@ -56,12 +55,9 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cob
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

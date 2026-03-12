@@ -62,7 +62,6 @@ func newClassicMacosConfigProfilesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacosConfigProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicMacosConfigProfilesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacosConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMacosConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMacosConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

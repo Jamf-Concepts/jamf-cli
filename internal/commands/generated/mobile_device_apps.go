@@ -24,8 +24,7 @@ func NewMobileDeviceAppsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "reinstall-app-config",
@@ -56,12 +55,9 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

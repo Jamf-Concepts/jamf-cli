@@ -22,9 +22,6 @@ func NewClassicComputerAppsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerAppsGetCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -56,7 +53,6 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -86,7 +82,3 @@ func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

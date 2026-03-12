@@ -22,8 +22,7 @@ func NewMobileDeviceEnrollmentProfilesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceEnrollmentProfilesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -50,12 +49,9 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

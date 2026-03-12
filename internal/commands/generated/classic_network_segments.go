@@ -62,7 +62,6 @@ func newClassicNetworkSegmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicNetworkSegmentsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

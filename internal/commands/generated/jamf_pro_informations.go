@@ -22,8 +22,7 @@ func NewJamfProInformationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProInformationsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -48,12 +47,9 @@ func newJamfProInformationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

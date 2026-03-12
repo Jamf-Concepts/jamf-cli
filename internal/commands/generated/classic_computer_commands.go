@@ -26,8 +26,6 @@ func NewClassicComputerCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerCommandsCreateCmd(ctx))
 
-
-
 	return cmd
 }
 
@@ -58,7 +56,6 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -119,7 +116,6 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -146,6 +142,3 @@ func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-

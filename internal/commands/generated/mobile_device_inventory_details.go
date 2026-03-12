@@ -27,13 +27,13 @@ func NewMobileDeviceInventoryDetailsCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagSection []string
-		flagPage int
+		flagSection  []string
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -105,7 +105,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -143,7 +143,6 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -161,11 +160,11 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagSection []string
-		flagPage int
+		flagSection  []string
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagSort     []string
+		flagFilter   string
 	)
 
 	cmd := &cobra.Command{
@@ -212,7 +211,6 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -225,4 +223,3 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

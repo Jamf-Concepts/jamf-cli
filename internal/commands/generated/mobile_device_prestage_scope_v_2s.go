@@ -29,8 +29,7 @@ func NewMobileDevicePrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -55,18 +54,15 @@ func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -93,18 +89,15 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -137,20 +130,18 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -214,7 +205,6 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -227,8 +217,7 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 }
 
 func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
@@ -261,12 +250,9 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

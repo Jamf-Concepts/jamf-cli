@@ -26,8 +26,6 @@ func NewClassicMobileCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileCommandsCreateCmd(ctx))
 
-
-
 	return cmd
 }
 
@@ -58,7 +56,6 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -119,7 +116,6 @@ func newClassicMobileCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -146,6 +142,3 @@ func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-

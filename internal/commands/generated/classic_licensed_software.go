@@ -62,7 +62,6 @@ func newClassicLicensedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicLicensedSoftwareGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

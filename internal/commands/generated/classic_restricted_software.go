@@ -62,7 +62,6 @@ func newClassicRestrictedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicRestrictedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -122,7 +121,6 @@ func newClassicRestrictedSoftwareGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicRestrictedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -149,7 +147,6 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicRestrictedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -179,7 +176,6 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicRestrictedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -232,4 +228,3 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

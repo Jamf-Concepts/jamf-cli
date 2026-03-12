@@ -18,15 +18,10 @@ func NewClassicMobileHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage mobile device history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicMobileHistoryGetCmd(ctx))
-
-
-
 
 	return cmd
 }
-
 
 func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -57,7 +52,3 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-
