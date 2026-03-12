@@ -24,8 +24,7 @@ func NewSitesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSitesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -59,16 +58,15 @@ func newSitesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSitesGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagSort     []string
+		flagFilter   string
 	)
 
 	cmd := &cobra.Command{
@@ -126,4 +124,3 @@ func newSitesGetCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

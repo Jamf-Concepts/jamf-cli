@@ -31,8 +31,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -66,13 +65,11 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -108,13 +105,11 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -154,13 +149,11 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -202,13 +195,12 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -277,9 +269,9 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -356,4 +348,3 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 
 	return cmd
 }
-

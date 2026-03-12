@@ -18,15 +18,10 @@ func NewClassicComputerHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicComputerHistoryGetCmd(ctx))
-
-
-
 
 	return cmd
 }
-
 
 func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -61,7 +56,3 @@ func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

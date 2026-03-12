@@ -34,12 +34,12 @@ func NewMobileDeviceGroupsCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -110,7 +110,7 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -168,8 +168,7 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -204,7 +203,6 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -261,8 +259,7 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -304,13 +301,12 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -378,8 +374,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
@@ -421,13 +416,12 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -494,4 +488,3 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

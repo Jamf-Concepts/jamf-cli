@@ -23,9 +23,6 @@ func NewClassicPatchInternalSourcesCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPatchInternalSourcesGetCmd(ctx))
 	cmd.AddCommand(newClassicPatchInternalSourcesGetByNameCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -60,7 +57,6 @@ func newClassicPatchInternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchInternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -128,7 +124,3 @@ func newClassicPatchInternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 }
-
-
-
-

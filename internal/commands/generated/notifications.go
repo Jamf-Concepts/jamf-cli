@@ -26,8 +26,7 @@ func NewNotificationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newNotificationsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,13 +60,12 @@ func newNotificationsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -134,4 +132,3 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

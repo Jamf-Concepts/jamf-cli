@@ -26,7 +26,7 @@ func NewRemoveComputerMdmProfilesCmd(ctx *CLIContext) *cobra.Command {
 
 func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -93,4 +93,3 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *CLIContext) *cobra.Com
 
 	return cmd
 }
-

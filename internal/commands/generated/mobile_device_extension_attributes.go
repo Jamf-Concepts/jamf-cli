@@ -66,4 +66,3 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

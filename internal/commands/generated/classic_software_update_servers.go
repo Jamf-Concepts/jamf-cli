@@ -66,7 +66,6 @@ func newClassicSoftwareUpdateServersListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicSoftwareUpdateServersGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -134,7 +133,6 @@ func newClassicSoftwareUpdateServersGetByNameCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicSoftwareUpdateServersCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicSoftwareUpdateServersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -199,7 +196,6 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicSoftwareUpdateServersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -256,4 +252,3 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -35,11 +35,11 @@ func NewMobileDevicePrestagesV2SCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -107,7 +107,7 @@ func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -164,8 +164,7 @@ func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -201,13 +200,11 @@ func newMobileDevicePrestagesV2SGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -247,13 +244,11 @@ func newMobileDevicePrestagesV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -295,13 +290,12 @@ func newMobileDevicePrestagesV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -370,9 +364,9 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
-		flagIds []string
+		flagIds    []string
 	)
 
 	cmd := &cobra.Command{
@@ -454,11 +448,11 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 
 func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -529,7 +523,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -586,8 +580,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -629,7 +622,5 @@ func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 		},
 	}
 
-
 	return cmd
 }
-

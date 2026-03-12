@@ -30,8 +30,7 @@ func NewAdvancedUserContentSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -65,13 +64,11 @@ func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -107,13 +104,11 @@ func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -153,13 +148,11 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -201,13 +194,12 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -273,4 +265,3 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

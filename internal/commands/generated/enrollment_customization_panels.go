@@ -29,8 +29,7 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -67,13 +66,11 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -113,13 +110,11 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -162,13 +157,12 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -235,4 +229,3 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

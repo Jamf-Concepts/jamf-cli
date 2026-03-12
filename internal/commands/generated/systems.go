@@ -25,8 +25,7 @@ func NewSystemsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "platform-initialize",
@@ -66,13 +65,11 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "initialize",
@@ -112,7 +109,5 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

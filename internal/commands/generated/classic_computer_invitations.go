@@ -26,7 +26,6 @@ func NewClassicComputerInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerInvitationsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicComputerInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -64,7 +63,6 @@ func newClassicComputerInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -99,7 +97,6 @@ func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -130,8 +127,6 @@ func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
 
 func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -188,4 +183,3 @@ func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -23,8 +23,7 @@ func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,13 +57,11 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Comman
 		},
 	}
 
-
 	return cmd
 }
 
 func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +97,5 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 		},
 	}
 
-
 	return cmd
 }
-

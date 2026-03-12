@@ -65,7 +65,6 @@ func newClassicPatchPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +99,6 @@ func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -131,7 +129,6 @@ func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -165,7 +162,6 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -222,4 +218,3 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

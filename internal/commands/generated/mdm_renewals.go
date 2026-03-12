@@ -28,8 +28,7 @@ func NewMdmRenewalsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -65,13 +64,12 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -139,8 +137,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "patch",
@@ -180,7 +177,5 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

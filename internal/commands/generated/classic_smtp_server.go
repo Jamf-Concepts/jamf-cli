@@ -19,16 +19,12 @@ func NewClassicSmtpServerCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicSmtpServerGetCmd(ctx))
-
 
 	cmd.AddCommand(newClassicSmtpServerUpdateCmd(ctx))
 
-
 	return cmd
 }
-
 
 func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -64,8 +60,6 @@ func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -98,5 +92,3 @@ func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-

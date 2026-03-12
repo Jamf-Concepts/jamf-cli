@@ -66,7 +66,6 @@ func newClassicUserExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicUserExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -134,7 +133,6 @@ func newClassicUserExtAttrsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicUserExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicUserExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicUserExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -199,7 +196,6 @@ func newClassicUserExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicUserExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
@@ -256,4 +252,3 @@ func newClassicUserExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

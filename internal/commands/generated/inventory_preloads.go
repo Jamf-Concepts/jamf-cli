@@ -35,12 +35,12 @@ func NewInventoryPreloadsCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPagesize int
-		flagSort string
-		flagSortBy string
-		flagAll  bool
-		flagLimit int
+		flagSort     string
+		flagSortBy   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -109,7 +109,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -167,8 +167,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -204,13 +203,11 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -250,13 +247,11 @@ func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -298,13 +293,12 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -371,13 +365,13 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
-		flagSize int
+		flagPage     int
+		flagSize     int
 		flagPagesize int
 		flagPageSize int
-		flagSort string
-		flagAll  bool
-		flagLimit int
+		flagSort     string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -449,7 +443,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -508,8 +502,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -549,13 +542,11 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "validate-csv",
@@ -595,7 +586,5 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

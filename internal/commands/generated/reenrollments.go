@@ -30,8 +30,7 @@ func NewReenrollmentsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReenrollmentsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -65,13 +64,11 @@ func newReenrollmentsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newReenrollmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -111,19 +108,18 @@ func newReenrollmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
-		flagSize int
+		flagPage     int
+		flagSize     int
 		flagPagesize int
 		flagPageSize int
-		flagSort string
-		flagAll  bool
-		flagLimit int
+		flagSort     string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -195,7 +191,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -254,8 +250,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -295,7 +290,6 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
@@ -303,10 +297,10 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
 	)
 
 	cmd := &cobra.Command{
@@ -380,4 +374,3 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

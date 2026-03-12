@@ -25,8 +25,7 @@ func NewComputerSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate-smart-groups <id>",
@@ -68,13 +67,11 @@ func newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra.Com
 		},
 	}
 
-
 	return cmd
 }
 
 func newComputerSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "recalculate <id>",
@@ -116,7 +113,5 @@ func newComputerSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

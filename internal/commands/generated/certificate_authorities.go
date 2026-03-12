@@ -23,8 +23,7 @@ func NewCertificateAuthoritiesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,13 +57,11 @@ func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +97,5 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

@@ -34,8 +34,7 @@ func NewEnrollmentSettingsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -69,13 +68,11 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentSettingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -111,13 +108,11 @@ func newEnrollmentSettingsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -157,13 +152,11 @@ func newEnrollmentSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -203,13 +196,12 @@ func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -278,11 +270,11 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -350,7 +342,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -407,8 +399,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -448,7 +439,6 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
@@ -456,10 +446,10 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
 	)
 
 	cmd := &cobra.Command{
@@ -533,4 +523,3 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

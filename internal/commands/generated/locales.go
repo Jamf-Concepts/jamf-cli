@@ -22,8 +22,7 @@ func NewLocalesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,7 +56,5 @@ func newLocalesListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

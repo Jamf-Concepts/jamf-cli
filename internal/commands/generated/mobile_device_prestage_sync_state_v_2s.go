@@ -23,8 +23,7 @@ func NewMobileDevicePrestageSyncStateV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,13 +57,11 @@ func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 
-
 	return cmd
 }
 
 func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -100,7 +97,5 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

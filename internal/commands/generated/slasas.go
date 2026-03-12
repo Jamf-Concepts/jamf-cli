@@ -25,8 +25,7 @@ func NewSlasasCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSlasasListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -60,13 +59,11 @@ func newSlasasListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
 
 func newSlasasSlasaCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "slasa",
@@ -106,7 +103,5 @@ func newSlasasSlasaCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-

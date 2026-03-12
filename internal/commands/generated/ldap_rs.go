@@ -22,8 +22,7 @@ func NewLdapRsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,7 +56,5 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 
-
 	return cmd
 }
-
