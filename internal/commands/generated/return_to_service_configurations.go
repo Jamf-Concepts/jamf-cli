@@ -55,11 +55,6 @@ func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -94,11 +89,6 @@ func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -138,11 +128,6 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -184,11 +169,6 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -245,11 +225,6 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")

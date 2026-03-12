@@ -55,11 +55,6 @@ func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -94,11 +89,6 @@ func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -140,11 +130,6 @@ func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -201,11 +186,6 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -287,11 +267,6 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

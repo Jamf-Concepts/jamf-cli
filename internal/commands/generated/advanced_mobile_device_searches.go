@@ -56,11 +56,6 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -95,11 +90,6 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -139,11 +129,6 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -185,11 +170,6 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -246,11 +226,6 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -332,11 +307,6 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

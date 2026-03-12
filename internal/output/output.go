@@ -327,54 +327,19 @@ func sortedKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-// preferredColumnOrder defines the display order for default columns.
-// Columns are shown in this order if present in the data.
-var preferredColumnOrder = []string{
-	"id",
-	"name",
-	"isManaged",
-	"operatingSystemVersion",
-	"osVersion",
-	"serialNumber",
-	"lastContactDate",
-	"lastReportDate",
-	"lastInventoryUpdateTimestamp",
-	"type",
-	"model",
-	"jamfBinaryVersion",
-}
+// defaultColumnLimit is the maximum number of columns shown without --wide.
+// id and name are always first (via sortedKeys), then remaining columns
+// in alphabetical order up to the limit.
+const defaultColumnLimit = 8
 
 // defaultColumns returns columns to show when not in wide mode.
-// Uses preferredColumnOrder for ordering, then adds any remaining status columns.
+// Shows up to defaultColumnLimit columns in sortedKeys order (id first,
+// name second, then alphabetical). Use --wide for all columns.
 func defaultColumns(allKeys []string) []string {
-	var result []string
-	seen := make(map[string]bool)
-
-	// Build a lookup of available keys (case-insensitive)
-	keyLookup := make(map[string]string)
-	for _, k := range allKeys {
-		keyLookup[strings.ToLower(k)] = k
+	if len(allKeys) <= defaultColumnLimit {
+		return allKeys
 	}
-
-	// Add columns in preferred order if they exist
-	for _, preferred := range preferredColumnOrder {
-		if actual, ok := keyLookup[strings.ToLower(preferred)]; ok {
-			result = append(result, actual)
-			seen[actual] = true
-		}
-	}
-
-	// Add any remaining status-like columns not already included
-	for _, k := range allKeys {
-		if seen[k] {
-			continue
-		}
-		if isStatusColumn(k) {
-			result = append(result, k)
-		}
-	}
-
-	return result
+	return allKeys[:defaultColumnLimit]
 }
 
 // formatValue converts a value to its string representation for table/csv/plain output.
@@ -415,7 +380,9 @@ func (f *Formatter) colorize(text, colorCode string) string {
 	return colorCode + text + colorReset
 }
 
-// isStatusColumn returns true if column name suggests status values
+// isStatusColumn returns true if column name suggests status values.
+// Uses suffix matching to avoid false positives (e.g., "stateProvince" won't
+// match because it doesn't end with "state").
 func isStatusColumn(name string) bool {
 	lower := strings.ToLower(name)
 
@@ -424,21 +391,10 @@ func isStatusColumn(name string) bool {
 		return false
 	}
 
-	// Exclude columns that match patterns but aren't really status fields
-	excluded := []string{
-		"mdmaccessrights", // numeric value, not a status
-		"stateprovince",   // address field, not a status (matches "state")
-	}
-	for _, e := range excluded {
-		if lower == e {
-			return false
-		}
-	}
-
-	patterns := []string{"status", "state", "health", "managed", "enrolled",
+	suffixes := []string{"status", "state", "health", "managed", "enrolled",
 		"supervised", "active", "enabled", "connected", "mdm", "approved", "remote"}
-	for _, p := range patterns {
-		if strings.Contains(lower, p) {
+	for _, s := range suffixes {
+		if strings.HasSuffix(lower, s) {
 			return true
 		}
 	}

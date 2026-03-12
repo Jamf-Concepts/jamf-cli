@@ -40,10 +40,6 @@ func newClassicGsxConnectionGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"gsx_connection": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -83,10 +79,6 @@ func newClassicGsxConnectionUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

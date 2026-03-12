@@ -644,14 +644,14 @@ func TestIsStatusColumn(t *testing.T) {
 		{"managed", true},
 		{"isManaged", true},
 		{"userApprovedMdm", true},
-		{"mdmCapable", true},
-		{"remoteDesktop", true},
+		{"mdmCapable", false},    // suffix matching: doesn't end with "mdm"
+		{"remoteDesktop", false},  // suffix matching: doesn't end with "remote"
 		{"supervised", true},
 		{"name", false},
 		{"id", false},
 		{"description", false},
-		{"mdmAccessRights", false}, // excluded - numeric value, not a status
-		{"stateProvince", false},   // excluded - address field, not a status
+		{"mdmAccessRights", false}, // doesn't end with any status suffix
+		{"stateProvince", false},   // doesn't end with "state"
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -690,22 +690,11 @@ func TestPrintRaw_Table_DefaultColumns(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// Should show id, name, status (default columns)
-	if !strings.Contains(out, "ID") {
-		t.Error("expected ID column")
-	}
-	if !strings.Contains(out, "NAME") {
-		t.Error("expected NAME column")
-	}
-	if !strings.Contains(out, "STATUS") {
-		t.Error("expected STATUS column")
-	}
-	// Should NOT show serial or extra
-	if strings.Contains(out, "SERIAL") {
-		t.Error("expected SERIAL column to be hidden in default mode")
-	}
-	if strings.Contains(out, "EXTRA") {
-		t.Error("expected EXTRA column to be hidden in default mode")
+	// 5 columns <= 8 limit, so all should show
+	for _, col := range []string{"ID", "NAME", "STATUS", "SERIAL", "EXTRA"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("expected %s column, got:\n%s", col, out)
+		}
 	}
 }
 
@@ -731,15 +720,9 @@ func TestDefaultColumns(t *testing.T) {
 	allKeys := []string{"zebra", "id", "serial", "name", "status", "extra"}
 	result := defaultColumns(allKeys)
 
-	// Should contain id, name, status only
-	expected := []string{"id", "name", "status"}
-	if len(result) != len(expected) {
-		t.Fatalf("expected %d columns, got %d: %v", len(expected), len(result), result)
-	}
-	for i, exp := range expected {
-		if result[i] != exp {
-			t.Errorf("column[%d] = %q, want %q", i, result[i], exp)
-		}
+	// 6 keys <= 8 limit, so all are returned
+	if len(result) != 6 {
+		t.Fatalf("expected 6 columns (all keys <= limit), got %d: %v", len(result), result)
 	}
 }
 
@@ -747,12 +730,9 @@ func TestDefaultColumns_NoStatusColumns(t *testing.T) {
 	allKeys := []string{"id", "name", "serial", "extra"}
 	result := defaultColumns(allKeys)
 
-	// Should contain only id and name
-	if len(result) != 2 {
-		t.Fatalf("expected 2 columns, got %d: %v", len(result), result)
-	}
-	if result[0] != "id" || result[1] != "name" {
-		t.Errorf("expected [id, name], got %v", result)
+	// 4 keys <= 8 limit, so all are returned
+	if len(result) != 4 {
+		t.Fatalf("expected 4 columns (all keys <= limit), got %d: %v", len(result), result)
 	}
 }
 
@@ -760,10 +740,19 @@ func TestDefaultColumns_NoDefaultColumns(t *testing.T) {
 	allKeys := []string{"serial", "extra", "zebra"}
 	result := defaultColumns(allKeys)
 
-	// When no id/name/status columns exist, result should be empty
-	// printTable will fallback to showing all columns in this case
-	if len(result) != 0 {
-		t.Fatalf("expected 0 columns when no default columns exist, got %d: %v", len(result), result)
+	// 3 keys <= 8 limit, so all are returned
+	if len(result) != 3 {
+		t.Fatalf("expected 3 columns (all keys <= limit), got %d: %v", len(result), result)
+	}
+}
+
+func TestDefaultColumns_OverLimit(t *testing.T) {
+	allKeys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+	result := defaultColumns(allKeys)
+
+	// 10 keys > 8 limit, so only first 8 returned
+	if len(result) != 8 {
+		t.Fatalf("expected 8 columns (truncated to limit), got %d: %v", len(result), result)
 	}
 }
 
@@ -793,31 +782,16 @@ func TestDefaultColumns_WithImportantColumns(t *testing.T) {
 	allKeys := []string{"id", "name", "serialNumber", "lastContactDate", "udid", "extra", "status"}
 	result := defaultColumns(allKeys)
 
-	// Should contain id, name, serialNumber, lastContactDate, status
-	// (udid and extra should be filtered out)
-	expected := map[string]bool{
-		"id":              true,
-		"name":            true,
-		"serialNumber":    true,
-		"lastContactDate": true,
-		"status":          true,
-	}
-
-	if len(result) != len(expected) {
-		t.Fatalf("expected %d columns, got %d: %v", len(expected), len(result), result)
-	}
-
-	for _, col := range result {
-		if !expected[col] {
-			t.Errorf("unexpected column %q in result: %v", col, result)
-		}
+	// 7 keys <= 8 limit, so all are returned
+	if len(result) != 7 {
+		t.Fatalf("expected 7 columns (all keys <= limit), got %d: %v", len(result), result)
 	}
 }
 
 func TestPrintRaw_Table_ComputerColumns(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Simulated computer list response
+	// Simulated computer list response — 8 keys = limit, all shown
 	input := `[{"id":"1","name":"MacBook Pro","serialNumber":"C02X1234","lastContactDate":"2026-02-05","lastReportDate":"2026-02-04","udid":"ABC-123","macAddress":"AA:BB:CC","isManaged":true}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -825,17 +799,10 @@ func TestPrintRaw_Table_ComputerColumns(t *testing.T) {
 	}
 	out := buf.String()
 
-	// Should show important computer columns
-	for _, col := range []string{"ID", "NAME", "SERIALNUMBER", "LASTCONTACTDATE", "LASTREPORTDATE", "ISMANAGED"} {
+	// 8 keys = limit, all columns shown
+	for _, col := range []string{"ID", "NAME", "SERIALNUMBER", "LASTCONTACTDATE", "LASTREPORTDATE", "ISMANAGED", "UDID", "MACADDRESS"} {
 		if !strings.Contains(out, col) {
 			t.Errorf("expected %s column in default computer output, got:\n%s", col, out)
-		}
-	}
-
-	// Should NOT show non-important columns
-	for _, col := range []string{"UDID", "MACADDRESS"} {
-		if strings.Contains(out, col) {
-			t.Errorf("expected %s column to be hidden in default mode, got:\n%s", col, out)
 		}
 	}
 }
@@ -843,7 +810,7 @@ func TestPrintRaw_Table_ComputerColumns(t *testing.T) {
 func TestPrintRaw_Table_MobileDeviceColumns(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Simulated mobile device list response (based on MobileDeviceV2 schema)
+	// Simulated mobile device list response — 8 keys = limit, all shown
 	input := `[{"id":"1","name":"iPad Pro","serialNumber":"DMQVGC0DHLA0","type":"ios","model":"iPad Pro 11-inch","wifiMacAddress":"C4:84:66:92:78:00","udid":"0dad565fb40b010a9e490440188063a378721069","username":"admin"}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -851,17 +818,10 @@ func TestPrintRaw_Table_MobileDeviceColumns(t *testing.T) {
 	}
 	out := buf.String()
 
-	// Should show important mobile device columns
-	for _, col := range []string{"ID", "NAME", "SERIALNUMBER", "TYPE", "MODEL"} {
+	// 8 keys = limit, all columns shown
+	for _, col := range []string{"ID", "NAME", "SERIALNUMBER", "TYPE", "MODEL", "WIFIMACADDRESS", "UDID", "USERNAME"} {
 		if !strings.Contains(out, col) {
 			t.Errorf("expected %s column in default mobile device output, got:\n%s", col, out)
-		}
-	}
-
-	// Should NOT show non-important columns
-	for _, col := range []string{"WIFIMACADDRESS", "UDID", "USERNAME"} {
-		if strings.Contains(out, col) {
-			t.Errorf("expected %s column to be hidden in default mode, got:\n%s", col, out)
 		}
 	}
 }
@@ -887,7 +847,7 @@ func TestPrintRaw_Table_MobileDeviceColumns_WideMode(t *testing.T) {
 func TestPrintRaw_Table_GenericResourceWithType(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Generic resource that happens to have a "type" field (e.g., policies, scripts)
+	// Generic resource — 5 keys <= 8 limit, all shown
 	input := `[{"id":"1","name":"Install Chrome","type":"policy","description":"Installs Chrome browser","category":"Software"}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -895,15 +855,9 @@ func TestPrintRaw_Table_GenericResourceWithType(t *testing.T) {
 	}
 	out := buf.String()
 
-	// Type should show since it's an important column
-	if !strings.Contains(out, "TYPE") {
-		t.Errorf("expected TYPE column for generic resource, got:\n%s", out)
-	}
-
-	// Description and category should be hidden
-	for _, col := range []string{"DESCRIPTION", "CATEGORY"} {
-		if strings.Contains(out, col) {
-			t.Errorf("expected %s column to be hidden in default mode, got:\n%s", col, out)
+	for _, col := range []string{"ID", "NAME", "TYPE", "DESCRIPTION", "CATEGORY"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("expected %s column, got:\n%s", col, out)
 		}
 	}
 }
@@ -911,7 +865,7 @@ func TestPrintRaw_Table_GenericResourceWithType(t *testing.T) {
 func TestPrintRaw_Table_BuildingsResource(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Buildings resource - verify it doesn't break with different column set
+	// Buildings resource — 6 keys <= 8 limit, all shown
 	input := `[{"id":"1","name":"HQ Building","streetAddress1":"123 Main St","city":"Minneapolis","stateProvince":"MN","zipPostalCode":"55401"}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -919,15 +873,9 @@ func TestPrintRaw_Table_BuildingsResource(t *testing.T) {
 	}
 	out := buf.String()
 
-	// Should show id and name
-	if !strings.Contains(out, "ID") || !strings.Contains(out, "NAME") {
-		t.Errorf("expected ID and NAME columns, got:\n%s", out)
-	}
-
-	// Address details should be hidden in default mode
-	for _, col := range []string{"STREETADDRESS1", "CITY", "STATEPROVINCE", "ZIPPOSTALCODE"} {
-		if strings.Contains(out, col) {
-			t.Errorf("expected %s column to be hidden in default mode, got:\n%s", col, out)
+	for _, col := range []string{"ID", "NAME", "STREETADDRESS1", "CITY", "STATEPROVINCE", "ZIPPOSTALCODE"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("expected %s column, got:\n%s", col, out)
 		}
 	}
 }
@@ -970,7 +918,7 @@ func TestPrintRaw_Table_NoIdOrName(t *testing.T) {
 func TestPrintRaw_Table_StatusColumnExclusion(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Verify mdmAccessRights is excluded despite matching "mdm" pattern
+	// 4 keys <= 8 limit, all shown
 	input := `[{"id":"1","name":"Test","mdmAccessRights":3,"userApprovedMdm":true}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -978,21 +926,17 @@ func TestPrintRaw_Table_StatusColumnExclusion(t *testing.T) {
 	}
 	out := buf.String()
 
-	// userApprovedMdm should show (status column)
-	if !strings.Contains(out, "USERAPPROVEDMDM") {
-		t.Errorf("expected USERAPPROVEDMDM column, got:\n%s", out)
-	}
-
-	// mdmAccessRights should be hidden (excluded)
-	if strings.Contains(out, "MDMACCESSRIGHTS") {
-		t.Errorf("expected MDMACCESSRIGHTS to be hidden, got:\n%s", out)
+	for _, col := range []string{"ID", "NAME", "USERAPPROVEDMDM", "MDMACCESSRIGHTS"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("expected %s column, got:\n%s", col, out)
+		}
 	}
 }
 
 func TestPrintRaw_Table_MultipleStatusColumns(t *testing.T) {
 	f, buf := newTestFormatter("table")
 	f.wide = false
-	// Device with multiple status columns
+	// 7 keys <= 8 limit, all shown
 	input := `[{"id":"1","name":"Device","isManaged":true,"supervised":true,"enrollmentStatus":"complete","userApprovedMdm":true,"extra":"data"}]`
 	err := f.PrintRaw([]byte(input))
 	if err != nil {
@@ -1000,16 +944,10 @@ func TestPrintRaw_Table_MultipleStatusColumns(t *testing.T) {
 	}
 	out := buf.String()
 
-	// All status columns should show
-	for _, col := range []string{"ISMANAGED", "SUPERVISED", "ENROLLMENTSTATUS", "USERAPPROVEDMDM"} {
+	for _, col := range []string{"ID", "NAME", "ISMANAGED", "SUPERVISED", "ENROLLMENTSTATUS", "USERAPPROVEDMDM", "EXTRA"} {
 		if !strings.Contains(out, col) {
-			t.Errorf("expected %s status column, got:\n%s", col, out)
+			t.Errorf("expected %s column, got:\n%s", col, out)
 		}
-	}
-
-	// Extra should be hidden
-	if strings.Contains(out, "EXTRA") {
-		t.Errorf("expected EXTRA to be hidden, got:\n%s", out)
 	}
 }
 

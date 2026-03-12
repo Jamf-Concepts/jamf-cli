@@ -46,10 +46,6 @@ func newClassicMacAppsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"macapplications": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -80,10 +76,6 @@ func newClassicMacAppsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"mac_application": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -113,10 +105,6 @@ func newClassicMacAppsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -155,10 +143,6 @@ func newClassicMacAppsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -187,10 +171,6 @@ func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -233,10 +213,6 @@ func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")

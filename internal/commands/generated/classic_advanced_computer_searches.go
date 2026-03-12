@@ -46,10 +46,6 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"advancedcomputersearches": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -80,10 +76,6 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"advanced_computer_search": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -113,10 +105,6 @@ func newClassicAdvancedComputerSearchesGetByNameCmd(ctx *CLIContext) *cobra.Comm
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -155,10 +143,6 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -187,10 +171,6 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -233,10 +213,6 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")

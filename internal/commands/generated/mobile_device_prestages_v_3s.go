@@ -100,10 +100,6 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
@@ -144,11 +140,6 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -191,11 +182,6 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -234,11 +220,6 @@ func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -280,11 +261,6 @@ func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -341,11 +317,6 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -430,11 +401,6 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -516,10 +482,6 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
@@ -560,11 +522,6 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -612,11 +569,6 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

@@ -46,10 +46,6 @@ func newClassicPatchTitlesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"patchsoftwaretitles": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -80,10 +76,6 @@ func newClassicPatchTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"patch_software_title": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -113,10 +105,6 @@ func newClassicPatchTitlesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -155,10 +143,6 @@ func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -187,10 +171,6 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -233,10 +213,6 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")

@@ -95,10 +95,6 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
@@ -139,11 +135,6 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -229,10 +220,6 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
@@ -273,11 +260,6 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -324,11 +306,6 @@ func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -399,11 +376,6 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

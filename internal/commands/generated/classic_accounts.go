@@ -38,10 +38,6 @@ func newClassicAccountsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"accounts": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -72,10 +68,6 @@ func newClassicAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"account": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -105,10 +97,6 @@ func newClassicAccountsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {

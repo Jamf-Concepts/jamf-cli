@@ -79,11 +79,6 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

@@ -3,8 +3,6 @@ package generated
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -107,23 +105,4 @@ func RegisterCommands(root *cobra.Command, ctx *CLIContext) {
 	root.AddCommand(NewUserSmartGroupsCmd(ctx))
 	root.AddCommand(NewUsersCmd(ctx))
 	root.AddCommand(NewVenafisCmd(ctx))
-}
-
-func handleErrorResponse(resp *http.Response) error {
-	body, _ := io.ReadAll(resp.Body)
-
-	var errResp struct {
-		HttpStatus int `json:"httpStatus"`
-		Errors     []struct {
-			Code        string `json:"code"`
-			Description string `json:"description"`
-			Field       string `json:"field,omitempty"`
-		} `json:"errors"`
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && len(errResp.Errors) > 0 {
-		return fmt.Errorf("%s: %s", errResp.Errors[0].Code, errResp.Errors[0].Description)
-	}
-
-	return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 }

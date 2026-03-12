@@ -37,10 +37,6 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"mobile_device_history": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {

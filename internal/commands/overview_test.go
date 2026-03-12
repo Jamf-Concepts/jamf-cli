@@ -500,24 +500,6 @@ func TestFetchDeviceCommunicationSettings(t *testing.T) {
 	}
 }
 
-func TestFormatEpochDate(t *testing.T) {
-	tests := []struct {
-		epoch float64
-		want  string
-	}{
-		{0, "Jan 01, 1970"},
-		{1924905600, "Dec 31, 2030"},
-		{1735689600, "Jan 01, 2025"},
-	}
-
-	for _, tt := range tests {
-		got := formatEpochDate(tt.epoch)
-		if got != tt.want {
-			t.Errorf("formatEpochDate(%v) = %q, want %q", tt.epoch, got, tt.want)
-		}
-	}
-}
-
 func TestFormatExpirationDate(t *testing.T) {
 	now := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 

@@ -423,10 +423,6 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 						return err
 					}
 
-					if resp.StatusCode >= 400 {
-						return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-					}
-
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               ` + "`" + `json:"totalCount"` + "`" + `
@@ -498,10 +494,6 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 {{ if eq .Method "DELETE" }}
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -540,8 +532,6 @@ package generated
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -571,24 +561,5 @@ func RegisterCommands(root *cobra.Command, ctx *CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
-}
-
-func handleErrorResponse(resp *http.Response) error {
-	body, _ := io.ReadAll(resp.Body)
-
-	var errResp struct {
-		HttpStatus int    ` + "`json:\"httpStatus\"`" + `
-		Errors     []struct {
-			Code        string ` + "`json:\"code\"`" + `
-			Description string ` + "`json:\"description\"`" + `
-			Field       string ` + "`json:\"field,omitempty\"`" + `
-		} ` + "`json:\"errors\"`" + `
-	}
-
-	if err := json.Unmarshal(body, &errResp); err == nil && len(errResp.Errors) > 0 {
-		return fmt.Errorf("%s: %s", errResp.Errors[0].Code, errResp.Errors[0].Description)
-	}
-
-	return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 }
 `

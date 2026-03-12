@@ -37,10 +37,6 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"computerapplications": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -70,10 +66,6 @@ func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			// Classic API wraps single-object responses: {"computer_application": {...}}
 			body, err := io.ReadAll(resp.Body)

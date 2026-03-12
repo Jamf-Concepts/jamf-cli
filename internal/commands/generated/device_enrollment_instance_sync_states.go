@@ -48,11 +48,6 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -87,11 +82,6 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 				return err
 			}
 			defer resp.Body.Close()
-
-			// Handle response
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

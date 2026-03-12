@@ -41,10 +41,6 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"mobiledevicecommands": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -75,10 +71,6 @@ func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"mobile_device_command": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -108,10 +100,6 @@ func newClassicMobileCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -149,10 +137,6 @@ func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

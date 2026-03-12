@@ -38,10 +38,6 @@ func newClassicPatchInternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps list responses: {"patchinternalsources": [...]}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -72,10 +68,6 @@ func newClassicPatchInternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
-
 			// Classic API wraps single-object responses: {"patch_internal_source": {...}}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -105,10 +97,6 @@ func newClassicPatchInternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 				return err
 			}
 			defer resp.Body.Close()
-
-			if resp.StatusCode >= 400 {
-				return handleErrorResponse(resp)
-			}
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
