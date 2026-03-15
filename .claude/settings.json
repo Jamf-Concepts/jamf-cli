@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "case \"$CLAUDE_FILE_PATH\" in */internal/commands/generated/*) echo 'BLOCK: generated file — run make generate instead' >&2; exit 1;; esac",
+        "description": "Block edits to generated code"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "case \"$CLAUDE_FILE_PATH\" in *.go) gofumpt -w \"$CLAUDE_FILE_PATH\";; esac",
+        "description": "Auto-format Go files"
+      }
+    ]
+  }
+}
