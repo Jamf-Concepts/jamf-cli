@@ -180,6 +180,202 @@ func TestGenerateRegistry(t *testing.T) {
 	}
 }
 
+func TestGenerate_ClassicExamples(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "policies",
+		Path:        "policies",
+		CLIName:     "classic-policies",
+		GoName:      "ClassicPolicies",
+		Singular:    "policy",
+		Description: "Deployment policies",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Each operation should have Example block
+	if !strings.Contains(code, "Example:") {
+		t.Error("expected Example: field in generated code")
+	}
+
+	// List example should contain --field
+	if !strings.Contains(code, "--field id") {
+		t.Error("expected list example to show --field usage")
+	}
+	// Get example should show -o yaml
+	if !strings.Contains(code, "-o yaml") {
+		t.Error("expected get example to show -o yaml usage")
+	}
+	// Delete example should show --yes
+	if !strings.Contains(code, "--yes") {
+		t.Error("expected delete example to show --yes usage")
+	}
+	// Create example should show jq pipe
+	if !strings.Contains(code, "jq") {
+		t.Error("expected create example to show jq pipe pattern")
+	}
+}
+
+func TestGenerate_ClassicExamples_ListOnly(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "patchreports",
+		Path:        "patchreports",
+		CLIName:     "classic-patch-reports",
+		GoName:      "ClassicPatchReports",
+		Singular:    "patch_report",
+		Description: "Patch reports",
+		Operations:  []string{"list"},
+		Lookups:     []string{"id"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// List example should exist
+	if !strings.Contains(code, "classic-patch-reports list") {
+		t.Error("expected list example with resource name")
+	}
+	// No delete/update/create examples
+	if strings.Contains(code, "classic-patch-reports delete") {
+		t.Error("unexpected delete example for list-only resource")
+	}
+}
+
+// --- Template helper function tests ---
+
+func TestHasOp(t *testing.T) {
+	ops := []string{"list", "get", "create"}
+	if !hasOp(ops, "list") {
+		t.Error("expected hasOp to find 'list'")
+	}
+	if hasOp(ops, "delete") {
+		t.Error("expected hasOp to not find 'delete'")
+	}
+	if hasOp(nil, "list") {
+		t.Error("expected hasOp to return false for nil ops")
+	}
+}
+
+func TestHasLookup(t *testing.T) {
+	lookups := []string{"id", "name", "serialnumber"}
+	if !hasLookup(lookups, "name") {
+		t.Error("expected hasLookup to find 'name'")
+	}
+	if hasLookup(lookups, "udid") {
+		t.Error("expected hasLookup to not find 'udid'")
+	}
+	if hasLookup(nil, "id") {
+		t.Error("expected hasLookup to return false for nil lookups")
+	}
+}
+
+func TestExtraLookups(t *testing.T) {
+	lookups := []string{"id", "name", "serialnumber"}
+	extra := extraLookups(lookups)
+	if len(extra) != 2 {
+		t.Fatalf("expected 2 extra lookups, got %d", len(extra))
+	}
+	if extra[0] != "name" || extra[1] != "serialnumber" {
+		t.Errorf("extra = %v, want [name, serialnumber]", extra)
+	}
+
+	// id-only should return nil
+	idOnly := extraLookups([]string{"id"})
+	if len(idOnly) != 0 {
+		t.Errorf("expected no extra lookups for id-only, got %v", idOnly)
+	}
+}
+
+// --- Error path tests ---
+
+func TestGenerate_BadOutputDir(t *testing.T) {
+	gen := NewGenerator("/nonexistent/path/that/does/not/exist")
+
+	resource := ClassicResource{
+		Name:       "policies",
+		Path:       "policies",
+		CLIName:    "classic-policies",
+		GoName:     "ClassicPolicies",
+		Singular:   "policy",
+		Operations: []string{"list"},
+		Lookups:    []string{"id"},
+	}
+
+	_, err := gen.Generate(resource)
+	if err == nil {
+		t.Fatal("expected error for nonexistent output dir")
+	}
+	if !strings.Contains(err.Error(), "creating file") {
+		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
+	}
+}
+
+func TestGenerateRegistry_BadOutputDir(t *testing.T) {
+	gen := NewGenerator("/nonexistent/path/that/does/not/exist")
+
+	resources := []ClassicResource{
+		{CLIName: "classic-policies", GoName: "ClassicPolicies"},
+	}
+
+	_, err := gen.GenerateRegistry(resources)
+	if err == nil {
+		t.Fatal("expected error for nonexistent output dir")
+	}
+	if !strings.Contains(err.Error(), "creating file") {
+		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
+	}
+}
+
+func TestGenerate_FilenameDedup(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	// CLIName already starts with "classic-" — filename should not double-prefix
+	resource := ClassicResource{
+		Name:       "policies",
+		Path:       "policies",
+		CLIName:    "classic-policies",
+		GoName:     "ClassicPolicies",
+		Singular:   "policy",
+		Operations: []string{"list"},
+		Lookups:    []string{"id"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	expectedFile := filepath.Join(dir, "classic_policies.go")
+	if outPath != expectedFile {
+		t.Errorf("output path = %q, want %q (no classic_classic_ prefix)", outPath, expectedFile)
+	}
+}
+
 func TestGenerate_Filename(t *testing.T) {
 	dir := t.TempDir()
 	gen := NewGenerator(dir)

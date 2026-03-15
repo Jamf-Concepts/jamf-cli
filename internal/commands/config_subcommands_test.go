@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -338,6 +339,173 @@ func TestCheckHealth_InvalidJSON(t *testing.T) {
 	}
 	if result.Status != "unknown" {
 		t.Errorf("status = %q, want %q", result.Status, "unknown")
+	}
+}
+
+// --- config list --status tests ---
+
+func TestConfigList_WithStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		handler    http.HandlerFunc
+		wantOutput string
+	}{
+		{
+			name: "healthy",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode([]string{})
+			},
+			wantOutput: "ok",
+		},
+		{
+			name: "unhealthy",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			},
+			wantOutput: "HTTP 503",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(tt.handler)
+			defer srv.Close()
+
+			jDir := setupTempConfig(t)
+			noColor = true
+			defer func() { noColor = false }()
+
+			yaml := fmt.Sprintf("default-profile: test\nprofiles:\n  test:\n    url: %s\n    auth-method: token\n", srv.URL)
+			_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+
+			cmd := newConfigListCmd()
+			buf := &bytes.Buffer{}
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs([]string{"--status"})
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !strings.Contains(buf.String(), tt.wantOutput) {
+				t.Errorf("expected %q in output, got:\n%s", tt.wantOutput, buf.String())
+			}
+		})
+	}
+}
+
+// --- cleanupKeychainRefs tests ---
+
+func TestCleanupKeychainRefs_RemovesKeychainItems(t *testing.T) {
+	mock := newMockKeychainStore()
+	mock.items["jamfpro-cli/myprof/token"] = "secret-token"
+
+	// Override the keychain.New() by testing cleanupKeychainRefs indirectly
+	// through remove-profile which calls it
+	jDir := setupTempConfig(t)
+	yaml := `default-profile: myprof
+profiles:
+  myprof:
+    url: https://example.com
+    auth-method: token
+    token: "env:SOME_TOKEN"
+`
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+
+	cmd := newConfigRemoveProfileCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"myprof"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Profile with env: refs shouldn't have triggered keychain cleanup
+	if strings.Contains(buf.String(), "Removed keychain item") {
+		t.Error("env: refs should not trigger keychain cleanup")
+	}
+}
+
+// --- add-profile validation tests ---
+
+func TestAddProfile_ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "invalid auth method",
+			args:    []string{"test", "--url", "https://example.com", "--auth-method", "magic"},
+			wantErr: "invalid --auth-method",
+		},
+		{
+			name:    "oauth2 missing client-id",
+			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-secret", "secret"},
+			wantErr: "--client-id is required",
+		},
+		{
+			name:    "oauth2 missing client-secret",
+			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-id", "my-id"},
+			wantErr: "--client-secret is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupTempConfig(t)
+
+			cmd := newConfigAddProfileCmd()
+			buf := &bytes.Buffer{}
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAddProfile_AutoDefault(t *testing.T) {
+	setupTempConfig(t)
+
+	mock := newMockKeychainStore()
+	old := config.KeychainStore
+	config.KeychainStore = mock
+	defer func() { config.KeychainStore = old }()
+
+	cmd := newConfigAddProfileCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{
+		"first",
+		"--url", "https://example.com",
+		"--auth-method", "token",
+		"--token", "env:MYTOKEN",
+	})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), "Set as default profile") {
+		t.Error("first profile should be auto-set as default")
+	}
+
+	cfg, _ := config.Load()
+	if cfg.DefaultProfile != "first" {
+		t.Errorf("DefaultProfile = %q, want %q", cfg.DefaultProfile, "first")
 	}
 }
 

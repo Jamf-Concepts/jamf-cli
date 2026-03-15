@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -470,6 +471,436 @@ func TestGenerateRegistry(t *testing.T) {
 	widgetIdx := strings.Index(code, "NewWidgetsCmd")
 	if gadgetIdx > widgetIdx {
 		t.Error("expected gadgets before widgets (sorted by name)")
+	}
+}
+
+// --- scaffoldJSON tests ---
+
+func TestScaffoldJSON_BasicProperties(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"name":    {Type: "string"},
+			"count":   {Type: "integer"},
+			"enabled": {Type: "boolean"},
+		},
+	}
+	got := scaffoldJSON(s)
+	// Verify valid JSON
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("scaffoldJSON produced invalid JSON: %v\n%s", err, got)
+	}
+	if parsed["name"] != "" {
+		t.Errorf("name = %v, want empty string", parsed["name"])
+	}
+	if parsed["count"] != float64(0) {
+		t.Errorf("count = %v, want 0", parsed["count"])
+	}
+	if parsed["enabled"] != false {
+		t.Errorf("enabled = %v, want false", parsed["enabled"])
+	}
+}
+
+func TestScaffoldJSON_SkipsReadOnly(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"id":   {Type: "string", ReadOnly: true},
+			"name": {Type: "string"},
+		},
+	}
+	got := scaffoldJSON(s)
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, ok := parsed["id"]; ok {
+		t.Error("readOnly field 'id' should be skipped")
+	}
+	if _, ok := parsed["name"]; !ok {
+		t.Error("writable field 'name' should be present")
+	}
+}
+
+func TestScaffoldJSON_UsesExamples(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"name": {Type: "string", Example: "Apple Park"},
+		},
+	}
+	got := scaffoldJSON(s)
+	if !strings.Contains(got, "Apple Park") {
+		t.Errorf("expected example value 'Apple Park' in output, got: %s", got)
+	}
+}
+
+func TestScaffoldJSON_EmptySchema(t *testing.T) {
+	if got := scaffoldJSON(nil); got != "{}" {
+		t.Errorf("nil schema: got %q, want %q", got, "{}")
+	}
+	if got := scaffoldJSON(&Schema{}); got != "{}" {
+		t.Errorf("empty schema: got %q, want %q", got, "{}")
+	}
+}
+
+func TestScaffoldJSON_DeterministicOrder(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"zebra": {Type: "string"},
+			"alpha": {Type: "string"},
+			"mike":  {Type: "string"},
+		},
+	}
+	// Run multiple times to check determinism
+	first := scaffoldJSON(s)
+	for i := 0; i < 10; i++ {
+		if got := scaffoldJSON(s); got != first {
+			t.Fatalf("non-deterministic output on iteration %d:\n%s\nvs\n%s", i, first, got)
+		}
+	}
+	// Verify alphabetical order
+	alphaIdx := strings.Index(first, "alpha")
+	mikeIdx := strings.Index(first, "mike")
+	zebraIdx := strings.Index(first, "zebra")
+	if alphaIdx >= mikeIdx || mikeIdx >= zebraIdx {
+		t.Errorf("expected alphabetical order (alpha < mike < zebra), got: %s", first)
+	}
+}
+
+func TestScaffoldJSON_AllTypes(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"arr":  {Type: "array"},
+			"obj":  {Type: "object"},
+			"str":  {Type: "string"},
+			"num":  {Type: "integer"},
+			"flag": {Type: "boolean"},
+		},
+	}
+	got := scaffoldJSON(s)
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// array → []
+	if arr, ok := parsed["arr"].([]interface{}); !ok || len(arr) != 0 {
+		t.Errorf("arr = %v, want empty array", parsed["arr"])
+	}
+	// object → {}
+	if obj, ok := parsed["obj"].(map[string]interface{}); !ok || len(obj) != 0 {
+		t.Errorf("obj = %v, want empty object", parsed["obj"])
+	}
+	if parsed["str"] != "" {
+		t.Errorf("str = %v, want empty string", parsed["str"])
+	}
+	if parsed["num"] != float64(0) {
+		t.Errorf("num = %v, want 0", parsed["num"])
+	}
+	if parsed["flag"] != false {
+		t.Errorf("flag = %v, want false", parsed["flag"])
+	}
+}
+
+// --- hasScaffold tests ---
+
+func TestHasScaffold_PostWithSchema(t *testing.T) {
+	ops := []*Operation{{
+		Method:      "POST",
+		RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+	}}
+	if !hasScaffold(ops) {
+		t.Error("POST with schema should return true")
+	}
+}
+
+func TestHasScaffold_PutWithSchema(t *testing.T) {
+	ops := []*Operation{{
+		Method:      "PUT",
+		RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+	}}
+	if !hasScaffold(ops) {
+		t.Error("PUT with schema should return true")
+	}
+}
+
+func TestHasScaffold_GetOnly(t *testing.T) {
+	ops := []*Operation{{Method: "GET"}}
+	if hasScaffold(ops) {
+		t.Error("GET-only should return false")
+	}
+}
+
+func TestHasScaffold_PostNoSchema(t *testing.T) {
+	ops := []*Operation{{Method: "POST", RequestBody: nil}}
+	if hasScaffold(ops) {
+		t.Error("POST with nil RequestBody should return false")
+	}
+	ops2 := []*Operation{{Method: "POST", RequestBody: &RequestBody{Schema: nil}}}
+	if hasScaffold(ops2) {
+		t.Error("POST with nil schema should return false")
+	}
+}
+
+func TestGenerate_ScaffoldFlag(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "buildings",
+		NameSingular: "building",
+		GoName:       "Buildings",
+		Operations: []*Operation{
+			{
+				Name:    "create",
+				Method:  "POST",
+				Path:    "/v1/buildings",
+				Summary: "Create a building",
+				RequestBody: &RequestBody{
+					Schema: &Schema{
+						Properties: map[string]*Property{
+							"name": {Type: "string", Example: "Main Office"},
+						},
+					},
+				},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if !strings.Contains(code, "--scaffold") {
+		t.Error("expected --scaffold flag in generated code")
+	}
+	if !strings.Contains(code, "Main Office") {
+		t.Error("expected scaffold JSON containing example value 'Main Office'")
+	}
+}
+
+func TestGenerate_ExampleText(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "buildings",
+		NameSingular: "building",
+		GoName:       "Buildings",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/buildings", Summary: "List buildings", IsList: true},
+			{Name: "get", Method: "GET", Path: "/v1/buildings/{id}", Summary: "Get building",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}}},
+			{Name: "create", Method: "POST", Path: "/v1/buildings", Summary: "Create building",
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}}},
+			{Name: "update", Method: "PUT", Path: "/v1/buildings/{id}", Summary: "Update building",
+				Parameters:  []*Parameter{{Name: "id", In: "path", Type: "string"}},
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}}},
+			{Name: "delete", Method: "DELETE", Path: "/v1/buildings/{id}", Summary: "Delete building",
+				IsDestructive: true, Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}}},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Each operation should have an Example field
+	if !strings.Contains(code, "Example:") {
+		t.Error("expected Example: field in generated code")
+	}
+	// Verify list example contains --field
+	if !strings.Contains(code, "--field id") {
+		t.Error("expected list example to show --field usage")
+	}
+	// Verify get example shows -o yaml
+	if !strings.Contains(code, "-o yaml") {
+		t.Error("expected get example to show -o yaml usage")
+	}
+	// Verify create example shows --scaffold
+	if !strings.Contains(code, "--scaffold") {
+		t.Error("expected create example to show --scaffold usage")
+	}
+}
+
+// --- Error path tests ---
+
+func TestGenerate_BadOutputDir(t *testing.T) {
+	gen := NewGenerator("/nonexistent/path/that/does/not/exist")
+
+	resource := &Resource{
+		Name:         "widgets",
+		NameSingular: "widget",
+		GoName:       "Widgets",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/widgets", Summary: "List widgets"},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	_, err := gen.Generate(resource)
+	if err == nil {
+		t.Fatal("expected error for nonexistent output dir")
+	}
+	if !strings.Contains(err.Error(), "creating file") {
+		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
+	}
+}
+
+func TestGenerateRegistry_BadOutputDir(t *testing.T) {
+	gen := NewGenerator("/nonexistent/path/that/does/not/exist")
+
+	resources := []*Resource{
+		{Name: "widgets", GoName: "Widgets"},
+	}
+
+	_, err := gen.GenerateRegistry(resources)
+	if err == nil {
+		t.Fatal("expected error for nonexistent output dir")
+	}
+	if !strings.Contains(err.Error(), "creating file") {
+		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
+	}
+}
+
+func TestGenerate_IsList(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "items",
+		NameSingular: "item",
+		GoName:       "Items",
+		Operations: []*Operation{
+			{
+				Name:       "list",
+				Method:     "GET",
+				Path:       "/v1/items",
+				Summary:    "List items",
+				IsList:     true,
+				APIVersion: "v1",
+				Parameters: []*Parameter{
+					{Name: "page", In: "query", Type: "integer"},
+				},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// IsList should generate auto-pagination with --all and --limit flags
+	if !strings.Contains(code, "flagAll") {
+		t.Error("expected --all flag for list operation")
+	}
+	if !strings.Contains(code, "flagLimit") {
+		t.Error("expected --limit flag for list operation")
+	}
+	if !strings.Contains(code, "allResults") {
+		t.Error("expected auto-pagination logic")
+	}
+}
+
+func TestGenerate_DeleteMultipleOp(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "items",
+		NameSingular: "item",
+		GoName:       "Items",
+		Operations: []*Operation{
+			{
+				Name:       "delete-multiple",
+				Method:     "POST",
+				Path:       "/v1/items/delete-multiple",
+				Summary:    "Delete multiple items",
+				APIVersion: "v1",
+				IsDestructive: true,
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if !strings.Contains(code, "flagIds") {
+		t.Error("expected --ids flag for delete-multiple")
+	}
+	if !strings.Contains(code, "delete-multiple") {
+		t.Error("expected delete-multiple in example text")
+	}
+}
+
+func TestGenerate_ArrayQueryParam(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "reports",
+		NameSingular: "report",
+		GoName:       "Reports",
+		Operations: []*Operation{
+			{
+				Name:       "list",
+				Method:     "GET",
+				Path:       "/v1/reports",
+				Summary:    "List reports",
+				APIVersion: "v1",
+				Parameters: []*Parameter{
+					{Name: "filter", In: "query", Type: "string", IsArray: true},
+				},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if !strings.Contains(code, "StringSliceVar") {
+		t.Error("expected StringSliceVar for array query param")
 	}
 }
 

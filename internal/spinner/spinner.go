@@ -11,6 +11,11 @@ import (
 
 var frames = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 
+// isTerminalFn controls the TTY check. Override in tests to force the active path.
+var isTerminalFn = func() bool {
+	return term.IsTerminal(int(os.Stderr.Fd()))
+}
+
 // Spinner displays a braille animation on stderr while work is in progress.
 type Spinner struct {
 	message string
@@ -42,7 +47,7 @@ func (s *Spinner) Start() {
 	s.started = true
 
 	// Only spin when stderr is a terminal
-	if !term.IsTerminal(int(os.Stderr.Fd())) {
+	if !isTerminalFn() {
 		close(s.done)
 		return
 	}

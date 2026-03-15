@@ -162,6 +162,75 @@ func TestConfigPath_XDG(t *testing.T) {
 	}
 }
 
+func TestConfigPath_XDGDefault(t *testing.T) {
+	// Unset XDG_CONFIG_HOME to test the default ~/.config path
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	// Since we can't predict HOME, just verify it ends with the expected suffix
+	got := ConfigPath()
+	if !strings.HasSuffix(got, filepath.Join("jamfpro-cli", "config.yaml")) {
+		t.Errorf("ConfigPath() = %q, expected to end with jamfpro-cli/config.yaml", got)
+	}
+}
+
+func TestConfigPath_LegacyFallback(t *testing.T) {
+	// When XDG_CONFIG_HOME is unset and the legacy path exists, it should be returned
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", dir)
+
+	legacyDir := filepath.Join(dir, ".jamfpro-cli")
+	_ = os.MkdirAll(legacyDir, 0700)
+	legacyPath := filepath.Join(legacyDir, "config.yaml")
+	_ = os.WriteFile(legacyPath, []byte("profiles: {}"), 0600)
+
+	got := ConfigPath()
+	if got != legacyPath {
+		t.Errorf("ConfigPath() = %q, want legacy path %q", got, legacyPath)
+	}
+}
+
+func TestConfigPath_XDGDefaultExists(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", dir)
+
+	xdgDir := filepath.Join(dir, ".config", "jamfpro-cli")
+	_ = os.MkdirAll(xdgDir, 0700)
+	xdgPath := filepath.Join(xdgDir, "config.yaml")
+	_ = os.WriteFile(xdgPath, []byte("profiles: {}"), 0600)
+
+	got := ConfigPath()
+	if got != xdgPath {
+		t.Errorf("ConfigPath() = %q, want XDG default path %q", got, xdgPath)
+	}
+}
+
+// --- GetKeychainStore tests ---
+
+func TestGetKeychainStore_Override(t *testing.T) {
+	mock := newMockStore()
+	old := KeychainStore
+	KeychainStore = mock
+	defer func() { KeychainStore = old }()
+
+	got := GetKeychainStore()
+	if got != mock {
+		t.Error("expected mock store when override is set")
+	}
+}
+
+func TestGetKeychainStore_Default(t *testing.T) {
+	old := KeychainStore
+	KeychainStore = nil
+	defer func() { KeychainStore = old }()
+
+	got := GetKeychainStore()
+	if got == nil {
+		t.Error("expected non-nil store when override is nil")
+	}
+}
+
 // --- Load tests ---
 
 func TestLoad_MissingFile(t *testing.T) {
@@ -243,6 +312,43 @@ func TestLoad_InvalidYAML(t *testing.T) {
 }
 
 // --- Save tests ---
+
+func TestSave_ReadOnlyDir(t *testing.T) {
+	dir := t.TempDir()
+	readOnlyDir := filepath.Join(dir, "readonly")
+	_ = os.MkdirAll(readOnlyDir, 0500)
+	t.Setenv("XDG_CONFIG_HOME", readOnlyDir)
+
+	cfg := &Config{
+		Profiles: map[string]Profile{
+			"test": {URL: "https://test.com"},
+		},
+	}
+
+	err := Save(cfg)
+	if err == nil {
+		t.Fatal("expected error writing to read-only directory")
+	}
+}
+
+func TestLoad_NilProfiles(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	configDir := filepath.Join(dir, "jamfpro-cli")
+	_ = os.MkdirAll(configDir, 0700)
+	// YAML with no profiles key at all
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("default-profile: test\n"), 0600)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	// Profiles map should be initialized even if missing from YAML
+	if cfg.Profiles == nil {
+		t.Fatal("expected non-nil Profiles map")
+	}
+}
 
 func TestSave_CreatesFile(t *testing.T) {
 	dir := t.TempDir()

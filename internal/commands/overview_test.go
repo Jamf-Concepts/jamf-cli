@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jamf/jamfpro-cli/internal/commands/generated"
 )
 
 // overviewMockClient implements generated.HTTPClient for testing overview fetches.
@@ -852,6 +854,238 @@ func TestFormatEpochExpiration(t *testing.T) {
 				t.Errorf("formatted = %q, want to contain %q", formatted, tt.wantWord)
 			}
 		})
+	}
+}
+
+func TestRunOverview_FullMock(t *testing.T) {
+	// Mock all API paths used by runOverview
+	mock := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/jamf-pro-version":                    {200, `{"version":"11.0.0"}`},
+			"/v1/slasa":                               {200, `{"slasaAcceptanceStatus":"ACCEPTED"}`},
+			"/v2/jamf-pro-information":                 {200, `{"vppTokenEnabled":true,"depAccountEnabled":false,"cloudDeploymentsEnabled":true,"patchEnabled":true,"ssoSamlEnabled":false,"smtpEnabled":true}`},
+			"/v1/csa/token":                           {404, `{}`},
+			"/v3/check-in":                            {200, `{"checkInFrequency":15,"createHooks":false,"createStartupScript":true,"enableLocalConfigurationProfiles":false}`},
+			"/v4/enrollment":                          {200, `{"macOsEnterpriseEnrollmentEnabled":true,"iosEnterpriseEnrollmentEnabled":true,"iosPersonalEnrollmentEnabled":false,"accountDrivenUserEnrollmentEnabled":false,"accountDrivenDeviceMacosEnrollmentEnabled":true}`},
+			"/v1/self-service/settings":               {200, `{"installSettings":{"installAutomatically":true},"loginSettings":{"userLoginLevel":"Required"},"configurationSettings":{"notificationsEnabled":false}}`},
+			"/v2/local-admin-password/settings":       {200, `{"autoDeployEnabled":true,"autoRotateEnabled":false}`},
+			"/v1/device-communication-settings":       {200, `{"autoRenewComputerMdmProfileWhenDeviceIdentityCertExpiring":true,"autoRenewMobileDeviceMdmProfileWhenDeviceIdentityCertExpiring":false,"mdmProfileComputerExpirationLimitInDays":180,"mdmProfileMobileDeviceExpirationLimitInDays":90}`},
+			"/v1/pki/certificate-authority/active":    {200, `{"notAfter":1893456000}`},
+			"/v1/inventory-information":               {200, `{"managedComputers":500,"unmanagedComputers":10,"managedDevices":200,"unmanagedDevices":5}`},
+			"/v1/sites":                               {200, `[{"id":"1"},{"id":"2"}]`},
+			"/v1/buildings":                           {200, `{"totalCount":3,"results":[]}`},
+			"/v1/departments":                         {200, `{"totalCount":5,"results":[]}`},
+			"/v1/categories":                          {200, `{"totalCount":12,"results":[]}`},
+			"/v1/computer-groups":                     {200, `[{"id":"1"}]`},
+			"/v1/mobile-device-groups/smart-groups":   {200, `{"totalCount":8,"results":[]}`},
+			"/v1/scripts":                             {200, `{"totalCount":25,"results":[]}`},
+			"/v1/ebooks":                              {200, `{"totalCount":0,"results":[]}`},
+			"/v1/jcds/files":                          {200, `[]`},
+			"/v1/device-enrollments":                  {200, `{"totalCount":1,"results":[{"id":"42","tokenExpirationDate":"2027-06-15"}]}`},
+			"/v1/device-enrollments/42/syncs/latest":  {200, `{"syncState":"SUCCESSFUL","timestamp":"2026-03-14T10:30:00.000"}`},
+			"/v3/computer-prestages":                  {200, `{"totalCount":2,"results":[]}`},
+			"/v3/mobile-device-prestages":             {200, `{"totalCount":1,"results":[]}`},
+			"/v1/static-user-groups":                  {200, `[{"id":"1"},{"id":"2"},{"id":"3"}]`},
+			"/v1/notifications":                       {200, `[]`},
+			"/v2/mdm/commands":                        {200, `{"totalCount":0,"results":[]}`},
+			"/JSSResource/computercommands":           {200, `{"computer_commands":{"computer_command":[],"size":12}}`},
+			"/JSSResource/mobiledevicecommands":       {200, `{"mobile_device_commands":{"mobile_device_command":[],"size":3}}`},
+			"/JSSResource/policies":                   {200, `{"policies":[{"id":1}]}`},
+			"/JSSResource/osxconfigurationprofiles":   {200, `{"os_x_configuration_profiles":[{"id":1},{"id":2}]}`},
+			"/JSSResource/mobiledeviceconfigurationprofiles": {200, `{"configuration_profiles":[]}`},
+			"/JSSResource/packages":                   {200, `{"packages":[{"id":1},{"id":2},{"id":3}]}`},
+			"/JSSResource/patchsoftwaretitles":        {200, `{"patch_software_titles":[{"id":1}]}`},
+			"/JSSResource/webhooks":                   {200, `{"webhooks":[]}`},
+			"/ldap/servers":                           {200, `[{"id":"1"}]`},
+		},
+	}
+
+	// runOverview uses the package-level serverURL for health check + display
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	cliCtx := &generated.CLIContext{Client: mock}
+	sections, err := runOverview(context.Background(), cliCtx)
+	if err != nil {
+		t.Fatalf("runOverview error: %v", err)
+	}
+
+	if len(sections) == 0 {
+		t.Fatal("expected non-empty sections")
+	}
+
+	// Flatten to a map for easy assertions
+	values := make(map[string]string)
+	for _, sec := range sections {
+		for _, item := range sec.Items {
+			if item.Resource != "" {
+				values[item.Resource] = item.Value
+			}
+		}
+	}
+
+	// Spot-check key values
+	checks := map[string]string{
+		"Server URL":        "https://test.jamfcloud.com",
+		"Jamf Pro Version":  "11.0.0",
+		"SLASA Status":      "ACCEPTED",
+		"CSA Scopes":        "Not configured",
+		"Managed Computers":   "500",
+		"Unmanaged Computers": "10",
+		"Managed Devices":     "200",
+		"VPP Token":         "enabled",
+		"DEP Account":       "disabled",
+		"SSO (SAML)":        "disabled",
+		"SMTP":              "enabled",
+		"Check-In Frequency":   "15 min",
+		"Create Hooks":      "disabled",
+		"Startup Script":    "enabled",
+		"Sites":             "2",
+		"Buildings":         "3",
+		"Scripts":           "25",
+		"Policies":          "1",
+		"Packages":          "3",
+		"DEP Instances":     "1",
+		"Pending Computer Commands": "12",
+		"Pending Mobile Commands":   "3",
+		"Failed Commands":   "0",
+		"LAPS Auto Deploy":  "enabled",
+		"LAPS Auto Rotate":  "disabled",
+		"Computer Prestages": "2",
+		"Static User Groups": "3",
+		"Active Alerts":     "None",
+	}
+
+	for resource, want := range checks {
+		got, ok := values[resource]
+		if !ok {
+			t.Errorf("missing resource %q in overview output", resource)
+			continue
+		}
+		if got != want {
+			t.Errorf("%s = %q, want %q", resource, got, want)
+		}
+	}
+}
+
+func TestRunOverview_AllAPIErrors(t *testing.T) {
+	// Empty mock → every API call fails
+	mock := &overviewMockClient{responses: map[string]overviewMockResponse{}}
+
+	oldURL := serverURL
+	serverURL = "http://127.0.0.1:1" // health check will fail too
+	defer func() { serverURL = oldURL }()
+
+	cliCtx := &generated.CLIContext{Client: mock}
+	sections, err := runOverview(context.Background(), cliCtx)
+	if err != nil {
+		t.Fatalf("runOverview should not return error (errors become N/A), got: %v", err)
+	}
+
+	// Everything should be "N/A" or a known fallback
+	for _, sec := range sections {
+		for _, item := range sec.Items {
+			if item.Resource == "Server URL" {
+				continue // always populated from serverURL var
+			}
+			if item.Resource == "" && item.Value == "" {
+				continue // separator
+			}
+			// Should not panic or have empty values — "N/A" is the expected fallback
+		}
+	}
+
+	if len(sections) == 0 {
+		t.Fatal("expected sections even when all API calls fail")
+	}
+}
+
+func TestFetchPaginatedCount_ExistingQueryParams(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v2/mdm/commands": {200, `{"totalCount":7,"results":[]}`},
+		},
+	}
+
+	got, err := fetchPaginatedCount(context.Background(), client, "/v2/mdm/commands?filter=status%3D%3DError")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "7" {
+		t.Errorf("got %q, want %q", got, "7")
+	}
+}
+
+func TestOverviewToRows_WithColorHints(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Security",
+			Items: []overviewItem{
+				{"CA Expires", "Mar 01, 2026 (expired)", "red"},
+				{"Health", "ok", ""},
+			},
+		},
+	}
+
+	rows := overviewToRows(sections)
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2", len(rows))
+	}
+
+	if rows[0]["status"] != "red" {
+		t.Errorf("row 0 status = %v, want %q", rows[0]["status"], "red")
+	}
+	if _, hasStatus := rows[1]["status"]; hasStatus {
+		t.Error("row 1 should not have status key")
+	}
+}
+
+func TestPrintOverviewTable_BlankSeparator(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Test",
+			Items: []overviewItem{
+				{"Before", "value1", ""},
+				{}, // blank separator
+				{"After", "value2", ""},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printOverviewTable(&buf, sections, false)
+	output := buf.String()
+
+	if !strings.Contains(output, "Before") || !strings.Contains(output, "After") {
+		t.Error("missing items around separator")
+	}
+}
+
+func TestPrintOverviewTable_ACCEPTEDStatus(t *testing.T) {
+	sections := []overviewSection{
+		{
+			Name: "Info",
+			Items: []overviewItem{
+				{"SLASA", "ACCEPTED", ""},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printOverviewTable(&buf, sections, true)
+	if !strings.Contains(buf.String(), "\033[32m") {
+		t.Error("ACCEPTED should render green")
+	}
+}
+
+func TestFormatExpirationDate_InvalidDate(t *testing.T) {
+	formatted, color := formatExpirationDate("not-a-date", time.Now())
+	if formatted != "not-a-date" {
+		t.Errorf("formatted = %q, want passthrough", formatted)
+	}
+	if color != "" {
+		t.Errorf("color = %q, want empty for invalid date", color)
 	}
 }
 

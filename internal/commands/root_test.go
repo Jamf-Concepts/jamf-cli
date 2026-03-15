@@ -7,10 +7,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jamf/jamfpro-cli/internal/config"
 	"github.com/jamf/jamfpro-cli/internal/exitcode"
+	"github.com/jamf/jamfpro-cli/internal/output"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {
@@ -342,6 +345,7 @@ func resetGlobals() {
 	dryRun = false
 	wide = false
 	outFile = ""
+	fieldName = ""
 	serverURL = ""
 	token = ""
 	tokenFile = ""
@@ -350,6 +354,18 @@ func resetGlobals() {
 	clientSecret = ""
 	username = ""
 	password = ""
+}
+
+// clearAuthEnv clears all auth-related env vars so tests start from a clean slate.
+func clearAuthEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"JAMF_URL", "JAMF_TOKEN", "JAMF_CLIENT_ID", "JAMF_CLIENT_SECRET",
+		"JAMF_USERNAME", "JAMF_PASSWORD", "JAMF_PROFILE",
+	} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 }
 
 func TestPersistentPreRunE_MissingURL(t *testing.T) {
@@ -475,6 +491,362 @@ func TestPersistentPreRunE_SkipsForVersionCommand(t *testing.T) {
 	}
 }
 
+// --- --field flag (cliOutput.PrintRaw) tests ---
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	fn()
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	return buf.String()
+}
+
+func TestCLIOutputPrintRaw_FieldExtractArray(t *testing.T) {
+	fieldName = "id"
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	o := &cliOutput{formatter}
+
+	out := captureStdout(t, func() {
+		err := o.PrintRaw([]byte(`[{"id":1,"name":"A"},{"id":2,"name":"B"}]`))
+		if err != nil {
+			t.Fatalf("PrintRaw error: %v", err)
+		}
+	})
+
+	if out != "1\n2\n" {
+		t.Errorf("output = %q, want %q", out, "1\n2\n")
+	}
+}
+
+func TestCLIOutputPrintRaw_FieldExtractSingleObject(t *testing.T) {
+	fieldName = "name"
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	o := &cliOutput{formatter}
+
+	out := captureStdout(t, func() {
+		err := o.PrintRaw([]byte(`{"id":1,"name":"HQ"}`))
+		if err != nil {
+			t.Fatalf("PrintRaw error: %v", err)
+		}
+	})
+
+	if out != "HQ\n" {
+		t.Errorf("output = %q, want %q", out, "HQ\n")
+	}
+}
+
+func TestCLIOutputPrintRaw_FieldNotSet(t *testing.T) {
+	fieldName = ""
+
+	var buf bytes.Buffer
+	formatter := output.New("json", true, false)
+	formatter.SetWriter(&buf)
+	o := &cliOutput{formatter}
+
+	err := o.PrintRaw([]byte(`{"id":1}`))
+	if err != nil {
+		t.Fatalf("PrintRaw error: %v", err)
+	}
+
+	// Should delegate to Formatter.PrintRaw (JSON pretty-print)
+	if !strings.Contains(buf.String(), `"id"`) {
+		t.Errorf("expected JSON output, got: %s", buf.String())
+	}
+}
+
+func TestCLIOutputPrintRaw_FieldNotFound(t *testing.T) {
+	fieldName = "bogus"
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	o := &cliOutput{formatter}
+
+	out := captureStdout(t, func() {
+		err := o.PrintRaw([]byte(`[{"id":1},{"id":2}]`))
+		if err != nil {
+			t.Fatalf("PrintRaw error: %v", err)
+		}
+	})
+
+	if out != "" {
+		t.Errorf("output = %q, want empty", out)
+	}
+}
+
+func TestCLIOutputPrintRaw_NonJSON(t *testing.T) {
+	fieldName = "id"
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	o := &cliOutput{formatter}
+
+	err := o.PrintRaw([]byte(`<xml>not json</xml>`))
+	if err == nil {
+		t.Fatal("expected error for non-JSON input")
+	}
+	if !strings.Contains(err.Error(), "cannot extract field from non-JSON response") {
+		t.Errorf("error = %q, want to contain 'cannot extract field from non-JSON response'", err.Error())
+	}
+}
+
+func TestCLIOutputPrintRaw_ScalarJSON(t *testing.T) {
+	fieldName = "id"
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	o := &cliOutput{formatter}
+
+	err := o.PrintRaw([]byte(`"hello"`))
+	if err == nil {
+		t.Fatal("expected error for scalar JSON")
+	}
+	if !strings.Contains(err.Error(), "cannot extract field") {
+		t.Errorf("error = %q, want to contain 'cannot extract field'", err.Error())
+	}
+}
+
+// --- resolveAuth tests ---
+
+func TestResolveAuth_EnvCredentials(t *testing.T) {
+	tests := []struct {
+		name   string
+		envs   map[string]string
+		wantOK bool
+	}{
+		{
+			name:   "token auth",
+			envs:   map[string]string{"JAMF_URL": "https://test.jamfcloud.com", "JAMF_TOKEN": "my-token"},
+			wantOK: true,
+		},
+		{
+			name:   "basic auth",
+			envs:   map[string]string{"JAMF_URL": "https://test.jamfcloud.com", "JAMF_USERNAME": "admin", "JAMF_PASSWORD": "secret"},
+			wantOK: true,
+		},
+		{
+			name:   "oauth2",
+			envs:   map[string]string{"JAMF_URL": "https://test.jamfcloud.com", "JAMF_CLIENT_ID": "my-client", "JAMF_CLIENT_SECRET": "my-secret"},
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetGlobals()
+			clearAuthEnv(t)
+			for k, v := range tt.envs {
+				t.Setenv(k, v)
+			}
+
+			cfg, _ := config.Load()
+			url, provider, err := resolveAuth(cfg)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if url != "https://test.jamfcloud.com" {
+				t.Errorf("url = %q, want %q", url, "https://test.jamfcloud.com")
+			}
+			if provider == nil {
+				t.Fatal("expected non-nil auth provider")
+			}
+		})
+	}
+}
+
+func TestResolveAuth_TokenFromFile(t *testing.T) {
+	resetGlobals()
+	clearAuthEnv(t)
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+
+	tokenPath := filepath.Join(t.TempDir(), "token.txt")
+	_ = os.WriteFile(tokenPath, []byte("file-token\n"), 0600)
+	tokenFile = tokenPath
+
+	cfg, _ := config.Load()
+	_, provider, err := resolveAuth(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if provider == nil {
+		t.Fatal("expected non-nil auth provider from token file")
+	}
+}
+
+func TestResolveAuth_TokenFileMissing(t *testing.T) {
+	resetGlobals()
+	clearAuthEnv(t)
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+
+	tokenFile = "/nonexistent/token.txt"
+
+	cfg, _ := config.Load()
+	_, _, err := resolveAuth(cfg)
+	if err == nil {
+		t.Fatal("expected error for missing token file")
+	}
+	if !strings.Contains(err.Error(), "reading token file") {
+		t.Errorf("error = %q, want to contain 'reading token file'", err.Error())
+	}
+}
+
+// setupConfigProfile creates a temp config with the given YAML and clears auth env vars.
+func setupConfigProfile(t *testing.T, cfgYaml string) {
+	t.Helper()
+	resetGlobals()
+	clearAuthEnv(t)
+
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	jDir := filepath.Join(dir, "jamfpro-cli")
+	_ = os.MkdirAll(jDir, 0700)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(cfgYaml), 0600)
+}
+
+func TestResolveAuth_ProfileFallback(t *testing.T) {
+	t.Setenv("TEST_RESOLVE_TOKEN", "profile-token")
+	setupConfigProfile(t, `default-profile: myprofile
+profiles:
+  myprofile:
+    url: https://profile.jamfcloud.com
+    auth-method: token
+    token: "env:TEST_RESOLVE_TOKEN"
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	url, provider, err := resolveAuth(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if url != "https://profile.jamfcloud.com" {
+		t.Errorf("url = %q, want from profile", url)
+	}
+	if provider == nil {
+		t.Fatal("expected non-nil provider from profile")
+	}
+}
+
+func TestResolveAuth_ProfileOAuth2(t *testing.T) {
+	t.Setenv("TEST_OAUTH_ID", "from-env-id")
+	t.Setenv("TEST_OAUTH_SECRET", "from-env-secret")
+	setupConfigProfile(t, `default-profile: oauthprofile
+profiles:
+  oauthprofile:
+    url: https://oauth.jamfcloud.com
+    auth-method: oauth2
+    client-id: "env:TEST_OAUTH_ID"
+    client-secret: "env:TEST_OAUTH_SECRET"
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	url, provider, err := resolveAuth(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if url != "https://oauth.jamfcloud.com" {
+		t.Errorf("url = %q", url)
+	}
+	if provider == nil {
+		t.Fatal("expected non-nil oauth2 provider")
+	}
+}
+
+func TestResolveAuth_ProfileBasicAuth(t *testing.T) {
+	t.Setenv("TEST_BASIC_PW", "password123")
+	setupConfigProfile(t, `default-profile: basicprofile
+profiles:
+  basicprofile:
+    url: https://basic.jamfcloud.com
+    auth-method: basic
+    username: admin
+    password: "env:TEST_BASIC_PW"
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	url, provider, err := resolveAuth(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if url != "https://basic.jamfcloud.com" {
+		t.Errorf("url = %q", url)
+	}
+	if provider == nil {
+		t.Fatal("expected non-nil basic auth provider")
+	}
+}
+
+func TestResolveAuth_ProfileNotFound(t *testing.T) {
+	setupConfigProfile(t, `profiles:
+  existing:
+    url: https://example.com
+    auth-method: token
+`)
+	t.Setenv("JAMF_PROFILE", "nonexistent")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	_, _, err = resolveAuth(cfg)
+	if err == nil {
+		t.Fatal("expected error for nonexistent profile")
+	}
+	if !strings.Contains(err.Error(), "loading profile") {
+		t.Errorf("error = %q, want to contain 'loading profile'", err.Error())
+	}
+}
+
+// --- cliOutput.PrintResponse test ---
+
+func TestCLIOutputPrintResponse(t *testing.T) {
+	fieldName = ""
+
+	var buf bytes.Buffer
+	formatter := output.New("json", true, false)
+	formatter.SetWriter(&buf)
+	o := &cliOutput{formatter}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"id":42}`)),
+		Header:     make(http.Header),
+	}
+
+	err := o.PrintResponse(resp)
+	if err != nil {
+		t.Fatalf("PrintResponse error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "42") {
+		t.Errorf("expected response body in output, got: %s", buf.String())
+	}
+}
+
 func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	resetGlobals()
 	t.Setenv("NO_COLOR", "1")
@@ -502,5 +874,83 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	// Verify no ANSI escape sequences
 	if strings.Contains(output, "\033[") {
 		t.Errorf("output with NO_COLOR should not contain ANSI codes, got: %q", output)
+	}
+}
+
+// --- spinnerClient tests ---
+
+func TestSpinnerClient_PassesThrough(t *testing.T) {
+	mock := &mockHTTPClient{}
+	sc := &spinnerClient{inner: mock}
+
+	resp, err := sc.Do(context.Background(), "GET", "/v1/test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !mock.called {
+		t.Fatal("expected inner client to be called")
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+// --- cliClient.Do test ---
+
+func TestCLIOutputPrintResponse_ReadError(t *testing.T) {
+	fieldName = ""
+	t.Cleanup(func() { fieldName = "" })
+
+	formatter := output.New("json", true, false)
+	var buf bytes.Buffer
+	formatter.SetWriter(&buf)
+	o := &cliOutput{formatter}
+
+	// Create a response with a body that's already closed
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(&failReader{}),
+		Header:     make(http.Header),
+	}
+
+	err := o.PrintResponse(resp)
+	if err == nil {
+		t.Fatal("expected error from failed body read")
+	}
+}
+
+// failReader always returns an error on Read.
+type failReader struct{}
+
+func (f *failReader) Read(p []byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+// --- validate: basic auth missing username ---
+
+func TestConfigValidate_BasicAuthMissingUsername(t *testing.T) {
+	dir := t.TempDir()
+	jDir := filepath.Join(dir, "jamfpro-cli")
+	_ = os.MkdirAll(jDir, 0700)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	yaml := `profiles:
+  broken:
+    url: https://jamf.example.com
+    auth-method: basic
+`
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+
+	cmd := newConfigValidateCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	err := cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected error for missing username")
+	}
+	if !strings.Contains(buf.String(), "Missing username") {
+		t.Errorf("expected 'Missing username' in output:\n%s", buf.String())
 	}
 }

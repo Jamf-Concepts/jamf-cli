@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -184,6 +185,114 @@ func TestScopePresets(t *testing.T) {
 	}
 	if scopePresets["full-admin"] != nil {
 		t.Error("full-admin should have nil prefixes (all privileges)")
+	}
+}
+
+func TestSetupClient_CreateAPIIntegration_Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.createAPIIntegration(context.Background(), "test-int", nil)
+	if err == nil {
+		t.Fatal("expected error for forbidden")
+	}
+	if !strings.Contains(err.Error(), "lacks permission") {
+		t.Errorf("error = %q, want to contain 'lacks permission'", err.Error())
+	}
+}
+
+func TestSetupClient_CreateAPIIntegration_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.createAPIIntegration(context.Background(), "test-int", nil)
+	if err == nil {
+		t.Fatal("expected error for server error")
+	}
+	if !strings.Contains(err.Error(), "HTTP 500") {
+		t.Errorf("error = %q, want to contain 'HTTP 500'", err.Error())
+	}
+}
+
+func TestSetupClient_FetchPrivileges_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("forbidden"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.fetchPrivileges(context.Background())
+	if err == nil {
+		t.Fatal("expected error for HTTP error")
+	}
+	if !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("error = %q, want to contain 'HTTP 403'", err.Error())
+	}
+}
+
+func TestSetupClient_FetchPrivileges_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.fetchPrivileges(context.Background())
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	if !strings.Contains(err.Error(), "parsing privileges") {
+		t.Errorf("error = %q, want to contain 'parsing privileges'", err.Error())
+	}
+}
+
+func TestSetupClient_CreateAPIRole_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.createAPIRole(context.Background(), "test-role", nil)
+	if err == nil {
+		t.Fatal("expected error for bad request")
+	}
+	if !strings.Contains(err.Error(), "HTTP 400") {
+		t.Errorf("error = %q, want to contain 'HTTP 400'", err.Error())
+	}
+}
+
+func TestSetupClient_Do_NilBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no Content-Type header when body is nil
+		if r.Header.Get("Content-Type") != "" {
+			t.Error("Content-Type should not be set for nil body")
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	body, status, err := client.do(context.Background(), "GET", "/test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != http.StatusOK {
+		t.Errorf("status = %d, want 200", status)
+	}
+	if string(body) != `{}` {
+		t.Errorf("body = %q, want %q", string(body), "{}")
 	}
 }
 
