@@ -46,51 +46,18 @@ func TestDetectShell_EmptyShell(t *testing.T) {
 	_ = got
 }
 
-func TestCompletionBash_ProducesOutput(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetArgs([]string{"completion", "bash"})
+func TestCompletion_ProducesOutput(t *testing.T) {
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
+		t.Run(shell, func(t *testing.T) {
+			root := NewRootCmd("test", "abc123", "2024-01-01")
+			var buf bytes.Buffer
+			root.SetOut(&buf)
+			root.SetArgs([]string{"completion", shell})
 
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("completion bash failed: %v", err)
-	}
-}
-
-func TestCompletionZsh_ProducesOutput(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetArgs([]string{"completion", "zsh"})
-
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("completion zsh failed: %v", err)
-	}
-}
-
-func TestCompletionFish_ProducesOutput(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetArgs([]string{"completion", "fish"})
-
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("completion fish failed: %v", err)
-	}
-}
-
-func TestCompletionPowershell_ProducesOutput(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetArgs([]string{"completion", "powershell"})
-
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("completion powershell failed: %v", err)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("completion %s failed: %v", shell, err)
+			}
+		})
 	}
 }
 

@@ -13,6 +13,23 @@ func mockTTY(t *testing.T) {
 	t.Cleanup(func() { isTerminalFn = old })
 }
 
+// captureStderr redirects stderr to a pipe for the duration of the test.
+// Returns a function that closes the write end and returns captured output.
+func captureStderr(t *testing.T) func() string {
+	t.Helper()
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr; _ = r.Close() })
+
+	return func() string {
+		_ = w.Close()
+		buf := make([]byte, 4096)
+		n, _ := r.Read(buf)
+		return string(buf[:n])
+	}
+}
+
 func TestNew(t *testing.T) {
 	s := New("Loading...")
 	if s.message != "Loading..." {
@@ -24,33 +41,31 @@ func TestNew(t *testing.T) {
 }
 
 func TestStartStop_NonTTY(t *testing.T) {
-	// In test environments stderr is not a TTY, so Start should be a no-op
 	s := New("Testing...")
 	s.Start()
-	s.Stop() // should not panic or block
+	s.Stop()
 }
 
 func TestDoubleStart_NonTTY(t *testing.T) {
 	s := New("Testing...")
 	s.Start()
-	s.Start() // second start should be safe
+	s.Start()
 	s.Stop()
 }
 
 func TestStopWithoutStart(t *testing.T) {
 	s := New("Testing...")
-	s.Stop() // should not panic or block
+	s.Stop()
 }
 
 func TestSpinner_MessageUpdate(t *testing.T) {
 	s := New("Loading...")
 	s.Start()
 	s.Stop()
-	s.Stop() // second stop should be safe
+	s.Stop()
 }
 
 func TestSpinner_ConcurrentStartStop(t *testing.T) {
-	// Run with -race to detect data races
 	s := New("Concurrent test")
 	done := make(chan struct{})
 
@@ -71,12 +86,7 @@ func TestSpinner_ConcurrentStartStop(t *testing.T) {
 
 func TestStartStop_ActivePath(t *testing.T) {
 	mockTTY(t)
-
-	// Redirect stderr to avoid test output noise
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr; _ = r.Close() })
+	captureStderr(t)
 
 	s := New("Working...")
 	s.Start()
@@ -85,57 +95,37 @@ func TestStartStop_ActivePath(t *testing.T) {
 		t.Error("spinner should be active after Start on TTY")
 	}
 
-	// Let it tick at least once
 	time.Sleep(100 * time.Millisecond)
-
 	s.Stop()
 
 	if s.active {
 		t.Error("spinner should not be active after Stop")
 	}
-
-	_ = w.Close()
 }
 
 func TestDoubleStart_ActivePath(t *testing.T) {
 	mockTTY(t)
-
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr; _ = r.Close() })
+	captureStderr(t)
 
 	s := New("Double start")
 	s.Start()
-	s.Start() // second start should be no-op
+	s.Start()
 	s.Stop()
-
-	_ = w.Close()
 }
 
 func TestDoubleStop_ActivePath(t *testing.T) {
 	mockTTY(t)
-
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr; _ = r.Close() })
+	captureStderr(t)
 
 	s := New("Double stop")
 	s.Start()
 	s.Stop()
-	s.Stop() // second stop should be safe
-
-	_ = w.Close()
+	s.Stop()
 }
 
 func TestConcurrent_ActivePath(t *testing.T) {
 	mockTTY(t)
-
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr; _ = r.Close() })
+	captureStderr(t)
 
 	s := New("Concurrent active")
 	done := make(chan struct{})
@@ -151,30 +141,18 @@ func TestConcurrent_ActivePath(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		<-done
 	}
-
-	_ = w.Close()
 }
 
 func TestStopClearsLine_ActivePath(t *testing.T) {
 	mockTTY(t)
-
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
+	collect := captureStderr(t)
 
 	s := New("Clear test")
 	s.Start()
 	time.Sleep(100 * time.Millisecond)
 	s.Stop()
 
-	_ = w.Close()
-
-	buf := make([]byte, 4096)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	// Stop should write the ANSI clear-line sequence
+	output := collect()
 	if len(output) == 0 {
 		t.Error("expected spinner output on stderr")
 	}

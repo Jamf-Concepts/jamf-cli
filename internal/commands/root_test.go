@@ -929,17 +929,12 @@ func (f *failReader) Read(p []byte) (int, error) {
 // --- validate: basic auth missing username ---
 
 func TestConfigValidate_BasicAuthMissingUsername(t *testing.T) {
-	dir := t.TempDir()
-	jDir := filepath.Join(dir, "jamfpro-cli")
-	_ = os.MkdirAll(jDir, 0700)
-	t.Setenv("XDG_CONFIG_HOME", dir)
-
-	yaml := `profiles:
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(`profiles:
   broken:
     url: https://jamf.example.com
     auth-method: basic
-`
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+`), 0600)
 
 	cmd := newConfigValidateCmd()
 	buf := &bytes.Buffer{}
