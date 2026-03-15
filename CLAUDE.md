@@ -47,6 +47,13 @@ make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```
 
+### Running the CLI
+
+```bash
+bin/jamfpro-cli setup                     # Interactive first-time config (creates profile)
+bin/jamfpro-cli --url https://... --token ... computers list  # One-off with flags
+```
+
 ## Architecture
 
 This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI specs (modern API) and a YAML manifest (Classic API). The handwritten code is thin glue.
