@@ -20,6 +20,15 @@
             "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in *.go) gofumpt -w \"$file_path\" || echo 'WARN: gofumpt failed' >&2;; esac"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in */go.mod) echo 'go.mod changed — regenerating commands...' >&2; make -C \"$(dirname \"$file_path\")\" generate > /dev/null 2>&1 || echo 'WARN: make generate failed' >&2;; esac"
+          }
+        ]
       }
     ]
   }
