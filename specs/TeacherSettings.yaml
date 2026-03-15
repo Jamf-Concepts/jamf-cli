@@ -1,0 +1,165 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Teacher Settings
+  version: 0.0.1
+paths:
+  /v1/teacher-app:
+    get:
+      tags:
+      - teacher-app
+      summary: |
+         Get the Jamf Teacher settings that you have access to see
+      description: Get the Jamf Teacher settings that you have access to see.
+      responses:
+        200:
+          description: List of Jamf Teacher settings
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/TeacherSettingsResponse'
+      x-required-privileges:
+      - Read Teacher App Settings
+    put:
+      tags:
+      - teacher-app
+      summary: |
+         Update a Jamf Teacher settings object
+      description: Update a Jamf Teacher settings object.
+      requestBody:
+        description: Teacher settings to create.
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/TeacherSettingsRequest'
+        required: true
+      responses:
+        200:
+          description: Updated Jamf Teacher settings.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/TeacherSettingsResponse'
+        500:
+          description: Update Failed.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+      x-required-privileges:
+      - Update Teacher App Settings
+  /v1/teacher-app/history:
+    get:
+      tags:
+        - teacher-app
+      summary: |
+        Get Jamf Teacher app settings history
+      description: |
+        Gets Jamf Teacher app settings history
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+      responses:
+        200:
+          description: Details of Jamf Teacher app settings history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+        - Read Teacher App Settings
+    post:
+      tags:
+        - teacher-app
+      summary: |
+        Add Jamf Teacher app settings history notes
+      description: |
+        Adds Jamf Teacher app settings history notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Jamf Teacher app settings history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        503:
+          description: Jamf Teacher app history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Teacher App Settings
+components:
+  schemas:
+    TeacherSettingsRequest:
+      type: object
+      properties:
+        isEnabled:
+          type: boolean
+          example: true
+        timezoneId:
+          type: string
+          example: Europe/Paris
+        autoClear:
+          type: string
+          example: 05:30
+          nullable: true
+        maxRestrictionLengthSeconds:
+          type: integer
+          example: 600
+        safelistedApps:
+          type: array
+          items:
+            $ref: 'ParentTeacherSettingsDefinitionsLibrary.yaml#/components/schemas/SafelistedApp'
+    TeacherSettingsResponse:
+      type: object
+      properties:
+        isEnabled:
+          type: boolean
+          example: true
+        timezoneId:
+          type: string
+          example: Europe/Paris
+        autoClear:
+          type: string
+          example: 05:30
+        maxRestrictionLengthSeconds:
+          type: integer
+          example: 600
+        displayNameType:
+          type: string
+          example: user
+        features:
+          $ref: '#/components/schemas/TeacherFeatures'
+        safelistedApps:
+          type: array
+          items:
+            $ref: 'ParentTeacherSettingsDefinitionsLibrary.yaml#/components/schemas/SafelistedApp'
+    TeacherFeatures:
+      type: object
+      properties:
+        isAllowAppLock:
+          type: boolean
+          example: true
+        isAllowWebLock:
+          type: boolean
+          example: true
+        isAllowRestrictions:
+          type: boolean
+          example: true
+        isAllowAttentionScreen:
+          type: boolean
+          example: true
+        isAllowClearPasscode:
+          type: boolean
+          example: true

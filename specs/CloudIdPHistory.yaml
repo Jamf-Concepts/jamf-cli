@@ -1,0 +1,103 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - History for Cloud Identity Provider
+  version: 0.0.1
+paths:
+  /v1/cloud-idp/{id}/history:
+    get:
+      tags:
+        - cloud-idp
+      summary: Get Cloud Identity Provider history
+      description: Gets specified Cloud Identity Provider object history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+          schema:
+            type: array
+            items:
+              type: string
+            default: [date:desc]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter history notes collection.
+                Default filter is empty query - returning all results for the requested page.
+                Fields allowed in the query: username, date, note, details.
+                This param can be combined with paging and sorting.
+                Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Details of Cloud Identity Provider history were found
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/HistorySearchResults'
+        400:
+          description: Id can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified Cloud Identity Provider object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+    post:
+      tags:
+        - cloud-idp
+      summary: Add Cloud Identity Provider history note
+      description: |
+        Adds specified Cloud Identity Provider object history notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of Cloud Identity Provider history were added
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ObjectHistory'
+        404:
+          description: Specified Cloud Identity Provider object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        503:
+          description: Notes of Cloud Identity Provider can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update LDAP Servers
+components: {}

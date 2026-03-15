@@ -1,0 +1,557 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Volume Purchasing Locations
+  version: 0.0.1
+paths:
+  /v1/volume-purchasing-locations:
+    get:
+      tags:
+        - volume-purchasing-locations
+      summary: Retrieve Volume Purchasing Locations
+      description: Retrieves Volume Purchasing Locations
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                is id:asc. Multiple sort criteria are supported and must be separated
+                with a comma.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter Volume Purchasing Location collection.
+                Default filter is empty query - returning all results for the requested page.
+                Fields allowed in the query: id, name, appleId, email, organizationName,
+                tokenExpiration, countryCode, locationName, automaticallyPopulatePurchasedContent,
+                sendNotificationWhenNoLongerAssigned, siteId and siteName.
+                This param can be combined with paging and sorting.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingLocations'
+    post:
+      tags:
+        - volume-purchasing-locations
+      summary: Create a Volume Purchasing Location
+      description: Creates a Volume Purchasing Location using an sToken
+      x-required-privileges:
+        - Create Volume Purchasing Locations
+      requestBody:
+        description: Volume Purchasing Location to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/VolumePurchasingLocationPost'
+        required: true
+      responses:
+        201:
+          description: Volume Purchasing Location was created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/volume-purchasing-locations/{id}:
+    get:
+      tags:
+        - volume-purchasing-locations
+      summary: Retrieve a Volume Purchasing Location with the supplied id
+      description: Retrieves a Volume Purchasing Location with the supplied id
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingLocation'
+        404:
+          description: Volume Purchasing Location with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    patch:
+      tags:
+        - volume-purchasing-locations
+      summary: Update a Volume Purchasing Location
+      description: Updates a Volume Purchasing Location
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+      requestBody:
+        description: Volume Purchasing Location to update
+        content:
+          'application/merge-patch+json':
+            schema:
+              $ref: '#/components/schemas/VolumePurchasingLocationPatch'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingLocation'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Volume Purchasing Location with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        422:
+          description: There was an error applying the patch
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    delete:
+      tags:
+        - volume-purchasing-locations
+      summary: Delete a Volume Purchasing Location with the supplied id
+      description: Deletes a Volume Purchasing Location with the supplied id
+      x-required-privileges:
+        - Delete Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+      responses:
+        204:
+          description: Success
+        404:
+          description: Specified Volume Purchasing Location object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/volume-purchasing-locations/{id}/content:
+    get:
+      tags:
+        - volume-purchasing-locations
+      summary: Retrieve the Volume Purchasing Content for the Volume Purchasing Location with the supplied id
+      description: Retrieves the Volume Purchasing Content for the Volume Purchasing Location with the supplied id
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                    is name:asc. Multiple sort criteria are supported and must be separated
+                    with a comma.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter Volume Purchasing Content collection.
+                    Default filter is empty query - returning all results for the requested page.
+                    Fields allowed in the query: name, licenseCountTotal, licenseCountInUse, licenseCountReported,
+                    contentType, and pricingParam. This param can be combined with paging and sorting.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingContentList'
+        404:
+          description: Volume Purchasing Location with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/volume-purchasing-locations/{id}/revoke-licenses:
+    post:
+      tags:
+        - volume-purchasing-locations
+      summary: Revoke licenses for a Volume Purchasing Location with the supplied id
+      description: Revokes licenses for a Volume Purchasing Location with the supplied id. The licenses must be revokable - any asset whose licenses are irrevocable will not be revoked.
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+      responses:
+        202:
+          description: Request accepted
+        404:
+          description: Volume Purchasing Location with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
+  /v1/volume-purchasing-locations/{id}/reclaim:
+    post:
+      tags:
+        - volume-purchasing-locations
+      summary: Reclaim a Volume Purchasing Location with the supplied id
+      description: Reclaims a Volume Purchasing Location with the supplied id
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Location identifier
+          schema:
+            type: string
+      responses:
+        202:
+          description: Request accepted
+      x-action: true
+  /v1/volume-purchasing-locations/{id}/history:
+    get:
+      tags:
+        - volume-purchasing-locations
+      summary: |
+        Get specified Volume Purchasing Location history object
+      description: |
+        Gets specified Volume Purchasing Location history object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of Volume Purchasing Location history record
+        required: true
+        schema:
+          type: string
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. '
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default: [date:desc]
+      - name: filter
+        in: query
+        description: 'Query in the RSQL format, allowing to filter history notes collection.
+          Default filter is empty query - returning all results for the requested page.
+          Fields allowed in the query: username, date, note, details.
+          This param can be combined with paging and sorting.
+          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+        schema:
+          type: string
+          default: ''
+      responses:
+        200:
+          description: Details of Volume Purchasing Location history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+        404:
+          description: Specified Volume Purchasing Location object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+    post:
+      tags:
+        - volume-purchasing-locations
+      summary: |
+        Add specified Volume Purchasing Location history object notes
+      description: |
+        Adds specified Volume Purchasing Location history object notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: instance id of Volume Purchasing Location history record
+          schema:
+            type: string
+      requestBody:
+        description: history note to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes of Volume Purchase Location history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        404:
+          description: Specified Volume Purchase Location object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Volume Purchase Location history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+components:
+  schemas:
+    VolumePurchasingLocations:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumePurchasingLocationListView'
+    VolumePurchasingLocationListView:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'Example Location'
+        totalPurchasedLicenses:
+          type: integer
+          example: 1
+          readOnly: true
+        totalUsedLicenses:
+          type: integer
+          example: 1
+          readOnly: true
+        id:
+          type: string
+          example: '1'
+          readOnly: true
+        appleId:
+          type: string
+          example: testUser@appleId.com
+          readOnly: true
+        email:
+          type: string
+          example: testUser@email.com
+          readOnly: true
+        organizationName:
+          type: string
+          example: Jamf
+          readOnly: true
+        tokenExpiration:
+          type: string
+          example: 2022-04-25T21:09:31.661Z
+          readOnly: true
+        countryCode:
+          type: string
+          example: 'US'
+          description: 'The two-letter ISO 3166-1 code that designates the country where the Volume Purchasing account is located.'
+          readOnly: true
+        locationName:
+          type: string
+          example: 'Example Location'
+          readOnly: true
+        clientContextMismatch:
+          type: boolean
+          description: 'If this is "true", the clientContext used by this server does not match the clientContext returned by the Volume Purchasing API.'
+          example: false
+          readOnly: true
+        automaticallyPopulatePurchasedContent:
+          type: boolean
+          example: false
+        sendNotificationWhenNoLongerAssigned:
+          type: boolean
+          example: false
+        autoRegisterManagedUsers:
+          type: boolean
+          example: false
+        siteId:
+          type: string
+          example: '1'
+        siteName:
+          type: string
+          example: 'Example Name'
+        lastSyncTime:
+            type: string
+            example: 2022-09-25T21:09:31.661Z
+            readOnly: true
+    VolumePurchasingLocation:
+      allOf:
+      - $ref: '#/components/schemas/VolumePurchasingLocationListView'
+      - type: object
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/components/schemas/VolumePurchasingContent'
+            readOnly: true
+    VolumePurchasingLocationPost:
+      type: object
+      required:
+        - serviceToken
+      properties:
+        name:
+          type: string
+          example: 'Example Location'
+          description: "If no value is provided when creating a VolumePurchasingLocation object,
+                       the 'name' will default to the 'locationName' value"
+        automaticallyPopulatePurchasedContent:
+          type: boolean
+          example: false
+          default: false
+        sendNotificationWhenNoLongerAssigned:
+          type: boolean
+          example: false
+          default: false
+        autoRegisterManagedUsers:
+          type: boolean
+          example: false
+          default: false
+        siteId:
+          type: string
+          example: '1'
+          default: '-1'
+        serviceToken:
+          type: string
+          example: "eyJleHBEYXRlIjoiMjAyMi0wMy0yOVQxNTozNjoyNiswMDAwIiwidG9rZW4iOiJWR2hwY3lCcGN5QnViM1FnWVNCMGIydGxiaTRnU0c5d1pXWjFiR3g1SUdsMElHeHZiMnR6SUd4cGEyVWdZU0IwYjJ0bGJpd2dZblYwSUdsMEozTWdibTkwTGc9PSIsIm9yZ05hbWUiOiJFeGFtcGxlIE9yZyJ9"
+    VolumePurchasingLocationPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'Example Location'
+          nullable: false
+        automaticallyPopulatePurchasedContent:
+          type: boolean
+          example: false
+          nullable: false
+        sendNotificationWhenNoLongerAssigned:
+          type: boolean
+          example: false
+          nullable: false
+        autoRegisterManagedUsers:
+          type: boolean
+          example: false
+          default: false
+        siteId:
+          type: string
+          example: '1'
+          nullable: false
+        serviceToken:
+          type: string
+          example: "eyJleHBEYXRlIjoiMjAyMi0wMy0yOVQxNTozNjoyNiswMDAwIiwidG9rZW4iOiJWR2hwY3lCcGN5QnViM1FnWVNCMGIydGxiaTRnU0c5d1pXWjFiR3g1SUdsMElHeHZiMnR6SUd4cGEyVWdZU0IwYjJ0bGJpd2dZblYwSUdsMEozTWdibTkwTGc9PSIsIm9yZ05hbWUiOiJFeGFtcGxlIE9yZyJ9"
+          nullable: false
+    VolumePurchasingContent:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'Example Content'
+          readOnly: true
+        licenseCountTotal:
+          type: integer
+          example: 1
+          readOnly: true
+        licenseCountInUse:
+          type: integer
+          example: 1
+          readOnly: true
+        licenseCountReported:
+          type: integer
+          example: 1
+          readOnly: true
+        iconUrl:
+          type: string
+          example: "https://is4-ssl.mzstatic.com/image/thumb/Purple113/v4/73/d4/73/73d47332-fefc-d350-2984-5b4a4755a502/AppIcon-0-1x_U007emarketing-0-0-GLES2_U002c0-512MB-sRGB-0-0-0-85-220-0-0-0-6.png/360x216bb.png"
+          readOnly: true
+        deviceTypes:
+          type: array
+          items:
+            type: string
+            enum: ['IOS', 'MACOS', 'TVOS']
+            example: 'IOS'
+          readOnly: true
+        contentType:
+          type: string
+          enum: ['IOS_APP', "MAC_APP", 'BOOK', 'UNKNOWN']
+          example: 'IOS_APP'
+          readOnly: true
+        pricingParam:
+          type: string
+          enum: [ 'STDQ', 'PLUS', 'Unknown' ]
+          example: 'STDQ'
+          readOnly: true
+        adamId:
+          type: string
+          example: '748057890'
+          readOnly: true
+    VolumePurchasingContentList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumePurchasingContent'

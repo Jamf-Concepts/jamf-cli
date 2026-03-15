@@ -1,0 +1,122 @@
+openapi: 3.0.1
+info:
+    title: Onboarding Configuration
+    description: Configures items to be selected for the onboarding workflow, where end users have visibility into the progress of their device setup.
+    version: 1.0.0
+
+paths:
+    /v1/onboarding:
+        get:
+            tags:
+                - onboarding
+            summary: Get the current onboarding settings configuration.
+            description: Get the current onboarding settings configuration.
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/OnboardingConfiguration'
+            x-required-privileges:
+                - Read Onboarding Configuration
+        put:
+            tags:
+                - onboarding
+            summary: Update the onboarding configuration.
+            description: Update the onboarding configuration.
+            requestBody:
+                description: Onboarding settings to save.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/OnboardingConfiguration'
+                required: true
+            responses:
+                200:
+                    description: Successfully updated
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/OnboardingConfiguration'
+                400:
+                    description: Unable to add invalid or ineligible items to the onboarding configuration.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Onboarding Configuration
+
+
+
+
+components:
+    schemas:
+        OnboardingConfiguration:
+            type: object
+            required:
+                - enabled
+                - onboardingItems
+            properties:
+                id:
+                    readOnly: true
+                    type: string
+                    example: 1
+                enabled:
+                    type: boolean
+                    example: true
+                    nullable: false
+                onboardingItems:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/OnboardingItem'
+        OnboardingItem:
+            type: object
+            required:
+                - entityId
+                - selfServiceEntityType
+                - priority
+            properties:
+                id:
+                    type: string
+                    example: 3
+                    nullable: true
+                entityId:
+                    type: string
+                    example: 1
+                    nullable: false
+                    description: |
+                        The id of the Jamf Pro object that should be added to the onboarding workflow for end users.
+                        Use this in conjunction with the selfServiceEntityType. For example, if the policy with id 132
+                        should be added to onboarding, then entityId should be 132 and selfServiceEntityType should be 
+                        OS_X_POLICY.
+                entityName:
+                    type: string
+                    example: Policy 1
+                    readOnly: true
+                scopeDescription:
+                    type: string
+                    example: All Computers
+                    readOnly: true
+                siteDescription:
+                    type: string
+                    example: None
+                    readOnly: true
+                selfServiceEntityType:
+                    type: string
+                    enum:
+                        - OS_X_POLICY
+                        - OS_X_CONFIG_PROFILE
+                        - OS_X_MAC_APP
+                        - OS_X_APP_INSTALLER
+                        - OS_X_EBOOK
+                        - OS_X_PATCH_POLICY
+                        - UNKNOWN
+                    example: OS_X_POLICY
+                    nullable: false
+                priority:
+                    type: integer
+                    example: 35
+                    nullable: false
+

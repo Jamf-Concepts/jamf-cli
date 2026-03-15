@@ -1,0 +1,151 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - MacOS Managed Software Updates
+  version: 0.0.1
+paths:
+  /v1/macos-managed-software-updates/send-updates:
+    post:
+      tags:
+        - macos-managed-software-updates
+      summary: Send MacOs Managed Software Updates
+      description: Sends MacOs Managed Software Updates
+      deprecated: true
+      x-deprecation-date: 2022-10-17
+      x-required-privileges:
+        - Send Computer Remote Command to Download and Install OS X Update
+      x-action: true
+      requestBody:
+        description: MacOs Managed Software Update to send
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MacOsManagedSoftwareUpdate'
+            examples:
+              MacOsManagedSoftwareUpdateDeviceIds:
+                value:
+                  deviceIds: [ "1", "2", "3", "4" ]
+                  maxDeferrals: 7
+                  version: '12.0.1'
+                  skipVersionVerification: false
+                  applyMajorUpdate: false
+                  updateAction: 'DOWNLOAD_AND_INSTALL'
+                  forceRestart: false
+                  priority: "HIGH"
+              MacOsManagedSoftwareUpdateGroupId:
+                value:
+                  groupId: 1
+                  maxDeferrals: 7
+                  version: '12.0.1'
+                  skipVersionVerification: false
+                  applyMajorUpdate: false
+                  updateAction: 'DOWNLOAD_AND_INSTALL'
+                  forceRestart: false
+                  priority: "HIGH"
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MacOsManagedSoftwareUpdateResponse'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/macos-managed-software-updates/available-updates:
+    get:
+      tags:
+        - macos-managed-software-updates
+      summary: Retrieve available MacOs Managed Software Updates
+      description: Retrieves available MacOs Managed Software Updates
+      deprecated: true
+      x-deprecation-date: 2022-12-14
+      x-authentication-required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AvailableUpdates'
+components:
+  schemas:
+    MacOsManagedSoftwareUpdate:
+      type: object
+      properties:
+        deviceIds:
+          type: array
+          items:
+            type: string
+          example: [ "1", "2", "3", "4" ]
+        groupId:
+          type: string
+          example: 1
+        maxDeferrals:
+          type: integer
+          minimum: 0
+          description: "Allow users to defer the update the provided number of times before macOS forces the update.
+                        If a value is provided, the Software Update will use the InstallLater install action."
+          example: 7
+        version:
+          type: string
+          description: "If no value is provided, the version will default to latest version based on device eligibility."
+          example: 12.0.1
+        skipVersionVerification:
+          type: boolean
+          description: "If no value is provided, the skipVersionVerification will default to false.
+                        If a value is provided, the specified version will be forced to complete DownloadAndInstall install action."
+          example: false
+          default: false
+        applyMajorUpdate:
+          type: boolean
+          description: "ApplyMajorUpdate setting is available only when updating to the latest version based on device eligibility.
+                        If no value is provided, the calculated latest version will only include minor version updates.
+                        If a value is provided, the calculated latest version will include minor and major version updates."
+          example: false
+          default: false
+        updateAction:
+          type: string
+          enum: ["DOWNLOAD_AND_INSTALL", "DOWNLOAD_ONLY"]
+          description: "MaxDeferral is ignored if using the DownloadOnly install action."
+          example: DOWNLOAD_AND_INSTALL
+        forceRestart:
+          type: boolean
+          description: "If not set, forceRestart will default to false.
+                        Can only be true if using the DownloadAndInstall install action and the devices the command is 
+                        sent to are on macOs 11 or higher.
+                        If true, the DownloadAndInstall action is performed, a restart will be forced.
+                        MaxDeferral will be ignored if defined. "
+          example: false
+          default: false
+        priority:
+          type: string
+          enum: ["HIGH", "LOW"]
+          description: "Priority can only be configured on macOS 12.3 and above, for minor updates only.
+                        Any version below 12.3 is always Low and cannot be changed until prerequisites are met.
+                        When qualified, if not explicitly set, priority will default to High"
+          example: HIGH
+          default: "HIGH"
+    MacOsManagedSoftwareUpdateResponse:
+      type: object
+      properties:
+        processManagerUuids:
+          type: array
+          items:
+            type: string
+          example: [ "6E47EF55-5318-494F-A09E-70F613E0AFD1", "6E73EF55-5318-494F-A09E-70G613E0AFD1" ]
+        errors:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiErrorCause'
+    AvailableUpdates:
+      type: object
+      properties:
+        availableUpdates:
+          type: array
+          items:
+            type: string
+          example: [ "12.0.1", "11.6.1", "11.6", "11.5.2" ]

@@ -1,0 +1,216 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - User Account
+  version: 0.0.1
+paths:
+  /v1/accounts:
+    post:
+      tags:
+        - accounts
+      summary: |
+        Adds new account.
+      description: |
+        Adds the user account provided.
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/UserAccount'
+        required: true
+      responses:
+        201:
+          description: Successful response - Jamf Pro user account added
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/UserAccount'
+      x-required-privileges:
+        - Create Accounts
+      x-authentication-required: true
+      x-action: true
+      x-rate-limit: false
+    get:
+      tags:
+        - accounts
+      summary: Get user accounts
+      description: Get all user accounts with pagination, sorting, and filtering support.
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: |
+            Sorting criteria in the format: property:asc/desc. Default sort is
+            username:desc. Multiple sort criteria are supported and must be separated with a comma.
+            Accepts fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus. 
+            If any other field is passed it will be ignored in sorting operation and/or create unpredictable results.
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ username:asc ]
+        - name: filter
+          in: query
+          description: |
+            Query in the RSQL format to filter user accounts collection. An empty query returns all results for the requested page.
+            Supported fields: id, lastPasswordChange, failedLoginAttempts, username, realname, email, phone, ldapServerId, distinguishedName, siteId, privilegeLevel, changePasswordOnNextLogin, accountStatus.
+            Multiple conditions can be combined using logical operators.
+            This parameter can be used with paging and sorting parameters.
+            Example: username=="admin" and accountStatus==Enabled and failedLoginAttempts==0
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: User accounts retrieved successfully
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/UserAccountSearchResults'
+      x-required-privileges:
+        - Read Accounts
+      x-authentication-required: true
+  /v1/accounts/{id}:
+    get:
+      tags:
+        - accounts
+      summary: |
+        Gets the user account.
+      description: |
+        Gets the user account for the given id.
+      parameters:
+        - name: id
+          in: path
+          description: id of target account
+          required: true
+          schema:
+              type: string
+      responses:
+        200:
+          description: Successful response - Jamf Pro user account retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/UserAccount'
+      x-required-privileges:
+        - Read Accounts
+      x-authentication-required: true
+    delete:
+        tags:
+            - accounts
+        summary: |
+            Deletes the user account.
+        description: |
+            Deletes the user account for the given id.
+        parameters:
+            - name: id
+              in: path
+              description: id of target account
+              required: true
+              schema:
+                type: string
+        responses:
+            204:
+             description: Successful response - Jamf Pro user account deleted
+        x-required-privileges:
+            - Delete Accounts
+        x-authentication-required: true
+components:
+  schemas:
+    UserAccountSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          example: 1
+          description: Total number of user accounts matching the filter criteria
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/UserAccount'
+          description: The collection of user accounts for the requested page
+    UserAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+          readOnly: true
+        plainPassword:
+          type: string
+          format: password
+          example: "testpassword4321"
+          writeOnly: true
+        username:
+          type: string
+          example: "testusername"
+          required: true
+        realname:
+          type: string
+          example: "Bob Jones"
+          required: true
+        email:
+          type: string
+          example: "bob@jamf.com"
+          required: true
+        phone:
+          type: string
+          example: "715-999-9999"
+        ldapServerId:
+          type: integer
+          example: -1
+          default: -1
+        distinguishedName:
+          type: string
+          example: ""
+        siteId:
+          type: integer
+          example: -1
+          default: -1
+        accessLevel:
+          type: string
+          description: Access level for the account
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+          default: FullAccess
+        privilegeLevel:
+          type: string
+          description: Privilege level for the account
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+          default: ADMINISTRATOR
+        lastPasswordChange:
+          type: string
+          format: date-time
+          example: '2017-07-21T17:32:28Z'
+          readOnly: true
+        changePasswordOnNextLogin:
+          type: boolean
+          example: true
+          required: false
+        failedLoginAttempts:
+          type: integer
+          example: 0
+          readOnly: true
+        accountStatus:
+          type: string
+          description: Status of the account
+          enum:
+            - Enabled
+            - Disabled
+          default: Enabled
+          required: true
+        accountType:
+          type: string
+          description: Type of the account
+          enum:
+            - DEFAULT
+            - FEDERATED
+          default: DEFAULT

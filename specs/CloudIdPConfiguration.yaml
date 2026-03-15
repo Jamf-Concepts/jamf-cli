@@ -1,0 +1,136 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Cloud Identity Provider configurations summary
+  version: 0.0.2
+paths:
+  /v1/cloud-idp:
+    get:
+      tags:
+        - cloud-idp
+      summary: Get information about all Cloud Identity Providers configurations.
+      description: Returns basic informations about all configured Cloud Identity Provider.
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+               is id:asc. Multiple sort criteria are supported and must be separated with
+               a comma. Example: sort=date:desc,name:asc '
+          schema:
+            type: array
+            items:
+              type: string
+            default: [id:desc]
+      responses:
+        200:
+          description: Cloud Identity Provider configurations informations returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ConfigurationSearchResults'
+      x-required-privileges:
+        - Read LDAP Servers
+  /v1/cloud-idp/{id}:
+    get:
+      tags:
+        - cloud-idp
+      summary: Get Cloud Identity Provider configuration with given ID.
+      description: Get Cloud Identity Provider configuration with given ID.
+      parameters:
+        - name: id
+          in: path
+          description: Cloud Identity Provider identifier
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Cloud Identity Provider configuration returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CloudIdPCommon'
+        400:
+          description: ID can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified Cloud Identity Provider configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+  /v1/cloud-idp/export:
+    post:
+      tags:
+        - cloud-idp
+      summary: |
+        Export Cloud Identity Providers collection
+      description: |
+        Export Cloud Identity Providers collection
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+              is id:desc. Multiple sort criteria are supported and must be seperated
+              with a comma. Example: sort=id:desc,name:asc'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter history notes collection.
+             Default filter is empty query - returning all results for the requested page.
+             Fields allowed in the query: id, name.
+             This param can be combined with paging and sorting.
+             Example: name=="*department*"'
+          schema:
+            type: string
+            default: ''
+      requestBody:
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+        required: false
+      responses:
+        200:
+          description: Export successful
+          content:
+            text/csv:
+              schema:
+                format: binary
+                example: |
+                  Name,"Provider Name",Status
+                  "Google LDAP",GOOGLE,true
+                  "Azure LDAP",AZURE,true
+        400:
+          description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        503:
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+      x-action: true
+
+components: {}

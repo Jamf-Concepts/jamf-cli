@@ -1,0 +1,78 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Defaults for Cloud Identity Provider
+  version: 0.0.1
+paths:
+  /v2/cloud-ldaps/defaults/{provider}/mappings:
+    get:
+      tags:
+        - cloud-ldap
+      summary: Get default mappings
+      description: Get default mappings for Cloud Identity Provider
+        Provider.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: Cloud Identity Provider name
+          example: google
+          schema:
+            type: string
+      responses:
+        200:
+          description: Default mappings returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+        400:
+          description: Files cannot be loaded.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: The provider name in the URL is invalid or not supported.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+  /v2/cloud-ldaps/defaults/{provider}/server-configuration:
+    get:
+      tags:
+        - cloud-ldap
+      summary: Get default server configuration
+      description: Get default server configuration for Cloud Identity Provider
+        Identity Provider.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: Cloud Identity Provider name
+          example: google
+          schema:
+            type: string
+      responses:
+        200:
+          description: Default server configuration returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CloudLdapServerResponse'
+        400:
+          description: Default server configuration cannot be loaded.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: The provider name in the URL is invalid or not supported.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+components: {}

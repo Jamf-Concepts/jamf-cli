@@ -1,0 +1,152 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Jamf Parent App Settings
+  version: 0.0.1
+paths:
+  /v1/parent-app:
+    get:
+      tags:
+      - parent-app-preview
+      summary: |
+        Get the current Jamf Parent app settings
+      description: |
+        Get the current Jamf Parent app settings
+      responses:
+        200:
+          description: Details of the current Jamf Parent app settings.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ParentApp'
+      x-required-privileges:
+      - Read Parent App Settings
+    put:
+      tags:
+      - parent-app-preview
+      summary: |
+        Update Jamf Parent app settings
+      description: |
+        Update Jamf Parent app settings
+      requestBody:
+        description: Jamf Parent app settings to save.
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ParentApp'
+        required: true
+      responses:
+        200:
+          description: Jamf Parent app settings updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ParentApp'
+        400:
+          description: Bad Request, could not parse input.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Parent App Settings
+  /v1/parent-app/history:
+    get:
+      tags:
+      - parent-app-preview
+      summary: |
+        Get Jamf Parent app settings history
+      description: |
+        Gets Jamf Parent app settings history
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort
+          is date:desc. Multiple sort criteria are supported and must be separated
+          with a comma. Example: sort=date:desc,name:asc '
+        schema:
+          type: string
+          default: date:desc
+      responses:
+        200:
+          description: Details of Jamf Parent app settings history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+      - Read Parent App Settings
+    post:
+      tags:
+      - parent-app-preview
+      summary: |
+        Add Jamf Parent app settings history notes
+      description: |
+        Adds Jamf Parent app settings history notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Jamf Parent app settings history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        503:
+          description: Jamf Parent app history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update Parent App Settings
+components:
+  schemas:
+    ParentApp:
+      required:
+      - deviceGroupId
+      - isEnabled
+      - restrictedTimes
+      - timezoneId
+      type: object
+      properties:
+        timezoneId:
+          type: string
+          example: Europe/Paris
+        restrictedTimes:
+          type: object
+          properties:
+            key:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/DayOfWeek'
+          additionalProperties:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/TimeFrame'
+          example:
+            SUNDAY:
+              beginTime: "08:30:00"
+              endTime: "15:45:00"
+        deviceGroupId:
+          type: integer
+          example: 1
+        isEnabled:
+          type: boolean
+          example: true
+        allowTemplates:
+          type: boolean
+          example: true
+        disassociateOnWipeAndReEnroll:
+          type: boolean
+          example: true
+        allowClearPasscode:
+          type: boolean
+          example: true
+        safelistedApps:
+          type: array
+          items:
+            $ref: 'ParentTeacherSettingsDefinitionsLibrary.yaml#/components/schemas/SafelistedApp'

@@ -1,0 +1,688 @@
+openapi: 3.0.3
+info:
+  title: Jamf Pro API - Packages
+  version: 0.0.1
+servers:
+  - url: 'https'
+paths:
+    /v1/packages:
+        get:
+            tags:
+                - packages
+            summary: Retrieve Packages
+            description: Retrieves packages
+            x-required-privileges:
+                - Read Packages
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+                    Default sort is ID:asc.
+                    If using multiple criteria, separate with commas.'
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ id:asc ]
+                -   name: filter
+                    in: query
+                    description: 'Filters results.
+                    Use RSQL format for query. Allows for many fields, including ID, name, etc.
+                    Can be combined with paging and sorting.
+                    Fields allowed in the query: id, fileName, packageName, categoryId, info, notes, manifestFileName, cloudTransferStatus.
+                    Default filter is an empty query and returns all results from the requested page.'
+                    schema:
+                        type: string
+                        default: ''
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/PackagesSearchResults'
+        post:
+            tags:
+                - packages
+            summary: Create package
+            description: Create package
+            requestBody:
+                description: Package to be created
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/Package'
+                required: true
+            responses:
+                201:
+                    description: Package was created
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+            x-required-privileges:
+                - Create Packages
+    /v1/packages/{id}:
+        get:
+            tags:
+                - packages
+            summary: |
+                Get specified Package object
+            description: |
+                Gets specified Package object
+            parameters:
+                -   name: id
+                    in: path
+                    description: instance id of package
+                    required: true
+                    schema:
+                        type: string
+            responses:
+                200:
+                    description: Package details found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/Package'
+                404:
+                    description: Specified package object could not be found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Packages
+        put:
+            tags:
+                - packages
+            summary: |
+                Update specified package object
+            description: |
+                Update specified package object
+            parameters:
+                -   name: id
+                    in: path
+                    description: Instance ID of package
+                    required: true
+                    schema:
+                        type: string
+            requestBody:
+                description: Package object to update. IDs defined in this body will be ignored
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/Package'
+                required: true
+            responses:
+                200:
+                    description: Package update
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/Package'
+            x-required-privileges:
+                - Update Packages
+        delete:
+            tags:
+                - packages
+            summary: |
+                Remove specified package
+            description: |
+                Removes specified package
+            parameters:
+                -   name: id
+                    in: path
+                    description: Instance ID of package
+                    required: true
+                    schema:
+                        type: string
+            responses:
+                204:
+                    description: Package deleted successfully
+            x-required-privileges:
+                - Delete Packages
+    /v1/packages/delete-multiple:
+        post:
+            tags:
+                - packages
+            summary: Delete multiple packages at once
+            description: IDs of the packages to be deleted
+            requestBody:
+                description: ids of the package to be deleted
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+                required: true
+            responses:
+                204:
+                    description: All specified packages deleted successfully
+                400:
+                    description: 'Returns error codes and IDs for any packages that were unable to be deleted.
+                    Possible error codes include INVALID_ID (Package ID does not exist) and SYSTEM_EXCEPTION (A system exception occurred while attempting to delete the package).'
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Delete Packages
+            x-action: true
+    /v1/packages/{id}/manifest:
+        post:
+            tags:
+                - packages
+            summary: |
+                Add a manifest to a package
+            description: Add a manifest to a package
+            parameters:
+                -   name: id
+                    in: path
+                    description: Id of the package the manifest should be assigned to
+                    required: true
+                    schema:
+                        type: string
+            requestBody:
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - file
+                            properties:
+                                file:
+                                    type: string
+                                    description: The manifest file to upload
+                                    format: binary
+                required: true
+            responses:
+                201:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/Package'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                404:
+                    description: Package with that id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                413:
+                    description: Payload Too Large
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Packages
+                - Read Packages
+        delete:
+            tags:
+                - packages
+            summary: |
+                Delete the manifest for a specified package
+            description: |
+                Delete the manifest file for a specified package
+            parameters:
+                - name: id
+                  in: path
+                  description: Id of the package to delete manifest from
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                204:
+                    description: Package manifest deleted successfully
+                404:
+                    description: Package with that id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Packages
+                - Read Packages
+    /v1/packages/{id}/history:
+        get:
+            tags:
+                - packages
+            summary: |
+                Get specified Package History object
+            description: |
+                Gets specified Package history object
+            parameters:
+                -   name: id
+                    in: path
+                    description: Instance ID of package history
+                    required: true
+                    schema:
+                        type: string
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+                    Default sort is ID:asc.
+                    If using multiple criteria, separate with commas.'
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ date:desc ]
+                -   name: filter
+                    in: query
+                    description: 'Filters results.
+                    Use RSQL format for query.
+                    Allows for many fields, including ID, name, etc.
+                    Can be combined with paging and sorting.
+                    Default filter is an empty query and returns all results from the requested page.'
+                    schema:
+                        type: string
+                        default: ''
+            responses:
+                200:
+                    description: Details of package history were found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+                404:
+                    description: Specified package history object could not be found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Packages
+        post:
+            tags:
+                - packages
+            summary: |
+                Add specified Package history object notes
+            description: |
+                Adds specified Package history object notes
+            parameters:
+                -   name: id
+                    in: path
+                    description: Instance ID of package history
+                    required: true
+                    schema:
+                        type: string
+            requestBody:
+                description: History note to be created
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+                required: true
+            responses:
+                201:
+                    description: Package history note created successfully
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+                404:
+                    description: Package history note could not be found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Package history note could not be saved
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Packages
+    /v1/packages/{id}/history/export:
+        post:
+            tags:
+                - packages
+            summary: |
+                Export history object collection in specified format for specified Packages
+            description: |
+                Export history object collection in specified format for specified Packages
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+                -   name: id
+                    in: path
+                    description: Instance ID of package history note
+                    required: true
+                    schema:
+                        type: string
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+                    Default sort is ID:asc.
+                    If using multiple criteria, separate with commas.'
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ date:desc ]
+                -   name: filter
+                    in: query
+                    description: 'Filters results.
+                    Use RSQL format for query.
+                    Allows for many fields, including ID, name, etc.
+                    Can be combined with paging and sorting.
+                    Default filter is an empty query and returns all results from the requested page.'
+                    schema:
+                        type: string
+                        default: ''
+            requestBody:
+                description: Optional. Can be used to override query parameters so that the URI does not exceed the 2,000 character limit.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+                required: false
+            responses:
+                200:
+                    description: Export successful
+                    content:
+                        text/csv:
+                            schema:
+                                format: binary
+                                example: |
+                                    id,username,date,note,details
+                                    1,admin,2019-02-04 21:09:31,Packages update,Some details
+                400:
+                    description: Could not export. List may contain a non-existing column or a duplicate.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Export currently unavailable. All export-related resources are in use. Try again later.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Packages
+            x-action: true
+    /v1/packages/{id}/upload:
+        post:
+            tags:
+                - packages
+            summary: Upload package
+            description: Uploads a package
+            parameters:
+                -   name: id
+                    in: path
+                    description: instance id of package
+                    required: true
+                    schema:
+                        type: string
+            requestBody:
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - file
+                            properties:
+                                file:
+                                    type: string
+                                    description: The file to upload
+                                    format: binary
+                required: true
+            responses:
+                201:
+                    description: Successfully uploaded package
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                404:
+                    description: Specified package object does not exist.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Packages
+                - Read Packages
+            x-action: true
+    /v1/packages/export:
+        post:
+            tags:
+                - packages
+            summary: |
+                Export Packages collection
+            description: |
+                Export Packages collection
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+                    Default sort is ID:asc.
+                    If using multiple criteria, separate with commas.'
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ id:asc ]
+                -   name: filter
+                    in: query
+                    description: 'Filters results.
+                    Use RSQL format for query.
+                    Allows for many fields, including ID, name, etc.
+                    Can be combined with paging and sorting.
+                    Default filter is an empty query and returns all results from the requested page.'
+                    schema:
+                        type: string
+                        default: ''
+            requestBody:
+                description: Optional. Can be used to override query parameters so that the URI does not exceed the 2,000 character limit.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+                required: false
+            responses:
+                200:
+                    description: Export successful
+                    content:
+                        text/csv:
+                            schema:
+                                format: binary
+                                example: |
+                                    id,packageName
+                                    1,Chrome
+                                    2,Firefox
+                400:
+                    description: Could not export. List may contain a non-existing column or a duplicate.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Export currently unavailable. All export-related resources are in use. Try again later.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Packages
+            x-action: true
+components:
+    schemas:
+        PackagesSearchResults:
+            type: object
+            properties:
+                totalCount:
+                    type: integer
+                    example: 1
+                results:
+                    type: array
+                    minItems: 0
+                    items:
+                        $ref: '#/components/schemas/Package'
+        Package:
+            type: object
+            required:
+                - packageName
+                - fileName
+                - categoryId
+                - priority
+                - fillUserTemplate
+                - suppressEula
+                - suppressUpdates
+                - rebootRequired
+                - osInstall
+                - suppressRegistration
+                - suppressFromDock
+            properties:
+                id:
+                    type: string
+                    example: '1'
+                    readOnly: true
+                packageName:
+                    type: string
+                    example: 'Google Chrome'
+                fileName:
+                    type: string
+                    example: 'my-package.pkg'
+                categoryId:
+                    type: string
+                    example: '-1'
+                info:
+                    type: string
+                    example: 'A package that is important to my organization.'
+                    nullable: true
+                notes:
+                    type: string
+                    example: 'Some notes.'
+                    nullable: true
+                priority:
+                    type: integer
+                    example: 3
+                osRequirements:
+                    type: string
+                    example: '10.6.8, 10.7.x'
+                    nullable: true
+                fillUserTemplate:
+                    type: boolean
+                    example: false
+                indexed:
+                    type: boolean
+                    example: false
+                    readOnly: true
+                fillExistingUsers:
+                    type: boolean
+                    example: false
+                swu:
+                    type: boolean
+                    example: false
+                rebootRequired:
+                    type: boolean
+                    example: false
+                selfHealNotify:
+                    type: boolean
+                    example: false
+                selfHealingAction:
+                    type: string
+                    example: 'nothing'
+                    nullable: true
+                osInstall:
+                    type: boolean
+                    example: false
+                serialNumber:
+                    type: string
+                    example: '1234'
+                    nullable: true
+                parentPackageId:
+                    type: string
+                    example: '3'
+                    nullable: true
+                basePath:
+                    type: string
+                    example: 'my/path'
+                    nullable: true
+                suppressUpdates:
+                    type: boolean
+                    example: false
+                cloudTransferStatus:
+                    type: string
+                    example: 'READY'
+                    readOnly: true
+                ignoreConflicts:
+                    type: boolean
+                    example: false
+                suppressFromDock:
+                    type: boolean
+                    example: false
+                suppressEula:
+                    type: boolean
+                    example: false
+                suppressRegistration:
+                    type: boolean
+                    example: false
+                installLanguage:
+                    type: string
+                    example: 'en_US'
+                    nullable: true
+                md5:
+                    type: string
+                    example: '0cc175b9c0f1b6a831c399e269772661'
+                    nullable: true
+                sha256:
+                    type: string
+                    example: '61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4'
+                    nullable: true
+                sha3512:
+                    type: string
+                    example: 'a51a01e63f76c4601a2989575280e2a1c1e83191382277906b0f92a251c53bbbd1d9804dd30edd304cffe75d1c6455440b0c39081ca94c68f149d1f719e15092'
+                    nullable: true
+                hashType:
+                    type: string
+                    example: 'MD5'
+                    nullable: true
+                hashValue:
+                    type: string
+                    example: '0cc175b9c0f1b6a831c399e269772661'
+                    nullable: true
+                size:
+                    type: string
+                    example: '234KB'
+                    nullable: true
+                    readOnly: true
+                osInstallerVersion:
+                    type: string
+                    example: '10.3.x'
+                    nullable: true
+                manifest:
+                    type: string
+                    example: 'manifest'
+                    nullable: true
+                manifestFileName:
+                    type: string
+                    example: 'manifest.plist'
+                    nullable: true
+                format:
+                    type: string
+                    example: format
+                    nullable: true

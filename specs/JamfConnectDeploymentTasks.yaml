@@ -1,0 +1,74 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Jamf Connect Settings
+  version: 0.0.1
+paths:
+  /v1/jamf-connect/deployments/{id}/tasks:
+    get:
+      tags:
+        - jamf-connect
+      summary: |
+        Search for deployment tasks for a config profile linked to Jamf Connect
+      description: Search for config profiles linked to Jamf Connect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: the UUID of the Jamf Connect deployment
+          example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/filter'
+      responses:
+        200:
+          description: Success.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DeploymentTaskSearchResults'
+      x-required-privileges:
+        - Read Jamf Connect Deployments
+
+  /v1/jamf-connect/deployments/{id}/tasks/retry:
+    post:
+      tags:
+        - jamf-connect
+      summary: |
+        Request a retry of Connect install tasks
+      description: |
+        Request a retry of Connect install tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: the UUID of the deployment associated with the retry
+          example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
+          schema:
+            type: string
+      requestBody:
+        description: task IDs to retry
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+        required: true
+      responses:
+        204:
+          description: Success, no content.
+        400:
+          description: Cloud Services Connection has not been established.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Jamf Connect tasks to retry failed
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Jamf Connect Deployment Retry

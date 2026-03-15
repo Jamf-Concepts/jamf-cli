@@ -1,0 +1,89 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Mappings for Cloud Identity Provider
+  version: 0.0.1
+paths:
+  /v2/cloud-ldaps/{id}/mappings:
+    get:
+      tags:
+        - cloud-ldap
+      summary: Get mappings configurations for Cloud Identity Providers server configuration.
+      description: Get all mappings configurations for Cloud Identity Providers server configuration.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Cloud Identity Provider mappings configuration returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+        400:
+          description: Id can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified mappings settings for Cloud Identity Provider configuration
+            do not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+    put:
+      tags:
+        - cloud-ldap
+      summary: Update Cloud Identity Provider mappings configuration.
+      description: Update Cloud Identity Provider mappings configuration.
+        Cannot be used for partial updates, all content body must be sent.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+      requestBody:
+        description: Cloud Identity Provider mappings to update.
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/CloudLdapMappingsRequest'
+        required: true
+      responses:
+        200:
+          description: Cloud Identity Provider mappings configuration updated.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+        400:
+          description: One or more parameters were invalid.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified Cloud Identity Provider configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: Cloud Identity Provider id from request path do not match id
+            in request body.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update LDAP Servers
+components: {}

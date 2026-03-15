@@ -1,0 +1,136 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Jamf Remote Assist Session History V2
+    description: Jamf Pro API - Jamf Remote Assist Session History V2
+    version: 0.0.1
+paths:
+    /v2/jamf-remote-assist/session:
+        get:
+            tags:
+                - jamf-remote-assist
+            summary: |
+                Gets session history items.
+            description: |
+                Returns tenants sessions history.
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                is sessionId:desc. Multiple sort criteria are supported and must be separated
+                with a comma. Example: sort=sessionId:desc,deviceId:asc '
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ sessionId:desc ]
+                -   name: filter
+                    in: query
+                    description: 'Query in the RSQL format, allowing to filter session history items collection.
+                Default filter is empty query - returning all results for the requested page.
+                Fields allowed in the query: sessionId, deviceId, sessionAdminId.
+                This param can be combined with paging and sorting.
+                Example: sessionAdminId=="*Andrzej*"'
+                    schema:
+                        type: string
+                        default: ''
+            responses:
+                200:
+                    description: Up to 100 latest session history items
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/SessionHistorySearchResults'
+            x-required-privileges:
+                - Read Remote Assist
+    /v2/jamf-remote-assist/session/{id}:
+        get:
+            tags:
+                - jamf-remote-assist
+            summary: |
+                Gets single session history item.
+            description: |
+                Returns tenants session history for specific session.
+            parameters:
+                -   name: id
+                    in: path
+                    description: instance id of session
+                    required: true
+                    schema:
+                        type: string
+            responses:
+                200:
+                    description: Single session history item
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItemWithDetails'
+                404:
+                    description: Session with given id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Remote Assist
+    /v2/jamf-remote-assist/session/export:
+        post:
+            tags:
+                - jamf-remote-assist
+            summary: |
+                Export Jamf Remote Assist sessions history
+            description: |
+                Export Jamf Remote Assist sessions history
+            requestBody:
+                description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+                required: false
+            responses:
+                200:
+                    description: Export successful
+                    content:
+                        text/csv:
+                            schema:
+                                format: binary
+                                example: |
+                                    sessionId,deviceId
+                                    c4087bc8-cb48-4452-9bec-a3c50088a485,aeafd2ff95c7e0b937a8dbf3121a8dcab7a70161cd4493af038fa9c784b61866
+                                    c4087bc8-cb48-4452-9bec-a3c50088a486,aeafd2ff95c7e0b937a8dbf3121a8dcab7a70161cd4493af038fa9c784b61867
+                                    c4087bc8-cb48-4452-9bec-a3c50088a487,aeafd2ff95c7e0b937a8dbf3121a8dcab7a70161cd4493af038fa9c784b61868
+
+                400:
+                    description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                503:
+                    description: Export currently unavailable, all export-related resources are in use. Try again later.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Remote Assist
+            x-action: true
+components:
+    schemas:
+        SessionHistorySearchResults:
+            type: object
+            required:
+                - results
+                - totalCount
+            properties:
+                results:
+                    type: array
+                    items:
+                        $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItem'
+                totalCount:
+                    type: integer
+                    example: 100
+

@@ -1,0 +1,188 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - SMTP Server
+    version: 0.0.1
+paths:
+    /v1/smtp-server/history:
+        get:
+            tags:
+                - smtp-server
+            summary: |
+                Get specified SMTP Server history object
+            description: |
+                Get specified SMTP Server history object
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                          is name:asc. Multiple sort criteria are supported and must be separated with
+                          a comma. Example: sort=date:desc,username:asc '
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        example:
+                            - date:desc
+                        default:
+                            - date:desc
+                -   name: filter
+                    in: query
+                    description: 'Query in the RSQL format, allowing to filter history notes collection.
+                        Default filter is empty query - returning all results for the requested page.
+                        Fields allowed in the query: username, date, note, details.
+                        This param can be combined with paging and sorting.
+                        Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+                    schema:
+                        type: string
+                        default: ''
+            responses:
+                200:
+                    description: Details of SMTP Server history were found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResultsV1'
+                404:
+                    description: Specified SMTP Server history object does not exist.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read SMTP Server
+        post:
+            tags:
+                - smtp-server
+            summary: |
+                Add SMTP Server history object notes
+            description: |
+                Adds SMTP Server history object notes
+            requestBody:
+                description: History notes to create
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+                required: true
+            responses:
+                201:
+                    description: Notes of SMTP Server history were added
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                503:
+                    description: SMTP Server history cannot be saved
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update SMTP Server
+    /v1/smtp-server/test:
+        post:
+            tags:
+                - smtp-server
+            summary:
+                Test functionality of an SMTP Server
+            description:
+                Test functionality of an SMTP Server
+            requestBody:
+                description: Recipient email to test SMTP Server
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/SmtpServerTest'
+                required: true
+            responses:
+                202:
+                    description: Success
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read SMTP Server
+            x-action: true
+    /v2/smtp-server:
+        get:
+            tags:
+                - smtp-server
+            summary: |
+                Finds the Jamf Pro SMTP Server information
+            description: |
+                Finds the Jamf Pro SMTP Server information
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/SmtpServerV2'
+            x-required-privileges:
+                - Read SMTP Server
+        put:
+            tags:
+                - smtp-server
+            summary: |
+                Updates Jamf Pro SMTP Server information
+            description: |
+                Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided
+            requestBody:
+                description: SMTP Server to update
+                content:
+                    'application/merge-patch+json':
+                        schema:
+                            $ref: '#/components/schemas/SmtpServerV2'
+                required: true
+            parameters:
+                -   name: oauth-state
+                    in: query
+                    description: 'The OAuth state that was last used to authorize a Google Mail account.
+                        This is only required when the authentication type is Google Mail and new accounts
+                        are being added.'
+                    schema:
+                        type: string
+                        default: ""
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/SmtpServerV2'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                403:
+                    description: Forbidden
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                422:
+                    description: There was an error applying the put
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update SMTP Server
+components:
+    schemas:
+        SmtpServerTest:
+            required:
+                - recipientEmail
+            type: object
+            properties:
+                recipientEmail:
+                    type: string
+                    example: "exampleEmail@example.com"
+                    nullable: false

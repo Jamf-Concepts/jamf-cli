@@ -1,0 +1,56 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - Jamf Remote Assist Session History
+    description: Jamf Pro API - Jamf Remote Assist Session History
+    version: 0.0.1
+paths:
+    /v1/jamf-remote-assist/session:
+        get:
+            tags:
+                - jamf-remote-assist
+            summary: |
+                Gets session history items.
+            description: |
+                Returns tenants sessions history.
+            responses:
+                200:
+                    description: Up to 100 latest session history items
+                    content:
+                        'application/json':
+                            schema:
+                                type: array
+                                items:
+                                    $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItem'
+            x-required-privileges:
+                - Read Remote Assist
+    /v1/jamf-remote-assist/session/{id}:
+        get:
+            tags:
+                - jamf-remote-assist
+            summary: |
+                Gets single session history item.
+            description: |
+                Returns tenants session history for specific session.
+            parameters:
+                -   name: id
+                    in: path
+                    description: instance id of session
+                    required: true
+                    schema:
+                        type: string
+            responses:
+                200:
+                    description: Single session history item
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItemWithDetails'
+                404:
+                    description: Session with given id does not exist
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Remote Assist
+components: {}

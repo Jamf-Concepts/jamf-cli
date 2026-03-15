@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+    title: Jamf Pro API - Impact Alert Notification Settings
+    version: 1.0.0
+paths:
+    /v1/impact-alert-notification-settings:
+        get:
+            tags:
+                - impact-alert-notification-settings
+            summary: Get Impact Alert Notification Settings
+            description: Get Impact Alert Notification Settings
+            responses:
+                200:
+                    description: Successful
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read Impact Alert Notification Settings
+        put:
+            tags:
+                - impact-alert-notification-settings
+            summary: Update Impact Alert Notification Settings
+            description: Update Impact Alert Notification Settings
+            requestBody:
+                description: Configure Access Management settings
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
+                required: true
+            responses:
+                204:
+                    description: Update Successful
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update Impact Alert Notification Settings
+components:
+    schemas:
+        ImpactAlertNotificationSettingsV1:
+            type: object
+            required:
+                - scopeableObjectsAlertEnabled
+                - scopeableObjectsConfirmationCodeEnabled
+                - deployableObjectsAlertEnabled
+                - deployableObjectsConfirmationCodeEnabled
+            properties:
+                scopeableObjectsAlertEnabled:
+                    type: boolean
+                    default: true
+                scopeableObjectsConfirmationCodeEnabled:
+                    type: boolean
+                    default: false
+                deployableObjectsAlertEnabled:
+                    type: boolean
+                    default: true
+                deployableObjectsConfirmationCodeEnabled:
+                    type: boolean
+                    default: false

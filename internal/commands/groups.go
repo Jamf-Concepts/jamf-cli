@@ -54,13 +54,18 @@ var commandGroupMap = map[string]string{
 	"overview":   groupCore,
 
 	// Computer Management
-	"computers":                   groupComputers,
-	"computer-groups":             groupComputers,
-	"computer-smart-groups":       groupComputers,
-	"computer-prestages-v-3s":     groupComputers,
-	"computer-prestage-scope-v-2s": groupComputers,
-	"erase-device-computers":      groupComputers,
-	"remove-computer-mdm-profiles": groupComputers,
+	"computers":                              groupComputers,
+	"computer-groups":                        groupComputers,
+	"computer-smart-groups":                  groupComputers,
+	"computer-prestages-v-3s":                groupComputers,
+	"computer-prestage-scope-v-2s":           groupComputers,
+	"computer-extension-attributes":          groupComputers,
+	"computer-inventory-collection-settings": groupComputers,
+	"smart-computer-groups":                  groupComputers,
+	"static-computer-groups":                 groupComputers,
+	"redeploy-jamf-management-frameworks":    groupComputers,
+	"erase-device-computers":                 groupComputers,
+	"remove-computer-mdm-profiles":           groupComputers,
 
 	// Mobile Device Management
 	"mobile-devices":                        groupMobile,
@@ -76,6 +81,8 @@ var commandGroupMap = map[string]string{
 	"mobile-device-inventory-details":       groupMobile,
 	"erase-device-mobiles":                  groupMobile,
 	"remove-mobile-device-mdm-profiles":     groupMobile,
+	"groups":                                groupMobile,
+	"device-extension-attributes":           groupMobile,
 
 	// Enrollment
 	"enrollment-settings":              groupEnrollment,
@@ -84,8 +91,9 @@ var commandGroupMap = map[string]string{
 	"device-enrollment-instances":      groupEnrollment,
 	"device-enrollment-instance-sync-states": groupEnrollment,
 	"account-driven-user-enrollment-session-token-settings": groupEnrollment,
-	"reenrollments": groupEnrollment,
-	"onboardings":   groupEnrollment,
+	"reenrollments":              groupEnrollment,
+	"onboardings":                groupEnrollment,
+	"onboarding-configurations":  groupEnrollment,
 
 	// Inventory & Search
 	"inventory-informations":          groupInventory,
@@ -106,8 +114,13 @@ var commandGroupMap = map[string]string{
 	"user-smart-groups": groupUsers,
 	"static-user-groups": groupUsers,
 	"authentications":  groupUsers,
-	"access-managements": groupUsers,
-	"ldap-rs":          groupUsers,
+	"access-managements":          groupUsers,
+	"ldap-rs":                     groupUsers,
+	"account-preferences":         groupUsers,
+	"change-passwords":            groupUsers,
+	"o-auth-api-roles-privileges": groupUsers,
+	"oauth-token-sessions":        groupUsers,
+	"oidcs":                       groupUsers,
 
 	// Content & Configuration
 	"scripts":                          groupContent,
@@ -120,6 +133,14 @@ var commandGroupMap = map[string]string{
 	"return-to-service-configurations": groupContent,
 	"supervision-identities":           groupContent,
 	"app-requests":                     groupContent,
+	"packages":                         groupContent,
+	"jamf-packages":                    groupContent,
+	"jamf-connects":                    groupContent,
+	"self-service-pluss":               groupContent,
+	"login-customizations":             groupContent,
+	"patch-v-2s":                       groupContent,
+	"patch-policy-v-2s":                groupContent,
+	"patch-policy-logs-v-2s":           groupContent,
 
 	// MDM & Certificates
 	"mdm-renewals":                  groupMDM,
@@ -128,6 +149,12 @@ var commandGroupMap = map[string]string{
 	"device-communication-settings": groupMDM,
 	"local-admin-password-v-2s":     groupMDM,
 	"client-check-ins":              groupMDM,
+	"mac-os-managed-software-updates":  groupMDM,
+	"managed-software-updates":         groupMDM,
+	"managed-software-updates-plans":   groupMDM,
+	"ddm-statuss":                      groupMDM,
+	"ddm-syncs":                        groupMDM,
+	"device-compliance-informations":   groupMDM,
 
 	// Server Administration
 	"servers":              groupServer,
@@ -145,7 +172,21 @@ var commandGroupMap = map[string]string{
 	"venafis":              groupServer,
 	"country-codes":        groupServer,
 	"locales":              groupServer,
-	"time-zones":           groupServer,
+	"time-zones":                          groupServer,
+	"cloud-distribution-points":           groupServer,
+	"cloud-informations":                  groupServer,
+	"distribution-points":                 groupServer,
+	"dss-proxies":                         groupServer,
+	"gsx-connections":                     groupServer,
+	"health-checks":                       groupServer,
+	"log-flushings":                       groupServer,
+	"schedulers":                          groupServer,
+	"startup-statuss":                     groupServer,
+	"adcs-settings":                       groupServer,
+	"digi-cert-settings":                  groupServer,
+	"impact-alert-notification-settings":  groupServer,
+	"apns-client-push-statuss":            groupServer,
+	"vpp-locations":                       groupServer,
 
 	// Classic - Computers
 	"classic-policies":                   groupClassicComputers,

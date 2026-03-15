@@ -1,0 +1,401 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Team Viewer Remote Administration connection configuration
+  version: 0.0.1
+paths:
+  /preview/remote-administration-configurations/team-viewer:
+    post:
+      tags:
+        - team-viewer-remote-administration
+      summary: Create Team Viewer Remote Administration connection configuration
+      description: Creates Team Viewer Remote Administration connection configuration
+      requestBody:
+        description: Team Viewer connection configuration create definition
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ConnectionConfigurationCandidateRequest'
+        required: true
+      responses:
+        201:
+          description: Team Viewer connection configuration created successfully
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Invalid field for Team Viewer connection configuration
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        403:
+          description: Insufficient privileges or site not found for Team Viewer connection configuration
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: Site limit exceeded for Team Viewer connection configuration
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Create Remote Administration
+
+  /preview/remote-administration-configurations/team-viewer/{id}:
+    get:
+      tags:
+        - team-viewer-remote-administration
+      summary: Get Team Viewer Remote Administration connection configuration
+      description: Returns Team Viewer Remote Administration connection configuration
+      parameters:
+        - name: id
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Returns Team Viewer connection configuration response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ConnectionConfigurationResponse'
+        404:
+          description: Team Viewer connection configuration does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Remote Administration
+    patch:
+      tags:
+        - team-viewer-remote-administration
+      summary: Update Team Viewer Remote Administration connection configuration
+      description: Updates Team Viewer Remote Administration connection configuration
+      parameters:
+        - name: id
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Team Viewer connection configuration update request
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ConnectionConfigurationUpdateRequest'
+        required: true
+      responses:
+        200:
+          description: Team Viewer connection configuration updated successfully
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ConnectionConfigurationResponse'
+        400:
+          description: Invalid field for Team Viewer connection configuration update request
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Team Viewer connection configuration does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Remote Administration
+    delete:
+      tags:
+        - team-viewer-remote-administration
+      summary: Delete Team Viewer Remote Administration connection configuration
+      description: Deletes Team Viewer Remote Administration connection configuration
+      parameters:
+        - name: id
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Team Viewer connection configuration deleted successfully
+      x-required-privileges:
+        - Delete Remote Administration
+
+  /preview/remote-administration-configurations/team-viewer/{id}/status:
+    get:
+      tags:
+        - team-viewer-remote-administration
+      summary: Get Team Viewer Remote Administration connection status
+      description: Returns Team Viewer Remote Administration connection status
+      parameters:
+        - name: id
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Returns Team Viewer connection status response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ConnectionConfigurationStatusResponse'
+      x-required-privileges:
+        - Read Remote Administration
+
+  /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions:
+    get:
+      tags:
+        - team-viewer-remote-administration
+      summary: |
+        Get a paginated list of sessions
+      description: Returns a paginated list of sessions for a given configuration ID
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: filter
+          in: query
+          description:  |
+            Query in the RSQL format, allowing to filter sessions collection.
+            Default filter is empty query - returning all results for the requested page.
+
+            Fields allowed in the query: `deviceId`, `deviceType`, `state`
+
+            This param can be combined with paging.
+          example: 'deviceId==1 and deviceType=="COMPUTER" and state=="OPEN"'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SessionDetailsSearchResults'
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Remote Administration
+    post:
+      tags:
+        - team-viewer-remote-administration
+      summary: Create a new session
+      description: Creates a new Team Viewer session to be used to establish a remote connection
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Team Viewer session attributes
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/SessionCandidateRequest'
+        required: true
+      responses:
+        201:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Invalid attributes for Team Viewer session
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: Connection configuration is not active or there is an active session for the device
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Create Remote Administration
+
+  /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}:
+    get:
+      tags:
+        - team-viewer-remote-administration
+      summary: |
+        Get a session by its ID
+      description: Returns a session details if found.
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sessionId
+          description: ID of the Team Viewer session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SessionDetails'
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Remote Administration
+  /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status:
+    get:
+      tags:
+        - team-viewer-remote-administration
+      summary: |
+        Get a session status by its ID
+      description: Returns a session status if found.
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sessionId
+          description: ID of the Team Viewer session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SessionStatus'
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Team Viewer session status not found
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Remote Administration
+
+  /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/close:
+    post:
+      tags:
+        - team-viewer-remote-administration
+      summary: Close a session
+      description: Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sessionId
+          description: ID of the Team Viewer session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Successful response
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: Connection configuration is not active
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Remote Administration
+      x-action: true
+
+  /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/resend-notification:
+    post:
+      tags:
+        - team-viewer-remote-administration
+      summary: Resend nofications for a session
+      description: Resends configured notifications (e.g. Self Service push notifications).
+      parameters:
+        - name: configurationId
+          description: ID of the Team Viewer connection configuration
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sessionId
+          description: ID of the Team Viewer session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Successful response
+        403:
+          description: Insufficient privileges
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: Connection configuration is not active or session is already closed
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Remote Administration
+      x-action: true
+
+components: {}
+

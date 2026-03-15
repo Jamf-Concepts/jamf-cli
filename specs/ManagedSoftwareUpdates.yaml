@@ -1,0 +1,337 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Managed Software Update Statuses
+  version: 0.0.1
+paths:
+  /v1/managed-software-updates/update-statuses:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve Managed Software Update Statuses
+      description: |
+        Retrieve Managed Software Update Statuses
+      x-required-privileges:
+        - Read Computers
+        - Read Mobile Devices
+      parameters:
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter Managed Software Updates collection.
+                      Default filter is empty query - returning all results for the requested page.
+                      Fields allowed in the query: osUpdatesStatusId, device.deviceId, device.objectType,
+                      downloaded, downloadPercentComplete, productKey, status, deferralsRemaining, maxDeferrals,
+                      nextScheduledInstall, created and updated.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdateStatuses'
+              examples:
+                ComputerManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "COMPUTER"
+                        href: "/v1/computers-inventory/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "macOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      deferralsRemaining: 5
+                      maxDeferrals: 5
+                      nextScheduledInstall: "2022-12-25T21:09:31.661Z"
+                      pastNotifications: [ "2022-12-22T21:09:31.661Z", "2022-12-23T21:09:31.661Z", "2022-12-24T21:09:31.661Z" ]
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-24T21:09:31.661Z"
+                    totalCount: 1
+                MobileDeviceManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "MOBILE_DEVICE"
+                        href: "/v2/mobile-devices/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "iOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-22T21:09:00.661Z"
+                    totalCount: 1
+  /v1/managed-software-updates/update-statuses/computers/{id}:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve Managed Software Update Statuses for Computers
+      description: | 
+        Retrieve Managed Software Update Statuses for Computers
+      x-required-privileges:
+        - Read Computers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdateStatuses'
+              examples:
+                ComputerManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "COMPUTER"
+                        href: "/v1/computers-inventory/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "macOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      deferralsRemaining: 5
+                      maxDeferrals: 5
+                      nextScheduledInstall: "2022-12-25T21:09:31.661Z"
+                      pastNotifications: [ "2022-12-22T21:09:31.661Z", "2022-12-23T21:09:31.661Z", "2022-12-24T21:09:31.661Z" ]
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-24T21:09:31.661Z"
+                    totalCount: 1
+  /v1/managed-software-updates/update-statuses/mobile-devices/{id}:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve Managed Software Update Statuses for Mobile Devices
+      description: | 
+        Retrieve Managed Software Update Statuses for Mobile Devices
+      x-required-privileges:
+        - Read Mobile Devices
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mobile Device identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdateStatuses'
+              examples:
+                MobileDeviceManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "MOBILE_DEVICE"
+                        href: "/v2/mobile-devices/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "iOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-22T21:09:00.661Z"
+                    totalCount: 1
+  /v1/managed-software-updates/update-statuses/computer-groups/{id}:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve Managed Software Update Statuses for Computer Groups
+      description: | 
+        Retrieve Managed Software Update Statuses for Computer Groups
+      x-required-privileges:
+        - Read Computers
+        - Read Smart Computer Groups
+        - Read Static Computer Groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Computer Group identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdateStatuses'
+              examples:
+                ComputerManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "COMPUTER"
+                        href: "/v1/computers-inventory/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "macOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      deferralsRemaining: 5
+                      maxDeferrals: 5
+                      nextScheduledInstall: "2022-12-25T21:09:31.661Z"
+                      pastNotifications: [ "2022-12-22T21:09:31.661Z", "2022-12-23T21:09:31.661Z", "2022-12-24T21:09:31.661Z" ]
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-24T21:09:31.661Z"
+                    totalCount: 1
+  /v1/managed-software-updates/update-statuses/mobile-device-groups/{id}:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve Managed Software Update Statuses for Mobile Device Groups
+      description: |
+        Retrieve Managed Software Update Statuses for Mobile Device Groups
+      x-required-privileges:
+        - Read Mobile Devices
+        - Read Smart Mobile Device Groups
+        - Read Static Mobile Device Groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mobile Device Group identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdateStatuses'
+              examples:
+                MobileDeviceManagedSoftwareUpdateStatus:
+                  value:
+                    results:
+                    - osUpdatesStatusId: "1"
+                      device:
+                        deviceId: 1
+                        objectType: "MOBILE_DEVICE"
+                        href: "/v2/mobile-devices/1"
+                      downloadPercentComplete: 0.8
+                      downloaded: true
+                      productKey: "iOSUpdate19F77"
+                      status: "DOWNLOADING"
+                      created: "2022-12-22T21:09:00.661Z"
+                      updated: "2022-12-22T21:09:00.661Z"
+                    totalCount: 1
+  /v1/managed-software-updates/available-updates:
+    get:
+      tags:
+        - managed-software-updates
+      summary: Retrieve available macOS and iOS Managed Software Updates
+      description: |
+        Retrieves available macOS and iOS Managed Software Updates
+      x-authentication-required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AvailableOsUpdates'
+components:
+  schemas:
+    ManagedSoftwareUpdateStatuses:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManagedSoftwareUpdateStatus'
+    ManagedSoftwareUpdateStatus:
+      type: object
+      properties:
+        osUpdatesStatusId:
+          type: string
+          example: "1"
+        device:
+          type: object
+          properties:
+            deviceId:
+              type: string
+            objectType:
+              type: string
+              enum: [ "COMPUTER", "MOBILE_DEVICE", "APPLE_TV" ]
+            href:
+              type: string
+        downloadPercentComplete:
+          type: number
+          example: 0.8
+        downloaded:
+          type: boolean
+          example: false
+        productKey:
+          type: string
+          example: "iOSUpdate19F77"
+        status:
+          type: string
+          enum: [ "DOWNLOADING", "IDLE", "INSTALLING", "INSTALLED", "ERROR", "DOWNLOAD_FAILED", "DOWNLOAD_REQUIRES_COMPUTER", "DOWNLOAD_INSUFFICIENT_SPACE", "DOWNLOAD_INSUFFICIENT_POWER", "DOWNLOAD_INSUFFICIENT_NETWORK", "INSTALL_INSUFFICIENT_SPACE", "INSTALL_INSUFFICIENT_POWER", "INSTALL_PHONE_CALL_IN_PROGRESS", "INSTALL_FAILED", "UNKNOWN" ]
+          example: "DOWNLOADING"
+        deferralsRemaining:
+          type: integer
+          description: not applicable to all managed software update statuses
+          example: 4
+        maxDeferrals:
+          type: integer
+          description: not applicable to all managed software update statuses
+          example: 5
+        nextScheduledInstall:
+          type: string
+          description: not applicable to all managed software update statuses
+          format: date-time
+          example: "2022-12-25T21:09:31.661Z"
+        pastNotifications:
+          type: array
+          description: not applicable to all managed software update statuses
+          items:
+            type: string
+            format: date-time
+          example: [ "2022-12-22T21:09:31.661Z", "2022-12-23T21:09:31.661Z", "2022-12-24T21:09:31.661Z" ]
+        created:
+          type: string
+          format: date-time
+          example: "2022-12-22T21:09:00.661Z"
+        updated:
+          type: string
+          format: date-time
+          example: "2022-12-24T21:09:31.661Z"
+    AvailableOsUpdates:
+      type: object
+      properties:
+        availableUpdates:
+          type: object
+          nullable: false
+          properties:
+            macOS:
+              type: array
+              items:
+                type: string
+              example: [ "12.0.1", "11.6.1", "11.6", "11.5.2" ]
+            iOS:
+              type: array
+              items:
+                type: string
+              example: [ "16.1.1", "16.0.1", "15.7.1", "9.1" ]
