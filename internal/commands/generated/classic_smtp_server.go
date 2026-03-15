@@ -19,16 +19,12 @@ func NewClassicSmtpServerCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicSmtpServerGetCmd(ctx))
-
 
 	cmd.AddCommand(newClassicSmtpServerUpdateCmd(ctx))
 
-
 	return cmd
 }
-
 
 func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -39,7 +35,7 @@ func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a smtp_server and output as YAML
   jamfpro-cli classic-smtp-server get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/smtpserver/id/%s", args[0])
@@ -65,8 +61,6 @@ func newClassicSmtpServerGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -77,7 +71,7 @@ func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a smtp_server
   jamfpro-cli classic-smtp-server get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-smtp-server update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -100,5 +94,3 @@ func newClassicSmtpServerUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-

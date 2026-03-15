@@ -26,8 +26,6 @@ func NewClassicMobileCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileCommandsCreateCmd(ctx))
 
-
-
 	return cmd
 }
 
@@ -64,7 +62,6 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -74,7 +71,7 @@ func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile_device_command and output as YAML
   jamfpro-cli classic-mobile-commands get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/mobiledevicecommands/id/%s", args[0])
@@ -129,7 +126,6 @@ func newClassicMobileCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -161,6 +157,3 @@ func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-

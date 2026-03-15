@@ -26,7 +26,6 @@ func NewClassicAllowedFileExtensionsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicAllowedFileExtensionsDeleteCmd(ctx))
 
 	return cmd
@@ -65,7 +64,6 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -75,7 +73,7 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a allowed_file_extension and output as YAML
   jamfpro-cli classic-allowed-file-extensions get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", args[0])
@@ -100,7 +98,6 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -134,8 +131,6 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -150,7 +145,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-allowed-file-extensions delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -192,4 +187,3 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

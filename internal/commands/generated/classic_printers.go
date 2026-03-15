@@ -67,7 +67,6 @@ func newClassicPrintersListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPrintersGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicPrintersGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a printer and output as YAML
   jamfpro-cli classic-printers get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/printers/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicPrintersGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPrintersCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPrintersCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPrintersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicPrintersUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a printer
   jamfpro-cli classic-printers get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-printers update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicPrintersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-printers delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

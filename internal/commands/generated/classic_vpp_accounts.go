@@ -66,7 +66,6 @@ func newClassicVppAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +75,7 @@ func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a vpp_account and output as YAML
   jamfpro-cli classic-vpp-accounts get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/vppaccounts/id/%s", args[0])
@@ -101,7 +100,6 @@ func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -135,7 +133,6 @@ func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -146,7 +143,7 @@ func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a vpp_account
   jamfpro-cli classic-vpp-accounts get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-vpp-accounts update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -170,7 +167,6 @@ func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -185,7 +181,7 @@ func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-vpp-accounts delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -227,4 +223,3 @@ func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

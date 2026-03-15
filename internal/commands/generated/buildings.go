@@ -37,12 +37,12 @@ func NewBuildingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -114,7 +114,7 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -152,7 +152,6 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -168,8 +167,7 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -180,7 +178,7 @@ func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a building and output as YAML
   jamfpro-cli buildings get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -201,11 +199,9 @@ func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -265,7 +261,6 @@ func newBuildingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -289,7 +284,7 @@ func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a building, modify, and update
   jamfpro-cli buildings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli buildings update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -329,7 +324,6 @@ func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -341,7 +335,7 @@ func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -354,7 +348,7 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli buildings delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -393,7 +387,6 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -411,9 +404,9 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -485,7 +478,6 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -500,12 +492,12 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -514,7 +506,7 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Gets specified Building history object",
 		Example: `  # Get history for a building
   jamfpro-cli buildings history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -577,7 +569,7 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -614,7 +606,6 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -673,7 +664,6 @@ func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -687,11 +677,11 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagScaffold bool
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
 	)
 
 	cmd := &cobra.Command{
@@ -762,7 +752,6 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -782,11 +771,11 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagScaffold bool
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
 	)
 
 	cmd := &cobra.Command{
@@ -857,7 +846,6 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -872,4 +860,3 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

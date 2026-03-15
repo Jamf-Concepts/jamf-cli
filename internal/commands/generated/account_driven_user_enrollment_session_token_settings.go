@@ -26,8 +26,7 @@ func NewAccountDrivenUserEnrollmentSessionTokenSettingsCmd(ctx *CLIContext) *cob
 }
 
 func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,11 +56,9 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *CLIContext) 
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -114,7 +111,6 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *CLIContext
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -123,4 +119,3 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *CLIContext
 
 	return cmd
 }
-

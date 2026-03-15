@@ -67,7 +67,6 @@ func newClassicMobileConfigProfilesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileConfigProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicMobileConfigProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile_device_configuration_profile and output as YAML
   jamfpro-cli classic-mobile-config-profiles get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicMobileConfigProfilesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 	}
 }
 
-
 func newClassicMobileConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a mobile_device_configuration_profile
   jamfpro-cli classic-mobile-config-profiles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mobile-config-profiles update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-mobile-config-profiles delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

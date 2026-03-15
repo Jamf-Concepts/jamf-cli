@@ -33,8 +33,7 @@ func NewVenafisCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -45,7 +44,7 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a venafi and output as YAML
   jamfpro-cli venafis get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -66,11 +65,9 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -128,7 +125,6 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -140,7 +136,7 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
 
 func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -153,7 +149,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli venafis delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -192,7 +188,6 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -210,12 +205,12 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -224,7 +219,7 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Get specified Venafi CA history object",
 		Example: `  # Get history for a venafi
   jamfpro-cli venafis history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -287,7 +282,7 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -324,7 +319,6 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -383,7 +377,6 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -440,7 +433,6 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -451,8 +443,7 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "regenerate <id>",
@@ -485,12 +476,9 @@ func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

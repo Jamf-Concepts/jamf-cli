@@ -31,8 +31,7 @@ func NewJcdsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -62,18 +61,15 @@ func newJcdsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -84,7 +80,7 @@ func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a jcd and output as YAML
   jamfpro-cli jcds get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -105,18 +101,16 @@ func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -129,7 +123,7 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli jcds delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -168,7 +162,6 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -185,8 +178,7 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "files",
@@ -217,11 +209,9 @@ func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -263,7 +253,6 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -274,8 +263,7 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "renew-credentials",
@@ -306,12 +294,9 @@ func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

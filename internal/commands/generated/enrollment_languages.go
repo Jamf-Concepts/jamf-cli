@@ -30,8 +30,7 @@ func NewEnrollmentLanguagesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,18 +60,15 @@ func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -83,7 +79,7 @@ func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a enrollment-language and output as YAML
   jamfpro-cli enrollment-languages get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -104,11 +100,9 @@ func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -127,7 +121,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a enrollment-language, modify, and update
   jamfpro-cli enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-languages update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +194,6 @@ func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -212,7 +205,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -225,7 +218,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli enrollment-languages delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -264,7 +257,6 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -282,9 +274,9 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -356,7 +348,6 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -368,4 +359,3 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -30,8 +30,7 @@ func NewReturnToServiceConfigurationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,18 +60,15 @@ func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -83,7 +79,7 @@ func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a return-to-service-configuration and output as YAML
   jamfpro-cli return-to-service-configurations get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -104,11 +100,9 @@ func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -163,7 +157,6 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -187,7 +180,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a return-to-service-configuration, modify, and update
   jamfpro-cli return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamfpro-cli return-to-service-configurations update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -222,7 +215,6 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -234,7 +226,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -247,7 +239,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli return-to-service-configurations delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -286,7 +278,6 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -301,4 +292,3 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

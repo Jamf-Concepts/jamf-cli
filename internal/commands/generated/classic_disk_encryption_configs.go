@@ -67,7 +67,6 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a disk_encryption_configuration and output as YAML
   jamfpro-cli classic-disk-encryption-configs get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicDiskEncryptionConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a disk_encryption_configuration
   jamfpro-cli classic-disk-encryption-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-disk-encryption-configs update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-disk-encryption-configs delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

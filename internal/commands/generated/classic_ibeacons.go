@@ -67,7 +67,6 @@ func newClassicIbeaconsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicIbeaconsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicIbeaconsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a ibeacon and output as YAML
   jamfpro-cli classic-ibeacons get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/ibeacons/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicIbeaconsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicIbeaconsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicIbeaconsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicIbeaconsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicIbeaconsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a ibeacon
   jamfpro-cli classic-ibeacons get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-ibeacons update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicIbeaconsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-ibeacons delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -18,15 +18,10 @@ func NewClassicComputerAppUsageCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer application usage data via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicComputerAppUsageGetCmd(ctx))
-
-
-
 
 	return cmd
 }
-
 
 func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -37,7 +32,7 @@ func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer_application_usage and output as YAML
   jamfpro-cli classic-computer-app-usage get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/computerapplicationusage/id/%s", args[0])
@@ -62,7 +57,3 @@ func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

@@ -22,8 +22,7 @@ func NewJamfProVersionsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProVersionsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -53,12 +52,9 @@ func newJamfProVersionsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

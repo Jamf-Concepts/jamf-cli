@@ -67,7 +67,6 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a dock_item and output as YAML
   jamfpro-cli classic-dock-items get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a dock_item
   jamfpro-cli classic-dock-items get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-dock-items update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-dock-items delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

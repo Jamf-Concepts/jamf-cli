@@ -67,7 +67,6 @@ func newClassicComputerConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicComputerConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer_configuration and output as YAML
   jamfpro-cli classic-computer-configs get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/computerconfigurations/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicComputerConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a computer_configuration
   jamfpro-cli classic-computer-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-computer-configs update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-computer-configs delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

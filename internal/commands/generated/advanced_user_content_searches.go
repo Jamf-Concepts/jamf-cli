@@ -30,8 +30,7 @@ func NewAdvancedUserContentSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -61,18 +60,15 @@ func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -83,7 +79,7 @@ func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a advanced-user-content-searche and output as YAML
   jamfpro-cli advanced-user-content-searches get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -104,11 +100,9 @@ func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -168,7 +162,6 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -192,7 +185,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a advanced-user-content-searche, modify, and update
   jamfpro-cli advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-user-content-searches update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -232,7 +225,6 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -244,7 +236,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -257,7 +249,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli advanced-user-content-searches delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -296,7 +288,6 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -311,4 +302,3 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

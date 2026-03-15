@@ -27,11 +27,11 @@ func NewEbooksCmd(ctx *CLIContext) *cobra.Command {
 
 func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -100,7 +100,7 @@ func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -138,7 +138,6 @@ func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -153,8 +152,7 @@ func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEbooksGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -165,7 +163,7 @@ func newEbooksGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a ebook and output as YAML
   jamfpro-cli ebooks get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -186,12 +184,9 @@ func newEbooksGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

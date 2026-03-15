@@ -65,7 +65,6 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cob
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -74,4 +73,3 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cob
 
 	return cmd
 }
-

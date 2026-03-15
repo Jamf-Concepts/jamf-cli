@@ -65,7 +65,6 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -74,4 +73,3 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

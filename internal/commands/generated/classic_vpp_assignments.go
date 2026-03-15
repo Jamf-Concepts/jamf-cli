@@ -66,7 +66,6 @@ func newClassicVppAssignmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +75,7 @@ func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a vpp_assignment and output as YAML
   jamfpro-cli classic-vpp-assignments get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", args[0])
@@ -101,7 +100,6 @@ func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -135,7 +133,6 @@ func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -146,7 +143,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a vpp_assignment
   jamfpro-cli classic-vpp-assignments get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-vpp-assignments update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -170,7 +167,6 @@ func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -185,7 +181,7 @@ func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-vpp-assignments delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -227,4 +223,3 @@ func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -22,9 +22,6 @@ func NewClassicPatchAvailableTitlesCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -61,7 +58,6 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -71,7 +67,7 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a patch_available_title and output as YAML
   jamfpro-cli classic-patch-available-titles get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/patchavailabletitles/id/%s", args[0])
@@ -96,7 +92,3 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

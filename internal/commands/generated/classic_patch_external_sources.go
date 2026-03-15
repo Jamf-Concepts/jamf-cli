@@ -67,7 +67,6 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a patch_external_source and output as YAML
   jamfpro-cli classic-patch-external-sources get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/patchexternalsources/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 	}
 }
 
-
 func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a patch_external_source
   jamfpro-cli classic-patch-external-sources get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-external-sources update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-patch-external-sources delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

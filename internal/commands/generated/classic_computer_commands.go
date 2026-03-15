@@ -26,8 +26,6 @@ func NewClassicComputerCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerCommandsCreateCmd(ctx))
 
-
-
 	return cmd
 }
 
@@ -64,7 +62,6 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -74,7 +71,7 @@ func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer_command and output as YAML
   jamfpro-cli classic-computer-commands get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/computercommands/id/%s", args[0])
@@ -129,7 +126,6 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -161,6 +157,3 @@ func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-

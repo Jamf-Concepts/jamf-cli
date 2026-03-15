@@ -35,12 +35,12 @@ func NewDepartmentsCmd(ctx *CLIContext) *cobra.Command {
 
 func newDepartmentsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -112,7 +112,7 @@ func newDepartmentsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -150,7 +150,6 @@ func newDepartmentsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -166,8 +165,7 @@ func newDepartmentsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDepartmentsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -178,7 +176,7 @@ func newDepartmentsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a department and output as YAML
   jamfpro-cli departments get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -199,11 +197,9 @@ func newDepartmentsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -257,7 +253,6 @@ func newDepartmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -281,7 +276,7 @@ func newDepartmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a department, modify, and update
   jamfpro-cli departments get 1 -o json | jq '.name = "New Name"' | jamfpro-cli departments update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -315,7 +310,6 @@ func newDepartmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -327,7 +321,7 @@ func newDepartmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newDepartmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -340,7 +334,7 @@ func newDepartmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli departments delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -379,7 +373,6 @@ func newDepartmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -397,9 +390,9 @@ func newDepartmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newDepartmentsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -471,7 +464,6 @@ func newDepartmentsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -486,12 +478,12 @@ func newDepartmentsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 
 func newDepartmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -500,7 +492,7 @@ func newDepartmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Gets specified Department history object",
 		Example: `  # Get history for a department
   jamfpro-cli departments history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -563,7 +555,7 @@ func newDepartmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -600,7 +592,6 @@ func newDepartmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -659,7 +650,6 @@ func newDepartmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -668,4 +658,3 @@ func newDepartmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

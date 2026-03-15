@@ -22,8 +22,7 @@ func NewMobileDeviceEnrollmentProfilesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceEnrollmentProfilesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -34,7 +33,7 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-enrollment-profile and output as YAML
   jamfpro-cli mobile-device-enrollment-profiles get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,12 +54,9 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

@@ -67,7 +67,6 @@ func newClassicLicensedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicLicensedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a licensed_software and output as YAML
   jamfpro-cli classic-licensed-software get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/licensedsoftware/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicLicensedSoftwareGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a licensed_software
   jamfpro-cli classic-licensed-software get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-licensed-software update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-licensed-software delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

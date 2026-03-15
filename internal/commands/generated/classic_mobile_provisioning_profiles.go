@@ -67,7 +67,6 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *CLIContext) *cobra.Command 
 
   # Get a mobile_device_provisioning_profile and output as YAML
   jamfpro-cli classic-mobile-provisioning-profiles get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicMobileProvisioningProfilesGetByNameCmd(ctx *CLIContext) *cobra.Co
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Comma
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
 
   # Get, modify, and update a mobile_device_provisioning_profile
   jamfpro-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mobile-provisioning-profiles update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
 	}
 }
 
-
 func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamfpro-cli classic-mobile-provisioning-profiles delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 
 	return cmd
 }
-

@@ -72,7 +72,6 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -128,7 +127,6 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -137,4 +135,3 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -67,7 +67,6 @@ func newClassicMacAppsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacAppsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicMacAppsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mac_application and output as YAML
   jamfpro-cli classic-mac-apps get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/macapplications/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicMacAppsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacAppsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicMacAppsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a mac_application
   jamfpro-cli classic-mac-apps get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mac-apps update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-mac-apps delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

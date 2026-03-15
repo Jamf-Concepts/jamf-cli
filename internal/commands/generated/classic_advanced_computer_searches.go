@@ -67,7 +67,6 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a advanced_computer_search and output as YAML
   jamfpro-cli classic-advanced-computer-searches get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicAdvancedComputerSearchesGetByNameCmd(ctx *CLIContext) *cobra.Comm
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command
 
   # Get, modify, and update a advanced_computer_search
   jamfpro-cli classic-advanced-computer-searches get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-advanced-computer-searches update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
-
 func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 
   # Delete without confirmation prompt
   jamfpro-cli classic-advanced-computer-searches delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 
 	return cmd
 }
-

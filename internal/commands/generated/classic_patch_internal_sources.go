@@ -23,9 +23,6 @@ func NewClassicPatchInternalSourcesCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPatchInternalSourcesGetCmd(ctx))
 	cmd.AddCommand(newClassicPatchInternalSourcesGetByNameCmd(ctx))
 
-
-
-
 	return cmd
 }
 
@@ -62,7 +59,6 @@ func newClassicPatchInternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchInternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -72,7 +68,7 @@ func newClassicPatchInternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a patch_internal_source and output as YAML
   jamfpro-cli classic-patch-internal-sources get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/patchinternalsources/id/%s", args[0])
@@ -126,7 +122,3 @@ func newClassicPatchInternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 		},
 	}
 }
-
-
-
-

@@ -67,7 +67,6 @@ func newClassicPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a policy and output as YAML
   jamfpro-cli classic-policies get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/policies/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicPoliciesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a policy
   jamfpro-cli classic-policies get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-policies update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-policies delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

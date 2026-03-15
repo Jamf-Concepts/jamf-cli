@@ -67,7 +67,6 @@ func newClassicNetworkSegmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicNetworkSegmentsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a network_segment and output as YAML
   jamfpro-cli classic-network-segments get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicNetworkSegmentsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a network_segment
   jamfpro-cli classic-network-segments get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-network-segments update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-network-segments delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

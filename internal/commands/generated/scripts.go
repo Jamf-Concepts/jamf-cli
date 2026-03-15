@@ -34,12 +34,12 @@ func NewScriptsCmd(ctx *CLIContext) *cobra.Command {
 
 func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -111,7 +111,7 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -149,7 +149,6 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -165,8 +164,7 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newScriptsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -177,7 +175,7 @@ func newScriptsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a script and output as YAML
   jamfpro-cli scripts get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -198,11 +196,9 @@ func newScriptsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -271,7 +267,6 @@ func newScriptsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -295,7 +290,7 @@ func newScriptsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a script, modify, and update
   jamfpro-cli scripts get 1 -o json | jq '.name = "New Name"' | jamfpro-cli scripts update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -344,7 +339,6 @@ func newScriptsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -356,7 +350,7 @@ func newScriptsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -369,7 +363,7 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli scripts delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -408,7 +402,6 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -426,12 +419,12 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -440,7 +433,7 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Gets specified Script history object",
 		Example: `  # Get history for a script
   jamfpro-cli scripts history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -503,7 +496,7 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -540,7 +533,6 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -599,7 +591,6 @@ func newScriptsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -608,4 +599,3 @@ func newScriptsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -26,7 +26,7 @@ func NewPackageDeploymentsCmd(ctx *CLIContext) *cobra.Command {
 
 func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagVerbose bool
+		flagVerbose  bool
 		flagScaffold bool
 	)
 
@@ -76,7 +76,6 @@ func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -86,4 +85,3 @@ func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

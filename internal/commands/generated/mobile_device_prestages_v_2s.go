@@ -35,11 +35,11 @@ func NewMobileDevicePrestagesV2SCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -108,7 +108,7 @@ func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -146,7 +146,6 @@ func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -161,8 +160,7 @@ func newMobileDevicePrestagesV2SListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -173,7 +171,7 @@ func newMobileDevicePrestagesV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-prestages-v-2 and output as YAML
   jamfpro-cli mobile-device-prestages-v-2s get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -194,18 +192,15 @@ func newMobileDevicePrestagesV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -244,18 +239,15 @@ func newMobileDevicePrestagesV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -266,7 +258,7 @@ func newMobileDevicePrestagesV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-prestages-v-2, modify, and update
   jamfpro-cli mobile-device-prestages-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-prestages-v-2s update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -293,18 +285,16 @@ func newMobileDevicePrestagesV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -317,7 +307,7 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli mobile-device-prestages-v-2s delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -356,7 +346,6 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -374,9 +363,9 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -386,7 +375,7 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages-v-2s by IDs
   jamfpro-cli mobile-device-prestages-v-2s delete-multiple --ids 1,2,3 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -450,7 +439,6 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -465,11 +453,11 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 
 func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -478,7 +466,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Gets sorted and paged mobile device prestage history objects",
 		Example: `  # Get history for a mobile-device-prestages-v-2
   jamfpro-cli mobile-device-prestages-v-2s history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -538,7 +526,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -575,7 +563,6 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -633,7 +620,6 @@ func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -642,4 +628,3 @@ func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 
 	return cmd
 }
-

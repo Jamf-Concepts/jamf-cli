@@ -26,7 +26,6 @@ func NewClassicMobileInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileInvitationsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicMobileInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -65,7 +64,6 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -75,7 +73,7 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile_device_invitation and output as YAML
   jamfpro-cli classic-mobile-invitations get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/mobiledeviceinvitations/id/%s", args[0])
@@ -100,7 +98,6 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -134,8 +131,6 @@ func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -150,7 +145,7 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-mobile-invitations delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -192,4 +187,3 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

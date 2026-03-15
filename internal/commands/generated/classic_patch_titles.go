@@ -67,7 +67,6 @@ func newClassicPatchTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicPatchTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a patch_software_title and output as YAML
   jamfpro-cli classic-patch-titles get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicPatchTitlesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a patch_software_title
   jamfpro-cli classic-patch-titles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-titles update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-patch-titles delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

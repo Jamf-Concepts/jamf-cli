@@ -29,11 +29,11 @@ func NewMobileDevicesCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -102,7 +102,7 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -140,7 +140,6 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -155,8 +154,7 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -167,7 +165,7 @@ func newMobileDevicesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device and output as YAML
   jamfpro-cli mobile-devices get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -188,11 +186,9 @@ func newMobileDevicesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -248,7 +244,6 @@ func newMobileDevicesPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -257,4 +252,3 @@ func newMobileDevicesPatchCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -23,8 +23,7 @@ func NewCertificateAuthoritiesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -54,18 +53,15 @@ func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +72,7 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a certificate-authoritie and output as YAML
   jamfpro-cli certificate-authorities get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -97,12 +93,9 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

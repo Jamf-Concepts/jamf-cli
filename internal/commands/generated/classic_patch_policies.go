@@ -66,7 +66,6 @@ func newClassicPatchPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +75,7 @@ func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a patch_policy and output as YAML
   jamfpro-cli classic-patch-policies get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", args[0])
@@ -101,7 +100,6 @@ func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -135,7 +133,6 @@ func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -146,7 +143,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a patch_policy
   jamfpro-cli classic-patch-policies get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-policies update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -170,7 +167,6 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -185,7 +181,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-patch-policies delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -227,4 +223,3 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

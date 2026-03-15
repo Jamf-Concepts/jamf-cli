@@ -66,7 +66,6 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +75,7 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a json_web_token_configuration and output as YAML
   jamfpro-cli classic-jwt-configs get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", args[0])
@@ -101,7 +100,6 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -135,7 +133,6 @@ func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -146,7 +143,7 @@ func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a json_web_token_configuration
   jamfpro-cli classic-jwt-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-jwt-configs update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -170,7 +167,6 @@ func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -185,7 +181,7 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-jwt-configs delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -227,4 +223,3 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

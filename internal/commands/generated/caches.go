@@ -26,8 +26,7 @@ func NewCachesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCachesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -57,11 +56,9 @@ func newCachesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -120,7 +117,6 @@ func newCachesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -129,4 +125,3 @@ func newCachesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -67,7 +67,6 @@ func newClassicComputerExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicComputerExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer_extension_attribute and output as YAML
   jamfpro-cli classic-computer-ext-attrs get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicComputerExtAttrsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicComputerExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a computer_extension_attribute
   jamfpro-cli classic-computer-ext-attrs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-computer-ext-attrs update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-computer-ext-attrs delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

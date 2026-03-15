@@ -31,8 +31,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -62,18 +61,15 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -84,7 +80,7 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a advanced-mobile-device-searche and output as YAML
   jamfpro-cli advanced-mobile-device-searches get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -105,11 +101,9 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -169,7 +163,6 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -193,7 +186,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a advanced-mobile-device-searche, modify, and update
   jamfpro-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-mobile-device-searches update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -233,7 +226,6 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -245,7 +237,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -258,7 +250,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli advanced-mobile-device-searches delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -297,7 +289,6 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -315,9 +306,9 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -389,7 +380,6 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -401,4 +391,3 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 
 	return cmd
 }
-

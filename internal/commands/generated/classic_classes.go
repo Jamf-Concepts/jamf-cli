@@ -67,7 +67,6 @@ func newClassicClassesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicClassesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicClassesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a class and output as YAML
   jamfpro-cli classic-classes get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/classes/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicClassesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicClassesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicClassesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicClassesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicClassesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a class
   jamfpro-cli classic-classes get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-classes update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicClassesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicClassesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicClassesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-classes delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicClassesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -26,7 +26,6 @@ func NewClassicComputerInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerInvitationsCreateCmd(ctx))
 
-
 	cmd.AddCommand(newClassicComputerInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -65,7 +64,6 @@ func newClassicComputerInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -75,7 +73,7 @@ func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer_invitation and output as YAML
   jamfpro-cli classic-computer-invitations get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", args[0])
@@ -100,7 +98,6 @@ func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
 
 func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -134,8 +131,6 @@ func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
-
 func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -150,7 +145,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-computer-invitations delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -192,4 +187,3 @@ func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

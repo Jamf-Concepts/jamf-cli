@@ -36,8 +36,7 @@ func NewInventoryPreloadV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -67,18 +66,15 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -89,7 +85,7 @@ func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a inventory-preload-v-2 and output as YAML
   jamfpro-cli inventory-preload-v-2s get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -110,18 +106,15 @@ func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -160,11 +153,9 @@ func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -183,7 +174,7 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a inventory-preload-v-2, modify, and update
   jamfpro-cli inventory-preload-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli inventory-preload-v-2s update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -240,7 +231,6 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -252,7 +242,7 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -265,7 +255,7 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli inventory-preload-v-2s delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -304,7 +294,6 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -322,12 +311,12 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -396,7 +385,7 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -433,7 +422,6 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -490,7 +478,6 @@ func newInventoryPreloadV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -504,11 +491,11 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagScaffold bool
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
 	)
 
 	cmd := &cobra.Command{
@@ -579,7 +566,6 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -596,8 +582,7 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "csv-validate",
@@ -628,18 +613,16 @@ func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -690,7 +673,6 @@ func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -700,4 +682,3 @@ func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

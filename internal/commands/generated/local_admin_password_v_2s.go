@@ -28,8 +28,7 @@ func NewLocalAdminPasswordV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -59,18 +58,15 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -81,7 +77,7 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a local-admin-password-v-2 and output as YAML
   jamfpro-cli local-admin-password-v-2s get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -103,11 +99,9 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -161,7 +155,6 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -172,8 +165,7 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
@@ -181,7 +173,7 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
 		Example: `  # Get history for a local-admin-password-v-2
   jamfpro-cli local-admin-password-v-2s history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -203,12 +195,9 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

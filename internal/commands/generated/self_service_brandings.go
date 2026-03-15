@@ -32,11 +32,11 @@ func NewSelfServiceBrandingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -105,7 +105,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -143,7 +143,6 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -158,8 +157,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -170,7 +168,7 @@ func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a self-service-branding and output as YAML
   jamfpro-cli self-service-brandings get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -191,18 +189,15 @@ func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -241,11 +236,9 @@ func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -264,7 +257,7 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a self-service-branding, modify, and update
   jamfpro-cli self-service-brandings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-brandings update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -303,7 +296,6 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -315,7 +307,7 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -328,7 +320,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli self-service-brandings delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -367,7 +359,6 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -382,4 +373,3 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

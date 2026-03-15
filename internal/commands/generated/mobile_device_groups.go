@@ -32,8 +32,7 @@ func NewMobileDeviceGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -63,21 +62,19 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
+		flagSort     []string
+		flagFilter   string
 	)
 
 	cmd := &cobra.Command{
@@ -89,7 +86,7 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-group and output as YAML
   jamfpro-cli mobile-device-groups get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -123,7 +120,6 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -193,7 +189,6 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -218,7 +213,7 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-group, modify, and update
   jamfpro-cli mobile-device-groups get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-groups update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -255,7 +250,6 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -267,7 +261,7 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -280,7 +274,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli mobile-device-groups delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -318,7 +312,6 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -381,7 +374,6 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -393,8 +385,8 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
+		flagYes      bool
+		flagDryRun   bool
 		flagScaffold bool
 	)
 
@@ -457,7 +449,6 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -468,4 +459,3 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

@@ -29,8 +29,7 @@ func NewMobileDevicePrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -60,18 +59,15 @@ func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -82,7 +78,7 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-prestage-scope-v-2 and output as YAML
   jamfpro-cli mobile-device-prestage-scope-v-2s get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -103,11 +99,9 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -126,7 +120,7 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile-device-prestage-scope-v-2, modify, and update
   jamfpro-cli mobile-device-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-prestage-scope-v-2s update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -164,7 +158,6 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -176,9 +169,9 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -188,7 +181,7 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 		Long:  "Remove device scope for a specific mobile device prestage",
 		Example: `  # Delete multiple mobile-device-prestage-scope-v-2s by IDs
   jamfpro-cli mobile-device-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -256,7 +249,6 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -316,7 +308,6 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -325,4 +316,3 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

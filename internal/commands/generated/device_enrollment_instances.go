@@ -35,11 +35,11 @@ func NewDeviceEnrollmentInstancesCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -108,7 +108,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -146,7 +146,6 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -161,8 +160,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -173,7 +171,7 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a device-enrollment-instance and output as YAML
   jamfpro-cli device-enrollment-instances get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -194,11 +192,9 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -217,7 +213,7 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a device-enrollment-instance, modify, and update
   jamfpro-cli device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamfpro-cli device-enrollment-instances update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -253,7 +249,6 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -265,7 +260,7 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -278,7 +273,7 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli device-enrollment-instances delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -317,7 +312,6 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -335,12 +329,12 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -349,7 +343,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Gets sorted and paged device enrollment history objects",
 		Example: `  # Get history for a device-enrollment-instance
   jamfpro-cli device-enrollment-instances history 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -412,7 +406,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -449,7 +443,6 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -508,7 +501,6 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comma
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -559,7 +551,6 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -616,7 +607,6 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -625,4 +615,3 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

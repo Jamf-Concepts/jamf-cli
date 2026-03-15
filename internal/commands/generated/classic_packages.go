@@ -67,7 +67,6 @@ func newClassicPackagesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicPackagesGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a package and output as YAML
   jamfpro-cli classic-packages get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/packages/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicPackagesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a package
   jamfpro-cli classic-packages get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-packages update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-packages delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

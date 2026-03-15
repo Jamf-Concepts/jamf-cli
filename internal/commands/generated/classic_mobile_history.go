@@ -18,15 +18,10 @@ func NewClassicMobileHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage mobile device history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-
 	cmd.AddCommand(newClassicMobileHistoryGetCmd(ctx))
-
-
-
 
 	return cmd
 }
-
 
 func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -37,7 +32,7 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mobile_device_history and output as YAML
   jamfpro-cli classic-mobile-history get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", args[0])
@@ -62,7 +57,3 @@ func newClassicMobileHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
-
-
-
-

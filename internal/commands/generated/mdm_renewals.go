@@ -28,8 +28,7 @@ func NewMdmRenewalsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -40,7 +39,7 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a mdm-renewal and output as YAML
   jamfpro-cli mdm-renewals get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -61,18 +60,16 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
+		flagYes    bool
 		flagDryRun bool
 	)
 
@@ -85,7 +82,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli mdm-renewals delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -123,7 +120,6 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
@@ -186,7 +182,6 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -195,4 +190,3 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

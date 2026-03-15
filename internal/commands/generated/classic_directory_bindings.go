@@ -67,7 +67,6 @@ func newClassicDirectoryBindingsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicDirectoryBindingsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a directory_binding and output as YAML
   jamfpro-cli classic-directory-bindings get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/directorybindings/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicDirectoryBindingsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a directory_binding
   jamfpro-cli classic-directory-bindings get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-directory-bindings update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-directory-bindings delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

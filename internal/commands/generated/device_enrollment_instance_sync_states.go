@@ -23,8 +23,7 @@ func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -54,18 +53,15 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -76,7 +72,7 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 
   # Get a device-enrollment-instance-sync-state and output as YAML
   jamfpro-cli device-enrollment-instance-sync-states get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -97,12 +93,9 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

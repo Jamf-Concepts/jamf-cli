@@ -67,7 +67,6 @@ func newClassicDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
@@ -77,7 +76,7 @@ func newClassicDistributionPointsGetCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a distribution_point and output as YAML
   jamfpro-cli classic-distribution-points get 1 -o yaml`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", args[0])
@@ -132,7 +131,6 @@ func newClassicDistributionPointsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -165,7 +163,6 @@ func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
@@ -176,7 +173,7 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get, modify, and update a distribution_point
   jamfpro-cli classic-distribution-points get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-distribution-points update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -200,7 +197,6 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
-
 func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -215,7 +211,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamfpro-cli classic-distribution-points delete 1 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -257,4 +253,3 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-

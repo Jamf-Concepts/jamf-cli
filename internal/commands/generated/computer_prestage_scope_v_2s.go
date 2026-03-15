@@ -28,8 +28,7 @@ func NewComputerPrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -59,11 +58,9 @@ func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
 
 	return cmd
 }
@@ -82,7 +79,7 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
   # Get a computer-prestage-scope-v-2, modify, and update
   jamfpro-cli computer-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli computer-prestage-scope-v-2s update 1`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -120,7 +117,6 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -132,9 +128,9 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes bool
-		flagDryRun bool
-		flagIds []string
+		flagYes      bool
+		flagDryRun   bool
+		flagIds      []string
 		flagScaffold bool
 	)
 
@@ -144,7 +140,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 		Long:  "Remove device scope for a specific computer prestage",
 		Example: `  # Delete multiple computer-prestage-scope-v-2s by IDs
   jamfpro-cli computer-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -212,7 +208,6 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -226,8 +221,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 }
 
 func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var (
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
@@ -254,12 +248,9 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-
 	return cmd
 }
-

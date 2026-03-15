@@ -75,7 +75,6 @@ func newActivationCodesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -87,12 +86,12 @@ func newActivationCodesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage int
+		flagPage     int
 		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagAll  bool
-		flagLimit int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -161,7 +160,7 @@ func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage  `json:"results"`
+						Results    []json.RawMessage `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -198,7 +197,6 @@ func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 				return err
 			}
 			defer resp.Body.Close()
-
 
 			return ctx.Output.PrintResponse(resp)
 		},
@@ -255,7 +253,6 @@ func newActivationCodesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -269,11 +266,11 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage int
-		flagPageSize int
-		flagSort []string
-		flagFilter string
-		flagScaffold bool
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
 	)
 
 	cmd := &cobra.Command{
@@ -342,7 +339,6 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -399,7 +395,6 @@ func newActivationCodesPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -408,4 +403,3 @@ func newActivationCodesPatchCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
-
