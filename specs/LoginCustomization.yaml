@@ -1,0 +1,91 @@
+openapi: 3.0.1
+info:
+    title: Login customization settings
+    description: Settings related to optional initial login disclaimer.
+    version: 1.0.0
+paths:
+    /v1/login-customization:
+        get:
+            tags:
+                - login-customization
+            summary: Get current login disclaimer settings
+            description: Returns knob whether disclaimer is enabled and if saved, its contents.
+            responses:
+                200:
+                    description: Get Login Customization disclaimer settings.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: "#/components/schemas/LoginContent"
+            x-authentication-required: true
+        put:
+            tags:
+                - login-customization
+            summary: Update current login disclaimer settings.
+            description: Update current login disclaimer settings.
+            requestBody:
+                description: Login disclaimer settings to save.
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/LoginContentPut'
+                required: true
+            responses:
+                200:
+                    description: Update login customization disclaimer settings.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/LoginContentPut'
+            x-authentication-required: true
+            x-required-privileges:
+                - Update Login Disclaimer
+
+components:
+    schemas:
+        LoginContent:
+            type: object
+            required:
+                - includeCustomDisclaimer
+            properties:
+                rampInstance:
+                    type: boolean
+                    example: false
+                    nullable: false
+                includeCustomDisclaimer:
+                    type: boolean
+                    example: true
+                    nullable: false
+                disclaimerHeading:
+                    type: string
+                    example: "Disclaimer header"
+                    nullable: false
+                disclaimerMainText:
+                    type: string
+                    example: "Login disclaimer main text"
+                    nullable: false
+                actionText:
+                    type: string
+                    example: "Accept"
+                    nullable: false
+        LoginContentPut:
+            type: object
+            required:
+                - includeCustomDisclaimer
+            properties:
+                includeCustomDisclaimer:
+                    type: boolean
+                    example: true
+                    nullable: false
+                disclaimerHeading:
+                    type: string
+                    example: "Disclaimer header"
+                    nullable: false
+                disclaimerMainText:
+                    type: string
+                    example: "Login disclaimer main text"
+                    nullable: false
+                actionText:
+                    type: string
+                    example: "Accept"
+                    nullable: false

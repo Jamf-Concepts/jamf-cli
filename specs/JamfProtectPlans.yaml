@@ -1,0 +1,51 @@
+openapi: 3.0.1
+info:
+  title: Jamf Protect integration
+  description: Jamf Protect integration
+  version: 0.0.1
+paths:
+  /v1/jamf-protect/plans:
+    get:
+      tags:
+        - jamf-protect
+      summary: Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile
+      description: Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+      responses:
+        200:
+          description: Success.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PlanSearchResults'
+      x-required-privileges:
+        - Read Jamf Protect Deployments
+  /v1/jamf-protect/plans/sync:
+    post:
+      tags:
+        - jamf-protect
+      summary: Sync Plans with Jamf Protect
+      description: Sync Plans with Jamf Protect. Configuration profiles associated with new plans will be imported to Jamf Pro.
+      responses:
+        204:
+          description: Success.
+        404:
+          description: Protect API credentials have not been configured.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        400:
+          description: Cloud Services Connection has not been established.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Jamf Protect Settings
+      x-action: true
+

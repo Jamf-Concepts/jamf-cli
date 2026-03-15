@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: Jamf Pro API - Patch
+  version: 0.0.2
+paths:
+  /v2/patch-policies/{id}/logs:
+    get:
+      tags:
+        - patch-policy-logs
+      summary: |
+        Retrieve Patch Policy Logs
+      description: Retrieves Patch Policy Logs
+      x-required-privileges:
+        - Read Patch Policies
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                is deviceName:asc. Multiple sort criteria are supported and must be separated
+                with a comma.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ deviceName:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter Patch Policy Logs collection.
+                Default filter is empty query - returning all results for the requested page.
+                Fields allowed in the query: deviceId, deviceName, statusCode, statusDate, attemptNumber, ignoredForPatchPolicyId.
+                This param can be combined with paging and sorting.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/PatchPolicyLogs'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Patch Policy Log with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v2/patch-policies/{id}/logs/{deviceId}:
+    get:
+      tags:
+        - patch-policy-logs
+      summary: |
+        Retrieves a single Patch Policy Log
+      description: Retrieves a single Patch Policy Log
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+        - name: deviceId
+          in: path
+          description: device id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Patch Policy Log
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/PatchPolicyLogV2'
+        404:
+          description: Patch Policy Logs with those ids do not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Patch Policies
+  /v2/patch-policies/{id}/logs/{deviceId}/details:
+    get:
+      tags:
+        - patch-policy-logs
+      summary: Return attempt details for a specific log
+      description: Return attempt details for a specific log
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+        - name: deviceId
+          in: path
+          description: device id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Attempt details
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatchPolicyLogDetail'
+        404:
+          description: Patch Policy Logs with those ids do not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Patch Policies
+  /v2/patch-policies/{id}/logs/eligible-retry-count:
+    get:
+      tags:
+        - patch-policy-logs
+      summary: |
+        Return the count of the Patch Policy Logs for the patch policy id that are eligible for a retry attempt
+      description: return the count of the patch policy logs for the patch policy id that  are eligible for a retry attempt
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Number of patch policy logs found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchPolicyLogEligibleRetryCount'
+      x-required-privileges:
+        - Read Patch Policies
+  /v2/patch-policies/{id}/logs/retry:
+    post:
+      tags:
+        - patch-policy-logs
+      summary: Send retry attempts for specific devices
+      description: Send retry attempts for specific devices
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPolicyLogRetry'
+        required: true
+      responses:
+        204:
+          description: OK
+      x-required-privileges:
+        - Update Patch Policies
+      x-action: true
+  /v2/patch-policies/{id}/logs/retry-all:
+    post:
+      tags:
+        - patch-policy-logs
+      summary: Send retry attempts for all devices
+      description: Send retry attempts for all devices
+      parameters:
+        - name: id
+          in: path
+          description: patch policy id
+          required: true
+          schema:
+            type: string
+      responses:
+        202:
+          description: OK
+        204:
+          description: OK
+      x-required-privileges:
+        - Update Patch Policies
+      x-action: true
+components:
+  schemas:
+    PatchPolicyLogs:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatchPolicyLogV2'
+    PatchPolicyLogV2:
+      type: object
+      properties:
+        patchPolicyId:
+          type: string
+          example: '1'
+        deviceName:
+          type: string
+          example: 'Admins Macbook'
+        deviceId:
+          type: string
+          example: '1'
+        statusCode:
+          type: integer
+          example: 1
+        statusDate:
+          type: string
+          format: date-time
+          example: 2019-02-04T21:09:31.661Z
+        statusEnum:
+          type: string
+          enum: [UNKNOWN, PENDING, COMPLETED, FAILED]
+          example: "COMPLETED"
+        attemptNumber:
+          type: integer
+          example: 1
+        ignoredForPatchPolicyId:
+          type: string
+          example: '1'
+    PatchPolicyLogDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        attemptNumber:
+          type: integer
+          example: 1
+        deviceId:
+          type: string
+          example: '1'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatchPolicyLogDetailAction'
+    PatchPolicyLogDetailAction:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '1'
+        actionOrder:
+          type: integer
+          example: 1
+        action:
+          type: string
+          example: "Installing..."
+    PatchPolicyLogRetry:
+      type: object
+      properties:
+        deviceIds:
+          type: array
+          items:
+            type: string
+          example:
+            - '1'
+            - '3'
+    PatchPolicyLogEligibleRetryCount:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 5

@@ -1,0 +1,49 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Redeploy Jamf Management Framework
+  description: Jamf Pro API - Redeploy Jamf Management Framework
+  version: 0.0.1
+paths:
+  /v1/jamf-management-framework/redeploy/{id}:
+    post:
+      tags:
+        - jamf-management-framework
+      summary:  |
+        Redeploy Jamf Management Framework
+      description:  |
+        Redeploys the Jamf Management Framework for enrolled device
+      parameters:
+        - name: id
+          in: path
+          description: instance id of computer
+          required: true
+          schema:
+            type: string
+      responses:
+        202:
+          description: Command successfully queued to redeploy the Jamf Managment Framework
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/RedeployJamfManagementFrameworkResponse'
+        404:
+          description: Computer with given id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Send Computer Remote Command to Install Package
+        - Read Computer Check-In
+      x-action: true
+components:
+  schemas:
+    RedeployJamfManagementFrameworkResponse:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          example: 1
+        commandUuid:
+          type: string
+          example: 'f5965c4f-0db4-4dc4-9f37-6f1dad4e939c'

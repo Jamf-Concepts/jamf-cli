@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: Jamf Pro API - Patch
+  version: 0.0.2
+paths:
+  /v2/patch-management-accept-disclaimer:
+    post:
+      tags:
+        - patch-management
+      summary: |
+        Accept Patch Management disclaimer
+      description: Accept Patch Management disclaimer
+      responses:
+        202:
+          description: Accepted
+      x-required-privileges:
+        - Update Patch Management Software Titles
+      x-action: true

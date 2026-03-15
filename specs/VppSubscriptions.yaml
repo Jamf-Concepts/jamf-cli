@@ -1,0 +1,344 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Volume Purchasing Subscriptions
+  version: 0.0.1
+paths:
+  /v1/volume-purchasing-subscriptions:
+    get:
+      tags:
+        - volume-purchasing-subscriptions
+      summary: Retrieve Volume Purchasing Subscriptions
+      description: Retrieves Volume Purchasing Subscriptions
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+              is id:asc. Multiple sort criteria are supported and must be separated
+              with a comma. Allowable properties are id, name, and enabled.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingSubscriptions'
+    post:
+      tags:
+        - volume-purchasing-subscriptions
+      summary: Create a Volume Purchasing Subscription
+      description: Creates a Volume Purchasing Subscription
+      x-required-privileges:
+        - Create Volume Purchasing Locations
+      requestBody:
+        description: Volume Purchasing Subscription to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
+        required: true
+      responses:
+        201:
+          description: Volume Purchasing Subscription was created
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Bad Request
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Failed to create volume purchasing subscription
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/volume-purchasing-subscriptions/{id}:
+    get:
+      tags:
+        - volume-purchasing-subscriptions
+      summary: Retrieve a Volume Purchasing Subscription with the supplied id
+      description: Retrieves a Volume Purchasing Subscription with the supplied id
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Subscription identifier
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingSubscription'
+        404:
+          description: Volume Purchasing Subscription with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    put:
+      tags:
+        - volume-purchasing-subscriptions
+      summary: Update a Volume Purchasing Subscription
+      description: Updates a Volume Purchasing Subscription
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Subscription identifier
+          schema:
+            type: string
+      requestBody:
+        description: Volume Purchasing Subscription to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
+        required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingSubscription'
+        404:
+          description: Volume Purchasing Subscription with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Failed to update volume purchasing subscription
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    delete:
+      tags:
+        - volume-purchasing-subscriptions
+      summary: Delete a Volume Purchasing Subscription with the supplied id
+      description: Deletes a Volume Purchasing Subscription with the supplied id
+      x-required-privileges:
+        - Delete Volume Purchasing Locations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Volume Purchasing Subscription identifier
+          schema:
+            type: string
+      responses:
+        204:
+          description: Success
+        404:
+          description: VPP Subscription with that id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/volume-purchasing-subscriptions/{id}/history:
+      get:
+          tags:
+              - volume-purchasing-subscriptions
+          summary: |
+              Get specified Volume Purchasing Subscription history object
+          description: |
+              Gets specified Volume Purchasing Subscription history object
+          parameters:
+              - name: id
+                in: path
+                description: Volume Purchasing Subscription Id
+                required: true
+                schema:
+                    type: string
+              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+              - name: sort
+                in: query
+                description: 'Sorting criteria in the format: property:asc/desc. Default sort
+            is date:desc. Multiple sort criteria are supported and must be separated
+            with a comma. '
+                explode: true
+                schema:
+                    type: array
+                    items:
+                        type: string
+                    default: [ date:desc ]
+              - name: filter
+                in: query
+                description: 'Query in the RSQL format, allowing to filter history notes collection.
+            Default filter is empty query - returning all results for the requested page.
+            Fields allowed in the query: username, date, note, details.
+            This param can be combined with paging and sorting.
+            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+                schema:
+                    type: string
+                    default: ''
+          responses:
+              200:
+                  description: Details of Volume Purchasing Subscription history were found
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+              404:
+                  description: Specified Volume Purchasing Subscription object does not exist.
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+          x-required-privileges:
+              - Read Volume Purchasing Locations
+      post:
+          tags:
+              - volume-purchasing-subscriptions
+          summary: |
+              Add Volume Purchasing Subscription history object notes
+          description: Adds Volume Purchasing Subscription history object notes
+          parameters:
+              - name: id
+                in: path
+                required: true
+                description: Volume Purchasing Subscription Id
+                schema:
+                    type: string
+          requestBody:
+              description: History notes to create
+              content:
+                  'application/json':
+                      schema:
+                          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              required: true
+          responses:
+              201:
+                  description: Notes of Volume Purchasing Subscription history were added
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+              400:
+                  description: Invalid Request
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+              404:
+                  description: Volume Purchasing Subscription with that Id does not exist
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+              503:
+                  description: Volume Purchasing Subscription history can not be saved
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+          x-required-privileges:
+              - Update Volume Purchasing Locations
+components:
+  schemas:
+    VolumePurchasingSubscriptions:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumePurchasingSubscription'
+    VolumePurchasingSubscriptionBase:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Example
+          minLength: 1
+        enabled:
+          type: boolean
+          example: true
+          default: true
+        triggers:
+          type: array
+          items:
+            type: string
+            enum: [ 'NO_MORE_LICENSES', 'REMOVED_FROM_APP_STORE' ]
+            example: 'NO_MORE_LICENSES'
+        locationIds:
+          type: array
+          items:
+            type: string
+            pattern: ^\d+$
+            example: '1'
+        internalRecipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalRecipient'
+        externalRecipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalRecipient'
+        siteId:
+          type: string
+          example: '1'
+          default: '-1'
+    VolumePurchasingSubscription:
+      allOf:
+        - $ref: 'VolumePurchasingSubscriptionBase'
+        - type: object
+          properties:
+            id:
+              type: string
+              example: '1'
+              readOnly: true
+    ExternalRecipient:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+          example: 'Bob Exampleman'
+          minLength: 1
+        email:
+          type: string
+          example: 'bob@example.com'
+          minLength: 1
+    InternalRecipient:
+      type: object
+      required:
+        - accountId
+      properties:
+        accountId:
+          type: string
+          example: '1'
+          pattern: ^\d+$
+        frequency:
+          type: string
+          enum: [ 'DAILY' ]
+          example: 'DAILY'
+          default: 'DAILY'

@@ -1,0 +1,154 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Cloud Identity Provider
+  version: 0.0.1
+paths:
+  /v1/cloud-azure:
+    post:
+      tags:
+        - cloud-azure
+      summary: Create Azure Cloud Identity Provider configuration
+      description: Create new Azure Cloud Identity Provider configuration with unique display
+        name.
+      requestBody:
+        description: Azure Cloud Identity Provider configuration to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AzureConfigurationRequest'
+        required: true
+      responses:
+        201:
+          description: Azure Cloud Identity Provider configuration created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/HrefResponse'
+        400:
+          description: Azure Cloud Identity Provider configuration cannot be saved.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: This endpoint is not available for your environment.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Create LDAP Servers
+  /v1/cloud-azure/{id}:
+    get:
+      tags:
+        - cloud-azure
+      summary: Get Azure Cloud Identity Provider configuration with given ID.
+      description: Get Azure Cloud Identity Provider configuration with given ID.
+      parameters:
+        - name: id
+          in: path
+          description: Cloud Identity Provider identifier
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Cloud Identity Provider configuration returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AzureConfiguration'
+        400:
+          description: ID can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
+            specified Azure Cloud Identity Provider configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read LDAP Servers
+    put:
+      tags:
+        - cloud-azure
+      summary: Update Azure Cloud Identity Provider configuration
+      description: Update Azure Cloud Identity Provider configuration. Cannot be used for
+        partial updates, all content body must be sent.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+      requestBody:
+        description: Azure Cloud Identity Provider configuration to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AzureConfigurationUpdate'
+        required: true
+      responses:
+        200:
+          description: Cloud Identity Provider configuration updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AzureConfiguration'
+        400:
+          description: One or more parameters were invalid.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
+            Cloud Identity Provider configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        409:
+          description: The request URL configuration id value does not match the id value in the request body.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update LDAP Servers
+    delete:
+      tags:
+        - cloud-azure
+      summary: Delete Cloud Identity Provider configuration.
+      description: Delete Cloud Identity Provider configuration.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Cloud Identity Provider identifier
+          schema:
+            type: string
+      responses:
+        204:
+          description: Cloud Identity Provider configuration deleted.
+        400:
+          description: ID can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
+            Cloud Identity Provider configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+        - Delete LDAP Servers
+components: {}

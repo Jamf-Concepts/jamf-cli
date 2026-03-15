@@ -1,0 +1,56 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - SSO Failover
+  version: 0.0.1
+paths:
+  /v1/sso/failover:
+    get:
+      tags:
+      - sso-failover
+      summary: Retrieve the current failover settings
+      description: Retrieve the current failover settings
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SsoFailoverData'
+        400:
+          description: Failover url not generated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read SSO Settings
+  /v1/sso/failover/generate:
+    post:
+      tags:
+      - sso-failover
+      summary: Regenerates failover url
+      description: Regenerates failover url, by changing failover key to new one, and returns new failover settings
+      responses:
+        200:
+          description: The generation was successful and generated failover settings are returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SsoFailoverData'
+      x-required-privileges:
+      - Update SSO Settings
+      x-action: true
+components:
+  schemas:
+    SsoFailoverData:
+      type: object
+      properties:
+        failoverUrl:
+          type: string
+          example: https://jamf.jamfcloud.com/?failover=0123456789ABCDEF
+        generationTime:
+          type: integer
+          minimum: 0
+          format: int64
+          example: 1674133253000
+          description: Generation time of failover key

@@ -1,0 +1,131 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Account Preferences
+  version: 0.0.1
+paths:
+  /v2/account-preferences:
+      get:
+          tags:
+              - jamf-pro-account-preferences
+          summary: |
+              Get Jamf Pro account preferences
+          description: |
+              Get Jamf Pro account preferences
+          deprecated: true
+          x-deprecation-date: 2025-06-30
+          parameters:
+              - name: Accept-Language
+                in: header
+                description: Locale to be used.
+                required: false
+                schema:
+                    type: string
+          responses:
+              200:
+                  description: Successful response - Jamf Pro Account Preferences retrieved
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
+          x-authentication-required: true
+      patch:
+          tags:
+              - jamf-pro-account-preferences
+          summary: |
+              Update Jamf Pro account preferences
+          description: |
+              Update Jamf Pro account preferences
+          deprecated: true
+          x-deprecation-date: 2025-06-30
+          requestBody:
+              content:
+                  'application/json':
+                      schema:
+                          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
+          parameters:
+              - name: Accept-Language
+                in: header
+                description: Locale to be used, when user has not defined preferred language.
+                required: false
+                schema:
+                    type: string
+              - name: JSESSIONID
+                in: cookie
+                description: Session cookie, that's used to determine user session where account preferences should be refreshed
+                required: false
+                schema:
+                    type: string
+                    default: 'null'
+          responses:
+              200:
+                  description: Successful response - Jamf Pro Account Preferences updated
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
+              400:
+                  description: Jamf Pro account preferences not valid
+                  content:
+                      'application/json':
+                          schema:
+                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+          x-authentication-required: true
+  /v3/account-preferences:
+    get:
+      tags:
+        - jamf-pro-account-preferences
+      summary: |
+        Get Jamf Pro account preferences
+      description: |
+        Get Jamf Pro account preferences
+      parameters:
+        - name: Accept-Language
+          in: header
+          description: Locale to be used.
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response - Jamf Pro Account Preferences retrieved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV6'
+      x-authentication-required: true
+    patch:
+      tags:
+        - jamf-pro-account-preferences
+      summary: |
+        Update Jamf Pro account preferences
+      description: |
+        Update Jamf Pro account preferences
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV6'
+      parameters:
+        - name: Accept-Language
+          in: header
+          description: Locale to be used, when user has not defined preferred language.
+          required: false
+          schema:
+            type: string
+        - name: JSESSIONID
+          in: cookie
+          description: Session cookie, that's used to determine user session where account preferences should be refreshed
+          required: false
+          schema:
+            type: string
+            default: 'null'
+      responses:
+        204:
+          description: Successful response - Jamf Pro Account Preferences updated
+        400:
+          description: Jamf Pro account preferences not valid
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-authentication-required: true

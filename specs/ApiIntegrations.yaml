@@ -1,0 +1,392 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - API Integrations
+  version: 0.0.1
+paths:
+  /v1/api-integrations:
+    post:
+      tags:
+          - api-integrations
+      summary: Create API integration object
+      operationId: postCreateApiIntegration
+      description: Create API integration object
+      requestBody:
+        description: api integration object to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ApiIntegrationRequest'
+        required: true
+      responses:
+        201:
+          description: Api Integration object was created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+      x-required-privileges:
+          - Create API Integrations
+    get:
+        tags:
+            - api-integrations
+        description: Get Jamf|Pro API Integrations with Search Criteria
+        summary: Get the current API Integrations
+        parameters:
+            -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+            -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+            -   name: sort
+                in: query
+                description: 'Sorting criteria in the format: property:asc/desc. Default sort
+                      is id:asc. Multiple sort criteria are supported and must be separated with
+                      a comma. Fields allowed in the query: id, displayName. Example: sort=displayName:desc'
+                explode: true
+                schema:
+                    type: array
+                    items:
+                        type: string
+                    default: [ id:asc ]
+            -   name: filter
+                in: query
+                description: 'Query in the RSQL format, allowing to filter app titles collection.
+                        Default filter is empty query - returning all results for the requested page.
+                        Fields allowed in the query: id, displayName.
+                        Example: displayName=="*IntegrationName*"'
+                schema:
+                    type: string
+                    default: ''
+        responses:
+            200:
+                description: A list of the current Jamf API Integrations
+                content:
+                    'application/json':
+                        schema:
+                            $ref: '#/components/schemas/ApiIntegrationSearchResult'
+        x-required-privileges:
+            - Read API Integrations
+  /v1/api-integrations/{id}:
+    get:
+      tags:
+          - api-integrations
+      summary: Get specified API integration object
+      operationId: getOneApiIntegration
+      description: Gets specified API integration object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of api integration object
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Details of api integration object were found.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+        404:
+          description: Specified api integration object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read API Integrations
+    put:
+      tags:
+          - api-integrations
+      summary: Update specified API integration object
+      operationId: putUpdateApiIntegration
+      description: Update specified API integration object
+      parameters:
+      - name: id
+        in: path
+        description: instance id of api integration object
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: api object to update
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ApiIntegrationRequest'
+        required: true
+      responses:
+        200:
+          description: Api Integration updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+        400:
+          description: Api Integration could not be updated.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified api integration object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+      - Update API Integrations
+    delete:
+      tags:
+          - api-integrations
+      summary: Remove specified API integration
+      operationId: deleteApiIntegration
+      description: Removes specified API integration
+      parameters:
+      - name: id
+        in: path
+        description: instance id of api integration object
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Api Integration was deleted
+        404:
+          description: Specified api integration object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+      - Delete API Integrations
+  /v1/api-integrations/{id}/client-credentials:
+    post:
+      tags:
+          - api-integrations
+      summary: Create client credentials for specified API integration
+      operationId: postCreateClientCredentials
+      description: Create client credentials for specified API integration
+      parameters:
+      - name: id
+        in: path
+        description: instance id of api integration object
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Client credentials have been created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/OAuthClientCredentials'
+        400:
+          description: Client credentials could not be created for this api integration
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified api integration object does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+          - Create API Integrations
+      x-action: true
+  /v1/oauth/token:
+    post:
+      x-action: true
+      x-authentication-required: false
+      tags:
+        - api-authentication
+      summary: Obtain an access token using an API Client
+      operationId: postOAuthToken
+      description: Obtain an access token using the OAuth2 client credentials flow
+      requestBody:
+        description: Client credential token request
+        required: true
+        content:
+          'application/x-www-form-urlencoded':
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequest'
+      responses:
+        200:
+          description: OAuth2 token obtained successfully
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        400:
+          description: |
+            Bad request. These differ from standard Jamf Pro API error response for better compatability
+            with a wide variety of standard clients. See https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
+            for additional details.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/OAuthTokenEndpointErrorResponse'
+components:
+  schemas:
+    ApiIntegrationResponse:
+      required:
+        - id
+        - displayName
+        - authorizationScopes
+        - enabled
+        - appType
+        - clientId
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        authorizationScopes:
+          type: array
+          example:
+            - Tootsie Roal
+            - Jamf Reset
+          items:
+              type: string
+        displayName:
+          type: string
+          example: My API Integration
+        enabled:
+          type: boolean
+          example: true
+        accessTokenLifetimeSeconds:
+          type: integer
+          example: 300
+        appType:
+            type: string
+            enum: [ "CLIENT_CREDENTIALS", "NATIVE_APP_OAUTH", "NONE" ]
+            example: "CLIENT_CREDENTIALS"
+            readOnly: true
+            description: >
+                Type of API Client:
+                    * `CLIENT_CREDENTIALS` - A client ID and secret have been generated for this integration.
+                    * `NATIVE_APP_OAUTH` - A native app (i.e., Jamf Reset) has been linked to this integration for auth code grant type via Managed App Config.
+                    * `NONE` - No client is currently associated with this integration.
+        clientId:
+            type: string
+            example: "538878d4-9744-43ed-8732-3df99d502bd6"
+            readOnly: true
+    ApiIntegrationRequest:
+      required:
+        - displayName
+        - authorizationScopes
+      type: object
+      properties:
+        authorizationScopes:
+          type: array
+          items:
+              type: string
+          example:
+            - Tootsie Roal
+            - Jamf Reset
+          description: >
+              API Role display names.
+        displayName:
+          type: string
+          example: My API Integration
+        enabled:
+          type: boolean
+          example: true
+        accessTokenLifetimeSeconds:
+          type: integer
+          example: 300
+    OAuthClientCredentials:
+      required:
+        - clientId
+        - clientSecret
+      type: object
+      properties:
+        clientId:
+          type: string
+          example: admin
+        clientSecret:
+          type: string
+          example: 12345
+    ApiIntegrationSearchResult:
+        required:
+            - totalCount
+            - results
+        type: object
+        properties:
+            totalCount:
+                readOnly: true
+                type: integer
+                minimum: 0
+                example: 1
+            results:
+                type: array
+                minItems: 0
+                items:
+                    $ref: '#/components/schemas/ApiIntegrationResponse'
+    OAuthTokenRequest:
+      type: object
+      properties:
+        grant_type:
+          type: string
+          description: OAuth2 grant type. For Jamf Pro API Clients, use `client_credentials`
+          example: client_credentials
+        client_id:
+          type: string
+          description: Client ID from your API Client
+          example: 1979ca82-1337-c0de-1012-82a008a3bf70
+        client_secret:
+          type: string
+          format: password
+          writeOnly: true
+          description: Client secret from your API Client
+          example: -j1o7Ery2fQG9IrBsUoTjN-AdcgFvj9zgXpSN_JdNjR6jYzTrU-K1ngshmzo3RuG
+        scope:
+          type: string
+          description: |
+            Optional. Provide a space-delimited list of roles that are within the configuration for 
+            this API Client. Omitting this field will grant an access token that includes all of this client's 
+            allowed roles. Specifying a subset of them will limit the privileges for this access token to
+            that subset of roles. Specifying a role that is not assigned to this client will result in 
+            an `invalid_scope` error. The format matches what is returned from the OAuth token
+            endpoint response's `scope` field.
+          example: api-role:1 api-role:2
+      required:
+        - grant_type
+        - client_id
+        - client_secret
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.RXJpayBTYXRpZSBzYWlkIHlvdSBoYWQgdG8gcGxhbiBWZXhhdGlvbnMgODQwIHRpbWVzIGluIGEgcm93Li4uZG8geW91IHRoaW5rIGhlIHJlYWxseSBtZWFudCBpdD8.bGlF3raOEwNgcbV52yVJClNixVlwrJy2RECVFrH_GQg
+        token_type:
+          type: string
+          example: Bearer
+        scope:
+          type: string
+          description: Space-delimited list of API Roles, formatted and identified by ID like `api-role:{apiRoleId}`.
+          example: "api-role:1 api-role:2"
+        expires_in:
+          type: integer
+          description: Seconds until this access token is expired. This will reflect the `accessTokenLifetimeSeconds` value configured on your API Client.
+          example: 60
+      required:
+        - access_token
+        - token_type
+        - scope
+        - expires_in
+    OAuthTokenEndpointErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: invalid_client
+        error_description:
+          type: string
+          example: "OAuth 2.0 Parameter: grant_type"
+        error_uri:
+          type: string
+          example: "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2"
+      required:
+        - error
+

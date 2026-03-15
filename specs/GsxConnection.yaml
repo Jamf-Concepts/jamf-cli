@@ -1,0 +1,298 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - GSX Connection HIDDEN
+    version: 0.0.1
+paths:
+    /v1/gsx-connection:
+        get:
+            tags:
+                - gsx-connection
+            summary: |
+                Finds the Jamf Pro GSX Connection information
+            description: |
+                Finds the Jamf Pro GSX Connection information
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/GsxConnection'
+            x-required-privileges:
+                - Read GSX Connection
+                - Read Push Certificates
+        put:
+            tags:
+                - gsx-connection
+            summary: |
+                Updates Jamf Pro GSX Connection information
+            description: |
+                Updates Jamf Pro GSX Connection information
+            requestBody:
+                description: GSX Connection to update
+                content:
+                    'application/merge-patch+json':
+                        schema:
+                            $ref: '#/components/schemas/GsxConnection'
+                required: true
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/GsxConnection'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                422:
+                    description: There was an error applying the put
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update GSX Connection
+                - Update Push Certificates
+        patch:
+            tags:
+                - gsx-connection
+            summary: |
+                Updates Jamf Pro GSX Connection information
+            description: |
+                Updates Jamf Pro GSX Connection information
+            requestBody:
+                description: GSX Connection to update
+                content:
+                    'application/merge-patch+json':
+                        schema:
+                            $ref: '#/components/schemas/GsxConnectionUpdate'
+                required: true
+            responses:
+                200:
+                    description: Success
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/GsxConnection'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                422:
+                    description: There was an error applying the put
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update GSX Connection
+                - Update Push Certificates
+    /v1/gsx-connection/test:
+        post:
+            tags:
+                - gsx-connection
+            summary:
+                Test functionality of an GSX Connection
+            description:
+                Test functionality of an GSX Connection
+            responses:
+                202:
+                    description: Success
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: '#/components/schemas/GsxTestResponse'
+            x-required-privileges:
+                - Read GSX Connection
+            x-action: true
+    /v1/gsx-connection/history:
+        get:
+            tags:
+                - gsx-connection
+            summary: |
+                Get specified GSX Connection History object
+            description: |
+                Gets specified GSX Connection history object
+            parameters:
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+                -   name: sort
+                    in: query
+                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
+            is date:desc. Multiple sort criteria are supported and must be separated
+            with a comma. Example: sort=date:desc,name:asc '
+                    explode: true
+                    schema:
+                        type: array
+                        items:
+                            type: string
+                        default: [ date:desc ]
+                -   name: filter
+                    in: query
+                    description: 'Query in the RSQL format, allowing to filter history notes collection.
+            Default filter is empty query - returning all results for the requested page.
+            Fields allowed in the query: username, date, note, details.
+            This param can be combined with paging and sorting.
+            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+                    schema:
+                        type: string
+                        default: ''
+            responses:
+                200:
+                    description: Details of GSX Connection history were found
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResultsV1'
+                404:
+                    description: Specified GSX Connection object does not exist.
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Read GSX Connection
+        post:
+            tags:
+                - gsx-connection
+            summary: |
+                Add specified GSX Connection history object notes
+            description: |
+                Adds specified GSX Connection history object notes
+            requestBody:
+                description: history notes to create
+                content:
+                    'application/json':
+                        schema:
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+                required: true
+            responses:
+                201:
+                    description: Notes of GSX Connection history were added
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                503:
+                    description: GSX Connection history can not be saved
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+            x-required-privileges:
+                - Update GSX Connection
+components:
+    schemas:
+        GsxTestResponse:
+            required:
+                - message
+                - request
+                - response
+            type: object
+            properties:
+                message:
+                    type: string
+                    example: "Unable to authenticate to GSX server"
+                request:
+                    type: string
+                    example: "[Accept: application/json, Content-Type: application/json, X-Apple-SoldTo: 0000012345, X-Apple-ShipTo: 0000012345] GET https://api-partner-connect.apple.com/api/authenticate/check HTTP/1.1"
+                response:
+                    type: string
+                    example: "OK"
+        GsxConnection:
+            required:
+                - enabled
+                - username
+                - serviceAccountNo
+                - token
+                - gsxKeystore
+            type: object
+            properties:
+                enabled:
+                    type: boolean
+                    example: true
+                    default: false
+                username:
+                    type: string
+                    example: "exampleEmail@example.com"
+                    default: ' '
+                serviceAccountNo:
+                    type: string
+                    maxLength: 10
+                    example: "0000012345"
+                shipToNo:
+                    type: string
+                    maxLength: 10
+                    example: "0000012345"
+                token:
+                    type: string
+                    example: "34dsg23-5dsgs-3sdg-4ffs-435sdgs"
+                    writeOnly: true
+                gsxKeystore:
+                    $ref: '#/components/schemas/GsxKeystore'
+        GsxConnectionUpdate:
+            type: object
+            properties:
+                enabled:
+                    type: boolean
+                    example: true
+                    default: false
+                username:
+                    type: string
+                    example: "exampleEmail@example.com"
+                    default: ' '
+                serviceAccountNo:
+                    type: string
+                    maxLength: 10
+                    example: "0000012345"
+                shipToNo:
+                    type: string
+                    maxLength: 10
+                    example: "0000012345"
+                token:
+                    type: string
+                    example: "34dsg23-5dsgs-3sdg-4ffs-435sdgs"
+                    writeOnly: true
+                gsxKeystore:
+                    $ref: '#/components/schemas/GsxKeystore'
+        GsxKeystore:
+            required:
+                - name
+                - keystore
+                - keystorePassword
+            type: object
+            properties:
+                name:
+                    type: string
+                    example: "certificate.p12"
+                    default: ' '
+                expirationEpoch:
+                    type: integer
+                    format: int64
+                    example: "169195490000"
+                    readOnly: true
+                    default: ' '
+                errorMessage:
+                    type: string
+                    example: "Certificate error"
+                    readOnly: true
+                keystoreBytes:
+                    type: string
+                    format: byte
+                    pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+                    description: The base 64 encoded of the GSX Connection keystore.
+                    example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
+                    writeOnly: true
+                keystorePassword:
+                    type: string
+                    format: password
+                    example: "test1234"
+                    writeOnly: true

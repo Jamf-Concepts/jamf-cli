@@ -1,0 +1,40 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - OnPrem LDAP
+  version: 0.0.1
+paths:
+  /v1/classic-ldap/{id}:
+    get:
+      tags:
+      - classic-ldap
+      summary: Get mappings for OnPrem Ldap configuration with given id.
+      description: Get mappings for OnPrem Ldap configuration with given id.
+      parameters:
+      - name: id
+        in: path
+        description: OnPrem Ldap identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OnPrem Ldap mappings returned.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ClassicLdapMappings'
+        400:
+          description: Id can only be a number.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        404:
+          description: Specified OnPrem Ldap configuration does not exist.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      x-required-privileges:
+      - Read LDAP Servers
+components: {}

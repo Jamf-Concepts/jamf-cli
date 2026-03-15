@@ -1,0 +1,194 @@
+openapi: 3.0.1
+info:
+  title: Jamf Protect integration
+  description: Jamf Protect integration
+  version: 0.0.1
+paths:
+  /v1/jamf-protect:
+    get:
+      tags:
+        - jamf-protect
+      summary: Jamf Protect integration settings
+      description: Jamf Protect integration settings
+      responses:
+        200:
+          description: Success.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ProtectSettingsResponse'
+        403:
+          description: Cloud Services Connection has not been established.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Protect Integration has not been configured.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        500:
+          description: Jamf Pro is not able to establish contact with the Protect API via the SOUP CSA client.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Jamf Protect Settings
+        - Read Jamf Protect Deployments
+    put:
+      tags:
+        - jamf-protect
+      summary: Jamf Protect integration settings
+      description: Jamf Protect integration settings
+      responses:
+        200:
+          description: Success.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ProtectSettingsResponse'
+      requestBody:
+        description: Updatable Jamf Protect Settings
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ProtectUpdatableSettingsRequest'
+        required: true
+      x-required-privileges:
+        - Update Jamf Protect Settings
+    delete:
+      tags:
+        - jamf-protect
+      summary: Delete Jamf Protect API registration.
+      description: Deletes an existing Jamf Protect API registration if present. Jamf Protect API integration will be disabled.
+      responses:
+        204:
+          description: Success, No Content
+        500:
+          description: Error Deleting registration
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        400:
+          description: Cloud Services Connection has not been established.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Jamf Protect Settings
+  /v1/jamf-protect/register:
+    post:
+      tags:
+        - jamf-protect
+      summary: Register a Jamf Protect API configuration with Jamf Pro
+      description: Register a Jamf Protect API configuration with Jamf Pro
+      x-required-privileges:
+        - Update Jamf Protect Settings
+      requestBody:
+        description: Jamf Protect API connection information
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ProtectRegistrationRequest'
+        required: true
+      responses:
+        201:
+          description: Successful registration.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ProtectSettingsResponse'
+        400:
+          description: Cloud Services Connection has not been established.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+  /v1/jamf-protect/history:
+    get:
+      tags:
+        - jamf-protect
+      summary: |
+        Get Jamf Protect history
+      description: |
+        Get Jamf Protect history
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+      responses:
+        200:
+          description: Details of Jamf Protect history were found
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+      x-required-privileges:
+        - Read Jamf Protect Settings
+    post:
+      tags:
+        - jamf-protect
+      summary: |
+        Add Jamf Protect history notes
+      description: |
+        Add Jamf Protect history notes
+      requestBody:
+        description: history notes to create
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Notes to Jamf Protect history were added
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        503:
+          description: Jamf Protect history can not be saved
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Jamf Protect Settings
+
+
+
+components:
+  schemas:
+    ProtectRegistrationRequest:
+      required:
+        - protectUrl
+        - clientId
+        - password
+      type: object
+      description: Create an API Client in the Jamf Protect web console to obtain these values.
+      properties:
+        protectUrl:
+          type: string
+          example: https://examplejamfprotect.jamfcloud.com/graphql
+        clientId:
+          type: string
+          example: uzPJXlArmzTAmPRQtZEnQ2OFtNw8qQV
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          example: 7fyP6BphUUQ5B_zoLrkYhM5j1HTcf-4PxshettZbK0ZcnzV57gyHwF23U3F96F
+    ProtectUpdatableSettingsRequest:
+      type: object
+      properties:
+        autoInstall:
+          type: boolean
+          example: true
+          description: determines whether the Jamf Protect agent will be automatically installed on client computers
+          nullable: false

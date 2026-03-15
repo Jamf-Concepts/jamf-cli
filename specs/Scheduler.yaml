@@ -1,0 +1,127 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Scheduler
+  version: 1.0.0
+paths:
+  /v1/scheduler/summary:
+    get:
+      tags:
+        - scheduler
+      summary: Retrieve a summary of the Jamf Pro Scheduler
+      description: Retrieves a summary of the Jamf Pro Scheduler
+      x-authentication-required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SchedulerSummary'
+  /v1/scheduler/jobs:
+    get:
+      tags:
+        - scheduler
+      summary: Retrieve all Jamf Pro Scheduler jobs
+      description: Retrieves the names of all Jamf Pro Scheduler jobs
+      x-authentication-required: true
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SchedulerJobs'
+  /v1/scheduler/jobs/{jobKey}/triggers:
+    get:
+      tags:
+        - scheduler
+      summary: Retrieve all triggers for a Jamf Pro Scheduler job
+      description: Retrieves all triggers for a Jamf Pro Scheduler job
+      x-authentication-required: true
+      parameters:
+        - name: jobKey
+          in: path
+          required: true
+          description: Jamf Pro Scheduler Job Key
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+          Default sort is nextFireTime:asc. If using multiple criteria, separate with commas.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ nextFireTime:asc ]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter the Jamf Pro Scheduler triggers collection.
+                      Default filter is empty query - returning all results for the requested page.
+                      Fields allowed in the query: triggerKey, previousFireTime, nextFireTime.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Success
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/SchedulerJob'
+components:
+  schemas:
+    SchedulerSummary:
+      type: object
+      readOnly: true
+      properties:
+        numberOfPendingJobs:
+          type: integer
+          example: 1
+        numberOfExecutingJobs:
+          type: integer
+          example: 1
+        numberOfExecutedJobs:
+          type: integer
+          example: 1
+        started:
+          type: boolean
+          example: true
+    SchedulerJobs:
+      type: object
+      readOnly: true
+      properties:
+        jobKeys:
+          type: array
+          items:
+            type: string
+            example: EXAMPLE_JOB
+    SchedulerJob:
+      type: object
+      readOnly: true
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchedulerTrigger'
+    SchedulerTrigger:
+      type: object
+      readOnly: true
+      properties:
+        triggerKey:
+          type: string
+          example: EXAMPLE_TRIGGER
+        previousFireTime:
+          type: string
+          format: date-time
+          example: 2023-08-21T21:20:34.350Z
+        nextFireTime:
+          type: string
+          format: date-time
+          example: 2023-08-21T21:30:34.350Z

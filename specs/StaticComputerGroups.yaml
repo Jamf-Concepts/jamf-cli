@@ -1,0 +1,275 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - computer-groups
+  version: 0.0.1
+paths:
+  /v2/computer-groups/static-groups:
+    get:
+      tags:
+        - computer-groups
+      summary: |
+        Search for Static Computer Groups
+      description: |
+        Search for Static Computer Groups
+      parameters:
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorting criteria in the format: property:asc/desc. Default sort
+        is id:asc. Multiple sort criteria are supported and must be separated with
+        a comma. Example: sort=name:asc'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [id:asc]
+        - name: filter
+          in: query
+          description: 'Query in the RSQL format, allowing to filter static computer group collection.
+            Default filter is empty query - returning all results for the requested page.
+            Fields allowed in the query: id, name, siteId.
+            The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. 
+            Example: name=="*group*"'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/StaticComputerGroupSearchResults'
+      x-required-privileges:
+        - Read Static Computer Groups
+    post:
+      tags:
+        - computer-groups
+      description: |
+        Create membership of a static computer group.
+      summary: |
+        Create membership of a static computer group.
+      parameters:
+        - name: platform
+          in: query
+          description: 'Optional. Return platform identifiers instead of internal identifiers when set to true.'
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/StaticComputerGroupAssignment'
+        required: true
+      responses:
+        201:
+          description: Static computer group created successfully
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Could not save static computer group.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        422:
+          description: Duplicated name in static computer group.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Create Static Computer Groups
+  /v2/computer-groups/static-groups/{id}:
+    get:
+      tags:
+        - computer-groups
+      summary: |
+        Get Static Computer Group by Id
+      description: |
+        Get Static Computer Group by Id
+      parameters:
+        - name: id
+          in: path
+          description: instance id of static computer group
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/StaticComputerGroup'
+        404:
+          description: Static Computer Group with the specified id does not exist
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Static Computer Groups
+    put:
+      tags:
+        - computer-groups
+      description: |
+        Update membership of a static computer group.
+      summary: |
+        Update membership of a static computer group.
+      parameters:
+        - name: id
+          in: path
+          description: instance id of a static computer group
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/StaticComputerGroupAssignment'
+        required: true
+      responses:
+        202:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/StaticComputerGroupAssignment'
+        404:
+          description: No static computer group found with the given id.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        422:
+          description: Duplicated name in static computer group.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Static Computer Groups
+    delete:
+      tags:
+        - computer-groups
+      summary: |
+        Remove Static Computer Group by Id
+      description: |
+        Remove Static Computer Group by Id
+      parameters:
+        - name: id
+          in: path
+          description: instance id of static computer group
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Static Computer Group successfully removed
+        404:
+          description: Unable to delete static computer group with given id.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Delete Static Computer Groups
+components:
+  schemas:
+    StaticComputerGroupSearchResults:
+      type: object
+      required:
+        - totalCount
+        - results
+      properties:
+        totalCount:
+          type: integer
+          example: 2
+          minimum: 0
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaticComputerGroupSummary'
+    StaticComputerGroupSummary:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: "1"
+          minLength: 1
+        name:
+          type: string
+          example: "Test Static Computer Group"
+          minLength: 1
+        description:
+          type: string
+          example: "A test static computer group"
+          nullable: true
+        siteId:
+          type: string
+          example: "1"
+          nullable: true
+        count:
+          type: integer
+          example: 5
+          minimum: 0
+    StaticComputerGroup:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: "1"
+          minLength: 1
+        name:
+          type: string
+          example: "Test Static Computer Group"
+          minLength: 1
+        description:
+          type: string
+          example: "A test static computer group"
+          nullable: true
+        siteId:
+          type: string
+          example: "1"
+          nullable: true
+    StaticComputerGroupAssignment:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          example: "1"
+          readOnly: true
+        name:
+          type: string
+          example: "Test Static Computer Group"
+          minLength: 1
+        description:
+          type: string
+          example: "A test static computer group"
+          nullable: true
+        siteId:
+          type: string
+          example: "1"
+          nullable: true
+        assignments:
+          type: array
+          items:
+            type: string
+            example: "1"
+            minLength: 1
+          description: Array of computer IDs to assign to the static group
