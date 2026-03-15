@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
   # List ebooks and extract IDs
   jamfpro-cli ebooks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/ebooks"
@@ -59,7 +59,7 @@ func newEbooksListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(queryParts) > 0 {
@@ -165,11 +165,11 @@ func newEbooksGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli ebooks get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/ebooks/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

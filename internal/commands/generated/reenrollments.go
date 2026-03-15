@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -42,7 +42,7 @@ func newReenrollmentsListCmd(ctx *CLIContext) *cobra.Command {
   # List reenrollments and extract IDs
   jamfpro-cli reenrollments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/reenrollment"
@@ -82,7 +82,7 @@ func newReenrollmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a reenrollment, modify, and update
   jamfpro-cli reenrollments get 1 -o json | jq '.name = "New Name"' | jamfpro-cli reenrollments update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -145,7 +145,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a reenrollment
   jamfpro-cli reenrollments history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/reenrollment/history"
@@ -165,7 +165,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -268,7 +268,7 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add specified Re-enrollment history object notes",
 		Long:  "Adds specified Re-enrollment history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -324,7 +324,7 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Export reenrollment history collection",
 		Long:  "Export reenrollment history collection",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -346,12 +346,12 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -362,11 +362,11 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

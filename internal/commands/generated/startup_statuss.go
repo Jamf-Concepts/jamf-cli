@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -34,7 +33,7 @@ func newStartupStatussListCmd(ctx *CLIContext) *cobra.Command {
   # List startup-statuss and extract IDs
   jamfpro-cli startup-statuss list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/startup-status"

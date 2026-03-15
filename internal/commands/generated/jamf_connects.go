@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newJamfConnectsListCmd(ctx *CLIContext) *cobra.Command {
   # List jamf-connects and extract IDs
   jamfpro-cli jamf-connects list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-connect"
@@ -82,7 +82,7 @@ func newJamfConnectsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli jamf-connects get 1 -o json | jq '.name = "New Name"' | jamfpro-cli jamf-connects update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -94,7 +94,7 @@ func newJamfConnectsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/jamf-connect/config-profiles/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -141,7 +141,7 @@ func newJamfConnectsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a jamf-connect
   jamfpro-cli jamf-connects history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-connect/history"
@@ -156,11 +156,11 @@ func newJamfConnectsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -262,7 +262,7 @@ func newJamfConnectsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Jamf Connect history notes",
 		Long:  "Add Jamf Connect history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

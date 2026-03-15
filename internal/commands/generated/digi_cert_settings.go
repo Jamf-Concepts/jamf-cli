@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -43,11 +43,11 @@ func newDigiCertSettingsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli digi-cert-settings get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -87,7 +87,7 @@ func newDigiCertSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a digi-cert-setting, modify it, and create a copy
   jamfpro-cli digi-cert-settings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli digi-cert-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -147,7 +147,7 @@ func newDigiCertSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli digi-cert-settings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -169,7 +169,7 @@ func newDigiCertSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -209,7 +209,7 @@ func newDigiCertSettingsValidateClientCertificateCmd(ctx *CLIContext) *cobra.Com
 		Short: "Validate DigiCert Trust Lifecycle Manager client certificate",
 		Long:  "Validate DigiCert Trust Lifecycle Manager client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.p12 | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -260,11 +260,11 @@ func newDigiCertSettingsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

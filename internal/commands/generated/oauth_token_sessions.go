@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -34,7 +33,7 @@ func newOauthTokenSessionsListCmd(ctx *CLIContext) *cobra.Command {
   # List oauth-token-sessions and extract IDs
   jamfpro-cli oauth-token-sessions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/oauth2/session-tokens"

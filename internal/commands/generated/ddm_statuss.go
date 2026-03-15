@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,11 +35,11 @@ func newDdmStatussGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli ddm-statuss get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/ddm/{clientManagementId}/status-items"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

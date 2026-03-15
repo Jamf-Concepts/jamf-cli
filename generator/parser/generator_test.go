@@ -242,7 +242,9 @@ func TestNeedsFmt(t *testing.T) {
 	}{
 		{"destructive", []*Operation{{IsDestructive: true}}, true},
 		{"has delete", []*Operation{{Method: "DELETE"}}, true},
-		{"has query param (non-bool)", []*Operation{{Parameters: []*Parameter{{In: "query", Type: "string"}}}}, true},
+		{"has integer query param", []*Operation{{Parameters: []*Parameter{{In: "query", Type: "integer"}}}}, true},
+		{"has array query param", []*Operation{{Parameters: []*Parameter{{In: "query", Type: "string", IsArray: true}}}}, true},
+		{"string query param (uses url pkg, not fmt)", []*Operation{{Parameters: []*Parameter{{In: "query", Type: "string"}}}}, false},
 		{"only bool query param", []*Operation{{Parameters: []*Parameter{{In: "query", Type: "boolean"}}}}, false},
 		{"no special needs", []*Operation{{Method: "GET"}}, false},
 	}

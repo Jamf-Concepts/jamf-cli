@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -39,7 +38,7 @@ func newOidcsListCmd(ctx *CLIContext) *cobra.Command {
   # List oidcs and extract IDs
   jamfpro-cli oidcs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/oidc/direct-idp-login-url"
@@ -74,7 +73,7 @@ func newOidcsDispatchCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Provide the url to redirect for OIDC login",
 		Long:  "Provide the url to redirect for OIDC login based on email",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -123,7 +122,7 @@ func newOidcsGenerateCertificateCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Generate a new keystore used for signing OIDC messages",
 		Long:  "Generates a new certificate used for signing OIDC messages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/oidc/generate-certificate"

@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *CLIContext) 
   # List account-driven-user-enrollment-session-token-settings and extract IDs
   jamfpro-cli account-driven-user-enrollment-session-token-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/adue-session-token-settings"
@@ -78,7 +77,7 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *CLIContext
   # Get a account-driven-user-enrollment-session-token-setting, modify, and update
   jamfpro-cli account-driven-user-enrollment-session-token-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli account-driven-user-enrollment-session-token-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

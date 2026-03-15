@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
   # List dockitems and extract IDs
   jamfpro-cli classic-dock-items list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/dockitems", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-dock-items get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a dock_item by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/dockitems/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/dockitems/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a dock_item, modify, and create a copy
   jamfpro-cli classic-dock-items get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-dock-items get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-dock-items update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-dock-items delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete dock_item %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

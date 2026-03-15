@@ -2,9 +2,9 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -36,7 +36,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *CLIContext) *cobra.Com
 		Long:  "Remove a computer's MDM profile",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -58,7 +58,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *CLIContext) *cobra.Com
 
 			// Build request path
 			path := "/v1/computer-inventory/{id}/remove-mdm-profile"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

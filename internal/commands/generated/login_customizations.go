@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newLoginCustomizationsListCmd(ctx *CLIContext) *cobra.Command {
   # List login-customizations and extract IDs
   jamfpro-cli login-customizations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/login-customization"
@@ -78,7 +77,7 @@ func newLoginCustomizationsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a login-customization, modify, and update
   jamfpro-cli login-customizations get 1 -o json | jq '.name = "New Name"' | jamfpro-cli login-customizations update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

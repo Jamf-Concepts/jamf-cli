@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -46,11 +46,11 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli venafis get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -90,7 +90,7 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a venafi, modify it, and create a copy
   jamfpro-cli venafis get 1 -o json | jq '.name = "Copy"' | jamfpro-cli venafis create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -151,7 +151,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli venafis delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -173,7 +173,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -221,11 +221,11 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli venafis history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -237,11 +237,11 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -256,7 +256,7 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/pki/venafi/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", args[0], 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -345,7 +345,7 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds specified Venafi CA Object Note",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -356,7 +356,7 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -397,7 +397,7 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Update a Venafi PKI configuration in Jamf Pro",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -412,7 +412,7 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -451,11 +451,11 @@ func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}/jamf-public-key/regenerate"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

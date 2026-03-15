@@ -510,7 +510,7 @@ func newConfigValidateCmd() *cobra.Command {
 				// Optional connectivity check
 				if connectivity && p.URL != "" {
 					httpClient := &http.Client{Timeout: 10 * time.Second}
-					req, err := http.NewRequest("HEAD", p.URL, nil)
+					req, err := http.NewRequestWithContext(cmd.Context(), "HEAD", p.URL, nil)
 					if err != nil {
 						fail(fmt.Sprintf("Connectivity: invalid URL: %v", err))
 					} else {

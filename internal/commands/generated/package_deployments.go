@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +34,7 @@ func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Deploy packages using MDM",
 		Long:  "Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

@@ -2,8 +2,8 @@
 package generated
 
 import (
-	"context"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -32,11 +32,11 @@ func newDdmSyncsSyncCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Force a device to sync by queuing a new DeclarativeManagementCommand",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/ddm/{clientManagementId}/sync"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

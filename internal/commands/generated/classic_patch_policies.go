@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -43,7 +43,7 @@ func newClassicPatchPoliciesListCmd(ctx *CLIContext) *cobra.Command {
   # List patchpolicies and extract IDs
   jamfpro-cli classic-patch-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)
 			if err != nil {
 				return err
@@ -77,8 +77,8 @@ func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-policies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -112,7 +112,7 @@ func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a patch_policy, modify, and create a copy
   jamfpro-cli classic-patch-policies get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-patch-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -145,7 +145,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-policies get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-policies update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -155,7 +155,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -183,7 +183,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-policies delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete patch_policy %s\n", args[0])
@@ -202,7 +202,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

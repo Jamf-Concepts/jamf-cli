@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newOnboardingConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
   # List onboarding-configurations and extract IDs
   jamfpro-cli onboarding-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/onboarding"
@@ -78,7 +77,7 @@ func newOnboardingConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a onboarding-configuration, modify, and update
   jamfpro-cli onboarding-configurations get 1 -o json | jq '.name = "New Name"' | jamfpro-cli onboarding-configurations update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

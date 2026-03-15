@@ -2,8 +2,8 @@
 package generated
 
 import (
-	"context"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -32,11 +32,11 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *CLIContext) *cobra.Command
 		Long:  "Unmanage a Mobile Device",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/mobile-devices/{id}/unmanage"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -44,7 +44,7 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
   # List mobile-device-groups and extract IDs
   jamfpro-cli mobile-device-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/mobile-device-groups"
@@ -88,11 +88,11 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mobile-device-groups get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-group-membership/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -104,11 +104,11 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -152,7 +152,7 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a mobile-device-group, modify it, and create a copy
   jamfpro-cli mobile-device-groups get 1 -o json | jq '.name = "Copy"' | jamfpro-cli mobile-device-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -215,7 +215,7 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mobile-device-groups get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-groups update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -229,7 +229,7 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -276,7 +276,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mobile-device-groups delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -298,7 +298,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -339,7 +339,7 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Update membership of a static group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -353,7 +353,7 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mobile-device-groups/static-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -396,7 +396,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Erase all devices in the group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -428,7 +428,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mobile-device-groups/{id}/erase"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

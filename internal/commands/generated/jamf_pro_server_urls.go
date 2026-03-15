@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newJamfProServerUrlsListCmd(ctx *CLIContext) *cobra.Command {
   # List jamf-pro-server-urls and extract IDs
   jamfpro-cli jamf-pro-server-urls list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-pro-server-url"
@@ -81,7 +81,7 @@ func newJamfProServerUrlsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a jamf-pro-server-url, modify, and update
   jamfpro-cli jamf-pro-server-urls get 1 -o json | jq '.name = "New Name"' | jamfpro-cli jamf-pro-server-urls update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -139,7 +139,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a jamf-pro-server-url
   jamfpro-cli jamf-pro-server-urls history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-pro-server-url/history"
@@ -159,7 +159,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -262,7 +262,7 @@ func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Jamf Pro Server URL settings history notes",
 		Long:  "Adds Jamf Pro Server URL settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

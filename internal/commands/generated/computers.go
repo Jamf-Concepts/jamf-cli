@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -45,7 +45,7 @@ func newComputersListCmd(ctx *CLIContext) *cobra.Command {
   # List computers and extract IDs
   jamfpro-cli computers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/computers"
@@ -65,7 +65,7 @@ func newComputersListCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

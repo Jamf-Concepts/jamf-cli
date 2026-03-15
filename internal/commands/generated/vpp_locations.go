@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -54,7 +54,7 @@ func newVppLocationsListCmd(ctx *CLIContext) *cobra.Command {
   # List vpp-locations and extract IDs
   jamfpro-cli vpp-locations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations"
@@ -69,11 +69,11 @@ func newVppLocationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -179,11 +179,11 @@ func newVppLocationsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli vpp-locations get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -223,7 +223,7 @@ func newVppLocationsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a vpp-location, modify it, and create a copy
   jamfpro-cli vpp-locations get 1 -o json | jq '.name = "Copy"' | jamfpro-cli vpp-locations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -285,7 +285,7 @@ func newVppLocationsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli vpp-locations delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -307,7 +307,7 @@ func newVppLocationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -355,11 +355,11 @@ func newVppLocationsHistoryCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli vpp-locations history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -371,11 +371,11 @@ func newVppLocationsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -390,7 +390,7 @@ func newVppLocationsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/volume-purchasing-locations/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", args[0], 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -479,7 +479,7 @@ func newVppLocationsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds specified Volume Purchasing Location history object notes",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -490,7 +490,7 @@ func newVppLocationsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -529,11 +529,11 @@ func newVppLocationsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Updates a Volume Purchasing Location",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -570,11 +570,11 @@ func newVppLocationsReclaimCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Reclaims a Volume Purchasing Location with the supplied id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}/reclaim"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -611,11 +611,11 @@ func newVppLocationsRevokeLicensesCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Revokes licenses for a Volume Purchasing Location with the supplied id. The licenses must be revokable - any asset whose licenses are irrevocable will not be revoked.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/volume-purchasing-locations/{id}/revoke-licenses"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

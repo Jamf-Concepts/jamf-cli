@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newImpactAlertNotificationSettingsListCmd(ctx *CLIContext) *cobra.Command {
   # List impact-alert-notification-settings and extract IDs
   jamfpro-cli impact-alert-notification-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/impact-alert-notification-settings"
@@ -78,7 +77,7 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *CLIContext) *cobra.Command
   # Get a impact-alert-notification-setting, modify, and update
   jamfpro-cli impact-alert-notification-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli impact-alert-notification-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

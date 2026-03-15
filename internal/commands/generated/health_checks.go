@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -34,7 +33,7 @@ func newHealthChecksListCmd(ctx *CLIContext) *cobra.Command {
   # List health-checks and extract IDs
   jamfpro-cli health-checks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/health-check"

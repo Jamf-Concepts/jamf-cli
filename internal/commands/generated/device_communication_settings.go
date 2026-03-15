@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newDeviceCommunicationSettingsListCmd(ctx *CLIContext) *cobra.Command {
   # List device-communication-settings and extract IDs
   jamfpro-cli device-communication-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/device-communication-settings"
@@ -81,7 +81,7 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a device-communication-setting, modify, and update
   jamfpro-cli device-communication-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli device-communication-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -143,7 +143,7 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a device-communication-setting
   jamfpro-cli device-communication-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/device-communication-settings/history"
@@ -158,11 +158,11 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -264,7 +264,7 @@ func newDeviceCommunicationSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Com
 		Short: "Add Device Communication Settings history notes",
 		Long:  "Adds Device Communication Settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

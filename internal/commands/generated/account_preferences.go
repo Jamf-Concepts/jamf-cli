@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newAccountPreferencesListCmd(ctx *CLIContext) *cobra.Command {
   # List account-preferences and extract IDs
   jamfpro-cli account-preferences list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/account-preferences"
@@ -73,7 +72,7 @@ func newAccountPreferencesPatchCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Update Jamf Pro account preferences",
 		Long:  "Update Jamf Pro account preferences",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

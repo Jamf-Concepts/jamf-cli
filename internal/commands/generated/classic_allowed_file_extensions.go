@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -41,7 +41,7 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
   # List allowedfileextensions and extract IDs
   jamfpro-cli classic-allowed-file-extensions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/allowedfileextensions", nil)
 			if err != nil {
 				return err
@@ -75,8 +75,8 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-allowed-file-extensions get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -110,7 +110,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a allowed_file_extension, modify, and create a copy
   jamfpro-cli classic-allowed-file-extensions get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-allowed-file-extensions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -147,7 +147,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-allowed-file-extensions delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete allowed_file_extension %s\n", args[0])
@@ -166,7 +166,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

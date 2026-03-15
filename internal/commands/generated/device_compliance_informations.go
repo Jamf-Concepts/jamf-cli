@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func newDeviceComplianceInformationsListCmd(ctx *CLIContext) *cobra.Command {
   # List device-compliance-informations and extract IDs
   jamfpro-cli device-compliance-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/conditional-access/device-compliance/feature-toggle"
@@ -74,11 +74,11 @@ func newDeviceComplianceInformationsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli device-compliance-informations get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/conditional-access/device-compliance-information/computer/{deviceId}"
-			path = strings.Replace(path, "{deviceId}", args[0], 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

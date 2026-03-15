@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newUsersListCmd(ctx *CLIContext) *cobra.Command {
   # List users and extract IDs
   jamfpro-cli users list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/user"
@@ -81,7 +80,7 @@ func newUsersCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a user, modify it, and create a copy
   jamfpro-cli users get 1 -o json | jq '.name = "Copy"' | jamfpro-cli users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

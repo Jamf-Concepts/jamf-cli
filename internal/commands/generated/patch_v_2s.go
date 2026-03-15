@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"io"
 	"os"
 	"strings"
@@ -31,7 +30,7 @@ func newPatchV2SPatchManagementAcceptDisclaimerCmd(ctx *CLIContext) *cobra.Comma
 		Short: "Accept Patch Management disclaimer",
 		Long:  "Accept Patch Management disclaimer",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/patch-management-accept-disclaimer"

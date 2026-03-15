@@ -2,9 +2,9 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -38,7 +38,7 @@ func newNotificationsListCmd(ctx *CLIContext) *cobra.Command {
   # List notifications and extract IDs
   jamfpro-cli notifications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/notifications"
@@ -80,7 +80,7 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli notifications delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -102,8 +102,8 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/notifications/{type}/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
-			path = strings.Replace(path, "{type}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{type}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

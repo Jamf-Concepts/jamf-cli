@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -43,7 +43,7 @@ func newJcdsListCmd(ctx *CLIContext) *cobra.Command {
   # List jcds and extract IDs
   jamfpro-cli jcds list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jcds/files"
@@ -82,11 +82,11 @@ func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli jcds get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jcds/files/{fileName}"
-			path = strings.Replace(path, "{fileName}", args[0], 1)
+			path = strings.Replace(path, "{fileName}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -125,7 +125,7 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli jcds delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -147,7 +147,7 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/jcds/files/{fileName}"
-			path = strings.Replace(path, "{fileName}", args[0], 1)
+			path = strings.Replace(path, "{fileName}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -185,7 +185,7 @@ func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Initiate an upload to the Jamf Cloud Distribution Service",
 		Long:  "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jcds/files"
@@ -226,7 +226,7 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Refreshes the inventory and status of uploads in Jamf Pro. This will update the  status of uploads in the Jamf Pro database and allow the uploads to be deployed.",
 		Long:  "Refreshes the inventory and status of uploads in Jamf Pro. This will update the  status of uploads in the Jamf Pro database and allow the uploads to be deployed. Using the filename as a query parameter will query JCDS for the availability of the file using an exponential back-off during the allocated time period. If the filename is not supplied, all inventory will be refreshed, and this action is limited to once every 15 seconds.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jcds/refresh-inventory"
@@ -234,7 +234,7 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 			// Build query string
 			var queryParts []string
 			if flagFileName != "" {
-				queryParts = append(queryParts, fmt.Sprintf("file-name=%s", flagFileName))
+				queryParts = append(queryParts, "file-name="+url.QueryEscape(flagFileName))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -270,7 +270,7 @@ func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Renew credentials for an upload to the Jamf Cloud Distribution Service",
 		Long:  "Renews the credentials needed for uploading the file to the Jamf Cloud Distribution Service.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jcds/renew-credentials"

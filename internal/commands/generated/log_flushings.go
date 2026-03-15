@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,7 +40,7 @@ func newLogFlushingsListCmd(ctx *CLIContext) *cobra.Command {
   # List log-flushings and extract IDs
   jamfpro-cli log-flushings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/log-flushing"
@@ -80,7 +79,7 @@ func newLogFlushingsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli log-flushings get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/log-flushing/task/{id}"
@@ -122,7 +121,7 @@ func newLogFlushingsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli log-flushings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -183,7 +182,7 @@ func newLogFlushingsTaskCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Queue a log flushing task",
 		Long:  "Queue a log flushing task",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

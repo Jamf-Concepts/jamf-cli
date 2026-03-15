@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -49,7 +49,7 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *CLIContext) *cobra.Command {
   # List managed-software-updates-plans and extract IDs
   jamfpro-cli managed-software-updates-plans list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/managed-software-updates/plans"
@@ -64,11 +64,11 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -176,16 +176,16 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli managed-software-updates-plans get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/managed-software-updates/plans/group/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
 			if flagGroupType != "" {
-				queryParts = append(queryParts, fmt.Sprintf("group-type=%s", flagGroupType))
+				queryParts = append(queryParts, "group-type="+url.QueryEscape(flagGroupType))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -225,7 +225,7 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a managed-software-updates-plan, modify it, and create a copy
   jamfpro-cli managed-software-updates-plans get 1 -o json | jq '.name = "Copy"' | jamfpro-cli managed-software-updates-plans create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -281,7 +281,7 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a managed-software-updates-plan, modify, and update
   jamfpro-cli managed-software-updates-plans get 1 -o json | jq '.name = "New Name"' | jamfpro-cli managed-software-updates-plans update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -329,7 +329,7 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Force stops any ongoing or stalled feature-toggle processes",
 		Long:  "\"Break Glass\" endpoint, not for nominal usage. Use this endpoint to forcefully abandon the feature-toggle background process if the status of the feature-toggle is 'stuck' or has reached an non-restartable failed state. Usage of this endpoint under nominal conditions is undefined and unsupported.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/managed-software-updates/plans/feature-toggle/abandon"

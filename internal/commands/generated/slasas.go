@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"io"
 	"os"
 	"strings"
@@ -37,7 +36,7 @@ func newSlasasListCmd(ctx *CLIContext) *cobra.Command {
   # List slasas and extract IDs
   jamfpro-cli slasas list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/slasa"
@@ -70,7 +69,7 @@ func newSlasasSlasaCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Accept the SLASA",
 		Long:  "Accept the SLASA for Jamf Pro.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/slasa"

@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"io"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
   # List authentications and extract IDs
   jamfpro-cli authentications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/auth"
@@ -73,7 +72,7 @@ func newAuthenticationsCurrentCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get the authorization details associated with the current API token",
 		Long:  "Get the authorization details associated with the current API token for the users current site",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/auth/current"
@@ -112,7 +111,7 @@ func newAuthenticationsInvalidateTokenCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Invalidate current token",
 		Long:  "Invalidates current token",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/auth/invalidateToken"
@@ -151,7 +150,7 @@ func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Invalidate existing token and generates new token",
 		Long:  "Invalidates existing token and generates new token with extended expiration based on existing token credentials.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/auth/keepAlive"
@@ -190,7 +189,7 @@ func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Create a token based on other authentication details (basic, etc.)",
 		Long:  "Create a token based on other authentication details (basic, etc.).",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/auth/token"

@@ -1,11 +1,13 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,7 +55,18 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
 		path = "/api" + path
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+
+	// Buffer the request body so it can be replayed on retries.
+	var bodyData []byte
+	if body != nil {
+		var err error
+		bodyData, err = io.ReadAll(body)
+		if err != nil {
+			return nil, fmt.Errorf("reading request body: %w", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -65,7 +78,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	if body != nil {
+	if bodyData != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
@@ -73,7 +86,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, req.URL)
 	}
 
-	resp, err := c.doWithRetry(ctx, req)
+	resp, err := c.doWithRetry(ctx, req, bodyData)
 	if err != nil {
 		return nil, err
 	}
@@ -103,30 +116,39 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return resp, nil
 }
 
-func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, error) {
 	maxRetries := 3
 	baseDelay := time.Second
 
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
+		// Reset body for each attempt so retries send the full payload.
+		if bodyData != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyData))
+			req.ContentLength = int64(len(bodyData))
+		}
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = err
-			time.Sleep(baseDelay * time.Duration(1<<i))
+			if sleepErr := sleepWithContext(ctx, baseDelay*time.Duration(1<<i)); sleepErr != nil {
+				return nil, sleepErr
+			}
 			continue
 		}
 
 		// Rate limited - respect Retry-After
 		if resp.StatusCode == http.StatusTooManyRequests {
-			retryAfter := resp.Header.Get("Retry-After")
 			delay := baseDelay * time.Duration(1<<i)
-			if retryAfter != "" {
-				if d, err := time.ParseDuration(retryAfter + "s"); err == nil {
-					delay = d
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if secs, err := strconv.Atoi(retryAfter); err == nil {
+					delay = time.Duration(secs) * time.Second
 				}
 			}
 			_ = resp.Body.Close()
-			time.Sleep(delay)
+			if sleepErr := sleepWithContext(ctx, delay); sleepErr != nil {
+				return nil, sleepErr
+			}
 			continue
 		}
 
@@ -137,4 +159,14 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr))
 	}
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
+}
+
+// sleepWithContext blocks for the given duration or until the context is cancelled.
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

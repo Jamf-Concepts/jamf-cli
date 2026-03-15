@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -53,7 +53,7 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
   # List enrollment-settings and extract IDs
   jamfpro-cli enrollment-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/enrollment/access-groups"
@@ -68,7 +68,7 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagAllUsersOptionFirst {
@@ -178,11 +178,11 @@ func newEnrollmentSettingsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-settings get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -222,7 +222,7 @@ func newEnrollmentSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a enrollment-setting, modify it, and create a copy
   jamfpro-cli enrollment-settings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli enrollment-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -285,7 +285,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-settings update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -303,7 +303,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -350,7 +350,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-settings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -372,7 +372,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -418,7 +418,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a enrollment-setting
   jamfpro-cli enrollment-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/enrollment/history"
@@ -433,7 +433,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(queryParts) > 0 {
@@ -535,7 +535,7 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Enrollment history object notes",
 		Long:  "Adds Enrollment history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -591,7 +591,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Export enrollment history collection",
 		Long:  "Export enrollment history collection",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -613,12 +613,12 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -629,11 +629,11 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *CLIContext) *cobra.Command
   # List mobiledeviceprovisioningprofiles and extract IDs
   jamfpro-cli classic-mobile-provisioning-profiles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceprovisioningprofiles", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *CLIContext) *cobra.Command 
   jamfpro-cli classic-mobile-provisioning-profiles get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicMobileProvisioningProfilesGetByNameCmd(ctx *CLIContext) *cobra.Co
 		Short: "Get a mobile_device_provisioning_profile by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Comma
   # Get a mobile_device_provisioning_profile, modify, and create a copy
   jamfpro-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mobile-provisioning-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
   jamfpro-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mobile-provisioning-profiles update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
   jamfpro-cli classic-mobile-provisioning-profiles delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete mobile_device_provisioning_profile %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

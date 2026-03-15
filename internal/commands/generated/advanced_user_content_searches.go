@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -42,7 +42,7 @@ func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
   # List advanced-user-content-searches and extract IDs
   jamfpro-cli advanced-user-content-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches"
@@ -81,11 +81,11 @@ func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-user-content-searches get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -125,7 +125,7 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a advanced-user-content-searche, modify it, and create a copy
   jamfpro-cli advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamfpro-cli advanced-user-content-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -187,7 +187,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-user-content-searches update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -204,7 +204,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -251,7 +251,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-user-content-searches delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -273,7 +273,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

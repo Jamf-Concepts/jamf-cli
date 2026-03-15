@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -52,7 +52,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
   # List supervision-identities and extract IDs
   jamfpro-cli supervision-identities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/supervision-identities"
@@ -72,7 +72,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -179,11 +179,11 @@ func newSupervisionIdentitiesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli supervision-identities get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/supervision-identities/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -223,7 +223,7 @@ func newSupervisionIdentitiesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a supervision-identitie, modify it, and create a copy
   jamfpro-cli supervision-identities get 1 -o json | jq '.name = "Copy"' | jamfpro-cli supervision-identities create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -280,7 +280,7 @@ func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli supervision-identities get 1 -o json | jq '.name = "New Name"' | jamfpro-cli supervision-identities update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -291,7 +291,7 @@ func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/supervision-identities/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -338,7 +338,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli supervision-identities delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -360,7 +360,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/supervision-identities/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -400,7 +400,7 @@ func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Upload the Supervision Identity .p12 file",
 		Long:  "Uploads the Supervision Identity .p12 file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

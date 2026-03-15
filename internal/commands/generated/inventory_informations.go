@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -34,7 +33,7 @@ func newInventoryInformationsListCmd(ctx *CLIContext) *cobra.Command {
   # List inventory-informations and extract IDs
   jamfpro-cli inventory-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/inventory-information"

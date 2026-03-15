@@ -2,8 +2,8 @@
 package generated
 
 import (
-	"context"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -33,11 +33,11 @@ func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *CLIContext) *cobra
 		Long:  "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/mobile-devices/{id}/recalculate-smart-groups"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -74,11 +74,11 @@ func newMobileDeviceSmartGroupsRecalculateCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/smart-mobile-device-groups/{id}/recalculate"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

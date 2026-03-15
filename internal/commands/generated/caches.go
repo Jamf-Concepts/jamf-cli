@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newCachesListCmd(ctx *CLIContext) *cobra.Command {
   # List caches and extract IDs
   jamfpro-cli caches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cache-settings"
@@ -78,7 +77,7 @@ func newCachesUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a cache, modify, and update
   jamfpro-cli caches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli caches update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

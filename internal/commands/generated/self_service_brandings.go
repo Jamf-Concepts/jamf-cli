@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -49,7 +49,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
   # List self-service-brandings and extract IDs
   jamfpro-cli self-service-brandings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/self-service/branding/ios"
@@ -64,7 +64,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(queryParts) > 0 {
@@ -170,11 +170,11 @@ func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli self-service-brandings get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/self-service/branding/ios/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -212,7 +212,7 @@ func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a self-service-branding, modify it, and create a copy
   jamfpro-cli self-service-brandings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli self-service-brandings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/self-service/branding/images"
@@ -259,7 +259,7 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli self-service-brandings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-brandings update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -275,7 +275,7 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/self-service/branding/ios/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -322,7 +322,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli self-service-brandings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -344,7 +344,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/self-service/branding/ios/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

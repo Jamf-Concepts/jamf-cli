@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicPatchTitlesListCmd(ctx *CLIContext) *cobra.Command {
   # List patchsoftwaretitles and extract IDs
   jamfpro-cli classic-patch-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchsoftwaretitles", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicPatchTitlesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-titles get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicPatchTitlesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a patch_software_title by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a patch_software_title, modify, and create a copy
   jamfpro-cli classic-patch-titles get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-patch-titles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-titles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-titles update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-titles delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete patch_software_title %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

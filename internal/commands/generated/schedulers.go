@@ -2,8 +2,8 @@
 package generated
 
 import (
-	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,7 +36,7 @@ func newSchedulersListCmd(ctx *CLIContext) *cobra.Command {
   # List schedulers and extract IDs
   jamfpro-cli schedulers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/scheduler/jobs"
@@ -80,11 +80,11 @@ func newSchedulersGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli schedulers get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/scheduler/jobs/{jobKey}/triggers"
-			path = strings.Replace(path, "{jobKey}", args[0], 1)
+			path = strings.Replace(path, "{jobKey}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -96,11 +96,11 @@ func newSchedulersGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

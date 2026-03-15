@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -46,7 +46,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
   # List mobile-device-inventory-details and extract IDs
   jamfpro-cli mobile-device-inventory-details list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/mobile-devices/detail"
@@ -55,7 +55,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagSection) > 0 {
 				for _, v := range flagSection {
-					queryParts = append(queryParts, fmt.Sprintf("section=%v", v))
+					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -66,11 +66,11 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -183,17 +183,17 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mobile-device-inventory-details get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/mobile-devices/{id}/paired-devices"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
 			if len(flagSection) > 0 {
 				for _, v := range flagSection {
-					queryParts = append(queryParts, fmt.Sprintf("section=%v", v))
+					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -204,11 +204,11 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

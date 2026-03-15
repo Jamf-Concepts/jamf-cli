@@ -2,9 +2,10 @@
 package generated
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -40,7 +41,7 @@ func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
   # List computer-prestage-scope-v-2s and extract IDs
   jamfpro-cli computer-prestage-scope-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/computer-prestages/scope"
@@ -81,7 +82,7 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli computer-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli computer-prestage-scope-v-2s update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -96,7 +97,7 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/computer-prestages/{id}/scope"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -142,7 +143,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
   jamfpro-cli computer-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -175,7 +176,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 
 			// Build request path
 			path := "/v2/computer-prestages/{id}/scope/delete-multiple"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -188,14 +189,14 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			var body io.Reader
 			// Handle --ids flag for bulk operations
 			if len(flagIds) > 0 {
-				idsJSON := fmt.Sprintf(`{"ids":[%s]}`, strings.Join(func() []string {
-					quoted := make([]string, len(flagIds))
-					for i, id := range flagIds {
-						quoted[i] = fmt.Sprintf(`"%s"`, id)
-					}
-					return quoted
-				}(), ","))
-				body = strings.NewReader(idsJSON)
+				payload := struct {
+					IDs []string `json:"ids"`
+				}{IDs: flagIds}
+				idsJSON, err := json.Marshal(payload)
+				if err != nil {
+					return fmt.Errorf("encoding ids: %w", err)
+				}
+				body = strings.NewReader(string(idsJSON))
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -229,11 +230,11 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Get device scope for a specific computer prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/computer-prestages/{id}/scope"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

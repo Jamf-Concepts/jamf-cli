@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newMacOsManagedSoftwareUpdatesListCmd(ctx *CLIContext) *cobra.Command {
   # List mac-os-managed-software-updates and extract IDs
   jamfpro-cli mac-os-managed-software-updates list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/macos-managed-software-updates/available-updates"
@@ -73,7 +72,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *CLIContext) *cobra.Comman
 		Short: "Send MacOs Managed Software Updates",
 		Long:  "Sends MacOs Managed Software Updates",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

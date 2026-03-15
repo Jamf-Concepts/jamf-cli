@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *CLIContext) *cobra.Comma
   # List computer-inventory-collection-settings and extract IDs
   jamfpro-cli computer-inventory-collection-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/computer-inventory-collection-settings"
@@ -84,7 +84,7 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *CLIContext) *cobra.Com
   # Get a computer-inventory-collection-setting, modify it, and create a copy
   jamfpro-cli computer-inventory-collection-settings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli computer-inventory-collection-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -142,7 +142,7 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *CLIContext) *cobra.Com
   jamfpro-cli computer-inventory-collection-settings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -164,7 +164,7 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *CLIContext) *cobra.Com
 
 			// Build request path
 			path := "/v1/computer-inventory-collection-settings/custom-path/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -204,7 +204,7 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *CLIContext) *cobra.Comm
 		Short: "Update computer inventory settings",
 		Long:  "Update computer inventory settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

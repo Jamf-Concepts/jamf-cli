@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newSelfServicePlussListCmd(ctx *CLIContext) *cobra.Command {
   # List self-service-pluss and extract IDs
   jamfpro-cli self-service-pluss list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/self-service-plus/feature-toggle/enabled"
@@ -78,7 +77,7 @@ func newSelfServicePlussUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a self-service-plus, modify, and update
   jamfpro-cli self-service-pluss get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-pluss update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

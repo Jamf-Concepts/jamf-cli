@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicComputerExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
   # List computerextensionattributes and extract IDs
   jamfpro-cli classic-computer-ext-attrs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerextensionattributes", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicComputerExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-computer-ext-attrs get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicComputerExtAttrsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a computer_extension_attribute by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicComputerExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a computer_extension_attribute, modify, and create a copy
   jamfpro-cli classic-computer-ext-attrs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-computer-ext-attrs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-computer-ext-attrs update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-computer-ext-attrs delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete computer_extension_attribute %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

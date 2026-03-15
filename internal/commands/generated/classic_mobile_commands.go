@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +39,7 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
   # List mobiledevicecommands and extract IDs
   jamfpro-cli classic-mobile-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicecommands", nil)
 			if err != nil {
 				return err
@@ -73,8 +73,8 @@ func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-mobile-commands get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/mobiledevicecommands/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/mobiledevicecommands/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -103,8 +103,8 @@ func newClassicMobileCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a mobile_device_command by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/mobiledevicecommands/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/mobiledevicecommands/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -137,7 +137,7 @@ func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a mobile_device_command, modify, and create a copy
   jamfpro-cli classic-mobile-commands get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mobile-commands create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()

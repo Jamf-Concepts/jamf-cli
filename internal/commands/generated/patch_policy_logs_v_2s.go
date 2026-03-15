@@ -2,9 +2,9 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -45,11 +45,11 @@ func newPatchPolicyLogsV2SGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli patch-policy-logs-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/patch-policies/{id}/logs"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -61,11 +61,11 @@ func newPatchPolicyLogsV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -101,7 +101,7 @@ func newPatchPolicyLogsV2SRetryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Send retry attempts for specific devices",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -115,7 +115,7 @@ func newPatchPolicyLogsV2SRetryCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/patch-policies/{id}/logs/retry"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -154,11 +154,11 @@ func newPatchPolicyLogsV2SRetryAllCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Send retry attempts for all devices",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/patch-policies/{id}/logs/retry-all"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

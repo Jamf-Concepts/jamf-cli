@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -42,7 +42,7 @@ func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
   # List app-requests and extract IDs
   jamfpro-cli app-requests list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields"
@@ -81,11 +81,11 @@ func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli app-requests get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -125,7 +125,7 @@ func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a app-request, modify it, and create a copy
   jamfpro-cli app-requests get 1 -o json | jq '.name = "Copy"' | jamfpro-cli app-requests create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -180,7 +180,7 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a app-request, modify, and update
   jamfpro-cli app-requests get 1 -o json | jq '.name = "New Name"' | jamfpro-cli app-requests update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields"
@@ -228,7 +228,7 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli app-requests delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -250,7 +250,7 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

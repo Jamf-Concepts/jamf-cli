@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,11 +41,11 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mdm-renewals get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/mdm-renewal/device-common-details/{clientManagementId}"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -84,7 +84,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mdm-renewals delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -106,7 +106,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mdm-renewal/renewal-strategies/{clientManagementId}"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -146,7 +146,7 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Update device common details (partial update)",
 		Long:  "Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

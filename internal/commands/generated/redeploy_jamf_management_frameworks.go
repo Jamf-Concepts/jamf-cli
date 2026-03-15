@@ -2,8 +2,8 @@
 package generated
 
 import (
-	"context"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -32,11 +32,11 @@ func newRedeployJamfManagementFrameworksActionCmd(ctx *CLIContext) *cobra.Comman
 		Long:  "Redeploys the Jamf Management Framework for enrolled device",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-management-framework/redeploy/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

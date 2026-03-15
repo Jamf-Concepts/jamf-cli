@@ -2,9 +2,9 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -40,7 +40,7 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
   # List local-admin-password-v-2s and extract IDs
   jamfpro-cli local-admin-password-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/pending-rotations"
@@ -79,12 +79,12 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli local-admin-password-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/audit"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
-			path = strings.Replace(path, "{username}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -121,7 +121,7 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a local-admin-password-v-2, modify, and update
   jamfpro-cli local-admin-password-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli local-admin-password-v-2s update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -175,12 +175,12 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli local-admin-password-v-2s history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/history"
-			path = strings.Replace(path, "{clientManagementId}", args[0], 1)
-			path = strings.Replace(path, "{username}", args[0], 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

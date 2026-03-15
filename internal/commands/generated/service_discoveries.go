@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newServiceDiscoveriesListCmd(ctx *CLIContext) *cobra.Command {
   # List service-discoveries and extract IDs
   jamfpro-cli service-discoveries list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/service-discovery-enrollment/well-known-settings"
@@ -78,7 +77,7 @@ func newServiceDiscoveriesUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a service-discoverie, modify, and update
   jamfpro-cli service-discoveries get 1 -o json | jq '.name = "New Name"' | jamfpro-cli service-discoveries update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

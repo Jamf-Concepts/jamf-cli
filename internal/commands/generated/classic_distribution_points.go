@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
   # List distributionpoints and extract IDs
   jamfpro-cli classic-distribution-points list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/distributionpoints", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicDistributionPointsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-distribution-points get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicDistributionPointsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a distribution_point by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/distributionpoints/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/distributionpoints/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a distribution_point, modify, and create a copy
   jamfpro-cli classic-distribution-points get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-distribution-points get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-distribution-points update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-distribution-points delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete distribution_point %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/distributionpoints/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

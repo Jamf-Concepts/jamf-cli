@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newPolicyPropertiesListCmd(ctx *CLIContext) *cobra.Command {
   # List policy-properties and extract IDs
   jamfpro-cli policy-properties list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/settings/obj/policyProperties"
@@ -78,7 +77,7 @@ func newPolicyPropertiesUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a policy-propertie, modify, and update
   jamfpro-cli policy-properties get 1 -o json | jq '.name = "New Name"' | jamfpro-cli policy-properties update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

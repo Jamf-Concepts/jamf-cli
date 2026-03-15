@@ -2,10 +2,11 @@
 package generated
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -43,7 +44,7 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
   # List advanced-mobile-device-searches and extract IDs
   jamfpro-cli advanced-mobile-device-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches"
@@ -82,11 +83,11 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-mobile-device-searches get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -126,7 +127,7 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a advanced-mobile-device-searche, modify it, and create a copy
   jamfpro-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "Copy"' | jamfpro-cli advanced-mobile-device-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -188,7 +189,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-mobile-device-searches update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -205,7 +206,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -252,7 +253,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli advanced-mobile-device-searches delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -274,7 +275,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -319,7 +320,7 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 		Example: `  # Delete multiple advanced-mobile-device-searches by IDs
   jamfpro-cli advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -360,14 +361,14 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			var body io.Reader
 			// Handle --ids flag for bulk operations
 			if len(flagIds) > 0 {
-				idsJSON := fmt.Sprintf(`{"ids":[%s]}`, strings.Join(func() []string {
-					quoted := make([]string, len(flagIds))
-					for i, id := range flagIds {
-						quoted[i] = fmt.Sprintf(`"%s"`, id)
-					}
-					return quoted
-				}(), ","))
-				body = strings.NewReader(idsJSON)
+				payload := struct {
+					IDs []string `json:"ids"`
+				}{IDs: flagIds}
+				idsJSON, err := json.Marshal(payload)
+				if err != nil {
+					return fmt.Errorf("encoding ids: %w", err)
+				}
+				body = strings.NewReader(string(idsJSON))
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {

@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -34,7 +33,7 @@ func newOAuthApiRolesPrivilegesListCmd(ctx *CLIContext) *cobra.Command {
   # List o-auth-api-roles-privileges and extract IDs
   jamfpro-cli o-auth-api-roles-privileges list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/api-role-privileges"

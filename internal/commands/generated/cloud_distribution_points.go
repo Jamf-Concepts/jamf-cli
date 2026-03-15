@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -46,7 +46,7 @@ func newCloudDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
   # List cloud-distribution-points and extract IDs
   jamfpro-cli cloud-distribution-points list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point"
@@ -87,7 +87,7 @@ func newCloudDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a cloud-distribution-point, modify it, and create a copy
   jamfpro-cli cloud-distribution-points get 1 -o json | jq '.name = "Copy"' | jamfpro-cli cloud-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point"
@@ -134,7 +134,7 @@ func newCloudDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
   # Delete without confirmation prompt
   jamfpro-cli cloud-distribution-points delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -202,7 +202,7 @@ func newCloudDistributionPointsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a cloud-distribution-point
   jamfpro-cli cloud-distribution-points history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point/history"
@@ -217,11 +217,11 @@ func newCloudDistributionPointsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -323,7 +323,7 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command
 		Short: "Add specified cloud distribution point history object notes",
 		Long:  "Add specified cloud distribution point history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -371,7 +371,7 @@ func newCloudDistributionPointsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Update specific fields on a cloud distribution point",
 		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point"
@@ -414,19 +414,19 @@ func newCloudDistributionPointsActionCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Marks a specific file upload as failed for the currently configured cloud distribution point.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point/fail-upload/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
 			if flagFileName != "" {
-				queryParts = append(queryParts, fmt.Sprintf("file-name=%s", flagFileName))
+				queryParts = append(queryParts, "file-name="+url.QueryEscape(flagFileName))
 			}
 			if flagType != "" {
-				queryParts = append(queryParts, fmt.Sprintf("type=%s", flagType))
+				queryParts = append(queryParts, "type="+url.QueryEscape(flagType))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -465,7 +465,7 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *CLIContext) *cobra.Comma
 		Short: "Updates inventory data for the currently configured cloud distribution point.",
 		Long:  "Updates inventory data for the currently configured cloud distribution point.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-distribution-point/refresh-inventory"
@@ -473,7 +473,7 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *CLIContext) *cobra.Comma
 			// Build query string
 			var queryParts []string
 			if flagFileName != "" {
-				queryParts = append(queryParts, fmt.Sprintf("file-name=%s", flagFileName))
+				queryParts = append(queryParts, "file-name="+url.QueryEscape(flagFileName))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

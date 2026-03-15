@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +33,7 @@ func newChangePasswordsChangePasswordCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Changes the user account password.",
 		Long:  "Changes the account password for a currently authenticated user.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

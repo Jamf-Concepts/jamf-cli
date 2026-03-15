@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -38,7 +37,7 @@ func newCsasListCmd(ctx *CLIContext) *cobra.Command {
   # List csas and extract IDs
   jamfpro-cli csas list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/csa/tenant-id"
@@ -79,7 +78,7 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
   # Delete without confirmation prompt
   jamfpro-cli csas delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {

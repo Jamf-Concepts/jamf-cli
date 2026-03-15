@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -49,7 +49,7 @@ func newComputerPrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
   # List computer-prestages-v-3s and extract IDs
   jamfpro-cli computer-prestages-v-3s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/computer-prestages"
@@ -64,7 +64,7 @@ func newComputerPrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(queryParts) > 0 {
@@ -170,11 +170,11 @@ func newComputerPrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli computer-prestages-v-3s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/computer-prestages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -212,7 +212,7 @@ func newComputerPrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a computer-prestages-v-3, modify it, and create a copy
   jamfpro-cli computer-prestages-v-3s get 1 -o json | jq '.name = "Copy"' | jamfpro-cli computer-prestages-v-3s create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/computer-prestages"
@@ -257,11 +257,11 @@ func newComputerPrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli computer-prestages-v-3s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli computer-prestages-v-3s update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/computer-prestages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -306,7 +306,7 @@ func newComputerPrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli computer-prestages-v-3s delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -328,7 +328,7 @@ func newComputerPrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/computer-prestages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +33,7 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Reinstall App Config for Managed iOS Apps",
 		Long:  "Redeploys the managed app configuration for a specific app on a specific device using the $APP_CONFIG_REINSTALL_CODE generated during deployment.  This endpoint does not require authorization, only the re-install code. The code does not contain any user authentication information.  For example usage, see the following Teacher app documentation: [Teacher App Manged App Configuration](https://learn.jamf.com/bundle/jamf-teacher-configuration-guide/page/Jamf_Teacher_Integration_with_Jamf_Pro.html)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

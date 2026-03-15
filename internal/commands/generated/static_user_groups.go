@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func newStaticUserGroupsListCmd(ctx *CLIContext) *cobra.Command {
   # List static-user-groups and extract IDs
   jamfpro-cli static-user-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/static-user-groups"
@@ -74,11 +74,11 @@ func newStaticUserGroupsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli static-user-groups get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/static-user-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

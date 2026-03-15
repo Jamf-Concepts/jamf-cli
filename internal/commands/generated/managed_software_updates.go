@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func newManagedSoftwareUpdatesListCmd(ctx *CLIContext) *cobra.Command {
   # List managed-software-updates and extract IDs
   jamfpro-cli managed-software-updates list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/managed-software-updates/available-updates"
@@ -74,11 +74,11 @@ func newManagedSoftwareUpdatesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli managed-software-updates get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/managed-software-updates/update-statuses/computer-groups/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

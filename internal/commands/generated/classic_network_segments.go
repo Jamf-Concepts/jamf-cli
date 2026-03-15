@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,7 +44,7 @@ func newClassicNetworkSegmentsListCmd(ctx *CLIContext) *cobra.Command {
   # List networksegments and extract IDs
   jamfpro-cli classic-network-segments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/networksegments", nil)
 			if err != nil {
 				return err
@@ -78,8 +78,8 @@ func newClassicNetworkSegmentsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-network-segments get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -108,8 +108,8 @@ func newClassicNetworkSegmentsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a network_segment by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/networksegments/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/networksegments/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a network_segment, modify, and create a copy
   jamfpro-cli classic-network-segments get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-network-segments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -175,7 +175,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-network-segments get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-network-segments update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
@@ -185,7 +185,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe JSON input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-network-segments delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagDryRun {
 				fmt.Fprintf(os.Stderr, "Would delete network_segment %s\n", args[0])
@@ -232,7 +232,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", args[0])
+			path := fmt.Sprintf("/JSSResource/networksegments/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

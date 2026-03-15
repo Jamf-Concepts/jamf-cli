@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -42,11 +42,11 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-customization-panels get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -86,7 +86,7 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a enrollment-customization-panel, modify it, and create a copy
   jamfpro-cli enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamfpro-cli enrollment-customization-panels create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -140,12 +140,12 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-customization-panels get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-customization-panels update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
-			path = strings.Replace(path, "{panel-id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -190,7 +190,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli enrollment-customization-panels delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -212,8 +212,8 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
-			path = strings.Replace(path, "{panel-id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

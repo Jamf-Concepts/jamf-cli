@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newSelfServiceSettingsListCmd(ctx *CLIContext) *cobra.Command {
   # List self-service-settings and extract IDs
   jamfpro-cli self-service-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/self-service/settings"
@@ -81,7 +81,7 @@ func newSelfServiceSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a self-service-setting, modify, and update
   jamfpro-cli self-service-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -140,7 +140,7 @@ func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a self-service-setting
   jamfpro-cli self-service-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/self-service/settings/history"
@@ -155,11 +155,11 @@ func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -261,7 +261,7 @@ func newSelfServiceSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Self Service settings history notes",
 		Long:  "Add Self Service settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

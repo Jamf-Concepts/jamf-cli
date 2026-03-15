@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"io"
 	"os"
 	"strings"
@@ -31,7 +30,7 @@ func newServersIssueTomcatSslCertificateCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Generate a SSL Certificate using Jamf Certificate Authority",
 		Long:  "generate a SSL Certificate using Jamf Certificate Authority",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/settings/issueTomcatSslCertificate"

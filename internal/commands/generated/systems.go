@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +34,7 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Set up fresh installed Jamf Pro Server",
 		Long:  "Set up fresh installed Jamf Pro Server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -91,7 +90,7 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Set up fresh installed Jamf Pro Server for Platform",
 		Long:  "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

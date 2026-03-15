@@ -219,6 +219,9 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if serverURL == "" {
 		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
 	}
+	if strings.HasPrefix(serverURL, "http://") {
+		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
+	}
 	if (clientID != "") != (clientSecret != "") {
 		if clientID != "" {
 			return "", nil, exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")

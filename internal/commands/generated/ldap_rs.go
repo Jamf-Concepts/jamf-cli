@@ -2,8 +2,7 @@
 package generated
 
 import (
-	"context"
-	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
   # List ldap-rs and extract IDs
   jamfpro-cli ldap-rs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/ldap/groups"
@@ -45,7 +44,7 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 			// Build query string
 			var queryParts []string
 			if flagQ != "" {
-				queryParts = append(queryParts, fmt.Sprintf("q=%s", flagQ))
+				queryParts = append(queryParts, "q="+url.QueryEscape(flagQ))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

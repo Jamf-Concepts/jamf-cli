@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,7 +39,7 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
   # List computercommands and extract IDs
   jamfpro-cli classic-computer-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computercommands", nil)
 			if err != nil {
 				return err
@@ -73,8 +73,8 @@ func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-computer-commands get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/computercommands/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computercommands/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -103,8 +103,8 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Get a computer_command by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/computercommands/name/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computercommands/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -137,7 +137,7 @@ func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a computer_command, modify, and create a copy
   jamfpro-cli classic-computer-commands get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-commands create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()

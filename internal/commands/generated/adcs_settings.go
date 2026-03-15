@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -47,11 +47,11 @@ func newAdcsSettingsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli adcs-settings get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -91,7 +91,7 @@ func newAdcsSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a adcs-setting, modify it, and create a copy
   jamfpro-cli adcs-settings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli adcs-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -156,7 +156,7 @@ func newAdcsSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli adcs-settings delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -178,7 +178,7 @@ func newAdcsSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -226,11 +226,11 @@ func newAdcsSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli adcs-settings history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -242,11 +242,11 @@ func newAdcsSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -261,7 +261,7 @@ func newAdcsSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/pki/adcs-settings/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", args[0], 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -350,7 +350,7 @@ func newAdcsSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds specified AD CS Settings object note.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -361,7 +361,7 @@ func newAdcsSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -401,7 +401,7 @@ func newAdcsSettingsValidateCertificateCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Validate AD CS Settings server certificate",
 		Long:  "Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -453,7 +453,7 @@ func newAdcsSettingsValidateClientCertificateCmd(ctx *CLIContext) *cobra.Command
 		Short: "Validate AD CS Settings client certificate",
 		Long:  "Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -504,11 +504,11 @@ func newAdcsSettingsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

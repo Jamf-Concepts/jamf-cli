@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +37,7 @@ func newAccessManagementsListCmd(ctx *CLIContext) *cobra.Command {
   # List access-managements and extract IDs
   jamfpro-cli access-managements list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v4/enrollment/access-management"
@@ -73,7 +72,7 @@ func newAccessManagementsAccessManagementCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Configure Access Management settings",
 		Long:  "Configure Access Management settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

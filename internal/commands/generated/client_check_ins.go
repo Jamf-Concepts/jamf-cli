@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -41,7 +41,7 @@ func newClientCheckInsListCmd(ctx *CLIContext) *cobra.Command {
   # List client-check-ins and extract IDs
   jamfpro-cli client-check-ins list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/check-in"
@@ -81,7 +81,7 @@ func newClientCheckInsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a client-check-in, modify, and update
   jamfpro-cli client-check-ins get 1 -o json | jq '.name = "New Name"' | jamfpro-cli client-check-ins update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -146,7 +146,7 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a client-check-in
   jamfpro-cli client-check-ins history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v3/check-in/history"
@@ -161,11 +161,11 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -267,7 +267,7 @@ func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add a Note to Client Check-In History",
 		Long:  "Adds Client Check-In history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

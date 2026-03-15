@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command 
   # List mobile-device-prestage-sync-state-v-2s and extract IDs
   jamfpro-cli mobile-device-prestage-sync-state-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/syncs"
@@ -74,11 +74,11 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli mobile-device-prestage-sync-state-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/{id}/syncs"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

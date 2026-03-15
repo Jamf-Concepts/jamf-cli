@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -47,7 +47,7 @@ func newApnsClientPushStatussListCmd(ctx *CLIContext) *cobra.Command {
   # List apns-client-push-statuss and extract IDs
   jamfpro-cli apns-client-push-statuss list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/apns-client-push-status"
@@ -62,11 +62,11 @@ func newApnsClientPushStatussListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -166,7 +166,7 @@ func newApnsClientPushStatussEnableAllClientsCmd(ctx *CLIContext) *cobra.Command
 		Short: "Enable push notifications for all clients",
 		Long:  "Create a request to enable push notifications for all MDM clients that currently have push disabled. This is an asynchronous operation that processes all disabled clients in the background.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/apns-client-push-status/enable-all-clients"
@@ -207,7 +207,7 @@ func newApnsClientPushStatussEnableClientCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Enable push notifications for a single client",
 		Long:  "Enable push notifications for a single MDM client that previously had push disabled. This sets the pushEnabled flag to true for the specified client. managementId field is required in the request body.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

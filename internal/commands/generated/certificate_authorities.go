@@ -2,7 +2,7 @@
 package generated
 
 import (
-	"context"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
   # List certificate-authorities and extract IDs
   jamfpro-cli certificate-authorities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/active"
@@ -74,11 +74,11 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli certificate-authorities get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/spf13/cobra"
 )
@@ -35,7 +35,7 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
   # List patchavailabletitles and extract IDs
   jamfpro-cli classic-patch-available-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchavailabletitles", nil)
 			if err != nil {
 				return err
@@ -69,8 +69,8 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli classic-patch-available-titles get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
-			path := fmt.Sprintf("/JSSResource/patchavailabletitles/id/%s", args[0])
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/patchavailabletitles/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

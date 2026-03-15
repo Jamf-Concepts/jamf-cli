@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -53,7 +53,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
   # List inventory-preloads and extract IDs
   jamfpro-cli inventory-preloads list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/inventory-preload"
@@ -67,10 +67,10 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("pagesize=%d", flagPagesize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if flagSortBy != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sortBy=%s", flagSortBy))
+				queryParts = append(queryParts, "sortBy="+url.QueryEscape(flagSortBy))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -176,11 +176,11 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli inventory-preloads get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/inventory-preload/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -220,7 +220,7 @@ func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a inventory-preload, modify it, and create a copy
   jamfpro-cli inventory-preloads get 1 -o json | jq '.name = "Copy"' | jamfpro-cli inventory-preloads create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -299,7 +299,7 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli inventory-preloads get 1 -o json | jq '.name = "New Name"' | jamfpro-cli inventory-preloads update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -333,7 +333,7 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/inventory-preload/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -379,7 +379,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
   # Delete without confirmation prompt
   jamfpro-cli inventory-preloads delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -448,7 +448,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a inventory-preload
   jamfpro-cli inventory-preloads history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/inventory-preload/history"
@@ -468,7 +468,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
 			if flagSort != "" {
-				queryParts = append(queryParts, fmt.Sprintf("sort=%s", flagSort))
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -571,7 +571,7 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Inventory Preload history object notes",
 		Long:  "Adds Inventory Preload history object notes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -619,7 +619,7 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Validate a given CSV file",
 		Long:  "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from /api/inventory-preload/csv-template.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/inventory-preload/validate-csv"

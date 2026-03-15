@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -47,7 +47,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
   # List onboardings and extract IDs
   jamfpro-cli onboardings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/onboarding/eligible-apps"
@@ -62,7 +62,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(queryParts) > 0 {
@@ -171,7 +171,7 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a onboarding
   jamfpro-cli onboardings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/onboarding/history"
@@ -186,11 +186,11 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -292,7 +292,7 @@ func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Onboarding history object notes",
 		Long:  "Adds Onboarding history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -348,7 +348,7 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Export history object collection in specified format for Onboarding",
 		Long:  "Export history object collection in specified format for Onboarding",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -370,12 +370,12 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -386,11 +386,11 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

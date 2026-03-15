@@ -2,7 +2,6 @@
 package generated
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +33,7 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Renew MDM Profile",
 		Long:  "Renews the device's MDM Profile, including the device identity certificate within the MDM Profile.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{

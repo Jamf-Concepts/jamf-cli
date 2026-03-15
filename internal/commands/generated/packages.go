@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -56,7 +56,7 @@ func newPackagesListCmd(ctx *CLIContext) *cobra.Command {
   # List packages and extract IDs
   jamfpro-cli packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/packages"
@@ -71,11 +71,11 @@ func newPackagesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -181,11 +181,11 @@ func newPackagesGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli packages get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/packages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -225,7 +225,7 @@ func newPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a package, modify it, and create a copy
   jamfpro-cli packages get 1 -o json | jq '.name = "Copy"' | jamfpro-cli packages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -312,7 +312,7 @@ func newPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli packages get 1 -o json | jq '.name = "New Name"' | jamfpro-cli packages update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -354,7 +354,7 @@ func newPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/packages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -401,7 +401,7 @@ func newPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli packages delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -423,7 +423,7 @@ func newPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/packages/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -468,7 +468,7 @@ func newPackagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Delete multiple packages by IDs
   jamfpro-cli packages delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -509,14 +509,14 @@ func newPackagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			var body io.Reader
 			// Handle --ids flag for bulk operations
 			if len(flagIds) > 0 {
-				idsJSON := fmt.Sprintf(`{"ids":[%s]}`, strings.Join(func() []string {
-					quoted := make([]string, len(flagIds))
-					for i, id := range flagIds {
-						quoted[i] = fmt.Sprintf(`"%s"`, id)
-					}
-					return quoted
-				}(), ","))
-				body = strings.NewReader(idsJSON)
+				payload := struct {
+					IDs []string `json:"ids"`
+				}{IDs: flagIds}
+				idsJSON, err := json.Marshal(payload)
+				if err != nil {
+					return fmt.Errorf("encoding ids: %w", err)
+				}
+				body = strings.NewReader(string(idsJSON))
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -559,11 +559,11 @@ func newPackagesHistoryCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli packages history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/packages/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -575,11 +575,11 @@ func newPackagesHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -594,7 +594,7 @@ func newPackagesHistoryCmd(ctx *CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/packages/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", args[0], 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -683,7 +683,7 @@ func newPackagesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds specified Package history object notes",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -694,7 +694,7 @@ func newPackagesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/packages/{id}/history"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -742,7 +742,7 @@ func newPackagesExportCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Export packages to CSV
   jamfpro-cli packages export --out-file packages.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -764,12 +764,12 @@ func newPackagesExportCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -780,11 +780,11 @@ func newPackagesExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -835,7 +835,7 @@ func newPackagesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Export history object collection in specified format for specified Packages",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -852,18 +852,18 @@ func newPackagesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/packages/{id}/history/export"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -874,11 +874,11 @@ func newPackagesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -921,11 +921,11 @@ func newPackagesUploadCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Uploads a package",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/packages/{id}/upload"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string

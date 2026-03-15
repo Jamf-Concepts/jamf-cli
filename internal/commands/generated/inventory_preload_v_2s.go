@@ -2,11 +2,11 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -48,7 +48,7 @@ func newInventoryPreloadV2SListCmd(ctx *CLIContext) *cobra.Command {
   # List inventory-preload-v-2s and extract IDs
   jamfpro-cli inventory-preload-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/inventory-preload/csv"
@@ -87,11 +87,11 @@ func newInventoryPreloadV2SGetCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli inventory-preload-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/inventory-preload/records/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -129,7 +129,7 @@ func newInventoryPreloadV2SCreateCmd(ctx *CLIContext) *cobra.Command {
   # Get a inventory-preload-v-2, modify it, and create a copy
   jamfpro-cli inventory-preload-v-2s get 1 -o json | jq '.name = "Copy"' | jamfpro-cli inventory-preload-v-2s create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/inventory-preload/csv"
@@ -176,7 +176,7 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli inventory-preload-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli inventory-preload-v-2s update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -210,7 +210,7 @@ func newInventoryPreloadV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/inventory-preload/records/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -257,7 +257,7 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
   jamfpro-cli inventory-preload-v-2s delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -279,7 +279,7 @@ func newInventoryPreloadV2SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/inventory-preload/records/{id}"
-			path = strings.Replace(path, "{id}", args[0], 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -326,7 +326,7 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a inventory-preload-v-2
   jamfpro-cli inventory-preload-v-2s history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/inventory-preload/history"
@@ -341,11 +341,11 @@ func newInventoryPreloadV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -447,7 +447,7 @@ func newInventoryPreloadV2SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add Inventory Preload history object notes",
 		Long:  "Adds Inventory Preload history object notes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -505,7 +505,7 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Export inventory-preload-v-2s to CSV
   jamfpro-cli inventory-preload-v-2s export --out-file inventory-preload-v-2s.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -527,12 +527,12 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 			var queryParts []string
 			if len(flagExportFields) > 0 {
 				for _, v := range flagExportFields {
-					queryParts = append(queryParts, fmt.Sprintf("export-fields=%v", v))
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if len(flagExportLabels) > 0 {
 				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, fmt.Sprintf("export-labels=%v", v))
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagPage != 0 {
@@ -543,11 +543,11 @@ func newInventoryPreloadV2SExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -589,7 +589,7 @@ func newInventoryPreloadV2SCsvValidateCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Validate a given CSV file",
 		Long:  "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from '/v2/inventory-preload/csv-template'.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/inventory-preload/csv-validate"
@@ -631,7 +631,7 @@ func newInventoryPreloadV2SDeleteAllCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Delete all Inventory Preload records",
 		Long:  "Deletes all Inventory Preload records.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {

@@ -2,8 +2,7 @@
 package generated
 
 import (
-	"context"
-	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
   # List mobile-device-extension-attributes and extract IDs
   jamfpro-cli mobile-device-extension-attributes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/devices/extensionAttributes"
@@ -45,7 +44,7 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
 			// Build query string
 			var queryParts []string
 			if flagSelect != "" {
-				queryParts = append(queryParts, fmt.Sprintf("select=%s", flagSelect))
+				queryParts = append(queryParts, "select="+url.QueryEscape(flagSelect))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")

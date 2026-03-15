@@ -2,10 +2,10 @@
 package generated
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -43,7 +43,7 @@ func newGsxConnectionsListCmd(ctx *CLIContext) *cobra.Command {
   # List gsx-connections and extract IDs
   jamfpro-cli gsx-connections list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/gsx-connection"
@@ -81,7 +81,7 @@ func newGsxConnectionsUpdateCmd(ctx *CLIContext) *cobra.Command {
   # Get a gsx-connection, modify, and update
   jamfpro-cli gsx-connections get 1 -o json | jq '.name = "New Name"' | jamfpro-cli gsx-connections update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/gsx-connection"
@@ -129,7 +129,7 @@ func newGsxConnectionsHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Example: `  # Get history for a gsx-connection
   jamfpro-cli gsx-connections history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/gsx-connection/history"
@@ -144,11 +144,11 @@ func newGsxConnectionsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			if len(flagSort) > 0 {
 				for _, v := range flagSort {
-					queryParts = append(queryParts, fmt.Sprintf("sort=%v", v))
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
 			if flagFilter != "" {
-				queryParts = append(queryParts, fmt.Sprintf("filter=%s", flagFilter))
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -250,7 +250,7 @@ func newGsxConnectionsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Add specified GSX Connection history object notes",
 		Long:  "Adds specified GSX Connection history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -298,7 +298,7 @@ func newGsxConnectionsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Updates Jamf Pro GSX Connection information",
 		Long:  "Updates Jamf Pro GSX Connection information",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/gsx-connection"
@@ -337,7 +337,7 @@ func newGsxConnectionsTestCmd(ctx *CLIContext) *cobra.Command {
 		Short: "Test functionality of an GSX Connection",
 		Long:  "Test functionality of an GSX Connection",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/gsx-connection/test"

@@ -2,8 +2,7 @@
 package generated
 
 import (
-	"context"
-	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func newJamfPackagesListCmd(ctx *CLIContext) *cobra.Command {
   # List jamf-packages and extract IDs
   jamfpro-cli jamf-packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := context.Background()
+			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/jamf-package"
@@ -45,7 +44,7 @@ func newJamfPackagesListCmd(ctx *CLIContext) *cobra.Command {
 			// Build query string
 			var queryParts []string
 			if flagApplication != "" {
-				queryParts = append(queryParts, fmt.Sprintf("application=%s", flagApplication))
+				queryParts = append(queryParts, "application="+url.QueryEscape(flagApplication))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
