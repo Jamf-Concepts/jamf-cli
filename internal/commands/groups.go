@@ -5,6 +5,7 @@ import "github.com/spf13/cobra"
 // Group ID constants control display order in help output.
 const (
 	groupCore       = "core"
+	groupPower      = "power"
 	groupComputers  = "computers"
 	groupMobile     = "mobile"
 	groupEnrollment = "enrollment"
@@ -26,6 +27,7 @@ const (
 // commandGroups defines the groups in display order for --help output.
 var commandGroups = []*cobra.Group{
 	{ID: groupCore, Title: "Core Commands:"},
+	{ID: groupPower, Title: "Power Commands:"},
 	{ID: groupComputers, Title: "Computer Management:"},
 	{ID: groupMobile, Title: "Mobile Device Management:"},
 	{ID: groupEnrollment, Title: "Enrollment:"},
@@ -52,6 +54,14 @@ var commandGroupMap = map[string]string{
 	"completion": groupCore,
 	"commands":   groupCore,
 	"overview":   groupCore,
+
+	// Power Commands
+	"backup":      groupPower,
+	"audit":       groupPower,
+	"bulk":        groupPower,
+	"report":      groupPower,
+	"diff":        groupPower,
+	"group-tools": groupPower,
 
 	// Computer Management
 	"computers":                              groupComputers,
