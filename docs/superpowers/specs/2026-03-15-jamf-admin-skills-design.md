@@ -28,7 +28,7 @@ Three layers, each building on the one below:
 │  /jamf-report  /jamf-migrate  /jamf-investigate │
 ├─────────────────────────────────────────────────┤
 │  Layer 2: CLI Power Commands (deterministic)     │
-│  audit  backup  bulk  report  diff  groups      │
+│  audit  backup  bulk  report  diff  group-tools  │
 ├─────────────────────────────────────────────────┤
 │  Layer 1: Existing CLI (200+ API commands)       │
 │  Generated from OpenAPI specs + Classic manifest │
@@ -88,10 +88,14 @@ Each file is a self-contained YAML/JSON document. Server-generated fields (id, t
 - `--resources` — comma-separated filter (e.g., `policies,scripts`)
 - `--include-ids` — retain server IDs (useful for targeted restore)
 
+**Error handling:** Partial failures are tolerated. If individual objects fail to fetch, backup continues and writes a `_failures.yaml` manifest listing failed resources with error details. The `diff` command checks for this manifest to avoid false positives.
+
 **Implementation notes:**
-- Follows the parallel-fetch pattern from `overview.go` — fetches resource lists concurrently, then individual objects concurrently with bounded parallelism
-- Uses existing `HTTPClient` and `OutputFormatter` interfaces
+- Follows the parallel-fetch pattern from `overview.go` — fetches resource lists concurrently, then individual objects concurrently with bounded parallelism (default 10, configurable via `--concurrency`)
+- Uses `HTTPClient` for API calls but does its own file I/O for the directory tree — `OutputFormatter` is only used for the summary/progress output to stdout
 - Writes files via standard library, no new dependencies
+
+**`--resources` accepted values:** `policies`, `profiles`, `scripts`, `extension-attributes`, `smart-groups`, `static-groups`, `categories`, `buildings`, `departments`, `sites`, `packages`, `printers`, `dock-items`, `network-segments`, `restricted-software`, `disk-encryption`, `patch-policies`, `patch-titles`
 
 ### 2.2 `audit`
 
@@ -160,10 +164,11 @@ jamfpro-cli bulk send-command --command RestartDevice --group "Lab Machines"
 - `assign-profile` / `remove-profile` — bulk profile scoping
 
 **Safety model:**
-- Every subcommand requires either `--dry-run` or `--yes`. No default to execute.
-- `--dry-run` outputs a table of affected objects with no side effects.
-- Destructive commands (`send-command EraseDevice`) require both `--yes` and `--confirm-destructive`.
+- Default behavior (no flags): runs in dry-run mode and prints the preview table. This reuses the global `--dry-run` flag already wired into `dryRunClient`.
+- `--yes`: executes the mutations. Without `--yes`, nothing is modified.
+- Destructive MDM commands (`EraseDevice`, `DeviceLock`) require both `--yes` and `--confirm-destructive` as an additional gate.
 - All mutations are logged to stderr with timestamps for audit trail.
+- `--quiet` suppresses the preview table but still requires `--yes` to execute (useful for CI scripts that pipe JSON output).
 
 ### 2.4 `report`
 
@@ -205,29 +210,33 @@ jamfpro-cli diff --source prod --target prod --snapshot
 
 **Output:** List of added/removed/modified objects per resource type. Modified objects show field-level diffs. Supports `--resources` filter.
 
+**Source/target disambiguation:** Values starting with `/`, `./`, or `~` are treated as directory paths. All other values are treated as config profile names. This is unambiguous since profile names are user-defined identifiers (e.g., "prod", "staging") and never look like paths.
+
+**Multi-instance auth:** The `diff` command is added to the `skipCommands` map in `root.go` so `PersistentPreRunE` does not resolve a single auth context. Instead, `diff`'s `RunE` resolves two separate profiles and constructs two independent `HTTPClient` instances using the same auth resolution logic from `root.go` (extracted into a shared helper). When one side is a directory path, only one client is constructed.
+
 **Flags:**
-- `--source` — profile name or directory path
+- `--source` — profile name or directory path (see disambiguation rule above)
 - `--target` — profile name or directory path
 - `--snapshot` — compare against last backup in `--source` output dir
 - `--resources` — filter to specific resource types
 - Standard output flags
 
-### 2.6 `groups`
+### 2.6 `group-tools`
 
-Smart group management tooling.
+Smart group management tooling. Named `group-tools` to avoid collision with the existing generated `groups` command (mobile device groups).
 
 **Usage:**
 ```
-jamfpro-cli groups list --type smart --empty
-jamfpro-cli groups members "All Laptops" -o plain
-jamfpro-cli groups analyze --unused
-jamfpro-cli groups export --format yaml
+jamfpro-cli group-tools list --type smart --empty
+jamfpro-cli group-tools members "All Laptops" -o plain
+jamfpro-cli group-tools analyze --unused
+jamfpro-cli group-tools export --format yaml
 ```
 
 **Subcommands:**
 - `list` — list groups with filters (`--type smart|static`, `--empty`, `--name-pattern`)
 - `members` — dump membership of a specific group
-- `analyze` — find unused groups (not referenced by any policy, profile, or other group)
+- `analyze` — find unused groups (not referenced by any policy, profile, or other group). Note: this requires fetching all policies and profiles to check for group references — potentially hundreds of API calls. Uses bounded concurrency (default 10) and caches results.
 - `export` — export all group definitions to YAML/JSON
 
 ## Layer 3: Claude Code Skills
@@ -288,7 +297,7 @@ Based on community pain intensity and implementation dependency:
 3. **bulk** — most requested workflow improvement
 4. **report** — addresses top feature request (management-friendly output)
 5. **diff** — depends on backup format being stable
-6. **groups** — smallest scope, can ship independently
+6. **group-tools** — smallest scope, can ship independently
 
 Skills ship alongside or after their corresponding CLI commands. `/jamf-investigate` can ship early since it only needs the existing 200+ commands.
 
@@ -324,9 +333,15 @@ jamfpro-skills/
 
 Each skill is a markdown file with YAML frontmatter defining triggers, and body content providing Claude with the orchestration instructions. Skills invoke the CLI via `Bash` tool calls.
 
+## Decided Questions
+
+1. **Restore command:** Separate `jamfpro-cli restore` command (not a flag on `backup`). Safer UX — harder to accidentally restore. Also keeps the cobra command tree clean.
+2. **Backup format versioning:** Each backup file includes a `_meta` key with `schema_version: 1` and `cli_version`. Future format changes bump the schema version; restore validates compatibility.
+3. **Rate limiting for bulk:** Sequential mutations in v1. Add `--concurrency` flag as a future optimization if admins need faster bulk ops.
+4. **Report scheduling:** External schedulers (cron, launchd, CI). The CLI stays stateless.
+5. **Report pagination:** Reports that query large device sets implement their own pagination loop using the same page-size logic as generated list commands. Default page size 100, configurable via `--page-size`.
+
 ## Open Questions
 
-1. **Restore command:** Should `backup` have a `--restore` flag, or should restore be a separate `jamfpro-cli restore` command? Separate command is safer (harder to accidentally restore).
-2. **Backup format versioning:** If the backup YAML schema changes between CLI versions, how do we handle migration? Embedding a schema version in each file is the simplest approach.
-3. **Rate limiting for bulk:** Should `bulk` have a `--concurrency` flag to control parallel mutations, or should it always be sequential? Sequential is safest; concurrency is a future optimization.
-4. **Report scheduling:** Should the CLI support cron-like scheduling for reports, or leave that to external schedulers (cron, launchd, CI)? External schedulers — keep the CLI stateless.
+1. **Audit check cost:** Some checks (e.g., "unused scripts") require O(policies) API calls. Should expensive checks be opt-in, or should audit always run everything and just take longer?
+2. **`group-tools export` vs. `backup --resources smart-groups`:** Intentional overlap for convenience, or should `group-tools export` be removed in favor of `backup`? Current decision: keep both — `group-tools export` is quick-access for a common task; `backup` is comprehensive.
