@@ -54,7 +54,7 @@ See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide) for 
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
 - **`--field`** — Extract a single field from any response: `jamfpro-cli comp list --field id`
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
-- **`overview`** — Instance dashboard with 30+ parallel API calls: inventory, enrollment, MDM, alerts
+- **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing

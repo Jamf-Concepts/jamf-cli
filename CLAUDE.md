@@ -9,7 +9,7 @@ make build                  # Build binary to bin/jamfpro-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
-make sync-specs             # Copy specs from jamf-pro-server repo, then regenerate
+make sync-specs             # Copy specs from jamf/jss repo, then regenerate
 make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```
