@@ -67,7 +67,7 @@ Functions available in `resourceTemplate`:
 go test ./generator/parser/... ./generator/classic/...
 
 # Full cycle: regenerate + test everything
-make generate && go fmt ./internal/commands/generated/... && make test
+make generate && make test
 ```
 
 ## How Registry Files Work

@@ -29,14 +29,7 @@ jobs:
         run: make test
 
       - name: Verify generated code is up-to-date
-        run: |
-          make generate
-          go fmt ./internal/commands/generated/...
-          if ! git diff --quiet -- internal/commands/generated/; then
-            echo "::error::Generated code is out of date. Run 'make generate' and commit the result."
-            git diff --stat -- internal/commands/generated/
-            exit 1
-          fi
+        run: make verify-generated
 
       - name: Build
         run: make build

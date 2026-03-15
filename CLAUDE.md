@@ -14,7 +14,7 @@ To change generated command behavior, edit the **generator templates**:
 
 Templates are Go `const` strings embedded in the generator source — NOT separate `.tmpl` files.
 
-After modifying a template: `make generate && go fmt ./internal/commands/generated/... && make test`
+After modifying a template: `make generate && make test`
 
 ## Where to Make Changes
 
@@ -129,7 +129,7 @@ Generated commands depend on two interfaces defined in `registry.go`:
 
 1. Edit the template `const` in `generator/parser/generator.go` (or `classic/generator.go`)
 2. If new template data is needed, update `parser.Resource` / `parser.Operation` in `parser/types.go`
-3. Run: `make generate && go fmt ./internal/commands/generated/... && make test`
+3. Run: `make generate && make test`
 4. Verify: `make verify-generated`
 
 ### Syncing specs for a new Jamf Pro version

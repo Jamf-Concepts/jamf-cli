@@ -54,14 +54,13 @@ sync-specs:
 	@ls specs/*.yaml | wc -l | xargs echo "  Total files:"
 	@echo "Regenerating commands..."
 	@$(MAKE) generate
-	@echo "Formatting generated code..."
-	@go fmt ./internal/commands/generated/...
 	@echo "Done! Review changes with: git diff"
 
 # Generate CLI commands from OpenAPI specs and Classic API manifest
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 	go run ./generator/main.go --specs ./specs --output ./internal/commands/generated
+	@go fmt ./internal/commands/generated/...
 	@echo "Generated commands:"
 	@ls internal/commands/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
 	@ls internal/commands/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"
@@ -85,8 +84,8 @@ deps:
 
 # Verify generated code is up to date (CI-safe)
 verify-generated:
+	@rm -f internal/commands/generated/*.go
 	@$(MAKE) generate
-	@go fmt ./internal/commands/generated/...
 	@if ! git diff --quiet -- internal/commands/generated/; then \
 		echo "Error: generated code is out of date"; \
 		git diff --stat -- internal/commands/generated/; \
