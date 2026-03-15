@@ -41,7 +41,7 @@ This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI 
 | `internal/commands/` | Handwritten commands (config, setup, overview, completion, aliases, groups) |
 | `internal/commands/generated/` | **Generated** — all API resource commands + registry |
 | `internal/client/` | HTTP client with auth injection, retry, and exit-code mapping |
-| `internal/auth/` | Provider interface with OAuth2 (client credentials), BasicAuth, and Token impls |
+| `internal/auth/` | Provider interface with OAuth2 (client credentials) and Token impls |
 | `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes) |
 | `internal/output/` | Multi-format output: table, JSON, CSV, YAML, plain. Table has smart column selection, date formatting, status colorization |
 | `internal/keychain/` | System keychain abstraction (macOS Keychain, Linux secret-service) |
@@ -50,8 +50,8 @@ This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI 
 
 ### Auth Resolution Order
 
-1. CLI flags (`--token`, `--client-id`/`--client-secret`, `--username`/`--password`)
-2. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, etc.)
+1. CLI flags (`--token`, `--client-id`/`--client-secret`)
+2. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`)
 3. Config profile (resolved via `--profile`, `JAMF_PROFILE`, or `default-profile` in config)
 
 Secret values in config use prefixed references: `env:VAR`, `file:/path`, `keychain:service/account`. Bare values passed to `config add-profile` are stored in the system keychain automatically.
@@ -64,9 +64,11 @@ Generated commands depend on two interfaces defined in `registry.go`:
 
 `root.go` bridges these with adapter types (`cliClient`, `cliOutput`) and decorators (`spinnerClient`, `dryRunClient`).
 
+`cliOutput.PrintRaw` has a `--field` override: when `fieldName` is set, it parses JSON and extracts the named field from each object instead of delegating to the formatter. Generated `create`/`update` commands include a `--scaffold` flag that prints a JSON template (produced by `scaffoldJSON()` in the generator).
+
 ### Config File
 
-`~/.config/jamfpro-cli/config.yaml` (XDG-compliant, with `~/.jamfpro-cli/` legacy fallback)
+`~/.config/jamfpro-cli/config.yaml` (XDG-compliant)
 
 ## Conventions
 
