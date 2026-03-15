@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewAccessManagementsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAccessManagementsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Access Management settings",
 		Long:  "Get Access Management settings",
+		Example: `  # List all access-managements
+  jamfpro-cli access-managements list
+
+  # List access-managements and extract IDs
+  jamfpro-cli access-managements list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,15 +57,19 @@ func newAccessManagementsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAccessManagementsAccessManagementCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "access-management",
@@ -66,6 +77,13 @@ func newAccessManagementsAccessManagementCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Configure Access Management settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "automatedDeviceEnrollmentServerUuid": "4B637BAB65D14E6DA63A74E4F6F82C4B"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v4/enrollment/access-management"
@@ -89,9 +107,13 @@ func newAccessManagementsAccessManagementCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

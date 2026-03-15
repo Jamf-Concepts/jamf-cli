@@ -35,17 +35,22 @@ func NewDeviceEnrollmentInstancesCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Read all sorted and paged Device Enrollment instances",
 		Long:  "Search for sorted and paged device enrollment instances",
+		Example: `  # List all device-enrollment-instances
+  jamfpro-cli device-enrollment-instances list
+
+  # List device-enrollment-instances and extract IDs
+  jamfpro-cli device-enrollment-instances list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -103,7 +108,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -141,6 +146,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -155,12 +161,18 @@ func newDeviceEnrollmentInstancesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Device Enrollment Instance with the supplied id",
 		Long:  "Retrieves a Device Enrollment Instance with the supplied id",
+		Example: `  # Get a device-enrollment-instance by ID
+  jamfpro-cli device-enrollment-instances get 1
+
+  # Get a device-enrollment-instance and output as YAML
+  jamfpro-cli device-enrollment-instances get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -182,23 +194,41 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Device Enrollment Instance with the supplied id",
 		Long:  "Updates a Device Enrollment Instance with the supplied id",
+		Example: `  # Update a device-enrollment-instance from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli device-enrollment-instances update 1
+
+  # Get a device-enrollment-instance, modify, and update
+  jamfpro-cli device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamfpro-cli device-enrollment-instances update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "name": "Example Device Enrollment Instance",
+  "siteId": -1,
+  "supervisionIdentityId": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/device-enrollments/{id}"
@@ -223,16 +253,19 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -240,6 +273,11 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Device Enrollment Instance with the supplied id",
 		Long:  "Deletes a Device Enrollment Instance with the supplied id",
+		Example: `  # Delete a device-enrollment-instance (with confirmation)
+  jamfpro-cli device-enrollment-instances delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli device-enrollment-instances delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -279,6 +317,7 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -296,18 +335,20 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get sorted and paged Device Enrollment history objects",
 		Long:  "Gets sorted and paged device enrollment history objects",
+		Example: `  # Get history for a device-enrollment-instance
+  jamfpro-cli device-enrollment-instances history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -371,7 +412,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -409,6 +450,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -424,7 +466,9 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -433,6 +477,13 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comma
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/device-enrollments/{id}/history"
@@ -457,15 +508,20 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comma
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "upload-token",
@@ -473,6 +529,14 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 		Long:  "Creates a device enrollment instance with the supplied token.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "tokenFileName": "Acme MDM Token"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/device-enrollments/upload-token"
@@ -496,15 +560,20 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *CLIContext) *cobra.Command 
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "disown <id>",
@@ -513,6 +582,16 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "devices": [
+    "1a2s3d4f5g",
+    "0o9i8u7y6t"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/device-enrollments/{id}/disown"
@@ -537,9 +616,13 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

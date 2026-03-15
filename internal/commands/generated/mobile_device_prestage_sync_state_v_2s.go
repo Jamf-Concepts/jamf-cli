@@ -23,12 +23,18 @@ func NewMobileDevicePrestageSyncStateV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all Prestage sync States for all prestages",
 		Long:  "Get all prestage sync states for all prestages",
+		Example: `  # List all mobile-device-prestage-sync-state-v-2s
+  jamfpro-cli mobile-device-prestage-sync-state-v-2s list
+
+  # List mobile-device-prestage-sync-state-v-2s and extract IDs
+  jamfpro-cli mobile-device-prestage-sync-state-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -48,20 +54,28 @@ func newMobileDevicePrestageSyncStateV2SListCmd(ctx *CLIContext) *cobra.Command 
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get all prestage sync states for a single prestage",
 		Long:  "Get all prestage sync states for a single prestage",
+		Example: `  # Get a mobile-device-prestage-sync-state-v-2 by ID
+  jamfpro-cli mobile-device-prestage-sync-state-v-2s get 1
+
+  # Get a mobile-device-prestage-sync-state-v-2 and output as YAML
+  jamfpro-cli mobile-device-prestage-sync-state-v-2s get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -83,9 +97,12 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

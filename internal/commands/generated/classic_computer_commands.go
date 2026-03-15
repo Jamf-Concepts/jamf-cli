@@ -26,6 +26,8 @@ func NewClassicComputerCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerCommandsCreateCmd(ctx))
 
+
+
 	return cmd
 }
 
@@ -33,6 +35,11 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all computercommands",
+		Example: `  # List all computercommands
+  jamfpro-cli classic-computer-commands list
+
+  # List computercommands and extract IDs
+  jamfpro-cli classic-computer-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computercommands", nil)
@@ -57,10 +64,16 @@ func newClassicComputerCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_command by ID",
+		Example: `  # Get a computer_command by ID
+  jamfpro-cli classic-computer-commands get 1
+
+  # Get a computer_command and output as YAML
+  jamfpro-cli classic-computer-commands get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -116,11 +129,17 @@ func newClassicComputerCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_command",
 		Long:  "Create a new computer_command. Reads JSON body from stdin.",
+		Example: `  # Create a computer_command from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-computer-commands create
+
+  # Get a computer_command, modify, and create a copy
+  jamfpro-cli classic-computer-commands get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-commands create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -142,3 +161,6 @@ func newClassicComputerCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+

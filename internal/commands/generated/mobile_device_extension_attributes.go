@@ -31,6 +31,11 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Get Mobile Device Extension Attribute values placed in select paramter",
 		Long:  "Gets Mobile Device Extension Attribute values placed in select parameter.",
+		Example: `  # List all mobile-device-extension-attributes
+  jamfpro-cli mobile-device-extension-attributes list
+
+  # List mobile-device-extension-attributes and extract IDs
+  jamfpro-cli mobile-device-extension-attributes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -53,6 +58,7 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -61,3 +67,4 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

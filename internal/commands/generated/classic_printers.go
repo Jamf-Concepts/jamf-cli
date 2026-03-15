@@ -38,6 +38,11 @@ func newClassicPrintersListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all printers",
+		Example: `  # List all printers
+  jamfpro-cli classic-printers list
+
+  # List printers and extract IDs
+  jamfpro-cli classic-printers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/printers", nil)
@@ -62,10 +67,16 @@ func newClassicPrintersListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPrintersGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a printer by ID",
+		Example: `  # Get a printer by ID
+  jamfpro-cli classic-printers get 1
+
+  # Get a printer and output as YAML
+  jamfpro-cli classic-printers get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicPrintersGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPrintersCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a printer",
 		Long:  "Create a new printer. Reads JSON body from stdin.",
+		Example: `  # Create a printer from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-printers create
+
+  # Get a printer, modify, and create a copy
+  jamfpro-cli classic-printers get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-printers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicPrintersCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPrintersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a printer",
 		Long:  "Update an existing printer by ID. Reads JSON body from stdin.",
+		Example: `  # Update a printer from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-printers update 1
+
+  # Get, modify, and update a printer
+  jamfpro-cli classic-printers get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-printers update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicPrintersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a printer",
+		Example: `  # Delete a printer (with confirmation)
+  jamfpro-cli classic-printers delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-printers delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicPrintersDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

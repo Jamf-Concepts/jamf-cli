@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -24,7 +25,9 @@ func NewMobileDeviceAppsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "reinstall-app-config",
@@ -32,6 +35,13 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Redeploys the managed app configuration for a specific app on a specific device using the $APP_CONFIG_REINSTALL_CODE generated during deployment.  This endpoint does not require authorization, only the re-install code. The code does not contain any user authentication information.  For example usage, see the following Teacher app documentation: [Teacher App Manged App Configuration](https://learn.jamf.com/bundle/jamf-teacher-configuration-guide/page/Jamf_Teacher_Integration_with_Jamf_Pro.html)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "reinstallCode": "975767FE-074E-4F42-BB8B-925B1627CA6F"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-apps/reinstall-app-config"
@@ -55,9 +65,13 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

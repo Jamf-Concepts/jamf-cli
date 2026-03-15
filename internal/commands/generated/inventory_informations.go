@@ -22,12 +22,18 @@ func NewInventoryInformationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryInformationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get statistics about managed/unmanaged devices and computers in the inventory",
 		Long:  "Gets statistics about managed/unmanaged devices and computers in the inventory.",
+		Example: `  # List all inventory-informations
+  jamfpro-cli inventory-informations list
+
+  # List inventory-informations and extract IDs
+  jamfpro-cli inventory-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newInventoryInformationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

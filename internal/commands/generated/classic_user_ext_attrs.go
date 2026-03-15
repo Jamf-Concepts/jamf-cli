@@ -38,6 +38,11 @@ func newClassicUserExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all userextensionattributes",
+		Example: `  # List all userextensionattributes
+  jamfpro-cli classic-user-ext-attrs list
+
+  # List userextensionattributes and extract IDs
+  jamfpro-cli classic-user-ext-attrs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/userextensionattributes", nil)
@@ -62,10 +67,16 @@ func newClassicUserExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicUserExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a user_extension_attribute by ID",
+		Example: `  # Get a user_extension_attribute by ID
+  jamfpro-cli classic-user-ext-attrs get 1
+
+  # Get a user_extension_attribute and output as YAML
+  jamfpro-cli classic-user-ext-attrs get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicUserExtAttrsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicUserExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a user_extension_attribute",
 		Long:  "Create a new user_extension_attribute. Reads JSON body from stdin.",
+		Example: `  # Create a user_extension_attribute from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-user-ext-attrs create
+
+  # Get a user_extension_attribute, modify, and create a copy
+  jamfpro-cli classic-user-ext-attrs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-user-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicUserExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicUserExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a user_extension_attribute",
 		Long:  "Update an existing user_extension_attribute by ID. Reads JSON body from stdin.",
+		Example: `  # Update a user_extension_attribute from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-user-ext-attrs update 1
+
+  # Get, modify, and update a user_extension_attribute
+  jamfpro-cli classic-user-ext-attrs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-user-ext-attrs update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicUserExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicUserExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicUserExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a user_extension_attribute",
+		Example: `  # Delete a user_extension_attribute (with confirmation)
+  jamfpro-cli classic-user-ext-attrs delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-user-ext-attrs delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicUserExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

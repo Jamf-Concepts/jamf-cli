@@ -38,6 +38,11 @@ func newClassicComputerConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all computerconfigurations",
+		Example: `  # List all computerconfigurations
+  jamfpro-cli classic-computer-configs list
+
+  # List computerconfigurations and extract IDs
+  jamfpro-cli classic-computer-configs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerconfigurations", nil)
@@ -62,10 +67,16 @@ func newClassicComputerConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_configuration by ID",
+		Example: `  # Get a computer_configuration by ID
+  jamfpro-cli classic-computer-configs get 1
+
+  # Get a computer_configuration and output as YAML
+  jamfpro-cli classic-computer-configs get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicComputerConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_configuration",
 		Long:  "Create a new computer_configuration. Reads JSON body from stdin.",
+		Example: `  # Create a computer_configuration from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-computer-configs create
+
+  # Get a computer_configuration, modify, and create a copy
+  jamfpro-cli classic-computer-configs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicComputerConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a computer_configuration",
 		Long:  "Update an existing computer_configuration by ID. Reads JSON body from stdin.",
+		Example: `  # Update a computer_configuration from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-computer-configs update 1
+
+  # Get, modify, and update a computer_configuration
+  jamfpro-cli classic-computer-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-computer-configs update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicComputerConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a computer_configuration",
+		Example: `  # Delete a computer_configuration (with confirmation)
+  jamfpro-cli classic-computer-configs delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-computer-configs delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicComputerConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

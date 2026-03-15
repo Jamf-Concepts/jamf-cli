@@ -23,12 +23,18 @@ func NewCertificateAuthoritiesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Returns X.509 details of the active Certificate Authority (CA)",
 		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
+		Example: `  # List all certificate-authorities
+  jamfpro-cli certificate-authorities list
+
+  # List certificate-authorities and extract IDs
+  jamfpro-cli certificate-authorities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -48,20 +54,28 @@ func newCertificateAuthoritiesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
+		Example: `  # Get a certificate-authoritie by ID
+  jamfpro-cli certificate-authorities get 1
+
+  # Get a certificate-authoritie and output as YAML
+  jamfpro-cli certificate-authorities get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -83,9 +97,12 @@ func newCertificateAuthoritiesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

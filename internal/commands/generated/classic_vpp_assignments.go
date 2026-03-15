@@ -37,6 +37,11 @@ func newClassicVppAssignmentsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all vppassignments",
+		Example: `  # List all vppassignments
+  jamfpro-cli classic-vpp-assignments list
+
+  # List vppassignments and extract IDs
+  jamfpro-cli classic-vpp-assignments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppassignments", nil)
@@ -61,10 +66,16 @@ func newClassicVppAssignmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a vpp_assignment by ID",
+		Example: `  # Get a vpp_assignment by ID
+  jamfpro-cli classic-vpp-assignments get 1
+
+  # Get a vpp_assignment and output as YAML
+  jamfpro-cli classic-vpp-assignments get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,11 +102,17 @@ func newClassicVppAssignmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_assignment",
 		Long:  "Create a new vpp_assignment. Reads JSON body from stdin.",
+		Example: `  # Create a vpp_assignment from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-vpp-assignments create
+
+  # Get a vpp_assignment, modify, and create a copy
+  jamfpro-cli classic-vpp-assignments get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-vpp-assignments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -118,11 +135,17 @@ func newClassicVppAssignmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_assignment",
 		Long:  "Update an existing vpp_assignment by ID. Reads JSON body from stdin.",
+		Example: `  # Update a vpp_assignment from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-vpp-assignments update 1
+
+  # Get, modify, and update a vpp_assignment
+  jamfpro-cli classic-vpp-assignments get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-vpp-assignments update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -147,6 +170,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -156,6 +180,11 @@ func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a vpp_assignment",
+		Example: `  # Delete a vpp_assignment (with confirmation)
+  jamfpro-cli classic-vpp-assignments delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-vpp-assignments delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -198,3 +227,4 @@ func newClassicVppAssignmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

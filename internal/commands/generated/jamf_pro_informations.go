@@ -22,12 +22,18 @@ func NewJamfProInformationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProInformationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get basic information about the Jamf Pro Server",
 		Long:  "Get basic information about the Jamf Pro Server",
+		Example: `  # List all jamf-pro-informations
+  jamfpro-cli jamf-pro-informations list
+
+  # List jamf-pro-informations and extract IDs
+  jamfpro-cli jamf-pro-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newJamfProInformationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

@@ -26,12 +26,18 @@ func NewNotificationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newNotificationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Notifications for user and site",
 		Long:  "Gets notifications for user and site",
+		Example: `  # List all notifications
+  jamfpro-cli notifications list
+
+  # List notifications and extract IDs
+  jamfpro-cli notifications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -51,16 +57,18 @@ func newNotificationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -68,6 +76,11 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
+		Example: `  # Delete a notification (with confirmation)
+  jamfpro-cli notifications delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli notifications delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -108,6 +121,7 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -122,3 +136,4 @@ func newNotificationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

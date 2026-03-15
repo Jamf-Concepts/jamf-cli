@@ -26,6 +26,7 @@ func NewClassicMobileInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileInvitationsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicMobileInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -35,6 +36,11 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all mobiledeviceinvitations",
+		Example: `  # List all mobiledeviceinvitations
+  jamfpro-cli classic-mobile-invitations list
+
+  # List mobiledeviceinvitations and extract IDs
+  jamfpro-cli classic-mobile-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceinvitations", nil)
@@ -59,10 +65,16 @@ func newClassicMobileInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a mobile_device_invitation by ID",
+		Example: `  # Get a mobile_device_invitation by ID
+  jamfpro-cli classic-mobile-invitations get 1
+
+  # Get a mobile_device_invitation and output as YAML
+  jamfpro-cli classic-mobile-invitations get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -89,11 +101,17 @@ func newClassicMobileInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_invitation",
 		Long:  "Create a new mobile_device_invitation. Reads JSON body from stdin.",
+		Example: `  # Create a mobile_device_invitation from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-mobile-invitations create
+
+  # Get a mobile_device_invitation, modify, and create a copy
+  jamfpro-cli classic-mobile-invitations get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mobile-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -116,6 +134,8 @@ func newClassicMobileInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
+
 func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -125,6 +145,11 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a mobile_device_invitation",
+		Example: `  # Delete a mobile_device_invitation (with confirmation)
+  jamfpro-cli classic-mobile-invitations delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-mobile-invitations delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -167,3 +192,4 @@ func newClassicMobileInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

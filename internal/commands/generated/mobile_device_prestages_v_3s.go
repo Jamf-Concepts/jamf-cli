@@ -35,17 +35,22 @@ func NewMobileDevicePrestagesV3SCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get sorted and paged Mobile Device Prestages",
 		Long:  "Gets sorted and paged mobile device prestages",
+		Example: `  # List all mobile-device-prestages-v-3s
+  jamfpro-cli mobile-device-prestages-v-3s list
+
+  # List mobile-device-prestages-v-3s and extract IDs
+  jamfpro-cli mobile-device-prestages-v-3s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -103,7 +108,7 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -141,6 +146,7 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -155,12 +161,18 @@ func newMobileDevicePrestagesV3SListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Mobile Device Prestage with the supplied id",
 		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
+		Example: `  # Get a mobile-device-prestages-v-3 by ID
+  jamfpro-cli mobile-device-prestages-v-3s get 1
+
+  # Get a mobile-device-prestages-v-3 and output as YAML
+  jamfpro-cli mobile-device-prestages-v-3s get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -182,20 +194,31 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Mobile Device Prestage",
 		Long:  "Create a mobile device prestage",
+		Example: `  # Show the JSON template for creating a mobile-device-prestages-v-3
+  jamfpro-cli mobile-device-prestages-v-3s create --scaffold
+
+  # Create a mobile-device-prestages-v-3 from JSON
+  echo '{"name":"Example"}' | jamfpro-cli mobile-device-prestages-v-3s create
+
+  # Get a mobile-device-prestages-v-3, modify it, and create a copy
+  jamfpro-cli mobile-device-prestages-v-3s get 1 -o json | jq '.name = "Copy"' | jamfpro-cli mobile-device-prestages-v-3s create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -221,20 +244,28 @@ func newMobileDevicePrestagesV3SCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Mobile Device Prestage",
 		Long:  "Updates a Mobile Device Prestage",
+		Example: `  # Update a mobile-device-prestages-v-3 from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli mobile-device-prestages-v-3s update 1
+
+  # Get a mobile-device-prestages-v-3, modify, and update
+  jamfpro-cli mobile-device-prestages-v-3s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-prestages-v-3s update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -262,16 +293,18 @@ func newMobileDevicePrestagesV3SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -279,6 +312,11 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Mobile Device Prestage with the supplied id",
 		Long:  "Deletes a Mobile Device Prestage with the supplied id",
+		Example: `  # Delete a mobile-device-prestages-v-3 (with confirmation)
+  jamfpro-cli mobile-device-prestages-v-3s delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli mobile-device-prestages-v-3s delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -318,6 +356,7 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -335,18 +374,28 @@ func newMobileDevicePrestagesV3SDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple <id>",
 		Short: "Remove an attachment for a Mobile Device Prestage",
 		Long:  "Remove an attachment for a Mobile Device Prestage",
+		Example: `  # Delete multiple mobile-device-prestages-v-3s by IDs
+  jamfpro-cli mobile-device-prestages-v-3s delete-multiple --ids 1,2,3 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "ids": []
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -401,6 +450,7 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -408,23 +458,26 @@ func newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get sorted and paged Mobile Device Prestage history objects",
 		Long:  "Gets sorted and paged mobile device prestage history objects",
+		Example: `  # Get history for a mobile-device-prestages-v-3
+  jamfpro-cli mobile-device-prestages-v-3s history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -485,7 +538,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -523,6 +576,7 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -537,7 +591,9 @@ func newMobileDevicePrestagesV3SHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -546,6 +602,13 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/history"
@@ -570,9 +633,13 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

@@ -23,12 +23,18 @@ func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all instance sync states for all Device Enrollment Instances",
 		Long:  "Get all instance sync states for all instances",
+		Example: `  # List all device-enrollment-instance-sync-states
+  jamfpro-cli device-enrollment-instance-sync-states list
+
+  # List device-enrollment-instance-sync-states and extract IDs
+  jamfpro-cli device-enrollment-instance-sync-states list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -48,20 +54,28 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get all instance sync states for a single Device Enrollment Instance",
 		Long:  "Get all instance sync states for a single instance",
+		Example: `  # Get a device-enrollment-instance-sync-state by ID
+  jamfpro-cli device-enrollment-instance-sync-states get 1
+
+  # Get a device-enrollment-instance-sync-state and output as YAML
+  jamfpro-cli device-enrollment-instance-sync-states get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -83,9 +97,12 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *CLIContext) *cobra.Command
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

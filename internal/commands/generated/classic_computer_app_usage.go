@@ -18,15 +18,25 @@ func NewClassicComputerAppUsageCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer application usage data via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicComputerAppUsageGetCmd(ctx))
+
+
+
 
 	return cmd
 }
+
 
 func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_application_usage by ID",
+		Example: `  # Get a computer_application_usage by ID
+  jamfpro-cli classic-computer-app-usage get 1
+
+  # Get a computer_application_usage and output as YAML
+  jamfpro-cli classic-computer-app-usage get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -52,3 +62,7 @@ func newClassicComputerAppUsageGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

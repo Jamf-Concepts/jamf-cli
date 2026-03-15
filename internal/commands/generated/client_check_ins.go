@@ -29,12 +29,18 @@ func NewClientCheckInsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newClientCheckInsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Client Check-In settings",
 		Long:  "Gets 'Client Check-In' object.",
+		Example: `  # List all client-check-ins
+  jamfpro-cli client-check-ins list
+
+  # List client-check-ins and extract IDs
+  jamfpro-cli client-check-ins list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -54,22 +60,46 @@ func newClientCheckInsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newClientCheckInsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Client Check-In object",
 		Long:  "Update Client Check-In object",
+		Example: `  # Update a client-check-in from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli client-check-ins update 1
+
+  # Get a client-check-in, modify, and update
+  jamfpro-cli client-check-ins get 1 -o json | jq '.name = "New Name"' | jamfpro-cli client-check-ins update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "checkInFrequency": 0,
+  "createHooks": false,
+  "createStartupScript": false,
+  "enableLocalConfigurationProfiles": false,
+  "hookLog": false,
+  "hookPolicies": false,
+  "startupLog": false,
+  "startupPolicies": false,
+  "startupSsh": false
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/check-in"
@@ -93,27 +123,32 @@ func newClientCheckInsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Client Check-In history object",
 		Long:  "Gets Client Check-In history object",
+		Example: `  # Get history for a client-check-in
+  jamfpro-cli client-check-ins history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -174,7 +209,7 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -212,6 +247,7 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -227,7 +263,9 @@ func newClientCheckInsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -235,6 +273,13 @@ func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Client Check-In history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/check-in/history"
@@ -258,9 +303,13 @@ func newClientCheckInsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

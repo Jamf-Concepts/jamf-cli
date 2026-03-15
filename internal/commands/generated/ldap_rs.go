@@ -31,6 +31,11 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Retrieve the configured access groups that contain the text in the search param",
 		Long:  "Retrieves the configured access groups that contain the text in the searchParam.",
+		Example: `  # List all ldap-rs
+  jamfpro-cli ldap-rs list
+
+  # List ldap-rs and extract IDs
+  jamfpro-cli ldap-rs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -53,6 +58,7 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -61,3 +67,4 @@ func newLdapRsListCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

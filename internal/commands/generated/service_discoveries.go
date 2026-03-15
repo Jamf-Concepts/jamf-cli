@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewServiceDiscoveriesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newServiceDiscoveriesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get service discovery well-known settings for all organizations",
 		Long:  "Returns current settings for all AxM organizations.",
+		Example: `  # List all service-discoveries
+  jamfpro-cli service-discoveries list
+
+  # List service-discoveries and extract IDs
+  jamfpro-cli service-discoveries list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,22 +57,38 @@ func newServiceDiscoveriesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newServiceDiscoveriesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update service discovery well-known settings",
 		Long:  "Accepts JSON payload to update enrollment types for AxM organizations. Requires \"Update User-Initiated Enrollment\" privilege.",
+		Example: `  # Update a service-discoverie from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli service-discoveries update 1
+
+  # Get a service-discoverie, modify, and update
+  jamfpro-cli service-discoveries get 1 -o json | jq '.name = "New Name"' | jamfpro-cli service-discoveries update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "wellKnownSettings": []
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/service-discovery-enrollment/well-known-settings"
@@ -89,9 +112,13 @@ func newServiceDiscoveriesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

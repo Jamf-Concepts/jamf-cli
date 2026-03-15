@@ -25,12 +25,18 @@ func NewSlasasCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSlasasListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get the status of SLASA",
 		Long:  "Get if SLASA has been accepted or not",
+		Example: `  # List all slasas
+  jamfpro-cli slasas list
+
+  # List slasas and extract IDs
+  jamfpro-cli slasas list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,15 +56,18 @@ func newSlasasListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSlasasSlasaCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "slasa",
@@ -89,9 +98,12 @@ func newSlasasSlasaCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

@@ -35,18 +35,23 @@ func NewCategoriesCmd(ctx *CLIContext) *cobra.Command {
 
 func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Category objects",
 		Long:  "Gets 'Category' objects.",
+		Example: `  # List all categories
+  jamfpro-cli categories list
+
+  # List categories and extract IDs
+  jamfpro-cli categories list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -107,7 +112,7 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -145,6 +150,7 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -160,12 +166,18 @@ func newCategoriesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCategoriesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get specified Category object",
 		Long:  "Gets specified Category object",
+		Example: `  # Get a categorie by ID
+  jamfpro-cli categories get 1
+
+  # Get a categorie and output as YAML
+  jamfpro-cli categories get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -187,22 +199,42 @@ func newCategoriesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCategoriesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Category record",
 		Long:  "Create category record",
+		Example: `  # Show the JSON template for creating a categorie
+  jamfpro-cli categories create --scaffold
+
+  # Create a categorie from JSON
+  echo '{"name":"Example"}' | jamfpro-cli categories create
+
+  # Get a categorie, modify it, and create a copy
+  jamfpro-cli categories get 1 -o json | jq '.name = "Copy"' | jamfpro-cli categories create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "name": "The Best",
+  "priority": 9
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/categories"
@@ -226,23 +258,41 @@ func newCategoriesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newCategoriesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update specified Category object",
 		Long:  "Update specified category object",
+		Example: `  # Update a categorie from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli categories update 1
+
+  # Get a categorie, modify, and update
+  jamfpro-cli categories get 1 -o json | jq '.name = "New Name"' | jamfpro-cli categories update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "name": "The Best",
+  "priority": 9
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/categories/{id}"
@@ -267,16 +317,19 @@ func newCategoriesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -284,6 +337,11 @@ func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Category record",
 		Long:  "Removes specified category record",
+		Example: `  # Delete a categorie (with confirmation)
+  jamfpro-cli categories delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli categories delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -323,6 +381,7 @@ func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -340,17 +399,27 @@ func newCategoriesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple",
 		Short: "Delete multiple Categories by their IDs",
 		Long:  "Delete multiple Categories by their IDs",
+		Example: `  # Delete multiple categories by IDs
+  jamfpro-cli categories delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "ids": []
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -404,6 +473,7 @@ func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -411,24 +481,27 @@ func newCategoriesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get specified Category history object",
 		Long:  "Gets specified Category history object",
+		Example: `  # Get history for a categorie
+  jamfpro-cli categories history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -492,7 +565,7 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -530,6 +603,7 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -545,7 +619,9 @@ func newCategoriesHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCategoriesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -554,6 +630,13 @@ func newCategoriesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/categories/{id}/history"
@@ -578,9 +661,13 @@ func newCategoriesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

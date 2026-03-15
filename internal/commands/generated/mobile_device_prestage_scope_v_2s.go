@@ -29,12 +29,18 @@ func NewMobileDevicePrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all Device Scope for all Mobile Device Prestages",
 		Long:  "Get all device scope for all mobile device prestages",
+		Example: `  # List all mobile-device-prestage-scope-v-2s
+  jamfpro-cli mobile-device-prestage-scope-v-2s list
+
+  # List mobile-device-prestage-scope-v-2s and extract IDs
+  jamfpro-cli mobile-device-prestage-scope-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -54,20 +60,28 @@ func newMobileDevicePrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get Device Scope for a specific Mobile Device Prestage",
 		Long:  "Get device scope for a specific mobile device prestage",
+		Example: `  # Get a mobile-device-prestage-scope-v-2 by ID
+  jamfpro-cli mobile-device-prestage-scope-v-2s get 1
+
+  # Get a mobile-device-prestage-scope-v-2 and output as YAML
+  jamfpro-cli mobile-device-prestage-scope-v-2s get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -89,23 +103,43 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Replace Device Scope for a specific Mobile Device Prestage",
 		Long:  "Replace device scope for a specific mobile device prestage",
+		Example: `  # Update a mobile-device-prestage-scope-v-2 from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli mobile-device-prestage-scope-v-2s update 1
+
+  # Get a mobile-device-prestage-scope-v-2, modify, and update
+  jamfpro-cli mobile-device-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-prestage-scope-v-2s update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/{id}/scope"
@@ -130,27 +164,44 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple <id>",
 		Short: "Remove Device Scope for a specific Mobile Device Prestage",
 		Long:  "Remove device scope for a specific mobile device prestage",
+		Example: `  # Delete multiple mobile-device-prestage-scope-v-2s by IDs
+  jamfpro-cli mobile-device-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -205,6 +256,7 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -212,12 +264,15 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
@@ -226,6 +281,17 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/{id}/scope"
@@ -250,9 +316,13 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

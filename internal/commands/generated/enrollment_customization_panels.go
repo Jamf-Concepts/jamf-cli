@@ -29,12 +29,18 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get all Panels for single Enrollment Customization",
 		Long:  "Get all panels for single enrollment customization",
+		Example: `  # Get a enrollment-customization-panel by ID
+  jamfpro-cli enrollment-customization-panels get 1
+
+  # Get a enrollment-customization-panel and output as YAML
+  jamfpro-cli enrollment-customization-panels get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -56,22 +62,41 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Parse the given string as markdown text and return Html output",
 		Long:  "Parse the given string as markdown text and return Html output",
+		Example: `  # Show the JSON template for creating a enrollment-customization-panel
+  jamfpro-cli enrollment-customization-panels create --scaffold
+
+  # Create a enrollment-customization-panel from JSON
+  echo '{"name":"Example"}' | jamfpro-cli enrollment-customization-panels create
+
+  # Get a enrollment-customization-panel, modify it, and create a copy
+  jamfpro-cli enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamfpro-cli enrollment-customization-panels create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "markdown": "**markdown**"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/enrollment-customization/parse-markdown"
@@ -95,20 +120,29 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
+		Example: `  # Update a enrollment-customization-panel from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli enrollment-customization-panels update 1
+
+  # Get a enrollment-customization-panel, modify, and update
+  jamfpro-cli enrollment-customization-panels get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-customization-panels update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -137,16 +171,18 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -154,6 +190,11 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
+		Example: `  # Delete a enrollment-customization-panel (with confirmation)
+  jamfpro-cli enrollment-customization-panels delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli enrollment-customization-panels delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -194,6 +235,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -208,3 +250,4 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -37,6 +37,11 @@ func newClassicPatchPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all patchpolicies",
+		Example: `  # List all patchpolicies
+  jamfpro-cli classic-patch-policies list
+
+  # List patchpolicies and extract IDs
+  jamfpro-cli classic-patch-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)
@@ -61,10 +66,16 @@ func newClassicPatchPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_policy by ID",
+		Example: `  # Get a patch_policy by ID
+  jamfpro-cli classic-patch-policies get 1
+
+  # Get a patch_policy and output as YAML
+  jamfpro-cli classic-patch-policies get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,11 +102,17 @@ func newClassicPatchPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_policy",
 		Long:  "Create a new patch_policy. Reads JSON body from stdin.",
+		Example: `  # Create a patch_policy from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-patch-policies create
+
+  # Get a patch_policy, modify, and create a copy
+  jamfpro-cli classic-patch-policies get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-patch-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -118,11 +135,17 @@ func newClassicPatchPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_policy",
 		Long:  "Update an existing patch_policy by ID. Reads JSON body from stdin.",
+		Example: `  # Update a patch_policy from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-patch-policies update 1
+
+  # Get, modify, and update a patch_policy
+  jamfpro-cli classic-patch-policies get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-policies update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -147,6 +170,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -156,6 +180,11 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a patch_policy",
+		Example: `  # Delete a patch_policy (with confirmation)
+  jamfpro-cli classic-patch-policies delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-patch-policies delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -198,3 +227,4 @@ func newClassicPatchPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

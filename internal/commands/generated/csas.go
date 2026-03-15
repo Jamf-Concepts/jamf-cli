@@ -26,12 +26,18 @@ func NewCsasCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCsasListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Returns the CSA tenant ID.",
 		Long:  "Returns the CSA tenant ID.",
+		Example: `  # List all csas
+  jamfpro-cli csas list
+
+  # List csas and extract IDs
+  jamfpro-cli csas list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -51,16 +57,18 @@ func newCsasListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -68,6 +76,11 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services",
 		Long:  "Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services",
+		Example: `  # Delete a csa (with confirmation)
+  jamfpro-cli csas delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli csas delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -105,6 +118,7 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -119,3 +133,4 @@ func newCsasDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

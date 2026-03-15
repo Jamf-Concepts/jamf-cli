@@ -38,6 +38,11 @@ func newClassicIbeaconsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all ibeacons",
+		Example: `  # List all ibeacons
+  jamfpro-cli classic-ibeacons list
+
+  # List ibeacons and extract IDs
+  jamfpro-cli classic-ibeacons list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ibeacons", nil)
@@ -62,10 +67,16 @@ func newClassicIbeaconsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicIbeaconsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a ibeacon by ID",
+		Example: `  # Get a ibeacon by ID
+  jamfpro-cli classic-ibeacons get 1
+
+  # Get a ibeacon and output as YAML
+  jamfpro-cli classic-ibeacons get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicIbeaconsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicIbeaconsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a ibeacon",
 		Long:  "Create a new ibeacon. Reads JSON body from stdin.",
+		Example: `  # Create a ibeacon from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-ibeacons create
+
+  # Get a ibeacon, modify, and create a copy
+  jamfpro-cli classic-ibeacons get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-ibeacons create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicIbeaconsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicIbeaconsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a ibeacon",
 		Long:  "Update an existing ibeacon by ID. Reads JSON body from stdin.",
+		Example: `  # Update a ibeacon from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-ibeacons update 1
+
+  # Get, modify, and update a ibeacon
+  jamfpro-cli classic-ibeacons get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-ibeacons update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicIbeaconsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a ibeacon",
+		Example: `  # Delete a ibeacon (with confirmation)
+  jamfpro-cli classic-ibeacons delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-ibeacons delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicIbeaconsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

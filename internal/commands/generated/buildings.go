@@ -37,18 +37,23 @@ func NewBuildingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Search for sorted and paged Buildings",
 		Long:  "Search for sorted and paged buildings",
+		Example: `  # List all buildings
+  jamfpro-cli buildings list
+
+  # List buildings and extract IDs
+  jamfpro-cli buildings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -109,7 +114,7 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -147,6 +152,7 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -162,12 +168,18 @@ func newBuildingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get specified Building object",
 		Long:  "Gets specified Building object",
+		Example: `  # Get a building by ID
+  jamfpro-cli buildings get 1
+
+  # Get a building and output as YAML
+  jamfpro-cli buildings get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -189,22 +201,47 @@ func newBuildingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newBuildingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Building record",
 		Long:  "Create building record",
+		Example: `  # Show the JSON template for creating a building
+  jamfpro-cli buildings create --scaffold
+
+  # Create a building from JSON
+  echo '{"name":"Example"}' | jamfpro-cli buildings create
+
+  # Get a building, modify it, and create a copy
+  jamfpro-cli buildings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli buildings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "city": "Cupertino",
+  "country": "The United States of America",
+  "name": "Apple Park",
+  "stateProvince": "California",
+  "streetAddress1": "The McIntosh Tree",
+  "streetAddress2": "One Apple Park Way",
+  "zipPostalCode": 95014
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/buildings"
@@ -228,23 +265,46 @@ func newBuildingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update specified Building object",
 		Long:  "Update specified building object",
+		Example: `  # Update a building from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli buildings update 1
+
+  # Get a building, modify, and update
+  jamfpro-cli buildings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli buildings update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "city": "Cupertino",
+  "country": "The United States of America",
+  "name": "Apple Park",
+  "stateProvince": "California",
+  "streetAddress1": "The McIntosh Tree",
+  "streetAddress2": "One Apple Park Way",
+  "zipPostalCode": 95014
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/buildings/{id}"
@@ -269,16 +329,19 @@ func newBuildingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -286,6 +349,11 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Building record",
 		Long:  "Removes specified building record",
+		Example: `  # Delete a building (with confirmation)
+  jamfpro-cli buildings delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli buildings delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -325,6 +393,7 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -342,17 +411,27 @@ func newBuildingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple",
 		Short: "Delete multiple Buildings by their ids",
 		Long:  "multiple many Buildings by their ids",
+		Example: `  # Delete multiple buildings by IDs
+  jamfpro-cli buildings delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "ids": []
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -406,6 +485,7 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -413,24 +493,27 @@ func newBuildingsDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get specified Building History object",
 		Long:  "Gets specified Building history object",
+		Example: `  # Get history for a building
+  jamfpro-cli buildings history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -494,7 +577,7 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -532,6 +615,7 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -547,7 +631,9 @@ func newBuildingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -556,6 +642,13 @@ func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/buildings/{id}/history"
@@ -580,9 +673,12 @@ func newBuildingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -591,18 +687,34 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export Buildings collection",
 		Long:  "Export Buildings collection",
+		Example: `  # Export buildings to CSV
+  jamfpro-cli buildings export --out-file buildings.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/buildings/export"
@@ -650,6 +762,7 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -660,6 +773,7 @@ func newBuildingsExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*buildings*\"")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -668,10 +782,11 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -681,6 +796,19 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/buildings/{id}/history/export"
@@ -729,6 +857,7 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -739,6 +868,8 @@ func newBuildingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

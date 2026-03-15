@@ -31,12 +31,18 @@ func NewJcdsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service.",
+		Example: `  # List all jcds
+  jamfpro-cli jcds list
+
+  # List jcds and extract IDs
+  jamfpro-cli jcds list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -56,20 +62,28 @@ func newJcdsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.",
+		Example: `  # Get a jcd by ID
+  jamfpro-cli jcds get 1
+
+  # Get a jcd and output as YAML
+  jamfpro-cli jcds get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,16 +105,18 @@ func newJcdsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -108,6 +124,11 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a file from the Jamf Cloud Distribution Service",
 		Long:  "Delete a file by filename from the Jamf Cloud Distribution Service.",
+		Example: `  # Delete a jcd (with confirmation)
+  jamfpro-cli jcds delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli jcds delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -147,6 +168,7 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -163,7 +185,8 @@ func newJcdsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "files",
@@ -194,9 +217,11 @@ func newJcdsFilesCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
@@ -238,6 +263,7 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -248,7 +274,8 @@ func newJcdsRefreshInventoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "renew-credentials",
@@ -279,9 +306,12 @@ func newJcdsRenewCredentialsCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

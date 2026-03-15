@@ -33,19 +33,24 @@ func NewSupervisionIdentitiesCmd(ctx *CLIContext) *cobra.Command {
 
 func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
-		flagSize     int
+		flagPage int
+		flagSize int
 		flagPagesize int
 		flagPageSize int
-		flagSort     string
-		flagAll      bool
-		flagLimit    int
+		flagSort string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Search for sorted and paged Supervision Identities",
 		Long:  "Search for sorted and paged supervision identities",
+		Example: `  # List all supervision-identities
+  jamfpro-cli supervision-identities list
+
+  # List supervision-identities and extract IDs
+  jamfpro-cli supervision-identities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -107,7 +112,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -145,6 +150,7 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -161,12 +167,18 @@ func newSupervisionIdentitiesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSupervisionIdentitiesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Supervision Identity with the supplied id",
 		Long:  "Retrieves a Supervision Identity with the supplied id",
+		Example: `  # Get a supervision-identitie by ID
+  jamfpro-cli supervision-identities get 1
+
+  # Get a supervision-identitie and output as YAML
+  jamfpro-cli supervision-identities get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -188,22 +200,42 @@ func newSupervisionIdentitiesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSupervisionIdentitiesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Supervision Identity for the supplied information",
 		Long:  "Creates a Supervision Identity for the supplied information",
+		Example: `  # Show the JSON template for creating a supervision-identitie
+  jamfpro-cli supervision-identities create --scaffold
+
+  # Create a supervision-identitie from JSON
+  echo '{"name":"Example"}' | jamfpro-cli supervision-identities create
+
+  # Get a supervision-identitie, modify it, and create a copy
+  jamfpro-cli supervision-identities get 1 -o json | jq '.name = "Copy"' | jamfpro-cli supervision-identities create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "displayName": "Supervision Identity",
+  "password": "jamf1234"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/supervision-identities"
@@ -227,23 +259,40 @@ func newSupervisionIdentitiesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Supervision Identity with the supplied information",
 		Long:  "Updates a Supervision Identity with the supplied information",
+		Example: `  # Update a supervision-identitie from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli supervision-identities update 1
+
+  # Get a supervision-identitie, modify, and update
+  jamfpro-cli supervision-identities get 1 -o json | jq '.name = "New Name"' | jamfpro-cli supervision-identities update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "displayName": "Supervision Identity"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/supervision-identities/{id}"
@@ -268,16 +317,19 @@ func newSupervisionIdentitiesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -285,6 +337,11 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Supervision Identity with the supplied id",
 		Long:  "Deletes a Supervision Identity with the supplied id",
+		Example: `  # Delete a supervision-identitie (with confirmation)
+  jamfpro-cli supervision-identities delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli supervision-identities delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -324,6 +381,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -340,7 +398,9 @@ func newSupervisionIdentitiesDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "upload",
@@ -348,6 +408,15 @@ func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Uploads the Supervision Identity .p12 file",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "certificateData": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "displayName": "Supervision Identity",
+  "password": "jamf1234"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/supervision-identities/upload"
@@ -371,9 +440,13 @@ func newSupervisionIdentitiesUploadCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

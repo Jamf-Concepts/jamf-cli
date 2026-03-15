@@ -18,15 +18,25 @@ func NewClassicComputerHistoryCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage computer history records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicComputerHistoryGetCmd(ctx))
+
+
+
 
 	return cmd
 }
+
 
 func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_history by ID",
+		Example: `  # Get a computer_history by ID
+  jamfpro-cli classic-computer-history get 1
+
+  # Get a computer_history and output as YAML
+  jamfpro-cli classic-computer-history get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -52,3 +62,7 @@ func newClassicComputerHistoryGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

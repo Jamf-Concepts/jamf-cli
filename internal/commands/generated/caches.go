@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewCachesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCachesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Cache Settings",
 		Long:  "gets cache settings",
+		Example: `  # List all caches
+  jamfpro-cli caches list
+
+  # List caches and extract IDs
+  jamfpro-cli caches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,22 +57,46 @@ func newCachesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newCachesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Cache Settings",
 		Long:  "updates cache settings",
+		Example: `  # Update a cache from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli caches update 1
+
+  # Get a cache, modify, and update
+  jamfpro-cli caches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli caches update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "cacheType": "ehcache",
+  "cacheUniqueId": "24864549-94ea-4cc1-bb80-d7fb392c6556",
+  "directoryTimeToLiveSeconds": 120,
+  "ehcacheMaxBytesLocalHeap": "",
+  "elasticache": false,
+  "memcachedEndpoints": [],
+  "name": "",
+  "timeToIdleSeconds": 120,
+  "timeToLiveSeconds": 120
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/cache-settings"
@@ -89,9 +120,13 @@ func newCachesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

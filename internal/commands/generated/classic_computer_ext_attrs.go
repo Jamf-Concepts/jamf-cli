@@ -38,6 +38,11 @@ func newClassicComputerExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all computerextensionattributes",
+		Example: `  # List all computerextensionattributes
+  jamfpro-cli classic-computer-ext-attrs list
+
+  # List computerextensionattributes and extract IDs
+  jamfpro-cli classic-computer-ext-attrs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerextensionattributes", nil)
@@ -62,10 +67,16 @@ func newClassicComputerExtAttrsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerExtAttrsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_extension_attribute by ID",
+		Example: `  # Get a computer_extension_attribute by ID
+  jamfpro-cli classic-computer-ext-attrs get 1
+
+  # Get a computer_extension_attribute and output as YAML
+  jamfpro-cli classic-computer-ext-attrs get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicComputerExtAttrsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_extension_attribute",
 		Long:  "Create a new computer_extension_attribute. Reads JSON body from stdin.",
+		Example: `  # Create a computer_extension_attribute from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-computer-ext-attrs create
+
+  # Get a computer_extension_attribute, modify, and create a copy
+  jamfpro-cli classic-computer-ext-attrs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicComputerExtAttrsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a computer_extension_attribute",
 		Long:  "Update an existing computer_extension_attribute by ID. Reads JSON body from stdin.",
+		Example: `  # Update a computer_extension_attribute from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-computer-ext-attrs update 1
+
+  # Get, modify, and update a computer_extension_attribute
+  jamfpro-cli classic-computer-ext-attrs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-computer-ext-attrs update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a computer_extension_attribute",
+		Example: `  # Delete a computer_extension_attribute (with confirmation)
+  jamfpro-cli classic-computer-ext-attrs delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-computer-ext-attrs delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

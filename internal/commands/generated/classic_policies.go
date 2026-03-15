@@ -38,6 +38,11 @@ func newClassicPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all policies",
+		Example: `  # List all policies
+  jamfpro-cli classic-policies list
+
+  # List policies and extract IDs
+  jamfpro-cli classic-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/policies", nil)
@@ -62,10 +67,16 @@ func newClassicPoliciesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPoliciesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a policy by ID",
+		Example: `  # Get a policy by ID
+  jamfpro-cli classic-policies get 1
+
+  # Get a policy and output as YAML
+  jamfpro-cli classic-policies get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicPoliciesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a policy",
 		Long:  "Create a new policy. Reads JSON body from stdin.",
+		Example: `  # Create a policy from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-policies create
+
+  # Get a policy, modify, and create a copy
+  jamfpro-cli classic-policies get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicPoliciesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a policy",
 		Long:  "Update an existing policy by ID. Reads JSON body from stdin.",
+		Example: `  # Update a policy from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-policies update 1
+
+  # Get, modify, and update a policy
+  jamfpro-cli classic-policies get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-policies update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicPoliciesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a policy",
+		Example: `  # Delete a policy (with confirmation)
+  jamfpro-cli classic-policies delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-policies delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicPoliciesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -29,12 +29,18 @@ func NewSelfServiceSettingsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSelfServiceSettingsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get an object representation of Self Service settings",
 		Long:  "gets an object representation of Self Service settings",
+		Example: `  # List all self-service-settings
+  jamfpro-cli self-service-settings list
+
+  # List self-service-settings and extract IDs
+  jamfpro-cli self-service-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -54,22 +60,40 @@ func newSelfServiceSettingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSelfServiceSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Put an object representation of Self Service settings",
 		Long:  "puts an object representation of Self Service settings",
+		Example: `  # Update a self-service-setting from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli self-service-settings update 1
+
+  # Get a self-service-setting, modify, and update
+  jamfpro-cli self-service-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "configurationSettings": {},
+  "installSettings": {},
+  "loginSettings": {}
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/self-service/settings"
@@ -93,27 +117,32 @@ func newSelfServiceSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get a page of Self Service settings history",
 		Long:  "Get a page of Self Service settings history",
+		Example: `  # Get history for a self-service-setting
+  jamfpro-cli self-service-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -174,7 +203,7 @@ func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -212,6 +241,7 @@ func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -227,7 +257,9 @@ func newSelfServiceSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSelfServiceSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -235,6 +267,13 @@ func newSelfServiceSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Add Self Service settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/self-service/settings/history"
@@ -258,9 +297,13 @@ func newSelfServiceSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

@@ -28,12 +28,18 @@ func NewUserPreferencesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newUserPreferencesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get the user preferences for the authenticated user and key.",
 		Long:  "Gets the user preferences for the authenticated user and key.",
+		Example: `  # Get a user-preference by ID
+  jamfpro-cli user-preferences get 1
+
+  # Get a user-preference and output as YAML
+  jamfpro-cli user-preferences get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -55,20 +61,28 @@ func newUserPreferencesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newUserPreferencesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Persist the user setting",
 		Long:  "Persists the user setting",
+		Example: `  # Update a user-preference from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli user-preferences update 1
+
+  # Get a user-preference, modify, and update
+  jamfpro-cli user-preferences get 1 -o json | jq '.name = "New Name"' | jamfpro-cli user-preferences update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -96,16 +110,18 @@ func newUserPreferencesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -113,6 +129,11 @@ func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified setting for authenticated user",
 		Long:  "Remove specified setting for authenticated user",
+		Example: `  # Delete a user-preference (with confirmation)
+  jamfpro-cli user-preferences delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli user-preferences delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -152,6 +173,7 @@ func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -166,3 +188,4 @@ func newUserPreferencesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

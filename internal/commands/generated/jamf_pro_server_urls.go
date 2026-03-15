@@ -29,12 +29,18 @@ func NewJamfProServerUrlsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProServerUrlsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Jamf Pro Server URL settings",
 		Long:  "Get Jamf Pro Server URL settings",
+		Example: `  # List all jamf-pro-server-urls
+  jamfpro-cli jamf-pro-server-urls list
+
+  # List jamf-pro-server-urls and extract IDs
+  jamfpro-cli jamf-pro-server-urls list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -54,22 +60,38 @@ func newJamfProServerUrlsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newJamfProServerUrlsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Jamf Pro Server URL settings",
 		Long:  "Update Jamf Pro Server URL settings",
+		Example: `  # Update a jamf-pro-server-url from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli jamf-pro-server-urls update 1
+
+  # Get a jamf-pro-server-url, modify, and update
+  jamfpro-cli jamf-pro-server-urls get 1 -o json | jq '.name = "New Name"' | jamfpro-cli jamf-pro-server-urls update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "url": "https://example.com:8443"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/jamf-pro-server-url"
@@ -93,28 +115,33 @@ func newJamfProServerUrlsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
-		flagSize     int
+		flagPage int
+		flagSize int
 		flagPagesize int
 		flagPageSize int
-		flagSort     string
-		flagAll      bool
-		flagLimit    int
+		flagSort string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Jamf Pro Server URL settings history",
 		Long:  "Gets Jamf Pro Server URL settings history",
+		Example: `  # Get history for a jamf-pro-server-url
+  jamfpro-cli jamf-pro-server-urls history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -176,7 +203,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -214,6 +241,7 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -230,7 +258,9 @@ func newJamfProServerUrlsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -238,6 +268,13 @@ func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Jamf Pro Server URL settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/jamf-pro-server-url/history"
@@ -261,9 +298,13 @@ func newJamfProServerUrlsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

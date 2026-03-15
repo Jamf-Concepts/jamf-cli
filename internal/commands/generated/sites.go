@@ -24,12 +24,18 @@ func NewSitesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSitesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Find all sites",
 		Long:  "Find all sites",
+		Example: `  # List all sites
+  jamfpro-cli sites list
+
+  # List sites and extract IDs
+  jamfpro-cli sites list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -49,25 +55,32 @@ func newSitesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSitesGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Find and filter site objects for a site ID",
 		Long:  "Find site objects for Site ID, with the ability to filter out different object types and object IDs for the site ID",
+		Example: `  # Get a site by ID
+  jamfpro-cli sites get 1
+
+  # Get a site and output as YAML
+  jamfpro-cli sites get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -103,6 +116,7 @@ func newSitesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -114,3 +128,4 @@ func newSitesGetCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

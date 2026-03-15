@@ -29,17 +29,22 @@ func NewMobileDevicesCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Mobile Device objects",
 		Long:  "Gets Mobile Device objects.",
+		Example: `  # List all mobile-devices
+  jamfpro-cli mobile-devices list
+
+  # List mobile-devices and extract IDs
+  jamfpro-cli mobile-devices list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -97,7 +102,7 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -135,6 +140,7 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -149,12 +155,18 @@ func newMobileDevicesListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDevicesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get Mobile Device",
 		Long:  "Get MobileDevice",
+		Example: `  # Get a mobile-device by ID
+  jamfpro-cli mobile-devices get 1
+
+  # Get a mobile-device and output as YAML
+  jamfpro-cli mobile-devices get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -176,15 +188,19 @@ func newMobileDevicesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDevicesPatchCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
@@ -193,6 +209,21 @@ func newMobileDevicesPatchCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "assetTag": "8675309",
+  "enforceName": true,
+  "ios": {},
+  "location": {},
+  "name": "Jan's Mobile Device",
+  "siteId": 1,
+  "timeZone": "Europe/Warsaw",
+  "tvos": {},
+  "updatedExtensionAttributes": []
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/mobile-devices/{id}"
@@ -217,9 +248,13 @@ func newMobileDevicesPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

@@ -38,6 +38,11 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all patchexternalsources",
+		Example: `  # List all patchexternalsources
+  jamfpro-cli classic-patch-external-sources list
+
+  # List patchexternalsources and extract IDs
+  jamfpro-cli classic-patch-external-sources list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchexternalsources", nil)
@@ -62,10 +67,16 @@ func newClassicPatchExternalSourcesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchExternalSourcesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_external_source by ID",
+		Example: `  # Get a patch_external_source by ID
+  jamfpro-cli classic-patch-external-sources get 1
+
+  # Get a patch_external_source and output as YAML
+  jamfpro-cli classic-patch-external-sources get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *CLIContext) *cobra.Command 
 	}
 }
 
+
 func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_external_source",
 		Long:  "Create a new patch_external_source. Reads JSON body from stdin.",
+		Example: `  # Create a patch_external_source from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-patch-external-sources create
+
+  # Get a patch_external_source, modify, and create a copy
+  jamfpro-cli classic-patch-external-sources get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-patch-external-sources create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_external_source",
 		Long:  "Update an existing patch_external_source by ID. Reads JSON body from stdin.",
+		Example: `  # Update a patch_external_source from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-patch-external-sources update 1
+
+  # Get, modify, and update a patch_external_source
+  jamfpro-cli classic-patch-external-sources get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-external-sources update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a patch_external_source",
+		Example: `  # Delete a patch_external_source (with confirmation)
+  jamfpro-cli classic-patch-external-sources delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-patch-external-sources delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

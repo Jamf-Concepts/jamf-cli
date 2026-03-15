@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewUsersCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newUsersListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return all Jamf Pro user acounts",
 		Long:  "Return all Jamf Pro user acounts.",
+		Example: `  # List all users
+  jamfpro-cli users list
+
+  # List users and extract IDs
+  jamfpro-cli users list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,22 +57,41 @@ func newUsersListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newUsersCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Update values in the User's current session",
 		Long:  "Updates values in the user's current session.",
+		Example: `  # Show the JSON template for creating a user
+  jamfpro-cli users create --scaffold
+
+  # Create a user from JSON
+  echo '{"name":"Example"}' | jamfpro-cli users create
+
+  # Get a user, modify it, and create a copy
+  jamfpro-cli users get 1 -o json | jq '.name = "Copy"' | jamfpro-cli users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "currentSiteId": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/user/updateSession"
@@ -89,9 +115,13 @@ func newUsersCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

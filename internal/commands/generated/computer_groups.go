@@ -22,12 +22,18 @@ func NewComputerGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerGroupsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Returns the list of all computer groups",
 		Long:  "Use it to get the list of all computer groups.",
+		Example: `  # List all computer-groups
+  jamfpro-cli computer-groups list
+
+  # List computer-groups and extract IDs
+  jamfpro-cli computer-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newComputerGroupsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

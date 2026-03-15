@@ -22,12 +22,18 @@ func NewCountryCodesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newCountryCodesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return a list of Countries and the associated Codes",
 		Long:  "Returns a list of countries and the associated codes that can be use for the App Store locale",
+		Example: `  # List all country-codes
+  jamfpro-cli country-codes list
+
+  # List country-codes and extract IDs
+  jamfpro-cli country-codes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newCountryCodesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

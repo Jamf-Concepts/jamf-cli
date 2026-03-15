@@ -23,6 +23,9 @@ func NewClassicAccountsCmd(ctx *CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicAccountsGetCmd(ctx))
 	cmd.AddCommand(newClassicAccountsGetByNameCmd(ctx))
 
+
+
+
 	return cmd
 }
 
@@ -30,6 +33,11 @@ func newClassicAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all accounts",
+		Example: `  # List all accounts
+  jamfpro-cli classic-accounts list
+
+  # List accounts and extract IDs
+  jamfpro-cli classic-accounts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -54,10 +62,16 @@ func newClassicAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a account by ID",
+		Example: `  # Get a account by ID
+  jamfpro-cli classic-accounts get 1
+
+  # Get a account and output as YAML
+  jamfpro-cli classic-accounts get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -112,3 +126,7 @@ func newClassicAccountsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

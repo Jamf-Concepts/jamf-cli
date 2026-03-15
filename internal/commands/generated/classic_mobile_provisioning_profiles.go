@@ -38,6 +38,11 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *CLIContext) *cobra.Command
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all mobiledeviceprovisioningprofiles",
+		Example: `  # List all mobiledeviceprovisioningprofiles
+  jamfpro-cli classic-mobile-provisioning-profiles list
+
+  # List mobiledeviceprovisioningprofiles and extract IDs
+  jamfpro-cli classic-mobile-provisioning-profiles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceprovisioningprofiles", nil)
@@ -62,10 +67,16 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
+
 func newClassicMobileProvisioningProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a mobile_device_provisioning_profile by ID",
+		Example: `  # Get a mobile_device_provisioning_profile by ID
+  jamfpro-cli classic-mobile-provisioning-profiles get 1
+
+  # Get a mobile_device_provisioning_profile and output as YAML
+  jamfpro-cli classic-mobile-provisioning-profiles get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicMobileProvisioningProfilesGetByNameCmd(ctx *CLIContext) *cobra.Co
 	}
 }
 
+
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_provisioning_profile",
 		Long:  "Create a new mobile_device_provisioning_profile. Reads JSON body from stdin.",
+		Example: `  # Create a mobile_device_provisioning_profile from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-mobile-provisioning-profiles create
+
+  # Get a mobile_device_provisioning_profile, modify, and create a copy
+  jamfpro-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mobile-provisioning-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *CLIContext) *cobra.Comma
 	}
 }
 
+
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a mobile_device_provisioning_profile",
 		Long:  "Update an existing mobile_device_provisioning_profile by ID. Reads JSON body from stdin.",
+		Example: `  # Update a mobile_device_provisioning_profile from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-mobile-provisioning-profiles update 1
+
+  # Get, modify, and update a mobile_device_provisioning_profile
+  jamfpro-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mobile-provisioning-profiles update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *CLIContext) *cobra.Comma
 	}
 }
 
+
 func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a mobile_device_provisioning_profile",
+		Example: `  # Delete a mobile_device_provisioning_profile (with confirmation)
+  jamfpro-cli classic-mobile-provisioning-profiles delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-mobile-provisioning-profiles delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *CLIContext) *cobra.Comma
 
 	return cmd
 }
+

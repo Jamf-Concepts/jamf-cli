@@ -31,12 +31,18 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Advanced Search objects",
 		Long:  "Gets Advanced Search Objects",
+		Example: `  # List all advanced-mobile-device-searches
+  jamfpro-cli advanced-mobile-device-searches list
+
+  # List advanced-mobile-device-searches and extract IDs
+  jamfpro-cli advanced-mobile-device-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -56,20 +62,28 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
+		Example: `  # Get a advanced-mobile-device-searche by ID
+  jamfpro-cli advanced-mobile-device-searches get 1
+
+  # Get a advanced-mobile-device-searche and output as YAML
+  jamfpro-cli advanced-mobile-device-searches get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,22 +105,47 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Advanced Search object",
 		Long:  "Creates Advanced Search Object",
+		Example: `  # Show the JSON template for creating a advanced-mobile-device-searche
+  jamfpro-cli advanced-mobile-device-searches create --scaffold
+
+  # Create a advanced-mobile-device-searche from JSON
+  echo '{"name":"Example"}' | jamfpro-cli advanced-mobile-device-searches create
+
+  # Get a advanced-mobile-device-searche, modify it, and create a copy
+  jamfpro-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "Copy"' | jamfpro-cli advanced-mobile-device-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "displayFields": [
+    "AirPlay Password",
+    "App Analytics Enabled"
+  ],
+  "name": "Andy's Search",
+  "siteId": -1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches"
@@ -130,23 +169,46 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
+		Example: `  # Update a advanced-mobile-device-searche from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli advanced-mobile-device-searches update 1
+
+  # Get a advanced-mobile-device-searche, modify, and update
+  jamfpro-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-mobile-device-searches update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "displayFields": [
+    "AirPlay Password",
+    "App Analytics Enabled"
+  ],
+  "name": "Andy's Search",
+  "siteId": -1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
@@ -171,16 +233,19 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -188,6 +253,11 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Advanced Search object",
 		Long:  "Removes specified Advanced Search Object",
+		Example: `  # Delete a advanced-mobile-device-searche (with confirmation)
+  jamfpro-cli advanced-mobile-device-searches delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli advanced-mobile-device-searches delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -227,6 +297,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -244,17 +315,27 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple",
 		Short: "Remove specified Advanced Search objects",
 		Long:  "Removes specified Advanced Search Objects",
+		Example: `  # Delete multiple advanced-mobile-device-searches by IDs
+  jamfpro-cli advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "ids": []
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -308,6 +389,7 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -315,6 +397,8 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

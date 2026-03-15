@@ -38,6 +38,11 @@ func newClassicPackagesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all packages",
+		Example: `  # List all packages
+  jamfpro-cli classic-packages list
+
+  # List packages and extract IDs
+  jamfpro-cli classic-packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/packages", nil)
@@ -62,10 +67,16 @@ func newClassicPackagesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPackagesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a package by ID",
+		Example: `  # Get a package by ID
+  jamfpro-cli classic-packages get 1
+
+  # Get a package and output as YAML
+  jamfpro-cli classic-packages get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicPackagesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a package",
 		Long:  "Create a new package. Reads JSON body from stdin.",
+		Example: `  # Create a package from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-packages create
+
+  # Get a package, modify, and create a copy
+  jamfpro-cli classic-packages get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-packages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicPackagesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a package",
 		Long:  "Update an existing package by ID. Reads JSON body from stdin.",
+		Example: `  # Update a package from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-packages update 1
+
+  # Get, modify, and update a package
+  jamfpro-cli classic-packages get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-packages update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicPackagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a package",
+		Example: `  # Delete a package (with confirmation)
+  jamfpro-cli classic-packages delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-packages delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicPackagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

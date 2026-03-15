@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -27,12 +28,18 @@ func NewLocalAdminPasswordV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
 		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
+		Example: `  # List all local-admin-password-v-2s
+  jamfpro-cli local-admin-password-v-2s list
+
+  # List local-admin-password-v-2s and extract IDs
+  jamfpro-cli local-admin-password-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -52,20 +59,28 @@ func newLocalAdminPasswordV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get LAPS password viewed history.",
 		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
+		Example: `  # Get a local-admin-password-v-2 by ID
+  jamfpro-cli local-admin-password-v-2s get 1
+
+  # Get a local-admin-password-v-2 and output as YAML
+  jamfpro-cli local-admin-password-v-2s get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -88,22 +103,41 @@ func newLocalAdminPasswordV2SGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update settings for LAPS.",
 		Long:  "Update settings for LAPS.",
+		Example: `  # Update a local-admin-password-v-2 from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli local-admin-password-v-2s update 1
+
+  # Get a local-admin-password-v-2, modify, and update
+  jamfpro-cli local-admin-password-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli local-admin-password-v-2s update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "autoDeployEnabled": false,
+  "autoRotateEnabled": false,
+  "autoRotateExpirationTime": 7776000,
+  "passwordRotationTime": 3600
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/local-admin-password/settings"
@@ -127,20 +161,26 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get LAPS historical records for target device and username.",
 		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
+		Example: `  # Get history for a local-admin-password-v-2
+  jamfpro-cli local-admin-password-v-2s history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -163,9 +203,12 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

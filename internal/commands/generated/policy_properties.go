@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewPolicyPropertiesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newPolicyPropertiesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Policy Properties object",
 		Long:  "Gets 'Policy Properties' object.",
+		Example: `  # List all policy-properties
+  jamfpro-cli policy-properties list
+
+  # List policy-properties and extract IDs
+  jamfpro-cli policy-properties list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,22 +57,39 @@ func newPolicyPropertiesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newPolicyPropertiesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Policy Properties object",
 		Long:  "Update Policy Properties object",
+		Example: `  # Update a policy-propertie from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli policy-properties update 1
+
+  # Get a policy-propertie, modify, and update
+  jamfpro-cli policy-properties get 1 -o json | jq '.name = "New Name"' | jamfpro-cli policy-properties update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "isAllowNetworkStateChangeTriggers": false,
+  "isPoliciesRequireNetworkStateChange": false
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/settings/obj/policyProperties"
@@ -89,9 +113,13 @@ func newPolicyPropertiesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

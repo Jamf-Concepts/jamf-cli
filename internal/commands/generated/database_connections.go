@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -24,7 +25,9 @@ func NewDatabaseConnectionsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "initialize-database-connection",
@@ -32,6 +35,13 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cob
 		Long:  "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "password": 12345
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/system/initialize-database-connection"
@@ -55,9 +65,13 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *CLIContext) *cob
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

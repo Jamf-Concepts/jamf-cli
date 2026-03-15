@@ -30,12 +30,18 @@ func NewReturnToServiceConfigurationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all Return to Service Configurations",
 		Long:  "Gets all return to service configurations.",
+		Example: `  # List all return-to-service-configurations
+  jamfpro-cli return-to-service-configurations list
+
+  # List return-to-service-configurations and extract IDs
+  jamfpro-cli return-to-service-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,20 +61,28 @@ func newReturnToServiceConfigurationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Return to Service Configuration with the supplied id",
 		Long:  "Retrieves a Return to Service Configuration with the supplied id",
+		Example: `  # Get a return-to-service-configuration by ID
+  jamfpro-cli return-to-service-configurations get 1
+
+  # Get a return-to-service-configuration and output as YAML
+  jamfpro-cli return-to-service-configurations get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -90,22 +104,42 @@ func newReturnToServiceConfigurationsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Return to Service Configuration",
 		Long:  "Create a return to service configuration",
+		Example: `  # Show the JSON template for creating a return-to-service-configuration
+  jamfpro-cli return-to-service-configurations create --scaffold
+
+  # Create a return-to-service-configuration from JSON
+  echo '{"name":"Example"}' | jamfpro-cli return-to-service-configurations create
+
+  # Get a return-to-service-configuration, modify it, and create a copy
+  jamfpro-cli return-to-service-configurations get 1 -o json | jq '.name = "Copy"' | jamfpro-cli return-to-service-configurations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "displayName": "displayName",
+  "wifiProfileId": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/return-to-service"
@@ -129,23 +163,41 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Return to Service Configuration",
 		Long:  "Updates a Return to Service Configuration",
+		Example: `  # Update a return-to-service-configuration from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli return-to-service-configurations update 1
+
+  # Get a return-to-service-configuration, modify, and update
+  jamfpro-cli return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamfpro-cli return-to-service-configurations update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "displayName": "displayName",
+  "wifiProfileId": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/return-to-service/{id}"
@@ -170,16 +222,19 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -187,6 +242,11 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Return To Service Configuration with the supplied id",
 		Long:  "Deletes a Return To Service Configuration with the supplied id",
+		Example: `  # Delete a return-to-service-configuration (with confirmation)
+  jamfpro-cli return-to-service-configurations delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli return-to-service-configurations delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -226,6 +286,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -240,3 +301,4 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -26,6 +26,7 @@ func NewClassicComputerInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerInvitationsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicComputerInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -35,6 +36,11 @@ func newClassicComputerInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all computerinvitations",
+		Example: `  # List all computerinvitations
+  jamfpro-cli classic-computer-invitations list
+
+  # List computerinvitations and extract IDs
+  jamfpro-cli classic-computer-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerinvitations", nil)
@@ -59,10 +65,16 @@ func newClassicComputerInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_invitation by ID",
+		Example: `  # Get a computer_invitation by ID
+  jamfpro-cli classic-computer-invitations get 1
+
+  # Get a computer_invitation and output as YAML
+  jamfpro-cli classic-computer-invitations get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -89,11 +101,17 @@ func newClassicComputerInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_invitation",
 		Long:  "Create a new computer_invitation. Reads JSON body from stdin.",
+		Example: `  # Create a computer_invitation from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-computer-invitations create
+
+  # Get a computer_invitation, modify, and create a copy
+  jamfpro-cli classic-computer-invitations get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-computer-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -116,6 +134,8 @@ func newClassicComputerInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
+
 func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -125,6 +145,11 @@ func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a computer_invitation",
+		Example: `  # Delete a computer_invitation (with confirmation)
+  jamfpro-cli classic-computer-invitations delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-computer-invitations delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -167,3 +192,4 @@ func newClassicComputerInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

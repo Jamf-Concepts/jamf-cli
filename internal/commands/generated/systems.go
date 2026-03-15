@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,7 +26,9 @@ func NewSystemsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "initialize",
@@ -33,6 +36,19 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Set up fresh installed Jamf Pro Server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "activationCode": "VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB",
+  "email": "ITBob@jamf.com",
+  "eulaAccepted": false,
+  "institutionName": "Jamf",
+  "jssUrl": "https://jamf.jamfcloud.com",
+  "password": "12345",
+  "username": "admin"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/system/initialize"
@@ -56,15 +72,20 @@ func newSystemsInitializeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "platform-initialize",
@@ -72,6 +93,18 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "activationCode": "VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB",
+  "email": "ITBob@jamf.com",
+  "eulaAccepted": false,
+  "institutionName": "Jamf",
+  "jssUrl": "https://jamf.jamfcloud.com",
+  "username": "admin"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/system/platform-initialize"
@@ -95,9 +128,13 @@ func newSystemsPlatformInitializeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

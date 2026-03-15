@@ -38,6 +38,11 @@ func newClassicPatchTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all patchsoftwaretitles",
+		Example: `  # List all patchsoftwaretitles
+  jamfpro-cli classic-patch-titles list
+
+  # List patchsoftwaretitles and extract IDs
+  jamfpro-cli classic-patch-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchsoftwaretitles", nil)
@@ -62,10 +67,16 @@ func newClassicPatchTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_software_title by ID",
+		Example: `  # Get a patch_software_title by ID
+  jamfpro-cli classic-patch-titles get 1
+
+  # Get a patch_software_title and output as YAML
+  jamfpro-cli classic-patch-titles get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicPatchTitlesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_software_title",
 		Long:  "Create a new patch_software_title. Reads JSON body from stdin.",
+		Example: `  # Create a patch_software_title from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-patch-titles create
+
+  # Get a patch_software_title, modify, and create a copy
+  jamfpro-cli classic-patch-titles get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-patch-titles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicPatchTitlesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_software_title",
 		Long:  "Update an existing patch_software_title by ID. Reads JSON body from stdin.",
+		Example: `  # Update a patch_software_title from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-patch-titles update 1
+
+  # Get, modify, and update a patch_software_title
+  jamfpro-cli classic-patch-titles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-patch-titles update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a patch_software_title",
+		Example: `  # Delete a patch_software_title (with confirmation)
+  jamfpro-cli classic-patch-titles delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-patch-titles delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicPatchTitlesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -38,6 +38,11 @@ func newClassicRestrictedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all restrictedsoftware",
+		Example: `  # List all restrictedsoftware
+  jamfpro-cli classic-restricted-software list
+
+  # List restrictedsoftware and extract IDs
+  jamfpro-cli classic-restricted-software list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/restrictedsoftware", nil)
@@ -62,10 +67,16 @@ func newClassicRestrictedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicRestrictedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a restricted_software by ID",
+		Example: `  # Get a restricted_software by ID
+  jamfpro-cli classic-restricted-software get 1
+
+  # Get a restricted_software and output as YAML
+  jamfpro-cli classic-restricted-software get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicRestrictedSoftwareGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicRestrictedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a restricted_software",
 		Long:  "Create a new restricted_software. Reads JSON body from stdin.",
+		Example: `  # Create a restricted_software from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-restricted-software create
+
+  # Get a restricted_software, modify, and create a copy
+  jamfpro-cli classic-restricted-software get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-restricted-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicRestrictedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a restricted_software",
 		Long:  "Update an existing restricted_software by ID. Reads JSON body from stdin.",
+		Example: `  # Update a restricted_software from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-restricted-software update 1
+
+  # Get, modify, and update a restricted_software
+  jamfpro-cli classic-restricted-software get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-restricted-software update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicRestrictedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a restricted_software",
+		Example: `  # Delete a restricted_software (with confirmation)
+  jamfpro-cli classic-restricted-software delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-restricted-software delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

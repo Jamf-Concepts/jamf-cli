@@ -154,6 +154,10 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			Description: rb.Description,
 			Required:    rb.Required,
 		}
+		// Resolve request body schema for scaffold generation
+		if content, ok := rb.Content["application/json"]; ok && content.Schema != nil && content.Schema.Value != nil {
+			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
+		}
 	}
 
 	// Parse responses (sorted for deterministic output)

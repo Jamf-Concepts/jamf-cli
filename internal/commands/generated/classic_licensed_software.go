@@ -38,6 +38,11 @@ func newClassicLicensedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all licensedsoftware",
+		Example: `  # List all licensedsoftware
+  jamfpro-cli classic-licensed-software list
+
+  # List licensedsoftware and extract IDs
+  jamfpro-cli classic-licensed-software list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/licensedsoftware", nil)
@@ -62,10 +67,16 @@ func newClassicLicensedSoftwareListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicLicensedSoftwareGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a licensed_software by ID",
+		Example: `  # Get a licensed_software by ID
+  jamfpro-cli classic-licensed-software get 1
+
+  # Get a licensed_software and output as YAML
+  jamfpro-cli classic-licensed-software get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicLicensedSoftwareGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a licensed_software",
 		Long:  "Create a new licensed_software. Reads JSON body from stdin.",
+		Example: `  # Create a licensed_software from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-licensed-software create
+
+  # Get a licensed_software, modify, and create a copy
+  jamfpro-cli classic-licensed-software get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-licensed-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicLicensedSoftwareCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a licensed_software",
 		Long:  "Update an existing licensed_software by ID. Reads JSON body from stdin.",
+		Example: `  # Update a licensed_software from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-licensed-software update 1
+
+  # Get, modify, and update a licensed_software
+  jamfpro-cli classic-licensed-software get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-licensed-software update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a licensed_software",
+		Example: `  # Delete a licensed_software (with confirmation)
+  jamfpro-cli classic-licensed-software delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-licensed-software delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

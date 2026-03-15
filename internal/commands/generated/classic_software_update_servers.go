@@ -38,6 +38,11 @@ func newClassicSoftwareUpdateServersListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all softwareupdateservers",
+		Example: `  # List all softwareupdateservers
+  jamfpro-cli classic-software-update-servers list
+
+  # List softwareupdateservers and extract IDs
+  jamfpro-cli classic-software-update-servers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/softwareupdateservers", nil)
@@ -62,10 +67,16 @@ func newClassicSoftwareUpdateServersListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicSoftwareUpdateServersGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a software_update_server by ID",
+		Example: `  # Get a software_update_server by ID
+  jamfpro-cli classic-software-update-servers get 1
+
+  # Get a software_update_server and output as YAML
+  jamfpro-cli classic-software-update-servers get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicSoftwareUpdateServersGetByNameCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
+
 func newClassicSoftwareUpdateServersCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a software_update_server",
 		Long:  "Create a new software_update_server. Reads JSON body from stdin.",
+		Example: `  # Create a software_update_server from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-software-update-servers create
+
+  # Get a software_update_server, modify, and create a copy
+  jamfpro-cli classic-software-update-servers get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicSoftwareUpdateServersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a software_update_server",
 		Long:  "Update an existing software_update_server by ID. Reads JSON body from stdin.",
+		Example: `  # Update a software_update_server from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-software-update-servers update 1
+
+  # Get, modify, and update a software_update_server
+  jamfpro-cli classic-software-update-servers get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-software-update-servers update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicSoftwareUpdateServersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a software_update_server",
+		Example: `  # Delete a software_update_server (with confirmation)
+  jamfpro-cli classic-software-update-servers delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-software-update-servers delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

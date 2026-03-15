@@ -28,12 +28,18 @@ func NewMdmRenewalsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get device common details for a client management ID",
 		Long:  "Retrieves device common details associated with a specific client management ID",
+		Example: `  # Get a mdm-renewal by ID
+  jamfpro-cli mdm-renewals get 1
+
+  # Get a mdm-renewal and output as YAML
+  jamfpro-cli mdm-renewals get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -55,16 +61,18 @@ func newMdmRenewalsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -72,6 +80,11 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete MDM renewal strategies for a client management ID",
 		Long:  "Deletes all MDM renewal strategies and errors associated with the specified client management ID",
+		Example: `  # Delete a mdm-renewal (with confirmation)
+  jamfpro-cli mdm-renewals delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli mdm-renewals delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -111,6 +124,7 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -127,7 +141,9 @@ func newMdmRenewalsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch",
@@ -135,6 +151,18 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "clientManagementId": "550e8400-e29b-41d4-a716-446655440000",
+  "mdmCheckinUrl": "https://example.jamfcloud.com/mdm/CheckInURL",
+  "mdmProfileNeedsRenewalDueToCaRenewed": false,
+  "mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring": true,
+  "mdmServerUrl": "https://example.jamfcloud.com/mdm/ServerURL",
+  "renewMdmProfileStartDate": "2021-12-31T16:00:00Z"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mdm-renewal/device-common-details"
@@ -158,9 +186,13 @@ func newMdmRenewalsPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

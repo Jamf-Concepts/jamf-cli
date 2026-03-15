@@ -32,6 +32,7 @@ var (
 	dryRun       bool
 	wide         bool
 	outFile      string
+	fieldName    string
 	serverURL    string
 	token        string
 	tokenFile    string
@@ -62,6 +63,43 @@ func (o *cliOutput) PrintResponse(resp *http.Response) error {
 		return err
 	}
 	return o.PrintRaw(body)
+}
+
+func (o *cliOutput) PrintRaw(data []byte) error {
+	if fieldName == "" {
+		return o.Formatter.PrintRaw(data)
+	}
+
+	// Parse JSON and extract the named field
+	var parsed interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return fmt.Errorf("cannot extract field from non-JSON response")
+	}
+
+	var objects []map[string]interface{}
+	switch v := parsed.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if m, ok := item.(map[string]interface{}); ok {
+				objects = append(objects, m)
+			}
+		}
+	case map[string]interface{}:
+		objects = []map[string]interface{}{v}
+	default:
+		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
+	}
+
+	for _, obj := range objects {
+		val, ok := obj[fieldName]
+		if !ok {
+			continue
+		}
+		if _, err := fmt.Fprintln(os.Stdout, output.FormatValue(val)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
@@ -315,6 +353,7 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
+	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")

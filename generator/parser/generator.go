@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,9 +42,53 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"dedupeOps":     dedupeOperations,
 		"escapeQuotes":  escapeQuotes,
 		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
+		"exampleText": func(resourceName, nameSingular string, op *Operation) string {
+			bin := "jamfpro-cli"
+			switch op.Name {
+			case "list":
+				return fmt.Sprintf("  # List all %s\n  %s %s list\n\n  # List %s and extract IDs\n  %s %s list --field id",
+					resourceName, bin, resourceName, resourceName, bin, resourceName)
+			case "get":
+				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+					nameSingular, bin, resourceName, nameSingular, bin, resourceName)
+			case "create":
+				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
+					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+			case "update":
+				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
+					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+			case "delete":
+				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
+					nameSingular, bin, resourceName, bin, resourceName)
+			case "delete-multiple":
+				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
+					resourceName, bin, resourceName)
+			case "history":
+				return fmt.Sprintf("  # Get history for a %s\n  %s %s history 1",
+					nameSingular, bin, resourceName)
+			case "export":
+				return fmt.Sprintf("  # Export %s to CSV\n  %s %s export --out-file %s.csv",
+					resourceName, bin, resourceName, resourceName)
+			default:
+				return ""
+			}
+		},
 		"hasPostOrPut":   hasPostOrPut,
 		"hasDelete":      hasDelete,
 		"hasDestructive": hasDestructive,
+		"hasScaffold":    hasScaffold,
+		"scaffoldJSON":   scaffoldJSON,
+		"opHasScaffold": func(op *Operation) bool {
+			return op.RequestBody != nil && op.RequestBody.Schema != nil &&
+				len(op.RequestBody.Schema.Properties) > 0 &&
+				(op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH")
+		},
+		"opScaffoldJSON": func(op *Operation) string {
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return "{}"
+			}
+			return scaffoldJSON(op.RequestBody.Schema)
+		},
 		"needsFmt":       needsFmt,
 		"defaultVal": func(paramType string, val interface{}) string {
 			switch paramType {
@@ -225,8 +270,66 @@ func hasQueryParams(ops []*Operation) bool {
 }
 
 func needsFmt(ops []*Operation) bool {
-	// fmt is needed for: destructive confirmations, query param formatting, delete success message
-	return hasDestructive(ops) || hasQueryParams(ops) || hasDelete(ops)
+	// fmt is needed for: destructive confirmations, query param formatting, delete success message, scaffold output
+	return hasDestructive(ops) || hasQueryParams(ops) || hasDelete(ops) || hasScaffold(ops)
+}
+
+// scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
+func scaffoldJSON(s *Schema) string {
+	if s == nil || len(s.Properties) == 0 {
+		return "{}"
+	}
+
+	// Sort property names for deterministic output
+	names := make([]string, 0, len(s.Properties))
+	for name := range s.Properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	obj := make(map[string]interface{})
+	for _, name := range names {
+		prop := s.Properties[name]
+		if prop.ReadOnly {
+			continue
+		}
+		if prop.Example != nil {
+			obj[name] = prop.Example
+		} else {
+			switch prop.Type {
+			case "string":
+				obj[name] = ""
+			case "integer", "number":
+				obj[name] = 0
+			case "boolean":
+				obj[name] = false
+			case "array":
+				obj[name] = []interface{}{}
+			case "object":
+				obj[name] = map[string]interface{}{}
+			default:
+				obj[name] = ""
+			}
+		}
+	}
+
+	data, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
+// hasScaffold returns true if any operation has a request body with a schema.
+func hasScaffold(ops []*Operation) bool {
+	for _, op := range ops {
+		if op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+			if op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func sortOperations(ops []*Operation) []*Operation {
@@ -321,6 +424,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 {{- if eq .Name "delete-multiple" }}
 		flagIds []string
 {{- end }}
+{{- if opHasScaffold . }}
+		flagScaffold bool
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
@@ -329,11 +435,21 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 {{- if .Description }}
 		Long:  "{{ escapeQuotes .Description }}",
 {{- end }}
+{{- $ex := exampleText $.Name $.NameSingular . }}{{ if $ex }}
+		Example: ` + "`" + `{{ $ex }}` + "`" + `,
+{{- end }}
 {{- if hasPathParam .Path }}
 		Args:  cobra.ExactArgs(1),
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+{{- if opHasScaffold . }}
+
+			if flagScaffold {
+				fmt.Println(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `)
+				return nil
+			}
+{{- end }}
 {{- if .IsDestructive }}
 
 			// Confirmation for destructive action
@@ -520,6 +636,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *CLIContext) *cobra.Command {
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+{{- end }}
+{{- if opHasScaffold . }}
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 {{- end }}
 
 	return cmd

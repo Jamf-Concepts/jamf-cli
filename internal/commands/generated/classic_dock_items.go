@@ -38,6 +38,11 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all dockitems",
+		Example: `  # List all dockitems
+  jamfpro-cli classic-dock-items list
+
+  # List dockitems and extract IDs
+  jamfpro-cli classic-dock-items list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/dockitems", nil)
@@ -62,10 +67,16 @@ func newClassicDockItemsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDockItemsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a dock_item by ID",
+		Example: `  # Get a dock_item by ID
+  jamfpro-cli classic-dock-items get 1
+
+  # Get a dock_item and output as YAML
+  jamfpro-cli classic-dock-items get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicDockItemsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a dock_item",
 		Long:  "Create a new dock_item. Reads JSON body from stdin.",
+		Example: `  # Create a dock_item from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-dock-items create
+
+  # Get a dock_item, modify, and create a copy
+  jamfpro-cli classic-dock-items get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicDockItemsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a dock_item",
 		Long:  "Update an existing dock_item by ID. Reads JSON body from stdin.",
+		Example: `  # Update a dock_item from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-dock-items update 1
+
+  # Get, modify, and update a dock_item
+  jamfpro-cli classic-dock-items get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-dock-items update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicDockItemsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a dock_item",
+		Example: `  # Delete a dock_item (with confirmation)
+  jamfpro-cli classic-dock-items delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-dock-items delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicDockItemsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

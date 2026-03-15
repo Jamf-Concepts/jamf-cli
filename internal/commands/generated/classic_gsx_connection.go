@@ -19,17 +19,26 @@ func NewClassicGsxConnectionCmd(ctx *CLIContext) *cobra.Command {
 		Long:  `Manage apple gsx connection settings via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+
 	cmd.AddCommand(newClassicGsxConnectionGetCmd(ctx))
+
 
 	cmd.AddCommand(newClassicGsxConnectionUpdateCmd(ctx))
 
+
 	return cmd
 }
+
 
 func newClassicGsxConnectionGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a gsx_connection by ID",
+		Example: `  # Get a gsx_connection by ID
+  jamfpro-cli classic-gsx-connection get 1
+
+  # Get a gsx_connection and output as YAML
+  jamfpro-cli classic-gsx-connection get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -56,11 +65,18 @@ func newClassicGsxConnectionGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
+
 func newClassicGsxConnectionUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a gsx_connection",
 		Long:  "Update an existing gsx_connection by ID. Reads JSON body from stdin.",
+		Example: `  # Update a gsx_connection from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-gsx-connection update 1
+
+  # Get, modify, and update a gsx_connection
+  jamfpro-cli classic-gsx-connection get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-gsx-connection update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -84,3 +100,5 @@ func newClassicGsxConnectionUpdateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+

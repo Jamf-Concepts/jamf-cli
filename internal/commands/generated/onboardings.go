@@ -30,17 +30,22 @@ func NewOnboardingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
 		Long:  "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Example: `  # List all onboardings
+  jamfpro-cli onboardings list
+
+  # List onboardings and extract IDs
+  jamfpro-cli onboardings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -98,7 +103,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -136,6 +141,7 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -151,18 +157,20 @@ func newOnboardingsListCmd(ctx *CLIContext) *cobra.Command {
 
 func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Onboarding history object",
 		Long:  "Gets Onboarding history object",
+		Example: `  # Get history for a onboarding
+  jamfpro-cli onboardings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -223,7 +231,7 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -261,6 +269,7 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -276,7 +285,9 @@ func newOnboardingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -284,6 +295,13 @@ func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Onboarding history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/onboarding/history"
@@ -307,9 +325,12 @@ func newOnboardingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -318,10 +339,11 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -330,6 +352,19 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Export history object collection in specified format for Onboarding",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/onboarding/history/export"
@@ -377,6 +412,7 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -387,6 +423,8 @@ func newOnboardingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and date<2019-12-15")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

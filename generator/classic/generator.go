@@ -82,6 +82,30 @@ func templateFuncs() template.FuncMap {
 		"hasOp":        hasOp,
 		"hasLookup":    hasLookup,
 		"extraLookups": extraLookups,
+		"classicExample": func(r ClassicResource, op string) string {
+			bin := "jamfpro-cli"
+			name := r.CLIName
+			singular := r.Singular
+			switch op {
+			case "list":
+				return fmt.Sprintf("  # List all %s\n  %s %s list\n\n  # List %s and extract IDs\n  %s %s list --field id",
+					r.Name, bin, name, r.Name, bin, name)
+			case "get":
+				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+					singular, bin, name, singular, bin, name)
+			case "create":
+				return fmt.Sprintf("  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
+					singular, bin, name, singular, bin, name, bin, name)
+			case "update":
+				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get, modify, and update a %s\n  %s %s get 1 -o json | jq '.name = \"New\"' | %s %s update 1",
+					singular, bin, name, singular, bin, name, bin, name)
+			case "delete":
+				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
+					singular, bin, name, bin, name)
+			default:
+				return ""
+			}
+		},
 		"lookupFlag": func(l string) string {
 			return strcase.ToKebab(l)
 		},
@@ -185,6 +209,7 @@ func new{{ .GoName }}ListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all {{ .Name }}",
+		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/{{ .Path }}", nil)
@@ -214,6 +239,7 @@ func new{{ .GoName }}GetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a {{ .Singular }} by ID",
+		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -276,6 +302,7 @@ func new{{ .GoName }}CreateCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
 		Long:  "Create a new {{ .Singular }}. Reads JSON body from stdin.",
+		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -304,6 +331,7 @@ func new{{ .GoName }}UpdateCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a {{ .Singular }}",
 		Long:  "Update an existing {{ .Singular }} by ID. Reads JSON body from stdin.",
+		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -338,6 +366,7 @@ func new{{ .GoName }}DeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a {{ .Singular }}",
+		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()

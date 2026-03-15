@@ -30,12 +30,18 @@ func NewAdvancedUserContentSearchesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get All Advanced User Content Search objects",
 		Long:  "Get All Advanced User Content Search Objects",
+		Example: `  # List all advanced-user-content-searches
+  jamfpro-cli advanced-user-content-searches list
+
+  # List advanced-user-content-searches and extract IDs
+  jamfpro-cli advanced-user-content-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,20 +61,28 @@ func newAdvancedUserContentSearchesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
+		Example: `  # Get a advanced-user-content-searche by ID
+  jamfpro-cli advanced-user-content-searches get 1
+
+  # Get a advanced-user-content-searche and output as YAML
+  jamfpro-cli advanced-user-content-searches get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -90,22 +104,47 @@ func newAdvancedUserContentSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Advanced User Content Search object",
 		Long:  "Creates Advanced User Content Search Object",
+		Example: `  # Show the JSON template for creating a advanced-user-content-searche
+  jamfpro-cli advanced-user-content-searches create --scaffold
+
+  # Create a advanced-user-content-searche from JSON
+  echo '{"name":"Example"}' | jamfpro-cli advanced-user-content-searches create
+
+  # Get a advanced-user-content-searche, modify it, and create a copy
+  jamfpro-cli advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamfpro-cli advanced-user-content-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "displayFields": [
+    "Content Name",
+    "Price"
+  ],
+  "name": "Andy's Search",
+  "siteId": -1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches"
@@ -129,23 +168,46 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
+		Example: `  # Update a advanced-user-content-searche from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli advanced-user-content-searches update 1
+
+  # Get a advanced-user-content-searche, modify, and update
+  jamfpro-cli advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamfpro-cli advanced-user-content-searches update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "displayFields": [
+    "Content Name",
+    "Price"
+  ],
+  "name": "Andy's Search",
+  "siteId": -1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
@@ -170,16 +232,19 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -187,6 +252,11 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Advanced User Content Search object",
 		Long:  "Removes specified Advanced User Content Search Object",
+		Example: `  # Delete a advanced-user-content-searche (with confirmation)
+  jamfpro-cli advanced-user-content-searches delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli advanced-user-content-searches delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -226,6 +296,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -240,3 +311,4 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

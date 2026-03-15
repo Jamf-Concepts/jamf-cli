@@ -28,12 +28,18 @@ func NewAuthenticationsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all the Authorization details associated with the current api",
 		Long:  "Get all the authorization details associated with the current api token",
+		Example: `  # List all authentications
+  jamfpro-cli authentications list
+
+  # List authentications and extract IDs
+  jamfpro-cli authentications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -53,15 +59,18 @@ func newAuthenticationsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAuthenticationsCurrentCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "current",
@@ -92,15 +101,18 @@ func newAuthenticationsCurrentCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAuthenticationsInvalidateTokenCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "invalidate-token",
@@ -131,15 +143,18 @@ func newAuthenticationsInvalidateTokenCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "keep-alive",
@@ -170,15 +185,18 @@ func newAuthenticationsKeepAliveCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "token",
@@ -209,9 +227,12 @@ func newAuthenticationsTokenCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

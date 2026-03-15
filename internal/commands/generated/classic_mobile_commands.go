@@ -26,6 +26,8 @@ func NewClassicMobileCommandsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicMobileCommandsCreateCmd(ctx))
 
+
+
 	return cmd
 }
 
@@ -33,6 +35,11 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all mobiledevicecommands",
+		Example: `  # List all mobiledevicecommands
+  jamfpro-cli classic-mobile-commands list
+
+  # List mobiledevicecommands and extract IDs
+  jamfpro-cli classic-mobile-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicecommands", nil)
@@ -57,10 +64,16 @@ func newClassicMobileCommandsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMobileCommandsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a mobile_device_command by ID",
+		Example: `  # Get a mobile_device_command by ID
+  jamfpro-cli classic-mobile-commands get 1
+
+  # Get a mobile_device_command and output as YAML
+  jamfpro-cli classic-mobile-commands get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -116,11 +129,17 @@ func newClassicMobileCommandsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_command",
 		Long:  "Create a new mobile_device_command. Reads JSON body from stdin.",
+		Example: `  # Create a mobile_device_command from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-mobile-commands create
+
+  # Get a mobile_device_command, modify, and create a copy
+  jamfpro-cli classic-mobile-commands get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mobile-commands create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -142,3 +161,6 @@ func newClassicMobileCommandsCreateCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+

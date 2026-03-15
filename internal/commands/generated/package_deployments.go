@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -26,6 +27,7 @@ func NewPackageDeploymentsCmd(ctx *CLIContext) *cobra.Command {
 func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagVerbose bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -34,6 +36,20 @@ func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "devices": [
+    1,
+    2,
+    3
+  ],
+  "groupId": "1",
+  "installAsManaged": false,
+  "manifest": {}
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/deploy-package"
@@ -60,11 +76,14 @@ func newPackageDeploymentsDeployPackageCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Enables the 'verbose' response, which includes information about the commands queued as well as information about commands that failed to queue.")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

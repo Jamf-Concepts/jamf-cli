@@ -27,19 +27,24 @@ func NewMobileDeviceInventoryDetailsCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagSection  []string
-		flagPage     int
+		flagSection []string
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return paginated Mobile Device Inventory records",
 		Long:  "Return paginated Mobile Device Inventory records",
+		Example: `  # List all mobile-device-inventory-details
+  jamfpro-cli mobile-device-inventory-details list
+
+  # List mobile-device-inventory-details and extract IDs
+  jamfpro-cli mobile-device-inventory-details list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -105,7 +110,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -143,6 +148,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -160,17 +166,22 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *CLIContext) *cobra.Command {
 
 func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagSection  []string
-		flagPage     int
+		flagSection []string
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Return paginated Mobile Device Inventory records of all paired devices for the device",
 		Long:  "Return paginated Mobile Device Inventory records of all paired devices for the device",
+		Example: `  # Get a mobile-device-inventory-detail by ID
+  jamfpro-cli mobile-device-inventory-details get 1
+
+  # Get a mobile-device-inventory-detail and output as YAML
+  jamfpro-cli mobile-device-inventory-details get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -211,6 +222,7 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -223,3 +235,4 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

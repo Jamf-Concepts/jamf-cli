@@ -22,12 +22,18 @@ func NewLocalesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newLocalesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return locales that can be used in other features",
 		Long:  "Returns locales that can be used in other features.",
+		Example: `  # List all locales
+  jamfpro-cli locales list
+
+  # List locales and extract IDs
+  jamfpro-cli locales list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newLocalesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

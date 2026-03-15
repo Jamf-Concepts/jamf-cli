@@ -30,14 +30,28 @@ func NewActivationCodesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newActivationCodesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates Activation Code",
 		Long:  "Updates Activation Code in Jamf Pro.",
+		Example: `  # Update a activation-code from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli activation-codes update 1
+
+  # Get a activation-code, modify, and update
+  jamfpro-cli activation-codes get 1 -o json | jq '.name = "New Name"' | jamfpro-cli activation-codes update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "activationCode": "A1A1-B2B2-C3C3-D4D4-E5E5-F6F6-G7G7-H8H8"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/activation-code"
@@ -61,27 +75,32 @@ func newActivationCodesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Activation Code history object",
 		Long:  "Get Activation Code history object",
+		Example: `  # Get history for a activation-code
+  jamfpro-cli activation-codes history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -142,7 +161,7 @@ func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -180,6 +199,7 @@ func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -195,7 +215,9 @@ func newActivationCodesHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newActivationCodesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -203,6 +225,13 @@ func newActivationCodesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Activation Code object note.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/activation-code/history"
@@ -226,9 +255,12 @@ func newActivationCodesAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -237,10 +269,11 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -249,6 +282,19 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Export history object collection in specified format for Activation Code",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/activation-code/history/export"
@@ -296,6 +342,7 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -306,12 +353,15 @@ func newActivationCodesHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newActivationCodesPatchCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch",
@@ -319,6 +369,13 @@ func newActivationCodesPatchCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Updates Organization Name in Jamf Pro.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "organizationName": "Your Organization Name"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/activation-code/organization-name"
@@ -342,9 +399,13 @@ func newActivationCodesPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

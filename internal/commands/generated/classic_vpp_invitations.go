@@ -26,6 +26,7 @@ func NewClassicVppInvitationsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicVppInvitationsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicVppInvitationsDeleteCmd(ctx))
 
 	return cmd
@@ -35,6 +36,11 @@ func newClassicVppInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all vppinvitations",
+		Example: `  # List all vppinvitations
+  jamfpro-cli classic-vpp-invitations list
+
+  # List vppinvitations and extract IDs
+  jamfpro-cli classic-vpp-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppinvitations", nil)
@@ -59,10 +65,16 @@ func newClassicVppInvitationsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a vpp_invitation by ID",
+		Example: `  # Get a vpp_invitation by ID
+  jamfpro-cli classic-vpp-invitations get 1
+
+  # Get a vpp_invitation and output as YAML
+  jamfpro-cli classic-vpp-invitations get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -89,11 +101,17 @@ func newClassicVppInvitationsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_invitation",
 		Long:  "Create a new vpp_invitation. Reads JSON body from stdin.",
+		Example: `  # Create a vpp_invitation from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-vpp-invitations create
+
+  # Get a vpp_invitation, modify, and create a copy
+  jamfpro-cli classic-vpp-invitations get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-vpp-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -116,6 +134,8 @@ func newClassicVppInvitationsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
+
 func newClassicVppInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -125,6 +145,11 @@ func newClassicVppInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a vpp_invitation",
+		Example: `  # Delete a vpp_invitation (with confirmation)
+  jamfpro-cli classic-vpp-invitations delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-vpp-invitations delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -167,3 +192,4 @@ func newClassicVppInvitationsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

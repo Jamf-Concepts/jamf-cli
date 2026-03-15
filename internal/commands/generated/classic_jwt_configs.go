@@ -37,6 +37,11 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all jsonwebtokenconfigurations",
+		Example: `  # List all jsonwebtokenconfigurations
+  jamfpro-cli classic-jwt-configs list
+
+  # List jsonwebtokenconfigurations and extract IDs
+  jamfpro-cli classic-jwt-configs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/jsonwebtokenconfigurations", nil)
@@ -61,10 +66,16 @@ func newClassicJwtConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a json_web_token_configuration by ID",
+		Example: `  # Get a json_web_token_configuration by ID
+  jamfpro-cli classic-jwt-configs get 1
+
+  # Get a json_web_token_configuration and output as YAML
+  jamfpro-cli classic-jwt-configs get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,11 +102,17 @@ func newClassicJwtConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a json_web_token_configuration",
 		Long:  "Create a new json_web_token_configuration. Reads JSON body from stdin.",
+		Example: `  # Create a json_web_token_configuration from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-jwt-configs create
+
+  # Get a json_web_token_configuration, modify, and create a copy
+  jamfpro-cli classic-jwt-configs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-jwt-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -118,11 +135,17 @@ func newClassicJwtConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a json_web_token_configuration",
 		Long:  "Update an existing json_web_token_configuration by ID. Reads JSON body from stdin.",
+		Example: `  # Update a json_web_token_configuration from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-jwt-configs update 1
+
+  # Get, modify, and update a json_web_token_configuration
+  jamfpro-cli classic-jwt-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-jwt-configs update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -147,6 +170,7 @@ func newClassicJwtConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -156,6 +180,11 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a json_web_token_configuration",
+		Example: `  # Delete a json_web_token_configuration (with confirmation)
+  jamfpro-cli classic-jwt-configs delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-jwt-configs delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -198,3 +227,4 @@ func newClassicJwtConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

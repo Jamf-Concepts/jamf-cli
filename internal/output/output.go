@@ -109,7 +109,7 @@ func (f *Formatter) printCSV(data interface{}) error {
 		for _, row := range v {
 			vals := make([]string, len(headers))
 			for i, h := range headers {
-				vals[i] = formatValue(row[h])
+				vals[i] = FormatValue(row[h])
 			}
 			_ = w.Write(vals)
 		}
@@ -128,7 +128,7 @@ func (f *Formatter) printPlain(data interface{}) error {
 			keys := sortedKeys(row)
 			vals := make([]string, len(keys))
 			for i, k := range keys {
-				vals[i] = formatValue(row[k])
+				vals[i] = FormatValue(row[k])
 			}
 			_, _ = fmt.Fprintln(f.writer, strings.Join(vals, "\t"))
 		}
@@ -170,7 +170,7 @@ func (f *Formatter) printTable(data interface{}) error {
 	}
 	for _, row := range rows {
 		for i, k := range keys {
-			val := formatValue(row[k])
+			val := FormatValue(row[k])
 			// Apply date formatting for width calculation
 			if isDateColumn(k) {
 				val, _ = formatDateValue(val, f.wide)
@@ -203,7 +203,7 @@ func (f *Formatter) printTable(data interface{}) error {
 	for _, row := range rows {
 		var valParts []string
 		for i, k := range keys {
-			val := formatValue(row[k])
+			val := FormatValue(row[k])
 			displayVal := val
 
 			// Apply date formatting and colorization
@@ -342,8 +342,8 @@ func defaultColumns(allKeys []string) []string {
 	return allKeys[:defaultColumnLimit]
 }
 
-// formatValue converts a value to its string representation for table/csv/plain output.
-func formatValue(v interface{}) string {
+// FormatValue converts a value to its string representation for table/csv/plain output.
+func FormatValue(v interface{}) string {
 	switch val := v.(type) {
 	case nil:
 		return ""

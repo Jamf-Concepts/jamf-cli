@@ -34,18 +34,23 @@ func NewScriptsCmd(ctx *CLIContext) *cobra.Command {
 
 func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Search for sorted and paged Scripts",
 		Long:  "Search for sorted and paged scripts",
+		Example: `  # List all scripts
+  jamfpro-cli scripts list
+
+  # List scripts and extract IDs
+  jamfpro-cli scripts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -106,7 +111,7 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -144,6 +149,7 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -159,12 +165,18 @@ func newScriptsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newScriptsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a full script object",
 		Long:  "Retrieves a full script object",
+		Example: `  # Get a script by ID
+  jamfpro-cli scripts get 1
+
+  # Get a script and output as YAML
+  jamfpro-cli scripts get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -186,22 +198,56 @@ func newScriptsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newScriptsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Script",
 		Long:  "Creates a script",
+		Example: `  # Show the JSON template for creating a script
+  jamfpro-cli scripts create --scaffold
+
+  # Create a script from JSON
+  echo '{"name":"Example"}' | jamfpro-cli scripts create
+
+  # Get a script, modify it, and create a copy
+  jamfpro-cli scripts get 1 -o json | jq '.name = "Copy"' | jamfpro-cli scripts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "categoryId": 1,
+  "categoryName": "Developer Tools",
+  "info": "Installs utilities for developers",
+  "name": "Install Developer Utils Script",
+  "notes": "Should be able to be re-run without problem.",
+  "osRequirements": "10.10.x",
+  "parameter10": "7",
+  "parameter11": "8",
+  "parameter4": "1",
+  "parameter5": "2",
+  "parameter6": "3",
+  "parameter7": "4",
+  "parameter8": "5",
+  "parameter9": "6",
+  "priority": "AFTER",
+  "scriptContents": "echo \"Trivial script.\""
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/scripts"
@@ -225,23 +271,55 @@ func newScriptsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newScriptsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Replace the script at the id with the supplied information",
 		Long:  "Replaces the script at the id with the supplied information",
+		Example: `  # Update a script from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli scripts update 1
+
+  # Get a script, modify, and update
+  jamfpro-cli scripts get 1 -o json | jq '.name = "New Name"' | jamfpro-cli scripts update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "categoryId": 1,
+  "categoryName": "Developer Tools",
+  "info": "Installs utilities for developers",
+  "name": "Install Developer Utils Script",
+  "notes": "Should be able to be re-run without problem.",
+  "osRequirements": "10.10.x",
+  "parameter10": "7",
+  "parameter11": "8",
+  "parameter4": "1",
+  "parameter5": "2",
+  "parameter6": "3",
+  "parameter7": "4",
+  "parameter8": "5",
+  "parameter9": "6",
+  "priority": "AFTER",
+  "scriptContents": "echo \"Trivial script.\""
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/scripts/{id}"
@@ -266,16 +344,19 @@ func newScriptsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -283,6 +364,11 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Script at the specified id",
 		Long:  "Deletes a script at the specified id",
+		Example: `  # Delete a script (with confirmation)
+  jamfpro-cli scripts delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli scripts delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -322,6 +408,7 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -339,18 +426,20 @@ func newScriptsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get specified Script history object",
 		Long:  "Gets specified Script history object",
+		Example: `  # Get history for a script
+  jamfpro-cli scripts history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -414,7 +503,7 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -452,6 +541,7 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -467,7 +557,9 @@ func newScriptsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newScriptsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -476,6 +568,13 @@ func newScriptsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/scripts/{id}/history"
@@ -500,9 +599,13 @@ func newScriptsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

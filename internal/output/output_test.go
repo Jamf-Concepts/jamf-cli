@@ -368,7 +368,7 @@ func TestPrintRaw_Plain_DeterministicColumnOrder(t *testing.T) {
 	}
 }
 
-// --- formatValue tests ---
+// --- FormatValue tests ---
 
 func TestFormatValue(t *testing.T) {
 	tests := []struct {
@@ -388,9 +388,9 @@ func TestFormatValue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := formatValue(tc.input)
+			result := FormatValue(tc.input)
 			if result != tc.expected {
-				t.Errorf("formatValue(%v) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("FormatValue(%v) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}

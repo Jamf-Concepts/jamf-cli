@@ -35,18 +35,23 @@ func NewInventoryPreloadsCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPagesize int
-		flagSort     string
-		flagSortBy   string
-		flagAll      bool
-		flagLimit    int
+		flagSort string
+		flagSortBy string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return all Inventory Preload records",
 		Long:  "Returns all Inventory Preload records.",
+		Example: `  # List all inventory-preloads
+  jamfpro-cli inventory-preloads list
+
+  # List inventory-preloads and extract IDs
+  jamfpro-cli inventory-preloads list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -105,7 +110,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -143,6 +148,7 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -158,12 +164,18 @@ func newInventoryPreloadsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get an Inventory Preload record",
 		Long:  "Retrieves an Inventory Preload record.",
+		Example: `  # Get a inventory-preload by ID
+  jamfpro-cli inventory-preloads get 1
+
+  # Get a inventory-preload and output as YAML
+  jamfpro-cli inventory-preloads get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -185,22 +197,64 @@ func newInventoryPreloadsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new Inventory Preload record using JSON or CSV",
 		Long:  "Create a new Inventory Preload record using JSON or CSV. A CSV template can be downloaded from /api/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the /inventory-preload/validate-csv endpoint first.",
+		Example: `  # Show the JSON template for creating a inventory-preload
+  jamfpro-cli inventory-preloads create --scaffold
+
+  # Create a inventory-preload from JSON
+  echo '{"name":"Example"}' | jamfpro-cli inventory-preloads create
+
+  # Get a inventory-preload, modify it, and create a copy
+  jamfpro-cli inventory-preloads get 1 -o json | jq '.name = "Copy"' | jamfpro-cli inventory-preloads create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "appleCareId": 5678,
+  "assetTag": "ABCDEFG12345",
+  "barCode1": 123456789,
+  "barCode2": 123456789,
+  "building": "Eau Claire",
+  "department": "IT",
+  "deviceType": "Computer",
+  "emailAddress": "ITBob@jamf.com",
+  "extensionAttributes": [],
+  "fullName": "Name",
+  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "lifeExpectancy": "5 years",
+  "phoneNumber": "555-555-5555",
+  "poDate": "2019-02-04T21:09:31.661Z",
+  "poNumber": 8675309,
+  "position": "IT Team Lead",
+  "purchasePrice": "$399",
+  "purchasingAccount": "IT Budget",
+  "purchasingContact": "Nick in IT",
+  "room": "4th Floor - Quad 3",
+  "serialNumber": "C02L29ECF8J1",
+  "username": "admin",
+  "vendor": "Apple",
+  "warrantyExpiration": "2012-07-21T00:00:00Z"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/inventory-preload"
@@ -224,23 +278,63 @@ func newInventoryPreloadsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an Inventory Preload record",
 		Long:  "Updates an Inventory Preload record.",
+		Example: `  # Update a inventory-preload from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli inventory-preloads update 1
+
+  # Get a inventory-preload, modify, and update
+  jamfpro-cli inventory-preloads get 1 -o json | jq '.name = "New Name"' | jamfpro-cli inventory-preloads update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "appleCareId": 5678,
+  "assetTag": "ABCDEFG12345",
+  "barCode1": 123456789,
+  "barCode2": 123456789,
+  "building": "Eau Claire",
+  "department": "IT",
+  "deviceType": "Computer",
+  "emailAddress": "ITBob@jamf.com",
+  "extensionAttributes": [],
+  "fullName": "Name",
+  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "lifeExpectancy": "5 years",
+  "phoneNumber": "555-555-5555",
+  "poDate": "2019-02-04T21:09:31.661Z",
+  "poNumber": 8675309,
+  "position": "IT Team Lead",
+  "purchasePrice": "$399",
+  "purchasingAccount": "IT Budget",
+  "purchasingContact": "Nick in IT",
+  "room": "4th Floor - Quad 3",
+  "serialNumber": "C02L29ECF8J1",
+  "username": "admin",
+  "vendor": "Apple",
+  "warrantyExpiration": "2012-07-21T00:00:00Z"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/inventory-preload/{id}"
@@ -265,16 +359,19 @@ func newInventoryPreloadsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -282,6 +379,11 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete all Inventory Preload records",
 		Long:  "Deletes all Inventory Preload records.",
+		Example: `  # Delete a inventory-preload (with confirmation)
+  jamfpro-cli inventory-preloads delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli inventory-preloads delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -319,6 +421,7 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -336,19 +439,21 @@ func newInventoryPreloadsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
-		flagSize     int
+		flagPage int
+		flagSize int
 		flagPagesize int
 		flagPageSize int
-		flagSort     string
-		flagAll      bool
-		flagLimit    int
+		flagSort string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Inventory Preload history entries",
 		Long:  "Gets Inventory Preload history entries.",
+		Example: `  # Get history for a inventory-preload
+  jamfpro-cli inventory-preloads history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -410,7 +515,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -448,6 +553,7 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -464,7 +570,9 @@ func newInventoryPreloadsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -472,6 +580,13 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Inventory Preload history object notes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/inventory-preload/history"
@@ -495,15 +610,19 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "validate-csv",
@@ -534,9 +653,12 @@ func newInventoryPreloadsValidateCsvCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

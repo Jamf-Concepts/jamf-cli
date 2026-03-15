@@ -30,12 +30,18 @@ func NewEnrollmentLanguagesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes but only those not already added to Enrollment",
 		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes, but only those not already added to Enrollment.",
+		Example: `  # List all enrollment-languages
+  jamfpro-cli enrollment-languages list
+
+  # List enrollment-languages and extract IDs
+  jamfpro-cli enrollment-languages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,20 +61,28 @@ func newEnrollmentLanguagesListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve the Enrollment messaging for a language",
 		Long:  "Retrieves the enrollment messaging for a language.",
+		Example: `  # Get a enrollment-language by ID
+  jamfpro-cli enrollment-languages get 1
+
+  # Get a enrollment-language and output as YAML
+  jamfpro-cli enrollment-languages get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -90,23 +104,78 @@ func newEnrollmentLanguagesGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Edit Enrollment messaging for a language",
 		Long:  "Edit enrollment messaging for a language.",
+		Example: `  # Update a enrollment-language from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli enrollment-languages update 1
+
+  # Get a enrollment-language, modify, and update
+  jamfpro-cli enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-languages update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "certificateButton": "Continue",
+  "certificateProfileDescription": "CA Certificate for mobile device management",
+  "certificateProfileName": "CA Certificate",
+  "certificateText": "To continue with enrollment, you need to install the CA certificate for your organization.",
+  "checkEnrollmentMessage": "Tap \"Proceed\" to view the enrollment status for this device.",
+  "checkNowButton": "Proceed",
+  "completeMessage": "The enrollment process is complete.",
+  "deviceClassButton": "Enroll",
+  "deviceClassDescription": "Specify if this device is institutionally owned or personally owned.",
+  "deviceClassEnterprise": "Institutionally Owned",
+  "deviceClassEnterpriseDescription": "For institutionally owned devices, IT administrators **can**\n\n         *   Wipe all data and settings from the device\n         *   Lock the device\n         *   Remove the passcode\n         *   Apply institutional settings\n         *   Install and remove institutional data\n         *   Install and remove institutional apps\n         *   Add/remove configuration profiles\n         *   Add/remove provisioning profiles\n\n         For institutionally owned devices, IT administrators **cannot**:\n\n         *   Remove anything they did not install\n",
+  "deviceClassPersonal": "Personally Owned",
+  "deviceClassPersonalDescription": "For personally owned devices, IT administrators **can**\n\n         *   Lock the device\n         *   Apply institutional settings\n         *   Install and remove institutional data\n         *   Install and remove institutional apps\n\n\n         For personally owned devices, IT administrators **cannot**\n\n         *   Wipe all data and settings from your device\n         *   Track the location of your device\n         *   Remove anything they did not install\n         *   Add/remove configuration profiles\n         *   Add/remove provisioning profiles\n",
+  "enterpriseButton": "Continue",
+  "enterpriseEula": "Enterprise Eula",
+  "enterprisePending": "To continue with enrollment, install the CA Certificate and MDM Profile that were downloaded to your computer.",
+  "enterpriseProfileDescription": "MDM Profile for mobile device management",
+  "enterpriseProfileName": "MDM Profile",
+  "enterpriseText": "To continue with enrollment, you need to install the MDM profile for your organization.",
+  "eulaButton": "Accept",
+  "failedMessage": "The enrollment process could not be completed. Contact your IT administrator.",
+  "languageCode": "en",
+  "loginButton": "Log in",
+  "loginDescription": "Log in to enroll your device.",
+  "logoutButton": "Log Out",
+  "name": "English",
+  "password": 12345,
+  "personalEula": "Personal Eula",
+  "quickAddButton": "Download",
+  "quickAddName": "",
+  "quickAddPending": "Install the downloaded QuickAdd.pkg.",
+  "quickAddText": "Download and install this package.",
+  "siteDescription": "Select the site to use for enrolling this computer or mobile device.",
+  "title": "Enroll Your Device",
+  "tryAgainButton": "Try Again",
+  "userEnrollmentButton": "",
+  "userEnrollmentProfileDescription": "",
+  "userEnrollmentProfileName": "",
+  "userEnrollmentText": "",
+  "username": "admin"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/enrollment/languages/{languageId}"
@@ -131,16 +200,19 @@ func newEnrollmentLanguagesUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -148,6 +220,11 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete the Enrollment messaging for a language",
 		Long:  "Delete the enrollment messaging for a language.",
+		Example: `  # Delete a enrollment-language (with confirmation)
+  jamfpro-cli enrollment-languages delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli enrollment-languages delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -187,6 +264,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -204,17 +282,27 @@ func newEnrollmentLanguagesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple",
 		Short: "Delete multiple configured languages from User-Initiated Enrollment settings",
 		Long:  "Delete multiple configured languages from User-Initiated Enrollment settings",
+		Example: `  # Delete multiple enrollment-languages by IDs
+  jamfpro-cli enrollment-languages delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "ids": []
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -268,6 +356,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -275,6 +364,8 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

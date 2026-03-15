@@ -30,12 +30,18 @@ func NewReenrollmentsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReenrollmentsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Re-enrollment object",
 		Long:  "Gets Re-enrollment object",
+		Example: `  # List all reenrollments
+  jamfpro-cli reenrollments list
+
+  # List reenrollments and extract IDs
+  jamfpro-cli reenrollments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,22 +61,43 @@ func newReenrollmentsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newReenrollmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the Re-enrollment object",
 		Long:  "Update the Re-enrollment object",
+		Example: `  # Update a reenrollment from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli reenrollments update 1
+
+  # Get a reenrollment, modify, and update
+  jamfpro-cli reenrollments get 1 -o json | jq '.name = "New Name"' | jamfpro-cli reenrollments update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "flushMDMQueue": "DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED",
+  "isFlushExtensionAttributesEnabled": false,
+  "isFlushLocationInformationEnabled": false,
+  "isFlushLocationInformationHistoryEnabled": false,
+  "isFlushPolicyHistoryEnabled": false,
+  "isFlushSoftwareUpdatePlansEnabled": false
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/reenrollment"
@@ -94,28 +121,33 @@ func newReenrollmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
-		flagSize     int
+		flagPage int
+		flagSize int
 		flagPagesize int
 		flagPageSize int
-		flagSort     string
-		flagAll      bool
-		flagLimit    int
+		flagSort string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get Re-enrollment history object",
 		Long:  "Gets Re-enrollment history object",
+		Example: `  # Get history for a reenrollment
+  jamfpro-cli reenrollments history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -177,7 +209,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -215,6 +247,7 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -231,7 +264,9 @@ func newReenrollmentsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -239,6 +274,13 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds specified Re-enrollment history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/reenrollment/history"
@@ -262,9 +304,12 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -273,10 +318,11 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -285,6 +331,19 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Export reenrollment history collection",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/reenrollment/history/export"
@@ -332,6 +391,7 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -342,6 +402,8 @@ func newReenrollmentsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

@@ -38,6 +38,11 @@ func newClassicNetworkSegmentsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all networksegments",
+		Example: `  # List all networksegments
+  jamfpro-cli classic-network-segments list
+
+  # List networksegments and extract IDs
+  jamfpro-cli classic-network-segments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/networksegments", nil)
@@ -62,10 +67,16 @@ func newClassicNetworkSegmentsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicNetworkSegmentsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a network_segment by ID",
+		Example: `  # Get a network_segment by ID
+  jamfpro-cli classic-network-segments get 1
+
+  # Get a network_segment and output as YAML
+  jamfpro-cli classic-network-segments get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicNetworkSegmentsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a network_segment",
 		Long:  "Create a new network_segment. Reads JSON body from stdin.",
+		Example: `  # Create a network_segment from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-network-segments create
+
+  # Get a network_segment, modify, and create a copy
+  jamfpro-cli classic-network-segments get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-network-segments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicNetworkSegmentsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a network_segment",
 		Long:  "Update an existing network_segment by ID. Reads JSON body from stdin.",
+		Example: `  # Update a network_segment from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-network-segments update 1
+
+  # Get, modify, and update a network_segment
+  jamfpro-cli classic-network-segments get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-network-segments update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a network_segment",
+		Example: `  # Delete a network_segment (with confirmation)
+  jamfpro-cli classic-network-segments delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-network-segments delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

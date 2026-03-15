@@ -38,6 +38,11 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all diskencryptionconfigurations",
+		Example: `  # List all diskencryptionconfigurations
+  jamfpro-cli classic-disk-encryption-configs list
+
+  # List diskencryptionconfigurations and extract IDs
+  jamfpro-cli classic-disk-encryption-configs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/diskencryptionconfigurations", nil)
@@ -62,10 +67,16 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDiskEncryptionConfigsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a disk_encryption_configuration by ID",
+		Example: `  # Get a disk_encryption_configuration by ID
+  jamfpro-cli classic-disk-encryption-configs get 1
+
+  # Get a disk_encryption_configuration and output as YAML
+  jamfpro-cli classic-disk-encryption-configs get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicDiskEncryptionConfigsGetByNameCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
+
 func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a disk_encryption_configuration",
 		Long:  "Create a new disk_encryption_configuration. Reads JSON body from stdin.",
+		Example: `  # Create a disk_encryption_configuration from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-disk-encryption-configs create
+
+  # Get a disk_encryption_configuration, modify, and create a copy
+  jamfpro-cli classic-disk-encryption-configs get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-disk-encryption-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a disk_encryption_configuration",
 		Long:  "Update an existing disk_encryption_configuration by ID. Reads JSON body from stdin.",
+		Example: `  # Update a disk_encryption_configuration from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-disk-encryption-configs update 1
+
+  # Get, modify, and update a disk_encryption_configuration
+  jamfpro-cli classic-disk-encryption-configs get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-disk-encryption-configs update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a disk_encryption_configuration",
+		Example: `  # Delete a disk_encryption_configuration (with confirmation)
+  jamfpro-cli classic-disk-encryption-configs delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-disk-encryption-configs delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

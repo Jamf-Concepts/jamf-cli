@@ -22,6 +22,9 @@ func NewClassicComputerAppsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerAppsGetCmd(ctx))
 
+
+
+
 	return cmd
 }
 
@@ -29,6 +32,11 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all computerapplications",
+		Example: `  # List all computerapplications
+  jamfpro-cli classic-computer-apps list
+
+  # List computerapplications and extract IDs
+  jamfpro-cli classic-computer-apps list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerapplications", nil)
@@ -53,10 +61,16 @@ func newClassicComputerAppsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a computer_application by ID",
+		Example: `  # Get a computer_application by ID
+  jamfpro-cli classic-computer-apps get 1
+
+  # Get a computer_application and output as YAML
+  jamfpro-cli classic-computer-apps get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -82,3 +96,7 @@ func newClassicComputerAppsGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,12 +26,18 @@ func NewAccountDrivenUserEnrollmentSessionTokenSettingsCmd(ctx *CLIContext) *cob
 }
 
 func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve the Account Driven User Enrollment Session Token Settings",
 		Long:  "Retrieve the Account Driven User Enrollment Session Token Settings",
+		Example: `  # List all account-driven-user-enrollment-session-token-settings
+  jamfpro-cli account-driven-user-enrollment-session-token-settings list
+
+  # List account-driven-user-enrollment-session-token-settings and extract IDs
+  jamfpro-cli account-driven-user-enrollment-session-token-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -50,22 +57,40 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *CLIContext) 
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Account Driven User Enrollment Session Token Settings.",
 		Long:  "Update the Account Driven User Enrollment Session Token Settings object.",
+		Example: `  # Update a account-driven-user-enrollment-session-token-setting from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli account-driven-user-enrollment-session-token-settings update 1
+
+  # Get a account-driven-user-enrollment-session-token-setting, modify, and update
+  jamfpro-cli account-driven-user-enrollment-session-token-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli account-driven-user-enrollment-session-token-settings update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "enabled": false,
+  "expirationIntervalDays": 1,
+  "expirationIntervalSeconds": 86400
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/adue-session-token-settings"
@@ -89,9 +114,13 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *CLIContext
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

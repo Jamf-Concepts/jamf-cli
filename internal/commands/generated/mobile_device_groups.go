@@ -32,12 +32,18 @@ func NewMobileDeviceGroupsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return the list of all Mobile Device Groups",
 		Long:  "Returns the list of all mobile device groups.",
+		Example: `  # List all mobile-device-groups
+  jamfpro-cli mobile-device-groups list
+
+  # List mobile-device-groups and extract IDs
+  jamfpro-cli mobile-device-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -57,25 +63,32 @@ func newMobileDeviceGroupsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
+		flagSort []string
+		flagFilter string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get Smart Group Membership by Id",
 		Long:  "Get Smart Group Membership by Id",
+		Example: `  # Get a mobile-device-group by ID
+  jamfpro-cli mobile-device-groups get 1
+
+  # Get a mobile-device-group and output as YAML
+  jamfpro-cli mobile-device-groups get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -111,6 +124,7 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -126,14 +140,33 @@ func newMobileDeviceGroupsGetCmd(ctx *CLIContext) *cobra.Command {
 func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagPlatform bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a smart group",
 		Long:  "Create a smart group",
+		Example: `  # Show the JSON template for creating a mobile-device-group
+  jamfpro-cli mobile-device-groups create --scaffold
+
+  # Create a mobile-device-group from JSON
+  echo '{"name":"Example"}' | jamfpro-cli mobile-device-groups create
+
+  # Get a mobile-device-group, modify it, and create a copy
+  jamfpro-cli mobile-device-groups get 1 -o json | jq '.name = "Copy"' | jamfpro-cli mobile-device-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "groupDescription": "Smart iPads that meet certain criteria",
+  "groupName": "Smart iPads Group",
+  "siteId": 11
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-groups"
@@ -160,25 +193,44 @@ func newMobileDeviceGroupsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a smart group",
 		Long:  "Update a smart group",
+		Example: `  # Update a mobile-device-group from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli mobile-device-groups update 1
+
+  # Get a mobile-device-group, modify, and update
+  jamfpro-cli mobile-device-groups get 1 -o json | jq '.name = "New Name"' | jamfpro-cli mobile-device-groups update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "criteria": [],
+  "groupDescription": "Smart iPads that meet certain criteria",
+  "groupName": "Smart iPads Group",
+  "siteId": 11
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-groups/{id}"
@@ -203,16 +255,19 @@ func newMobileDeviceGroupsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -220,6 +275,11 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove Smart Group by Id",
 		Long:  "Remove Smart Group by Id",
+		Example: `  # Delete a mobile-device-group (with confirmation)
+  jamfpro-cli mobile-device-groups delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli mobile-device-groups delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -259,6 +319,7 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -275,7 +336,9 @@ func newMobileDeviceGroupsDeleteCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
@@ -284,6 +347,16 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "assignments": [],
+  "groupDescription": "Static iPads",
+  "groupName": "Static iPads",
+  "siteId": 11
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-groups/static-groups/{id}"
@@ -308,17 +381,21 @@ func newMobileDeviceGroupsPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -328,6 +405,16 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "clearActivationLock": true,
+  "disallowProximitySetup": true,
+  "preserveDataPlan": true,
+  "returnToService": true
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -370,12 +457,15 @@ func newMobileDeviceGroupsEraseCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

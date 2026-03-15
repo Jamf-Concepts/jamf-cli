@@ -33,12 +33,18 @@ func NewVenafisCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
+		Example: `  # Get a venafi by ID
+  jamfpro-cli venafis get 1
+
+  # Get a venafi and output as YAML
+  jamfpro-cli venafis get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -60,22 +66,45 @@ func newVenafisGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a PKI configuration in Jamf Pro for Venafi",
 		Long:  "Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates",
+		Example: `  # Show the JSON template for creating a venafi
+  jamfpro-cli venafis create --scaffold
+
+  # Create a venafi from JSON
+  echo '{"name":"Example"}' | jamfpro-cli venafis create
+
+  # Get a venafi, modify it, and create a copy
+  jamfpro-cli venafis get 1 -o json | jq '.name = "Copy"' | jamfpro-cli venafis create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "clientId": "jamf-pro",
+  "name": "Venafi Certificate Authority",
+  "proxyAddress": "localhost:9443",
+  "refreshToken": "qdkP4SrCFKd7tefAVM6N",
+  "revocationEnabled": true
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/pki/venafi"
@@ -99,16 +128,19 @@ func newVenafisCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -116,6 +148,11 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Venafi PKI configuration from Jamf Pro",
 		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
+		Example: `  # Delete a venafi (with confirmation)
+  jamfpro-cli venafis delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli venafis delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -155,6 +192,7 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -172,18 +210,20 @@ func newVenafisDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagFilter string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get specified Venafi CA history object",
 		Long:  "Get specified Venafi CA history object",
+		Example: `  # Get history for a venafi
+  jamfpro-cli venafis history 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -247,7 +287,7 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -285,6 +325,7 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -300,7 +341,9 @@ func newVenafisHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note <id>",
@@ -309,6 +352,13 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}/history"
@@ -333,15 +383,20 @@ func newVenafisAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch <id>",
@@ -350,6 +405,17 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "clientId": "jamf-pro",
+  "name": "Venafi Certificate Authority",
+  "proxyAddress": "localhost:9443",
+  "refreshToken": "qdkP4SrCFKd7tefAVM6N",
+  "revocationEnabled": true
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
@@ -374,15 +440,19 @@ func newVenafisPatchCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "regenerate <id>",
@@ -415,9 +485,12 @@ func newVenafisRegenerateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

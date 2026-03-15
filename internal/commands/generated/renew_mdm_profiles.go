@@ -3,6 +3,7 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -24,7 +25,9 @@ func NewRenewMdmProfilesCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "renew-profile",
@@ -32,6 +35,13 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Renews the device's MDM Profile, including the device identity certificate within the MDM Profile.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "udids": []
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/mdm/renew-profile"
@@ -55,9 +65,13 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
+

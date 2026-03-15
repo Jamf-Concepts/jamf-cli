@@ -38,6 +38,11 @@ func newClassicDirectoryBindingsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all directorybindings",
+		Example: `  # List all directorybindings
+  jamfpro-cli classic-directory-bindings list
+
+  # List directorybindings and extract IDs
+  jamfpro-cli classic-directory-bindings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/directorybindings", nil)
@@ -62,10 +67,16 @@ func newClassicDirectoryBindingsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDirectoryBindingsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a directory_binding by ID",
+		Example: `  # Get a directory_binding by ID
+  jamfpro-cli classic-directory-bindings get 1
+
+  # Get a directory_binding and output as YAML
+  jamfpro-cli classic-directory-bindings get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicDirectoryBindingsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a directory_binding",
 		Long:  "Create a new directory_binding. Reads JSON body from stdin.",
+		Example: `  # Create a directory_binding from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-directory-bindings create
+
+  # Get a directory_binding, modify, and create a copy
+  jamfpro-cli classic-directory-bindings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-directory-bindings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicDirectoryBindingsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a directory_binding",
 		Long:  "Update an existing directory_binding by ID. Reads JSON body from stdin.",
+		Example: `  # Update a directory_binding from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-directory-bindings update 1
+
+  # Get, modify, and update a directory_binding
+  jamfpro-cli classic-directory-bindings get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-directory-bindings update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a directory_binding",
+		Example: `  # Delete a directory_binding (with confirmation)
+  jamfpro-cli classic-directory-bindings delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-directory-bindings delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

@@ -38,6 +38,11 @@ func newClassicWebhooksListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all webhooks",
+		Example: `  # List all webhooks
+  jamfpro-cli classic-webhooks list
+
+  # List webhooks and extract IDs
+  jamfpro-cli classic-webhooks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/webhooks", nil)
@@ -62,10 +67,16 @@ func newClassicWebhooksListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicWebhooksGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a webhook by ID",
+		Example: `  # Get a webhook by ID
+  jamfpro-cli classic-webhooks get 1
+
+  # Get a webhook and output as YAML
+  jamfpro-cli classic-webhooks get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicWebhooksGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicWebhooksCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a webhook",
 		Long:  "Create a new webhook. Reads JSON body from stdin.",
+		Example: `  # Create a webhook from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-webhooks create
+
+  # Get a webhook, modify, and create a copy
+  jamfpro-cli classic-webhooks get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-webhooks create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicWebhooksCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicWebhooksUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a webhook",
 		Long:  "Update an existing webhook by ID. Reads JSON body from stdin.",
+		Example: `  # Update a webhook from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-webhooks update 1
+
+  # Get, modify, and update a webhook
+  jamfpro-cli classic-webhooks get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-webhooks update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicWebhooksUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicWebhooksDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicWebhooksDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a webhook",
+		Example: `  # Delete a webhook (with confirmation)
+  jamfpro-cli classic-webhooks delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-webhooks delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicWebhooksDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

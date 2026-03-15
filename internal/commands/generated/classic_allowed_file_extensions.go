@@ -26,6 +26,7 @@ func NewClassicAllowedFileExtensionsCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
+
 	cmd.AddCommand(newClassicAllowedFileExtensionsDeleteCmd(ctx))
 
 	return cmd
@@ -35,6 +36,11 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all allowedfileextensions",
+		Example: `  # List all allowedfileextensions
+  jamfpro-cli classic-allowed-file-extensions list
+
+  # List allowedfileextensions and extract IDs
+  jamfpro-cli classic-allowed-file-extensions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/allowedfileextensions", nil)
@@ -59,10 +65,16 @@ func newClassicAllowedFileExtensionsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a allowed_file_extension by ID",
+		Example: `  # Get a allowed_file_extension by ID
+  jamfpro-cli classic-allowed-file-extensions get 1
+
+  # Get a allowed_file_extension and output as YAML
+  jamfpro-cli classic-allowed-file-extensions get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -89,11 +101,17 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a allowed_file_extension",
 		Long:  "Create a new allowed_file_extension. Reads JSON body from stdin.",
+		Example: `  # Create a allowed_file_extension from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-allowed-file-extensions create
+
+  # Get a allowed_file_extension, modify, and create a copy
+  jamfpro-cli classic-allowed-file-extensions get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-allowed-file-extensions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -116,6 +134,8 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
+
 func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -125,6 +145,11 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a allowed_file_extension",
+		Example: `  # Delete a allowed_file_extension (with confirmation)
+  jamfpro-cli classic-allowed-file-extensions delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-allowed-file-extensions delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -167,3 +192,4 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

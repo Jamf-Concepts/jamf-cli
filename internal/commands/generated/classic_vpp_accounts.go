@@ -37,6 +37,11 @@ func newClassicVppAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all vppaccounts",
+		Example: `  # List all vppaccounts
+  jamfpro-cli classic-vpp-accounts list
+
+  # List vppaccounts and extract IDs
+  jamfpro-cli classic-vpp-accounts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppaccounts", nil)
@@ -61,10 +66,16 @@ func newClassicVppAccountsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a vpp_account by ID",
+		Example: `  # Get a vpp_account by ID
+  jamfpro-cli classic-vpp-accounts get 1
+
+  # Get a vpp_account and output as YAML
+  jamfpro-cli classic-vpp-accounts get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -91,11 +102,17 @@ func newClassicVppAccountsGetCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_account",
 		Long:  "Create a new vpp_account. Reads JSON body from stdin.",
+		Example: `  # Create a vpp_account from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-vpp-accounts create
+
+  # Get a vpp_account, modify, and create a copy
+  jamfpro-cli classic-vpp-accounts get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-vpp-accounts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -118,11 +135,17 @@ func newClassicVppAccountsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_account",
 		Long:  "Update an existing vpp_account by ID. Reads JSON body from stdin.",
+		Example: `  # Update a vpp_account from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-vpp-accounts update 1
+
+  # Get, modify, and update a vpp_account
+  jamfpro-cli classic-vpp-accounts get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-vpp-accounts update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -147,6 +170,7 @@ func newClassicVppAccountsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -156,6 +180,11 @@ func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a vpp_account",
+		Example: `  # Delete a vpp_account (with confirmation)
+  jamfpro-cli classic-vpp-accounts delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-vpp-accounts delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -198,3 +227,4 @@ func newClassicVppAccountsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

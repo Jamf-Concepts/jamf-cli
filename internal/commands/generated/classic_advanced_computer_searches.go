@@ -38,6 +38,11 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all advancedcomputersearches",
+		Example: `  # List all advancedcomputersearches
+  jamfpro-cli classic-advanced-computer-searches list
+
+  # List advancedcomputersearches and extract IDs
+  jamfpro-cli classic-advanced-computer-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/advancedcomputersearches", nil)
@@ -62,10 +67,16 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicAdvancedComputerSearchesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a advanced_computer_search by ID",
+		Example: `  # Get a advanced_computer_search by ID
+  jamfpro-cli classic-advanced-computer-searches get 1
+
+  # Get a advanced_computer_search and output as YAML
+  jamfpro-cli classic-advanced-computer-searches get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicAdvancedComputerSearchesGetByNameCmd(ctx *CLIContext) *cobra.Comm
 	}
 }
 
+
 func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a advanced_computer_search",
 		Long:  "Create a new advanced_computer_search. Reads JSON body from stdin.",
+		Example: `  # Create a advanced_computer_search from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-advanced-computer-searches create
+
+  # Get a advanced_computer_search, modify, and create a copy
+  jamfpro-cli classic-advanced-computer-searches get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-advanced-computer-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
+
 func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a advanced_computer_search",
 		Long:  "Update an existing advanced_computer_search by ID. Reads JSON body from stdin.",
+		Example: `  # Update a advanced_computer_search from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-advanced-computer-searches update 1
+
+  # Get, modify, and update a advanced_computer_search
+  jamfpro-cli classic-advanced-computer-searches get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-advanced-computer-searches update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *CLIContext) *cobra.Command
 	}
 }
 
+
 func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a advanced_computer_search",
+		Example: `  # Delete a advanced_computer_search (with confirmation)
+  jamfpro-cli classic-advanced-computer-searches delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-advanced-computer-searches delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *CLIContext) *cobra.Command
 
 	return cmd
 }
+

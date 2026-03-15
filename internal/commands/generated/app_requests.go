@@ -30,12 +30,18 @@ func NewAppRequestsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Search for Form Input Fields",
 		Long:  "Search for form input fields",
+		Example: `  # List all app-requests
+  jamfpro-cli app-requests list
+
+  # List app-requests and extract IDs
+  jamfpro-cli app-requests list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -55,20 +61,28 @@ func newAppRequestsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get specified Form Input Field object",
 		Long:  "Gets specified form input field object",
+		Example: `  # Get a app-request by ID
+  jamfpro-cli app-requests get 1
+
+  # Get a app-request and output as YAML
+  jamfpro-cli app-requests get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -90,22 +104,43 @@ func newAppRequestsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Form Input Field record",
 		Long:  "Create form input field record",
+		Example: `  # Show the JSON template for creating a app-request
+  jamfpro-cli app-requests create --scaffold
+
+  # Create a app-request from JSON
+  echo '{"name":"Example"}' | jamfpro-cli app-requests create
+
+  # Get a app-request, modify it, and create a copy
+  jamfpro-cli app-requests get 1 -o json | jq '.name = "Copy"' | jamfpro-cli app-requests create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "description": "How many of these would you like?",
+  "priority": 1,
+  "title": "Quantity"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields"
@@ -129,20 +164,29 @@ func newAppRequestsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Replace all Form Input Fields",
 		Long:  "Replace all form input fields. Will delete, update, and create all input fields accordingly.",
+		Example: `  # Update a app-request from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli app-requests update 1
+
+  # Get a app-request, modify, and update
+  jamfpro-cli app-requests get 1 -o json | jq '.name = "New Name"' | jamfpro-cli app-requests update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -168,16 +212,18 @@ func newAppRequestsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -185,6 +231,11 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Form Input Field record",
 		Long:  "Removes specified form input field record",
+		Example: `  # Delete a app-request (with confirmation)
+  jamfpro-cli app-requests delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli app-requests delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -224,6 +275,7 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -238,3 +290,4 @@ func newAppRequestsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

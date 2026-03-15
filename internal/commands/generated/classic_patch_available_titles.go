@@ -22,6 +22,9 @@ func NewClassicPatchAvailableTitlesCmd(ctx *CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
 
+
+
+
 	return cmd
 }
 
@@ -29,6 +32,11 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all patchavailabletitles",
+		Example: `  # List all patchavailabletitles
+  jamfpro-cli classic-patch-available-titles list
+
+  # List patchavailabletitles and extract IDs
+  jamfpro-cli classic-patch-available-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchavailabletitles", nil)
@@ -53,10 +61,16 @@ func newClassicPatchAvailableTitlesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_available_title by ID",
+		Example: `  # Get a patch_available_title by ID
+  jamfpro-cli classic-patch-available-titles get 1
+
+  # Get a patch_available_title and output as YAML
+  jamfpro-cli classic-patch-available-titles get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -82,3 +96,7 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *CLIContext) *cobra.Command {
 		},
 	}
 }
+
+
+
+

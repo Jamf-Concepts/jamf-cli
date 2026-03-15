@@ -35,18 +35,23 @@ func NewEnrollmentSettingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage                int
-		flagPageSize            int
-		flagSort                []string
+		flagPage int
+		flagPageSize int
+		flagSort []string
 		flagAllUsersOptionFirst bool
-		flagAll                 bool
-		flagLimit               int
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve the configured LDAP groups configured for User-Initiated Enrollment.",
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
+		Example: `  # List all enrollment-settings
+  jamfpro-cli enrollment-settings list
+
+  # List enrollment-settings and extract IDs
+  jamfpro-cli enrollment-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -107,7 +112,7 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -145,6 +150,7 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -160,12 +166,18 @@ func newEnrollmentSettingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentSettingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve the configured LDAP groups configured for User-Initiated Enrollment",
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
+		Example: `  # Get a enrollment-setting by ID
+  jamfpro-cli enrollment-settings get 1
+
+  # Get a enrollment-setting and output as YAML
+  jamfpro-cli enrollment-settings get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -187,22 +199,48 @@ func newEnrollmentSettingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newEnrollmentSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Add the configured LDAP group for User-Initiated Enrollment.",
 		Long:  "Add the configured LDAP group for User-Initiated Enrollment.",
+		Example: `  # Show the JSON template for creating a enrollment-setting
+  jamfpro-cli enrollment-settings create --scaffold
+
+  # Create a enrollment-setting from JSON
+  echo '{"name":"Example"}' | jamfpro-cli enrollment-settings create
+
+  # Get a enrollment-setting, modify it, and create a copy
+  jamfpro-cli enrollment-settings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli enrollment-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "accountDrivenUserEnrollmentEnabled": false,
+  "enterpriseEnrollmentEnabled": false,
+  "groupId": 1,
+  "ldapServerId": 1,
+  "name": "Grade School Pupils",
+  "personalEnrollmentEnabled": false,
+  "requireEula": false,
+  "siteId": "-1"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/enrollment/access-groups"
@@ -226,23 +264,47 @@ func newEnrollmentSettingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
 		Long:  "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
+		Example: `  # Update a enrollment-setting from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli enrollment-settings update 1
+
+  # Get a enrollment-setting, modify, and update
+  jamfpro-cli enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli enrollment-settings update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "accountDrivenUserEnrollmentEnabled": false,
+  "enterpriseEnrollmentEnabled": false,
+  "groupId": 1,
+  "ldapServerId": 1,
+  "name": "Grade School Pupils",
+  "personalEnrollmentEnabled": false,
+  "requireEula": false,
+  "siteId": "-1"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
@@ -267,16 +329,19 @@ func newEnrollmentSettingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -284,6 +349,11 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete an LDAP group's access to user initiated Enrollment.",
 		Long:  "Deletes an LDAP group's access to user initiated enrollment. The group \"All LDAP Users\" cannot be deleted, but it can be modified to disallow User-Initiated Enrollment.",
+		Example: `  # Delete a enrollment-setting (with confirmation)
+  jamfpro-cli enrollment-settings delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli enrollment-settings delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -323,6 +393,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -340,17 +411,19 @@ func newEnrollmentSettingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Get sorted and paged Enrollment history object",
 		Long:  "Gets sorted and paged Enrollment history object",
+		Example: `  # Get history for a enrollment-setting
+  jamfpro-cli enrollment-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -408,7 +481,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -446,6 +519,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -460,7 +534,9 @@ func newEnrollmentSettingsHistoryCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
@@ -468,6 +544,13 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Adds Enrollment history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/enrollment/history"
@@ -491,9 +574,12 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -502,10 +588,11 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
+		flagPage int
+		flagPageSize int
+		flagSort []string
+		flagFilter string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -514,6 +601,19 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 		Long:  "Export enrollment history collection",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/enrollment/history/export"
@@ -561,6 +661,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -571,6 +672,8 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
+

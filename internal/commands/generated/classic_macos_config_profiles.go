@@ -38,6 +38,11 @@ func newClassicMacosConfigProfilesListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all osxconfigurationprofiles",
+		Example: `  # List all osxconfigurationprofiles
+  jamfpro-cli classic-macos-config-profiles list
+
+  # List osxconfigurationprofiles and extract IDs
+  jamfpro-cli classic-macos-config-profiles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
@@ -62,10 +67,16 @@ func newClassicMacosConfigProfilesListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacosConfigProfilesGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a os_x_configuration_profile by ID",
+		Example: `  # Get a os_x_configuration_profile by ID
+  jamfpro-cli classic-macos-config-profiles get 1
+
+  # Get a os_x_configuration_profile and output as YAML
+  jamfpro-cli classic-macos-config-profiles get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicMacosConfigProfilesGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacosConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a os_x_configuration_profile",
 		Long:  "Create a new os_x_configuration_profile. Reads JSON body from stdin.",
+		Example: `  # Create a os_x_configuration_profile from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-macos-config-profiles create
+
+  # Get a os_x_configuration_profile, modify, and create a copy
+  jamfpro-cli classic-macos-config-profiles get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-macos-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacosConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a os_x_configuration_profile",
 		Long:  "Update an existing os_x_configuration_profile by ID. Reads JSON body from stdin.",
+		Example: `  # Update a os_x_configuration_profile from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-macos-config-profiles update 1
+
+  # Get, modify, and update a os_x_configuration_profile
+  jamfpro-cli classic-macos-config-profiles get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-macos-config-profiles update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacosConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a os_x_configuration_profile",
+		Example: `  # Delete a os_x_configuration_profile (with confirmation)
+  jamfpro-cli classic-macos-config-profiles delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-macos-config-profiles delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

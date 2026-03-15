@@ -22,12 +22,18 @@ func NewJamfProVersionsCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newJamfProVersionsListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Return information about the Jamf Pro including the current version",
 		Long:  "Returns information about the Jamf Pro including the current version.",
+		Example: `  # List all jamf-pro-versions
+  jamfpro-cli jamf-pro-versions list
+
+  # List jamf-pro-versions and extract IDs
+  jamfpro-cli jamf-pro-versions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -47,9 +53,12 @@ func newJamfProVersionsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

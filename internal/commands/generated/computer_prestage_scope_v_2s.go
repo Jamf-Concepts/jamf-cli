@@ -28,12 +28,18 @@ func NewComputerPrestageScopeV2SCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all device Scope for all Computer Prestages",
 		Long:  "Get all device scope for all computer prestages",
+		Example: `  # List all computer-prestage-scope-v-2s
+  jamfpro-cli computer-prestage-scope-v-2s list
+
+  # List computer-prestage-scope-v-2s and extract IDs
+  jamfpro-cli computer-prestage-scope-v-2s list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -53,23 +59,43 @@ func newComputerPrestageScopeV2SListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Replace device Scope for a specific Computer Prestage",
 		Long:  "Replace device scope for a specific computer prestage",
+		Example: `  # Update a computer-prestage-scope-v-2 from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli computer-prestage-scope-v-2s update 1
+
+  # Get a computer-prestage-scope-v-2, modify, and update
+  jamfpro-cli computer-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamfpro-cli computer-prestage-scope-v-2s update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/computer-prestages/{id}/scope"
@@ -94,27 +120,44 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
-		flagIds    []string
+		flagIds []string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete-multiple <id>",
 		Short: "Remove device Scope for a specific Computer Prestage",
 		Long:  "Remove device scope for a specific computer prestage",
+		Example: `  # Delete multiple computer-prestage-scope-v-2s by IDs
+  jamfpro-cli computer-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -169,6 +212,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -176,12 +220,14 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *CLIContext) *cobra.Comman
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
@@ -208,9 +254,12 @@ func newComputerPrestageScopeV2SScopeCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+
 	return cmd
 }
+

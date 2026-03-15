@@ -32,17 +32,22 @@ func NewSelfServiceBrandingsCmd(ctx *CLIContext) *cobra.Command {
 
 func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagPage     int
+		flagPage int
 		flagPageSize int
-		flagSort     []string
-		flagAll      bool
-		flagLimit    int
+		flagSort []string
+		flagAll  bool
+		flagLimit int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Search for sorted and paged iOS branding configurations",
 		Long:  "Search for sorted and paged iOS branding configurations",
+		Example: `  # List all self-service-brandings
+  jamfpro-cli self-service-brandings list
+
+  # List self-service-brandings and extract IDs
+  jamfpro-cli self-service-brandings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -100,7 +105,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 					// Parse pagination response: {"totalCount": N, "results": [...]}
 					var pageResp struct {
 						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
+						Results    []json.RawMessage  `json:"results"`
 					}
 					if err := json.Unmarshal(body, &pageResp); err != nil {
 						// Not a paginated response; output as-is
@@ -138,6 +143,7 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -152,12 +158,18 @@ func newSelfServiceBrandingsListCmd(ctx *CLIContext) *cobra.Command {
 }
 
 func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Read a single Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Read a single Self Service iOS branding configuration indicated by the provided id.",
+		Example: `  # Get a self-service-branding by ID
+  jamfpro-cli self-service-brandings get 1
+
+  # Get a self-service-branding and output as YAML
+  jamfpro-cli self-service-brandings get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -179,20 +191,31 @@ func newSelfServiceBrandingsGetCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Upload an image",
 		Long:  "Uploads an image",
+		Example: `  # Show the JSON template for creating a self-service-branding
+  jamfpro-cli self-service-brandings create --scaffold
+
+  # Create a self-service-branding from JSON
+  echo '{"name":"Example"}' | jamfpro-cli self-service-brandings create
+
+  # Get a self-service-branding, modify it, and create a copy
+  jamfpro-cli self-service-brandings get 1 -o json | jq '.name = "Copy"' | jamfpro-cli self-service-brandings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -218,23 +241,44 @@ func newSelfServiceBrandingsCreateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
 
 	return cmd
 }
 
 func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Self Service iOS branding configuration with the supplied details",
 		Long:  "Update a Self Service iOS branding configuration with the supplied details",
+		Example: `  # Update a self-service-branding from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli self-service-brandings update 1
+
+  # Get a self-service-branding, modify, and update
+  jamfpro-cli self-service-brandings get 1 -o json | jq '.name = "New Name"' | jamfpro-cli self-service-brandings update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "brandingName": "Self Service",
+  "brandingNameColorCode": "000000",
+  "headerBackgroundColorCode": "FFFFFF",
+  "iconId": 1,
+  "menuIconColorCode": "000001",
+  "statusBarTextColor": "dark"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/self-service/branding/ios/{id}"
@@ -259,16 +303,19 @@ func newSelfServiceBrandingsUpdateCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
 
 func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
-		flagYes    bool
+		flagYes bool
 		flagDryRun bool
 	)
 
@@ -276,6 +323,11 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete the Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Delete the Self Service iOS branding configuration indicated by the provided id.",
+		Example: `  # Delete a self-service-branding (with confirmation)
+  jamfpro-cli self-service-brandings delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli self-service-brandings delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -315,6 +367,7 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+
 			if resp.StatusCode == http.StatusNoContent {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
@@ -329,3 +382,4 @@ func newSelfServiceBrandingsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

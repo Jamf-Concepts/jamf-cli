@@ -38,6 +38,11 @@ func newClassicDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all distributionpoints",
+		Example: `  # List all distributionpoints
+  jamfpro-cli classic-distribution-points list
+
+  # List distributionpoints and extract IDs
+  jamfpro-cli classic-distribution-points list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/distributionpoints", nil)
@@ -62,10 +67,16 @@ func newClassicDistributionPointsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDistributionPointsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a distribution_point by ID",
+		Example: `  # Get a distribution_point by ID
+  jamfpro-cli classic-distribution-points get 1
+
+  # Get a distribution_point and output as YAML
+  jamfpro-cli classic-distribution-points get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicDistributionPointsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a distribution_point",
 		Long:  "Create a new distribution_point. Reads JSON body from stdin.",
+		Example: `  # Create a distribution_point from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-distribution-points create
+
+  # Get a distribution_point, modify, and create a copy
+  jamfpro-cli classic-distribution-points get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicDistributionPointsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a distribution_point",
 		Long:  "Update an existing distribution_point by ID. Reads JSON body from stdin.",
+		Example: `  # Update a distribution_point from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-distribution-points update 1
+
+  # Get, modify, and update a distribution_point
+  jamfpro-cli classic-distribution-points get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-distribution-points update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicDistributionPointsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a distribution_point",
+		Example: `  # Delete a distribution_point (with confirmation)
+  jamfpro-cli classic-distribution-points delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-distribution-points delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicDistributionPointsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+

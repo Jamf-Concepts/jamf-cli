@@ -38,6 +38,11 @@ func newClassicMacAppsListCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all macapplications",
+		Example: `  # List all macapplications
+  jamfpro-cli classic-mac-apps list
+
+  # List macapplications and extract IDs
+  jamfpro-cli classic-mac-apps list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/macapplications", nil)
@@ -62,10 +67,16 @@ func newClassicMacAppsListCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacAppsGetCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a mac_application by ID",
+		Example: `  # Get a mac_application by ID
+  jamfpro-cli classic-mac-apps get 1
+
+  # Get a mac_application and output as YAML
+  jamfpro-cli classic-mac-apps get 1 -o yaml`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -121,11 +132,17 @@ func newClassicMacAppsGetByNameCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacAppsCreateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a mac_application",
 		Long:  "Create a new mac_application. Reads JSON body from stdin.",
+		Example: `  # Create a mac_application from JSON
+  echo '{"name":"Example"}' | jamfpro-cli classic-mac-apps create
+
+  # Get a mac_application, modify, and create a copy
+  jamfpro-cli classic-mac-apps get 1 -o json | jq '.name = "Copy"' | jamfpro-cli classic-mac-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
 
@@ -148,11 +165,17 @@ func newClassicMacAppsCreateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a mac_application",
 		Long:  "Update an existing mac_application by ID. Reads JSON body from stdin.",
+		Example: `  # Update a mac_application from JSON
+  echo '{"name":"Updated"}' | jamfpro-cli classic-mac-apps update 1
+
+  # Get, modify, and update a mac_application
+  jamfpro-cli classic-mac-apps get 1 -o json | jq '.name = "New"' | jamfpro-cli classic-mac-apps update 1`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -177,6 +200,7 @@ func newClassicMacAppsUpdateCmd(ctx *CLIContext) *cobra.Command {
 	}
 }
 
+
 func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -186,6 +210,11 @@ func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a mac_application",
+		Example: `  # Delete a mac_application (with confirmation)
+  jamfpro-cli classic-mac-apps delete 1
+
+  # Delete without confirmation prompt
+  jamfpro-cli classic-mac-apps delete 1 --yes`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := context.Background()
@@ -228,3 +257,4 @@ func newClassicMacAppsDeleteCmd(ctx *CLIContext) *cobra.Command {
 
 	return cmd
 }
+
