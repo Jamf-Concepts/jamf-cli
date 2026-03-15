@@ -21,38 +21,19 @@ type Config struct {
 // Profile represents a Jamf Pro server profile
 type Profile struct {
 	URL          string `yaml:"url"`
-	AuthMethod   string `yaml:"auth-method"` // token, basic, oauth2
+	AuthMethod   string `yaml:"auth-method"` // token, oauth2
 	Token        string `yaml:"token,omitempty"`
-	Username     string `yaml:"username,omitempty"`
-	Password     string `yaml:"password,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
-	TouchID      bool   `yaml:"touch-id,omitempty"` // Phase 2: require Touch ID for keychain access
 }
 
-// ConfigPath returns the path to the config file, preferring XDG
+// ConfigPath returns the path to the config file using XDG conventions.
 func ConfigPath() string {
-	// XDG-compliant path
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "jamfpro-cli", "config.yaml")
 	}
-
 	home, _ := os.UserHomeDir()
-
-	// Check XDG default
-	xdgPath := filepath.Join(home, ".config", "jamfpro-cli", "config.yaml")
-	if _, err := os.Stat(xdgPath); err == nil {
-		return xdgPath
-	}
-
-	// Fallback to legacy path
-	legacyPath := filepath.Join(home, ".jamfpro-cli", "config.yaml")
-	if _, err := os.Stat(legacyPath); err == nil {
-		return legacyPath
-	}
-
-	// Default to XDG for new configs
-	return xdgPath
+	return filepath.Join(home, ".config", "jamfpro-cli", "config.yaml")
 }
 
 // Load reads the config from disk. If the file doesn't exist, returns an

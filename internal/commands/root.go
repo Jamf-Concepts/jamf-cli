@@ -39,8 +39,6 @@ var (
 	tokenStdin   bool
 	clientID     string
 	clientSecret string
-	username     string
-	password     string
 )
 
 // cliClient wraps our client to implement generated.HTTPClient
@@ -162,12 +160,6 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if clientSecret == "" {
 		clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
 	}
-	if username == "" {
-		username = os.Getenv("JAMF_USERNAME")
-	}
-	if password == "" {
-		password = os.Getenv("JAMF_PASSWORD")
-	}
 
 	// Config profile: fill remaining gaps
 	if len(cfg.Profiles) > 0 {
@@ -191,17 +183,6 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
 					}
 					clientSecret = resolved
-				}
-			case "basic":
-				if username == "" && p.Username != "" {
-					username = p.Username
-				}
-				if password == "" && p.Password != "" {
-					resolved, err := config.ResolveSecret(p.Password)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving password from profile: %w", err)
-					}
-					password = resolved
 				}
 			default: // "token" or empty
 				if token == "" && p.Token != "" {
@@ -251,10 +232,8 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 		return serverURL, auth.NewOAuth2Provider(serverURL, clientID, clientSecret), nil
 	case token != "":
 		return serverURL, auth.NewTokenProvider(token), nil
-	case username != "" && password != "":
-		return serverURL, auth.NewBasicProvider(serverURL, username, password), nil
 	default:
-		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, --username/--password, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
 	}
 }
 
@@ -362,8 +341,6 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
 	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (or JAMF_CLIENT_ID env)")
 	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (or JAMF_CLIENT_SECRET env)")
-	cmd.PersistentFlags().StringVar(&username, "username", "", "basic auth username (or JAMF_USERNAME env)")
-	cmd.PersistentFlags().StringVar(&password, "password", "", "basic auth password (or JAMF_PASSWORD env)")
 
 	// Version command
 	cmd.AddCommand(&cobra.Command{

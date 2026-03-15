@@ -321,23 +321,3 @@ profiles:
 	}
 }
 
-func TestConfigValidate_TouchIDInfo(t *testing.T) {
-	t.Setenv("TEST_VALIDATE_TID_CLIENT_ID", "my-client")
-	t.Setenv("TEST_VALIDATE_TID_CLIENT_SECRET", "my-secret")
-	yaml := `
-profiles:
-  prod:
-    url: https://jamf.example.com
-    auth-method: oauth2
-    client-id: "env:TEST_VALIDATE_TID_CLIENT_ID"
-    client-secret: "env:TEST_VALIDATE_TID_CLIENT_SECRET"
-    touch-id: true
-`
-	out, err := runValidateCmd(t, yaml)
-	if err != nil {
-		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
-	}
-	if !strings.Contains(out, "touch-id is set") {
-		t.Errorf("expected touch-id info in output:\n%s", out)
-	}
-}

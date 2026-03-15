@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/jamf/jamfpro-cli/internal/auth"
 	"github.com/jamf/jamfpro-cli/internal/config"
 	"github.com/jamf/jamfpro-cli/internal/keychain"
 )
@@ -250,7 +249,7 @@ config profile. The username and password are not stored.`,
 
 			// Step 1: Authenticate with basic auth
 			_, _ = fmt.Fprint(cmd.OutOrStdout(), "\nAuthenticating... ")
-			bearerToken, err := auth.BasicAuthExchange(ctx, setupURL, setupUser, setupPass)
+			bearerToken, err := basicAuthExchange(ctx, setupURL, setupUser, setupPass)
 			if err != nil {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
@@ -384,4 +383,41 @@ config profile. The username and password are not stored.`,
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\")")
 
 	return cmd
+}
+
+// basicAuthExchange performs a one-shot basic auth token exchange during setup.
+// Returns a bearer token. The username/password are not stored.
+func basicAuthExchange(ctx context.Context, baseURL, username, password string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/api/v1/auth/token", nil)
+	if err != nil {
+		return "", fmt.Errorf("creating auth request: %w", err)
+	}
+	req.SetBasicAuth(username, password)
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("cannot reach server at %s: %w", baseURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return "", fmt.Errorf("invalid username or password")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", fmt.Errorf("auth failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Token   string `json:"token"`
+		Expires string `json:"expires"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("parsing auth response: %w", err)
+	}
+	if result.Token == "" {
+		return "", fmt.Errorf("basic auth exchange returned empty token, check that your account is not disabled or locked")
+	}
+	return result.Token, nil
 }

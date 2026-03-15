@@ -173,38 +173,6 @@ func TestConfigPath_XDGDefault(t *testing.T) {
 	}
 }
 
-func TestConfigPath_LegacyFallback(t *testing.T) {
-	// When XDG_CONFIG_HOME is unset and the legacy path exists, it should be returned
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", "")
-	t.Setenv("HOME", dir)
-
-	legacyDir := filepath.Join(dir, ".jamfpro-cli")
-	_ = os.MkdirAll(legacyDir, 0700)
-	legacyPath := filepath.Join(legacyDir, "config.yaml")
-	_ = os.WriteFile(legacyPath, []byte("profiles: {}"), 0600)
-
-	got := ConfigPath()
-	if got != legacyPath {
-		t.Errorf("ConfigPath() = %q, want legacy path %q", got, legacyPath)
-	}
-}
-
-func TestConfigPath_XDGDefaultExists(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", "")
-	t.Setenv("HOME", dir)
-
-	xdgDir := filepath.Join(dir, ".config", "jamfpro-cli")
-	_ = os.MkdirAll(xdgDir, 0700)
-	xdgPath := filepath.Join(xdgDir, "config.yaml")
-	_ = os.WriteFile(xdgPath, []byte("profiles: {}"), 0600)
-
-	got := ConfigPath()
-	if got != xdgPath {
-		t.Errorf("ConfigPath() = %q, want XDG default path %q", got, xdgPath)
-	}
-}
 
 // --- GetKeychainStore tests ---
 

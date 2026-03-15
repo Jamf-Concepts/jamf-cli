@@ -195,7 +195,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileTok       string
 		profileClientID  string
 		profileClientSec string
-		touchID          bool
 	)
 
 	cmd := &cobra.Command{
@@ -206,9 +205,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 			name := args[0]
 
 			// Validate auth-method
-			validMethods := map[string]bool{"token": true, "basic": true, "oauth2": true}
+			validMethods := map[string]bool{"token": true, "oauth2": true}
 			if !validMethods[authMethod] {
-				return fmt.Errorf("invalid --auth-method %q: must be token, basic, or oauth2", authMethod)
+				return fmt.Errorf("invalid --auth-method %q: must be token or oauth2", authMethod)
 			}
 
 			// Validate auth-method-specific requirements
@@ -227,7 +226,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 			p := config.Profile{
 				URL:        profileURL,
 				AuthMethod: authMethod,
-				TouchID:    touchID,
 			}
 
 			// Store secrets: values with env: or file: prefix are written
@@ -263,12 +261,10 @@ func newConfigAddProfileCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL")
-	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, basic, oauth2")
+	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2")
 	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or stored in keychain)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
 	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or stored in keychain)")
-	cmd.Flags().BoolVar(&touchID, "touch-id", false, "require Touch ID for keychain access (Phase 2, stored but not yet enforced)")
-
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
@@ -337,7 +333,6 @@ func newConfigRemoveProfileCmd() *cobra.Command {
 func cleanupKeychainRefs(cmd *cobra.Command, p config.Profile) {
 	fields := map[string]string{
 		"token":         p.Token,
-		"password":      p.Password,
 		"client-id":     p.ClientID,
 		"client-secret": p.ClientSecret,
 	}
@@ -454,7 +449,7 @@ func newConfigValidateCmd() *cobra.Command {
 			}
 			sort.Strings(names)
 
-			validAuthMethods := map[string]bool{"token": true, "oauth2": true, "basic": true}
+			validAuthMethods := map[string]bool{"token": true, "oauth2": true}
 
 			for _, name := range names {
 				p := cfg.Profiles[name]
@@ -510,18 +505,7 @@ func newConfigValidateCmd() *cobra.Command {
 							pass("token resolvable")
 						}
 					}
-				case "basic":
-					if p.Username == "" {
-						fail("Missing username")
-					} else {
-						pass("username set")
 					}
-				}
-
-				// Touch ID info
-				if p.TouchID {
-					_, _ = fmt.Fprintf(w, "  ℹ touch-id is set; will be enforced in a future version\n")
-				}
 
 				// Optional connectivity check
 				if connectivity && p.URL != "" {

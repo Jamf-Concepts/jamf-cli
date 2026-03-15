@@ -352,8 +352,6 @@ func resetGlobals() {
 	tokenStdin = false
 	clientID = ""
 	clientSecret = ""
-	username = ""
-	password = ""
 }
 
 // clearAuthEnv clears all auth-related env vars so tests start from a clean slate.
@@ -361,7 +359,7 @@ func clearAuthEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
 		"JAMF_URL", "JAMF_TOKEN", "JAMF_CLIENT_ID", "JAMF_CLIENT_SECRET",
-		"JAMF_USERNAME", "JAMF_PASSWORD", "JAMF_PROFILE",
+		"JAMF_PROFILE",
 	} {
 		t.Setenv(key, "")
 	}
@@ -394,8 +392,6 @@ func TestPersistentPreRunE_MissingAuth(t *testing.T) {
 	t.Setenv("JAMF_TOKEN", "")
 	t.Setenv("JAMF_CLIENT_ID", "")
 	t.Setenv("JAMF_CLIENT_SECRET", "")
-	t.Setenv("JAMF_USERNAME", "")
-	t.Setenv("JAMF_PASSWORD", "")
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -417,8 +413,6 @@ func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
 	t.Setenv("JAMF_TOKEN", "")
 	t.Setenv("JAMF_CLIENT_ID", "my-client-id")
 	t.Setenv("JAMF_CLIENT_SECRET", "")
-	t.Setenv("JAMF_USERNAME", "")
-	t.Setenv("JAMF_PASSWORD", "")
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -440,8 +434,6 @@ func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
 	t.Setenv("JAMF_TOKEN", "")
 	t.Setenv("JAMF_CLIENT_ID", "")
 	t.Setenv("JAMF_CLIENT_SECRET", "my-secret")
-	t.Setenv("JAMF_USERNAME", "")
-	t.Setenv("JAMF_PASSWORD", "")
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -632,11 +624,6 @@ func TestResolveAuth_EnvCredentials(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "basic auth",
-			envs:   map[string]string{"JAMF_URL": "https://test.jamfcloud.com", "JAMF_USERNAME": "admin", "JAMF_PASSWORD": "secret"},
-			wantOK: true,
-		},
-		{
 			name:   "oauth2",
 			envs:   map[string]string{"JAMF_URL": "https://test.jamfcloud.com", "JAMF_CLIENT_ID": "my-client", "JAMF_CLIENT_SECRET": "my-secret"},
 			wantOK: true,
@@ -772,34 +759,6 @@ profiles:
 	}
 }
 
-func TestResolveAuth_ProfileBasicAuth(t *testing.T) {
-	t.Setenv("TEST_BASIC_PW", "password123")
-	setupConfigProfile(t, `default-profile: basicprofile
-profiles:
-  basicprofile:
-    url: https://basic.jamfcloud.com
-    auth-method: basic
-    username: admin
-    password: "env:TEST_BASIC_PW"
-`)
-
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("Load error: %v", err)
-	}
-
-	url, provider, err := resolveAuth(cfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if url != "https://basic.jamfcloud.com" {
-		t.Errorf("url = %q", url)
-	}
-	if provider == nil {
-		t.Fatal("expected non-nil basic auth provider")
-	}
-}
-
 func TestResolveAuth_ProfileNotFound(t *testing.T) {
 	setupConfigProfile(t, `profiles:
   existing:
@@ -926,26 +885,3 @@ func (f *failReader) Read(p []byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
 }
 
-// --- validate: basic auth missing username ---
-
-func TestConfigValidate_BasicAuthMissingUsername(t *testing.T) {
-	jDir := setupTempConfig(t)
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(`profiles:
-  broken:
-    url: https://jamf.example.com
-    auth-method: basic
-`), 0600)
-
-	cmd := newConfigValidateCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-
-	err := cmd.RunE(cmd, nil)
-	if err == nil {
-		t.Fatal("expected error for missing username")
-	}
-	if !strings.Contains(buf.String(), "Missing username") {
-		t.Errorf("expected 'Missing username' in output:\n%s", buf.String())
-	}
-}

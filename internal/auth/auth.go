@@ -40,40 +40,6 @@ func (p *TokenProvider) Name() string {
 	return "token"
 }
 
-// BasicProvider exchanges username/password for a token
-type BasicProvider struct {
-	baseURL  string
-	username string
-	password string
-	token    string // cached token
-}
-
-func NewBasicProvider(baseURL, username, password string) *BasicProvider {
-	return &BasicProvider{
-		baseURL:  baseURL,
-		username: username,
-		password: password,
-	}
-}
-
-func (p *BasicProvider) GetToken(ctx context.Context) (string, error) {
-	if p.token != "" {
-		return p.token, nil
-	}
-
-	token, err := BasicAuthExchange(ctx, p.baseURL, p.username, p.password)
-	if err != nil {
-		return "", fmt.Errorf("basic auth token exchange: %w", err)
-	}
-
-	p.token = token
-	return p.token, nil
-}
-
-func (p *BasicProvider) Name() string {
-	return "basic"
-}
-
 // OAuth2Provider uses client credentials flow to obtain and cache tokens.
 // It proactively refreshes the token before expiry.
 type OAuth2Provider struct {
@@ -173,39 +139,3 @@ func (p *OAuth2Provider) Name() string {
 	return "oauth2"
 }
 
-// BasicAuthExchange performs a one-shot basic auth token exchange.
-// It returns a bearer token. The username/password are not stored.
-func BasicAuthExchange(ctx context.Context, baseURL, username, password string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/api/v1/auth/token", nil)
-	if err != nil {
-		return "", fmt.Errorf("creating auth request: %w", err)
-	}
-	req.SetBasicAuth(username, password)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("cannot reach server at %s: %w", baseURL, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		return "", fmt.Errorf("invalid username or password")
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return "", fmt.Errorf("auth failed (HTTP %d): %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Token   string `json:"token"`
-		Expires string `json:"expires"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("parsing auth response: %w", err)
-	}
-	if result.Token == "" {
-		return "", fmt.Errorf("basic auth exchange returned empty token, check that your account is not disabled or locked")
-	}
-	return result.Token, nil
-}
