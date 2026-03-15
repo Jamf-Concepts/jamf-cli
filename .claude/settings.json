@@ -3,15 +3,23 @@
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "case \"$CLAUDE_FILE_PATH\" in */internal/commands/generated/*) echo 'BLOCK: generated file — run make generate instead' >&2; exit 1;; esac",
-        "description": "Block edits to generated code"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in */internal/commands/generated/*) echo 'BLOCK: generated file — run make generate instead' >&2; exit 2;; esac"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "case \"$CLAUDE_FILE_PATH\" in *.go) gofumpt -w \"$CLAUDE_FILE_PATH\";; esac",
-        "description": "Auto-format Go files"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path'); case \"$file_path\" in *.go) gofumpt -w \"$file_path\" || echo 'WARN: gofumpt failed' >&2;; esac"
+          }
+        ]
       }
     ]
   }
