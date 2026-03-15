@@ -40,7 +40,7 @@ This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI 
 |---------|---------|
 | `internal/commands/` | Handwritten commands (config, setup, overview, completion, aliases, groups) |
 | `internal/commands/generated/` | **Generated** — all API resource commands + registry |
-| `internal/client/` | HTTP client with auth injection, retry, and exit-code mapping |
+| `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
 | `internal/auth/` | Provider interface with OAuth2 (client credentials) and Token impls |
 | `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes) |
 | `internal/output/` | Multi-format output: table, JSON, CSV, YAML, plain. Table has smart column selection, date formatting, status colorization |
@@ -75,5 +75,6 @@ Generated commands depend on two interfaces defined in `registry.go`:
 - Global flags are package-level vars in `root.go` (not struct fields) — accessed by generated commands via the `CLIContext` struct.
 - Command grouping for `--help` output is maintained in `groups.go` — add new commands there.
 - Short aliases (e.g., `comp` for `computers`) are in `aliases.go`.
-- The `overview` command makes ~30 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
+- The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
 - Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths.
+- `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
