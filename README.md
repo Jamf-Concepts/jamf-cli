@@ -8,14 +8,6 @@ CLI tool for Jamf Pro Server API automation.
 
 ## Installation
 
-### Homebrew (macOS/Linux)
-
-> **TODO:** Homebrew tap not yet available. Requires creating the `jamf/homebrew-tap` repo and publishing a formula.
-
-```bash
-brew install jamf/tap/jamfpro-cli
-```
-
 ### Binary releases
 
 Download from [GitHub Releases](https://github.com/jamf/jamfpro-cli/releases).
@@ -39,17 +31,35 @@ jamfpro-cli config add-profile prod \
   --client-id abc123 \
   --client-secret "env:JAMF_CLIENT_SECRET"
 
-# Verify your config
-jamfpro-cli config validate
+# Instance health dashboard
+jamfpro-cli overview
 
 # List computers
 jamfpro-cli comp list -o table
 
+# Extract just the names
+jamfpro-cli comp list --field name
+
 # Export inventory
 jamfpro-cli comp list -o csv --out-file inventory.csv
+
+# Show the JSON template for creating a building
+jamfpro-cli buildings create --scaffold
 ```
 
 See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
+
+## Features
+
+- **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
+- **`--field`** — Extract a single field from any response: `jamfpro-cli comp list --field id`
+- **`--scaffold`** — Print JSON templates for create/update commands with example values
+- **`overview`** — Instance dashboard with 30+ parallel API calls: inventory, enrollment, MDM, alerts
+- **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
+- **Auto-pagination** — `--all` fetches every page; `--limit` caps results
+- **Dry-run mode** — `--dry-run` previews writes without executing
+- **Destructive safeguards** — Delete/erase/wipe require `--yes` confirmation
+- **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
 
 ## Configuration
 
@@ -67,7 +77,7 @@ profiles:
     client-secret: env:JAMF_PROD_SECRET
 ```
 
-Three auth methods: `oauth2` (client credentials), `token` (static bearer), `basic` (username/password exchange). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
+Two auth methods: `oauth2` (client credentials) and `token` (static bearer). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/jamf/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/jamf/jamfpro-cli/wiki/Secrets-&-Keychain)
 
