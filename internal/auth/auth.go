@@ -138,4 +138,3 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 func (p *OAuth2Provider) Name() string {
 	return "oauth2"
 }
-

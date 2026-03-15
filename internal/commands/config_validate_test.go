@@ -19,7 +19,7 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	if yamlContent != "" {
-		if err := os.WriteFile(cfgPath, []byte(yamlContent), 0600); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(yamlContent), 0o600); err != nil {
 			t.Fatalf("writing temp config: %v", err)
 		}
 	}
@@ -28,12 +28,12 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	// config.ConfigPath() uses XDG_CONFIG_HOME + "jamfpro-cli/config.yaml"
 	jDir := filepath.Join(dir, "jamfpro-cli")
-	if err := os.MkdirAll(jDir, 0700); err != nil {
+	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	if yamlContent != "" {
 		cfgPath = filepath.Join(jDir, "config.yaml")
-		if err := os.WriteFile(cfgPath, []byte(yamlContent), 0600); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(yamlContent), 0o600); err != nil {
 			t.Fatalf("writing temp config: %v", err)
 		}
 	}
@@ -73,7 +73,7 @@ func TestConfigValidate_MissingFile(t *testing.T) {
 	// Don't write any file — just set XDG to an empty temp dir
 	dir := t.TempDir()
 	jDir := filepath.Join(dir, "jamfpro-cli")
-	if err := os.MkdirAll(jDir, 0700); err != nil {
+	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", dir)
@@ -320,4 +320,3 @@ profiles:
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)
 	}
 }
-

@@ -2,19 +2,19 @@ package parser
 
 // Resource represents a parsed API resource (e.g., buildings, computers)
 type Resource struct {
-	Name        string       // e.g., "buildings"
-	NameSingular string      // e.g., "building"
-	GoName      string       // e.g., "Buildings"
-	Description string
-	Operations  []*Operation
-	Schemas     map[string]*Schema
+	Name         string // e.g., "buildings"
+	NameSingular string // e.g., "building"
+	GoName       string // e.g., "Buildings"
+	Description  string
+	Operations   []*Operation
+	Schemas      map[string]*Schema
 }
 
 // Operation represents an API operation (endpoint)
 type Operation struct {
-	Name          string   // e.g., "list", "get", "create"
-	Method        string   // HTTP method
-	Path          string   // API path
+	Name          string // e.g., "list", "get", "create"
+	Method        string // HTTP method
+	Path          string // API path
 	Summary       string
 	Description   string
 	Parameters    []*Parameter

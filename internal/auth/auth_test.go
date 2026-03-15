@@ -161,4 +161,3 @@ func TestTokenProvider_GetToken_Empty(t *testing.T) {
 		t.Fatal("expected error for empty token")
 	}
 }
-

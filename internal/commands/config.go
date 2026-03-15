@@ -505,7 +505,7 @@ func newConfigValidateCmd() *cobra.Command {
 							pass("token resolvable")
 						}
 					}
-					}
+				}
 
 				// Optional connectivity check
 				if connectivity && p.URL != "" {

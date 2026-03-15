@@ -72,7 +72,7 @@ func TestResolveSecret_Env_Missing(t *testing.T) {
 func TestResolveSecret_File(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secret.txt")
-	if err := os.WriteFile(path, []byte("file-value\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("file-value\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	val, err := ResolveSecret("file:" + path)
@@ -173,7 +173,6 @@ func TestConfigPath_XDGDefault(t *testing.T) {
 	}
 }
 
-
 // --- GetKeychainStore tests ---
 
 func TestGetKeychainStore_Override(t *testing.T) {
@@ -225,7 +224,7 @@ func TestLoad_ValidYAML(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	configDir := filepath.Join(dir, "jamfpro-cli")
-	_ = os.MkdirAll(configDir, 0700)
+	_ = os.MkdirAll(configDir, 0o700)
 
 	yaml := `default-profile: prod
 profiles:
@@ -239,7 +238,7 @@ profiles:
     auth-method: token
     token: env:STAGING_TOKEN
 `
-	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cfg, err := Load()
 	if err != nil {
@@ -267,8 +266,8 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	configDir := filepath.Join(dir, "jamfpro-cli")
-	_ = os.MkdirAll(configDir, 0700)
-	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("{{not valid yaml:::"), 0600)
+	_ = os.MkdirAll(configDir, 0o700)
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("{{not valid yaml:::"), 0o600)
 
 	_, err := Load()
 	if err == nil {
@@ -284,7 +283,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 func TestSave_ReadOnlyDir(t *testing.T) {
 	dir := t.TempDir()
 	readOnlyDir := filepath.Join(dir, "readonly")
-	_ = os.MkdirAll(readOnlyDir, 0500)
+	_ = os.MkdirAll(readOnlyDir, 0o500)
 	t.Setenv("XDG_CONFIG_HOME", readOnlyDir)
 
 	cfg := &Config{
@@ -304,9 +303,9 @@ func TestLoad_NilProfiles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	configDir := filepath.Join(dir, "jamfpro-cli")
-	_ = os.MkdirAll(configDir, 0700)
+	_ = os.MkdirAll(configDir, 0o700)
 	// YAML with no profiles key at all
-	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("default-profile: test\n"), 0600)
+	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
 
 	cfg, err := Load()
 	if err != nil {
@@ -340,7 +339,7 @@ func TestSave_CreatesFile(t *testing.T) {
 	}
 
 	// Verify 0600 permissions
-	if perm := info.Mode().Perm(); perm != 0600 {
+	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Errorf("file permissions = %o, want 0600", perm)
 	}
 }

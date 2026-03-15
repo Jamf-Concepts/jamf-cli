@@ -190,12 +190,12 @@ Supported shells: bash, zsh, fish
 
 			// Create parent directory if needed
 			dir := filepath.Dir(installPath)
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return fmt.Errorf("creating directory %s: %w", dir, err)
 			}
 
 			// Write completion file
-			if err := os.WriteFile(installPath, []byte(content.String()), 0644); err != nil {
+			if err := os.WriteFile(installPath, []byte(content.String()), 0o644); err != nil {
 				return fmt.Errorf("writing completion file: %w", err)
 			}
 

@@ -23,7 +23,7 @@ func TestParseManifest_ValidFile(t *testing.T) {
     operations: [list, get]
     lookups: [id]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,7 +59,7 @@ func TestParseManifest_DefaultCLIName(t *testing.T) {
     operations: [list, get]
     lookups: [id]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +88,7 @@ func TestParseManifest_CustomCLIName(t *testing.T) {
     operations: [list, get]
     lookups: [id, name]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -119,7 +119,7 @@ func TestParseManifest_DefaultSingular(t *testing.T) {
     operations: [list]
     lookups: [id]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -141,7 +141,7 @@ func TestParseManifest_MissingName(t *testing.T) {
     operations: [list]
     lookups: [id]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -159,7 +159,7 @@ func TestParseManifest_MissingPath(t *testing.T) {
     operations: [list]
     lookups: [id]
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -178,7 +178,7 @@ func TestParseManifest_DefaultOperationsAndLookups(t *testing.T) {
     singular: policy
     description: Deployment policies
 `)
-	if err := os.WriteFile(manifest, data, 0644); err != nil {
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -219,7 +219,7 @@ func TestParseManifest_FileNotFound(t *testing.T) {
 func TestParseManifest_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	manifest := filepath.Join(dir, "resources.yaml")
-	if err := os.WriteFile(manifest, []byte("{{invalid yaml}}"), 0644); err != nil {
+	if err := os.WriteFile(manifest, []byte("{{invalid yaml}}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -107,7 +107,7 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 
 	// Pre-create the candidate dir so the install logic picks it over system paths
 	zshDir := dir + "/.zsh/completions"
-	if err := os.MkdirAll(zshDir, 0755); err != nil {
+	if err := os.MkdirAll(zshDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 

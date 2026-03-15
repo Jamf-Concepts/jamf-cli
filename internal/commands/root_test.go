@@ -659,7 +659,7 @@ func TestResolveAuth_TokenFromFile(t *testing.T) {
 	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
 
 	tokenPath := filepath.Join(t.TempDir(), "token.txt")
-	_ = os.WriteFile(tokenPath, []byte("file-token\n"), 0600)
+	_ = os.WriteFile(tokenPath, []byte("file-token\n"), 0o600)
 	tokenFile = tokenPath
 
 	cfg, _ := config.Load()
@@ -699,8 +699,8 @@ func setupConfigProfile(t *testing.T, cfgYaml string) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	jDir := filepath.Join(dir, "jamfpro-cli")
-	_ = os.MkdirAll(jDir, 0700)
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(cfgYaml), 0600)
+	_ = os.MkdirAll(jDir, 0o700)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(cfgYaml), 0o600)
 }
 
 func TestResolveAuth_ProfileFallback(t *testing.T) {
@@ -884,4 +884,3 @@ type failReader struct{}
 func (f *failReader) Read(p []byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
 }
-

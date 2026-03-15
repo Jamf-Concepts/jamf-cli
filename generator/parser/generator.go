@@ -28,20 +28,20 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	resource.Operations = dedupeOperations(resource.Operations)
 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
-		"toCamel":       strcase.ToCamel,
-		"toLowerCamel":  strcase.ToLowerCamel,
-		"toSnake":       strcase.ToSnake,
-		"toKebab":       strcase.ToKebab,
+		"toCamel":          strcase.ToCamel,
+		"toLowerCamel":     strcase.ToLowerCamel,
+		"toSnake":          strcase.ToSnake,
+		"toKebab":          strcase.ToKebab,
 		"toScreamingSnake": strcase.ToScreamingSnake,
-		"hasPathParam":  hasPathParam,
-		"pathParams":    pathParams,
-		"queryParams":   queryParams,
-		"goType":        goType,
-		"flagType":      flagType,
-		"sortOps":       sortOperations,
-		"dedupeOps":     dedupeOperations,
-		"escapeQuotes":  escapeQuotes,
-		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
+		"hasPathParam":     hasPathParam,
+		"pathParams":       pathParams,
+		"queryParams":      queryParams,
+		"goType":           goType,
+		"flagType":         flagType,
+		"sortOps":          sortOperations,
+		"dedupeOps":        dedupeOperations,
+		"escapeQuotes":     escapeQuotes,
+		"isDestructive":    func(op *Operation) bool { return op.IsDestructive },
 		"exampleText": func(resourceName, nameSingular string, op *Operation) string {
 			bin := "jamfpro-cli"
 			switch op.Name {
@@ -89,7 +89,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return scaffoldJSON(op.RequestBody.Schema)
 		},
-		"needsFmt":       needsFmt,
+		"needsFmt": needsFmt,
 		"defaultVal": func(paramType string, val interface{}) string {
 			switch paramType {
 			case "string":
@@ -335,16 +335,16 @@ func hasScaffold(ops []*Operation) bool {
 func sortOperations(ops []*Operation) []*Operation {
 	// Define order: list, get, create, update, delete, then others
 	order := map[string]int{
-		"list":            1,
-		"get":             2,
-		"create":          3,
-		"update":          4,
-		"delete":          5,
-		"delete-multiple": 6,
-		"history":         7,
+		"list":             1,
+		"get":              2,
+		"create":           3,
+		"update":           4,
+		"delete":           5,
+		"delete-multiple":  6,
+		"history":          7,
 		"add-history-note": 8,
-		"export":          9,
-		"history-export":  10,
+		"export":           9,
+		"history-export":   10,
 	}
 
 	sorted := make([]*Operation, len(ops))

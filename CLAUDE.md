@@ -2,14 +2,47 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: Generated Code Boundary
+
+**Never edit files in `internal/commands/generated/`** — they are overwritten by `make generate`.
+
+To change generated command behavior, edit the **generator templates**:
+- **Modern API commands:** `generator/parser/generator.go` → `resourceTemplate` const
+- **Classic API commands:** `generator/classic/generator.go` → `classicResourceTemplate` const
+- **Modern registry:** `generator/parser/generator.go` → `registryTemplate` const
+- **Classic registry:** `generator/classic/generator.go` → `classicRegistryTemplate` const
+
+Templates are Go `const` strings embedded in the generator source — NOT separate `.tmpl` files.
+
+After modifying a template: `make generate && go fmt ./internal/commands/generated/... && make test`
+
+## Where to Make Changes
+
+| I want to... | Edit this file |
+|---|---|
+| Change behavior of all modern API commands | `generator/parser/generator.go` (`resourceTemplate`) |
+| Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
+| Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
+| Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
+| Add a new resource to the classic API | `specs/classic/resources.yaml` |
+| Add a new handwritten command | `internal/commands/` (new file + wire in `root.go`) |
+| Modify auth behavior | `internal/auth/` |
+| Change HTTP client / retry / exit codes | `internal/client/` |
+| Add or change output formats | `internal/output/` |
+| Add a short alias (e.g., `comp` for `computers`) | `internal/commands/aliases.go` |
+| Add a command group for `--help` output | `internal/commands/groups.go` |
+| Change global flags or root command behavior | `internal/commands/root.go` |
+| Change config file handling | `internal/config/` |
+
 ## Build & Dev Commands
 
 ```bash
 make build                  # Build binary to bin/jamfpro-cli
 make test                   # Run all tests (-v)
-make lint                   # golangci-lint
+make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
 make sync-specs             # Copy specs from jamf/jss repo, then regenerate
+make verify-generated       # Check that generated code is up to date (CI-safe)
 make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```
@@ -20,13 +53,24 @@ This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI 
 
 ### Code Generation Pipeline
 
-`specs/*.yaml` + `specs/classic/resources.yaml` --> `generator/` --> `internal/commands/generated/`
+```
+specs/*.yaml ──────────────► generator/parser/   ──► internal/commands/generated/*.go
+                               ParseSpec()            + registry.go
+                               Generator.Generate()
 
-- **`generator/parser/`** — Parses OpenAPI YAML specs, produces `Resource` structs, generates Go command files with cobra subcommands (list, get, create, update, delete) and auto-pagination.
-- **`generator/classic/`** — Parses `specs/classic/resources.yaml` manifest, generates Classic API (`/JSSResource/...`) commands with JSON envelope unwrapping.
-- **`generator/main.go`** — Entrypoint: runs both generators, produces per-resource `.go` files plus `registry.go` / `classic_registry.go` that wire everything into cobra.
+specs/classic/resources.yaml ► generator/classic/ ──► internal/commands/generated/classic_*.go
+                               ParseManifest()        + classic_registry.go
+                               Generator.Generate()
 
-**Never hand-edit files in `internal/commands/generated/`** — they are overwritten by `make generate`.
+Entrypoint: generator/main.go (runs both generators)
+```
+
+Key types available in templates:
+- **`parser.Resource`** — `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`
+- **`parser.Operation`** — `Name`, `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsDestructive`
+- **`classic.ClassicResource`** — `Name`, `Path`, `CLIName`, `GoName`, `Singular`, `Operations`, `Lookups`
+
+See `generator/README.md` for full template function reference and testing workflow.
 
 ### Runtime Flow
 
@@ -78,3 +122,25 @@ Generated commands depend on two interfaces defined in `registry.go`:
 - The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
 - Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths.
 - `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
+
+## Common Workflows
+
+### Adding a feature to all generated commands
+
+1. Edit the template `const` in `generator/parser/generator.go` (or `classic/generator.go`)
+2. If new template data is needed, update `parser.Resource` / `parser.Operation` in `parser/types.go`
+3. Run: `make generate && go fmt ./internal/commands/generated/... && make test`
+4. Verify: `make verify-generated`
+
+### Syncing specs for a new Jamf Pro version
+
+1. `make sync-specs JAMF_SERVER_PATH=/path/to/jamf-pro-server`
+2. Review: `git diff --stat -- internal/commands/generated/`
+3. Run: `make test`
+
+### Adding a new handwritten command
+
+1. Create new file in `internal/commands/` (e.g., `mycommand.go`)
+2. Wire it into the root command in `root.go`
+3. Add to the appropriate group in `groups.go`
+4. Optionally add a short alias in `aliases.go`

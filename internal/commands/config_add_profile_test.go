@@ -32,7 +32,7 @@ func setupTempConfig(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	jDir := filepath.Join(dir, "jamfpro-cli")
-	if err := os.MkdirAll(jDir, 0700); err != nil {
+	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", dir)

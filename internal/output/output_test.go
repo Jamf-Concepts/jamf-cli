@@ -645,7 +645,7 @@ func TestIsStatusColumn(t *testing.T) {
 		{"isManaged", true},
 		{"userApprovedMdm", true},
 		{"mdmCapable", false},    // suffix matching: doesn't end with "mdm"
-		{"remoteDesktop", false},  // suffix matching: doesn't end with "remote"
+		{"remoteDesktop", false}, // suffix matching: doesn't end with "remote"
 		{"supervised", true},
 		{"name", false},
 		{"id", false},
@@ -1342,4 +1342,3 @@ func TestDateColumnsNotStatusColumns(t *testing.T) {
 		}
 	}
 }
-

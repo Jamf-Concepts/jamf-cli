@@ -391,8 +391,10 @@ func isStatusColumn(name string) bool {
 		return false
 	}
 
-	suffixes := []string{"status", "state", "health", "managed", "enrolled",
-		"supervised", "active", "enabled", "connected", "mdm", "approved", "remote"}
+	suffixes := []string{
+		"status", "state", "health", "managed", "enrolled",
+		"supervised", "active", "enabled", "connected", "mdm", "approved", "remote",
+	}
 	for _, s := range suffixes {
 		if strings.HasSuffix(lower, s) {
 			return true
@@ -494,8 +496,10 @@ func (f *Formatter) formatStatusValue(value string) string {
 	// e.g., "inactive" contains "active", so check inactive first
 
 	// Inactive states (dim) - check BEFORE active
-	for _, p := range []string{"inactive", "disabled", "stale", "false",
-		"unmanaged", "unenrolled", "disconnected", "offline", "no"} {
+	for _, p := range []string{
+		"inactive", "disabled", "stale", "false",
+		"unmanaged", "unenrolled", "disconnected", "offline", "no",
+	} {
 		if strings.Contains(lower, p) {
 			return f.colorize(symbolInactive+" "+value, colorDim)
 		}
@@ -509,8 +513,10 @@ func (f *Formatter) formatStatusValue(value string) string {
 	}
 
 	// Active states (green)
-	for _, p := range []string{"active", "enabled", "healthy", "true", "managed",
-		"enrolled", "supervised", "connected", "online", "yes"} {
+	for _, p := range []string{
+		"active", "enabled", "healthy", "true", "managed",
+		"enrolled", "supervised", "connected", "online", "yes",
+	} {
 		if strings.Contains(lower, p) {
 			return f.colorize(symbolActive+" "+value, colorGreen)
 		}
@@ -525,4 +531,3 @@ func (f *Formatter) formatStatusValue(value string) string {
 
 	return value
 }
-

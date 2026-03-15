@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs release install lint
+.PHONY: build test clean generate sync-specs release install lint verify-generated
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -82,6 +82,17 @@ dev: build
 deps:
 	go mod tidy
 	go mod download
+
+# Verify generated code is up to date (CI-safe)
+verify-generated:
+	@$(MAKE) generate
+	@go fmt ./internal/commands/generated/...
+	@if ! git diff --quiet -- internal/commands/generated/; then \
+		echo "Error: generated code is out of date"; \
+		git diff --stat -- internal/commands/generated/; \
+		exit 1; \
+	fi
+	@echo "Generated code is up to date."
 
 # Format code
 fmt:

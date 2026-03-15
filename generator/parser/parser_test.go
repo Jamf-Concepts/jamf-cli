@@ -15,17 +15,17 @@ func TestPluralize(t *testing.T) {
 		{"policy", "policies"},
 		{"category", "categories"},
 		{"access", "accesses"},
-		{"computers", "computers"},    // already plural
-		{"match", "matches"},          // -ch suffix
-		{"key", "keys"},               // vowel+y
-		{"bus", "buss"},               // -us suffix falls through to +s
-		{"class", "classes"},          // -ss suffix
-		{"box", "boxes"},              // -x suffix
-		{"brush", "brushes"},          // -sh suffix
-		{"day", "days"},               // vowel+y
-		{"deploy", "deploys"},         // vowel+y
-		{"discovery", "discoveries"},  // consonant+y
-		{"device", "devices"},         // -ves already plural
+		{"computers", "computers"},   // already plural
+		{"match", "matches"},         // -ch suffix
+		{"key", "keys"},              // vowel+y
+		{"bus", "buss"},              // -us suffix falls through to +s
+		{"class", "classes"},         // -ss suffix
+		{"box", "boxes"},             // -x suffix
+		{"brush", "brushes"},         // -sh suffix
+		{"day", "days"},              // vowel+y
+		{"deploy", "deploys"},        // vowel+y
+		{"discovery", "discoveries"}, // consonant+y
+		{"device", "devices"},        // -ves already plural
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -173,7 +173,7 @@ paths:
         204:
           description: Deleted
 `
-	if err := os.WriteFile(specPath, []byte(spec), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -247,7 +247,7 @@ info:
   version: 1.0.0
 paths: {}
 `
-		if err := os.WriteFile(specPath, []byte(spec), 0644); err != nil {
+		if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -358,7 +358,7 @@ components:
           type: integer
           nullable: true
 `
-	if err := os.WriteFile(specPath, []byte(spec), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

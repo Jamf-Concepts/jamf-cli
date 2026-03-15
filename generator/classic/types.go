@@ -2,11 +2,11 @@ package classic
 
 // ClassicResource represents a Classic API resource parsed from the YAML manifest.
 type ClassicResource struct {
-	Name        string   // e.g., "policies"
-	Path        string   // URL segment under /JSSResource/: "policies"
-	CLIName     string   // e.g., "classic-policies"
-	GoName      string   // e.g., "ClassicPolicies"
-	Singular    string   // JSON root key for a single object: "policy"
+	Name        string // e.g., "policies"
+	Path        string // URL segment under /JSSResource/: "policies"
+	CLIName     string // e.g., "classic-policies"
+	GoName      string // e.g., "ClassicPolicies"
+	Singular    string // JSON root key for a single object: "policy"
 	Description string
 	Operations  []string // ["list", "get", "create", "update", "delete"]
 	Lookups     []string // ["id", "name", "serialnumber", "macaddress", "udid"]

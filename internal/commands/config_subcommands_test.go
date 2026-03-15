@@ -25,7 +25,7 @@ profiles:
     auth-method: token
     token: env:MY_TOKEN
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigShowCmd()
 	buf := &bytes.Buffer{}
@@ -108,7 +108,7 @@ profiles:
     url: https://beta.jamfcloud.com
     auth-method: oauth2
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigListCmd()
 	buf := &bytes.Buffer{}
@@ -147,7 +147,7 @@ profiles:
     auth-method: token
     token: env:TOKEN2
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigRemoveProfileCmd()
 	buf := &bytes.Buffer{}
@@ -186,7 +186,7 @@ func TestConfigRemoveProfile_NotFound(t *testing.T) {
     url: https://example.com
     auth-method: token
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigRemoveProfileCmd()
 	buf := &bytes.Buffer{}
@@ -215,7 +215,7 @@ func TestConfigSetDefault_Valid(t *testing.T) {
     url: https://beta.jamfcloud.com
     auth-method: token
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigSetDefaultCmd()
 	buf := &bytes.Buffer{}
@@ -247,7 +247,7 @@ func TestConfigSetDefault_NotFound(t *testing.T) {
     url: https://alpha.jamfcloud.com
     auth-method: token
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigSetDefaultCmd()
 	buf := &bytes.Buffer{}
@@ -377,7 +377,7 @@ func TestConfigList_WithStatus(t *testing.T) {
 			defer func() { noColor = false }()
 
 			yaml := fmt.Sprintf("default-profile: test\nprofiles:\n  test:\n    url: %s\n    auth-method: token\n", srv.URL)
-			_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+			_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 			cmd := newConfigListCmd()
 			buf := &bytes.Buffer{}
@@ -412,7 +412,7 @@ profiles:
     auth-method: token
     token: "env:SOME_TOKEN"
 `
-	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0600)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
 	cmd := newConfigRemoveProfileCmd()
 	buf := &bytes.Buffer{}
