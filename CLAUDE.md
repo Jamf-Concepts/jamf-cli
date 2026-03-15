@@ -23,7 +23,7 @@ This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI 
 `specs/*.yaml` + `specs/classic/resources.yaml` --> `generator/` --> `internal/commands/generated/`
 
 - **`generator/parser/`** — Parses OpenAPI YAML specs, produces `Resource` structs, generates Go command files with cobra subcommands (list, get, create, update, delete) and auto-pagination.
-- **`generator/classic/`** — Parses `specs/classic/resources.yaml` manifest, generates Classic API (`/JSSResource/...`) commands with XML-based CRUD.
+- **`generator/classic/`** — Parses `specs/classic/resources.yaml` manifest, generates Classic API (`/JSSResource/...`) commands with JSON envelope unwrapping.
 - **`generator/main.go`** — Entrypoint: runs both generators, produces per-resource `.go` files plus `registry.go` / `classic_registry.go` that wire everything into cobra.
 
 **Never hand-edit files in `internal/commands/generated/`** — they are overwritten by `make generate`.
