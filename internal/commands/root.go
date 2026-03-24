@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/jamf/jamfpro-cli/internal/auth"
-	"github.com/jamf/jamfpro-cli/internal/client"
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
-	"github.com/jamf/jamfpro-cli/internal/config"
-	"github.com/jamf/jamfpro-cli/internal/exitcode"
-	"github.com/jamf/jamfpro-cli/internal/output"
-	"github.com/jamf/jamfpro-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/spinner"
 )
 
 // Global flags

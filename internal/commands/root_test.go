@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jamf/jamfpro-cli/internal/config"
-	"github.com/jamf/jamfpro-cli/internal/exitcode"
-	"github.com/jamf/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {

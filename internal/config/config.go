@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamf/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
 )
 
 // Config represents the CLI configuration

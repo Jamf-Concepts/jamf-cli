@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jamf/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
 )
 
 // --- config show tests ---

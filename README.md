@@ -2,7 +2,7 @@
 
 CLI tool for Jamf Pro Server API automation.
 
-**[Documentation Wiki](https://github.com/jamf/jamfpro-cli/wiki)** — full guides, configuration reference, and workflow recipes.
+**[Documentation Wiki](https://github.com/Jamf-Concepts/jamfpro-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
 ![jamfpro-cli demo](docs/demo.gif)
 
@@ -10,12 +10,12 @@ CLI tool for Jamf Pro Server API automation.
 
 ### Binary releases
 
-Download from [GitHub Releases](https://github.com/jamf/jamfpro-cli/releases).
+Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamfpro-cli/releases).
 
 ### From source
 
 ```bash
-go install github.com/jamf/jamfpro-cli/cmd/jamfpro-cli@latest
+go install github.com/Jamf-Concepts/jamfpro-cli/cmd/jamfpro-cli@latest
 ```
 
 ## Quick Start
@@ -47,7 +47,7 @@ jamfpro-cli comp list -o csv --out-file inventory.csv
 jamfpro-cli buildings create --scaffold
 ```
 
-See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
+See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
 
 ## Features
 
@@ -79,7 +79,7 @@ profiles:
 
 Two auth methods: `oauth2` (client credentials) and `token` (static bearer). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
-See the wiki for full details: [Configuration & Profiles](https://github.com/jamf/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/jamf/jamfpro-cli/wiki/Secrets-&-Keychain)
+See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Secrets-&-Keychain)
 
 ## Command Aliases
 
@@ -93,7 +93,7 @@ See the wiki for full details: [Configuration & Profiles](https://github.com/jam
 | `departments` | `dept` |
 | `config` | `cfg` |
 
-Full command catalog: [Command Reference](https://github.com/jamf/jamfpro-cli/wiki/Command-Reference) · [Output Formats](https://github.com/jamf/jamfpro-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/jamf/jamfpro-cli/wiki/Common-Workflows)
+Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Command-Reference) · [Output Formats](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Common-Workflows)
 
 ## Exit Codes
 
@@ -107,7 +107,7 @@ Full command catalog: [Command Reference](https://github.com/jamf/jamfpro-cli/wi
 | 5 | Permission denied |
 | 6 | Rate limited |
 
-See [Error Handling & Exit Codes](https://github.com/jamf/jamfpro-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
+See [Error Handling & Exit Codes](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
 
 ## Shell Completion
 
@@ -115,7 +115,7 @@ See [Error Handling & Exit Codes](https://github.com/jamf/jamfpro-cli/wiki/Error
 jamfpro-cli completion install
 ```
 
-Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/jamf/jamfpro-cli/wiki/Setup-Guide#shell-completion) for manual installation.
+Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide#shell-completion) for manual installation.
 
 ## Development
 
@@ -126,4 +126,4 @@ make lint        # Lint code
 make generate    # Generate commands from OpenAPI specs
 ```
 
-See [Architecture & Development](https://github.com/jamf/jamfpro-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
+See [Architecture & Development](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
