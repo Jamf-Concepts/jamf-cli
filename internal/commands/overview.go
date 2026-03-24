@@ -40,7 +40,7 @@ func fetchJSON(ctx context.Context, client generated.HTTPClient, path string) (m
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB limit
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func fetchArrayCount(ctx context.Context, client generated.HTTPClient, path stri
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +107,7 @@ func fetchClassicCount(ctx context.Context, client generated.HTTPClient, path, w
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", err
 	}
@@ -345,7 +345,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			return
 		}
 
-		body, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		if err != nil {
 			send("csa_scopes", "", err)
 			return
@@ -654,7 +654,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			return
 		}
 
-		body, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		if err != nil {
 			send("alerts", "", err)
 			return

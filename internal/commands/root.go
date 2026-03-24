@@ -56,7 +56,7 @@ type cliOutput struct {
 }
 
 func (o *cliOutput) PrintResponse(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 100<<20)) // 100 MB limit
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	fmt.Fprintf(os.Stderr, "[dry-run] %s %s\n", method, path)
 
 	if body != nil {
-		data, err := io.ReadAll(body)
+		data, err := io.ReadAll(io.LimitReader(body, 10<<20)) // 10 MB limit
 		if err == nil && len(data) > 0 {
 			fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", string(data))
 		}
