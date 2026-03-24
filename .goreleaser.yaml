@@ -63,7 +63,7 @@ changelog:
 brews:
   - name: jamfpro-cli
     repository:
-      owner: jamf
+      owner: Jamf-Concepts
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
