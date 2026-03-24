@@ -1079,8 +1079,8 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 				return err
 			}
 
-			// Table output uses custom grouped rendering
-			if outputFmt == "" || outputFmt == "table" {
+			// Table output uses custom grouped rendering (default for overview)
+			if !cmd.Flags().Changed("output") || outputFmt == "table" {
 				printOverviewTable(cmd.OutOrStdout(), sections, !noColor)
 				return nil
 			}
