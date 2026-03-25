@@ -12,33 +12,34 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/jamf/jamfpro-cli/internal/auth"
-	"github.com/jamf/jamfpro-cli/internal/client"
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
-	"github.com/jamf/jamfpro-cli/internal/config"
-	"github.com/jamf/jamfpro-cli/internal/exitcode"
-	"github.com/jamf/jamfpro-cli/internal/output"
-	"github.com/jamf/jamfpro-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/spinner"
 )
 
 // Global flags
 var (
-	profile      string
-	outputFmt    string
-	quiet        bool
-	verbose      bool
-	noInput      bool
-	noColor      bool
-	dryRun       bool
-	wide         bool
-	outFile      string
-	fieldName    string
-	serverURL    string
-	token        string
-	tokenFile    string
-	tokenStdin   bool
-	clientID     string
-	clientSecret string
+	profile           string
+	outputFmt         string
+	quiet             bool
+	verbose           bool
+	noInput           bool
+	noColor           bool
+	dryRun            bool
+	wide              bool
+	outFile           string
+	fieldName         string
+	serverURL         string
+	token             string
+	tokenFile         string
+	tokenStdin        bool
+	clientID          string
+	clientSecret      string
+	clientSecretStdin bool
 )
 
 // cliClient wraps our client to implement generated.HTTPClient
@@ -56,7 +57,7 @@ type cliOutput struct {
 }
 
 func (o *cliOutput) PrintResponse(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 100<<20)) // 100 MB limit
 	if err != nil {
 		return err
 	}
@@ -127,7 +128,7 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	fmt.Fprintf(os.Stderr, "[dry-run] %s %s\n", method, path)
 
 	if body != nil {
-		data, err := io.ReadAll(body)
+		data, err := io.ReadAll(io.LimitReader(body, 10<<20)) // 10 MB limit
 		if err == nil && len(data) > 0 {
 			fmt.Fprintf(os.Stderr, "[dry-run] Request body:\n%s\n", string(data))
 		}
@@ -207,12 +208,22 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 		}
 		token = strings.TrimSpace(string(data))
 	}
+	if tokenStdin && clientSecretStdin {
+		return "", nil, exitcode.New(exitcode.Usage, "--token-stdin and --client-secret-stdin are mutually exclusive (both read from stdin)")
+	}
 	if token == "" && tokenStdin {
-		data, err := io.ReadAll(os.Stdin)
+		data, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
 		if err != nil {
 			return "", nil, fmt.Errorf("reading token from stdin: %w", err)
 		}
 		token = strings.TrimSpace(string(data))
+	}
+	if clientSecret == "" && clientSecretStdin {
+		data, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
+		if err != nil {
+			return "", nil, fmt.Errorf("reading client secret from stdin: %w", err)
+		}
+		clientSecret = strings.TrimSpace(string(data))
 	}
 
 	// Validate
@@ -344,6 +355,7 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
 	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (or JAMF_CLIENT_ID env)")
 	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (or JAMF_CLIENT_SECRET env)")
+	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
 
 	// Version command
 	cmd.AddCommand(&cobra.Command{

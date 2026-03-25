@@ -1,4 +1,4 @@
-module github.com/jamf/jamfpro-cli
+module github.com/Jamf-Concepts/jamfpro-cli
 
 go 1.26.0
 

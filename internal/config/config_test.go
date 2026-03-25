@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jamf/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
 )
 
 // mockStore implements keychain.Store for testing.

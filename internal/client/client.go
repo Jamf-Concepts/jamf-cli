@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamf/jamfpro-cli/internal/auth"
-	"github.com/jamf/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -60,7 +60,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	var bodyData []byte
 	if body != nil {
 		var err error
-		bodyData, err = io.ReadAll(body)
+		bodyData, err = io.ReadAll(io.LimitReader(body, 100<<20)) // 100 MB limit
 		if err != nil {
 			return nil, fmt.Errorf("reading request body: %w", err)
 		}
