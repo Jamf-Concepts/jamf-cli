@@ -36,20 +36,31 @@ clean:
 	rm -f coverage.out coverage.html
 
 # Path to jamf-pro-server repo (override with: make sync-specs JAMF_SERVER_PATH=/path/to/repo)
+# Specs are scattered across module directories under jamf-pro-server/.
 JAMF_SERVER_PATH ?= ../jamf-pro-server
-SPECS_SRC := $(JAMF_SERVER_PATH)/api/api-impl/src/main/resources/swagger_docs/uapi
+JAMF_SERVER_ROOT := $(JAMF_SERVER_PATH)/jamf-pro-server
 
 # Sync OpenAPI specs from jamf-pro-server repo and regenerate commands
 sync-specs:
-	@if [ ! -d "$(SPECS_SRC)" ]; then \
+	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
 		echo "Error: jamf-pro-server not found at $(JAMF_SERVER_PATH)"; \
-		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jamf-pro-server"; \
+		echo "Expected $(JAMF_SERVER_ROOT) to exist."; \
+		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss"; \
 		exit 1; \
 	fi
-	@echo "Syncing OpenAPI specs from $(SPECS_SRC)..."
+	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
 	@rm -f specs/*.yaml
-	@cp $(SPECS_SRC)/*.yaml specs/ 2>/dev/null || true
-	@cp $(SPECS_SRC)/common/*.yaml specs/ 2>/dev/null || true
+	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/*.yaml" \
+		-not -path "*/uapi/hiddenapi/*" -not -path "*/uapi/common/*" \
+		-exec cp {} specs/ +
+	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/common/*.yaml" \
+		-exec cp {} specs/ +
+	@dupes=$$(ls specs/*.yaml | xargs -n1 basename | sort | uniq -d); \
+		if [ -n "$$dupes" ]; then \
+			echo "Error: duplicate spec filenames (last-write-wins risk):"; \
+			echo "$$dupes"; \
+			exit 1; \
+		fi
 	@echo "Copied specs:"
 	@ls specs/*.yaml | wc -l | xargs echo "  Total files:"
 	@echo "Regenerating commands..."

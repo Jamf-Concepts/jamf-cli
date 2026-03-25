@@ -12,9 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamf/jamfpro-cli/internal/client"
-	"github.com/jamf/jamfpro-cli/internal/config"
-	"github.com/jamf/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
 )
 
 // diffChangeKind classifies a single diff result.

@@ -1,0 +1,2276 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Definitions Library
+  description: These definitions exist to be re-used by other Computers Inventory
+    Swagger files.
+  version: 0.0.1
+paths: { }
+components:
+  schemas:
+    ComputerInventoryCreateRequestV2:
+      type: object
+      properties:
+        udid:
+          type: string
+          example: 45436edf-864e-4364-982a-330b01d39e65
+          nullable: true
+        general:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerGeneralCreate'
+        applications:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerApplicationCreate'
+          nullable: true
+        storage:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerStorageCreate'
+        security:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSecurityCreate'
+        configurationProfiles:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerConfigurationProfileCreate'
+          nullable: true
+        printers:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPrinterCreate'
+          nullable: true
+        services:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerServiceCreate'
+          nullable: true
+        localUserAccounts:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerLocalUserAccountCreate'
+          nullable: true
+        certificates:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerCertificateCreate'
+          nullable: true
+        packageReceipts:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPackageReceiptsCreate'
+        softwareUpdates:
+          type: array
+          items:
+            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSoftwareUpdateCreate'
+          nullable: true
+        purchasing:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPurchaseCreate'
+        userAndLocation:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerUserAndLocationCreate'
+        hardware:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerHardwareCreate'
+        operatingSystem:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerOperatingSystemCreate'
+    ComputerGeneral:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Boalime
+        lastIpAddress:
+          type: string
+          example: 247.185.82.186
+        lastReportedIp:
+          type: string
+          example: 247.185.82.186
+          deprecated: true
+          description: Last reported IPv4 address (Deprecated. Use lastReportedIpV4 instead.)
+        lastReportedIpV4:
+          type: string
+          example: 247.185.82.186
+          description: Last reported IPv4 address
+        lastReportedIpV6:
+          type: string
+          example: 2001:0db8:85a3:0000:0000:8a2e:0370:7335
+        jamfBinaryVersion:
+          type: string
+          example: 9.27
+        platform:
+          type: string
+          example: Mac
+        barcode1:
+          type: string
+          example: 5 12345 678900
+        barcode2:
+          type: string
+          example: 5 12345 678900
+        assetTag:
+          type: string
+          example: 304822
+        remoteManagement:
+          $ref: '#/components/schemas/ComputerRemoteManagement'
+        supervised:
+          type: boolean
+          example: true
+        mdmCapable:
+          $ref: '#/components/schemas/ComputerMdmCapability'
+        reportDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastContactTime:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastCloudBackupDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastEnrolledDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        mdmProfileExpiration:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        initialEntryDate:
+          type: string
+          format: date
+          example: 2018-10-31
+        distributionPoint:
+          type: string
+          example: distribution point name
+        enrollmentMethod:
+          $ref: '#/components/schemas/EnrollmentMethod'
+        site:
+          $ref: 'DefinitionsLibrary.yaml#/components/schemas/V1Site'
+        itunesStoreAccountActive:
+          type: boolean
+          example: true
+        enrolledViaAutomatedDeviceEnrollment:
+          type: boolean
+          example: true
+        userApprovedMdm:
+          type: boolean
+          example: true
+        declarativeDeviceManagementEnabled:
+          type: boolean
+          example: true
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+        managementId:
+          type: string
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+        lastLoggedInUsernameSelfService:
+          type: string
+          example: admin
+          nullable: true
+        lastLoggedInUsernameSelfServiceTimestamp:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+          nullable: true
+        lastLoggedInUsernameBinary:
+          type: string
+          example: admin
+          nullable: true
+        lastLoggedInUsernameBinaryTimestamp:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+          nullable: true
+    ComputerRemoteManagement:
+      type: object
+      properties:
+        managed:
+          type: boolean
+          example: true
+        managementUsername:
+          type: string
+          example: rootname
+          deprecated: true
+          description: This field always returns null, please use /local-admin-password/ endpoint instead.
+    ComputerMdmCapability:
+      type: object
+      properties:
+        capable:
+          type: boolean
+          example: true
+        capableUsers:
+          type: array
+          items:
+            type: string
+          example: [admin, rootadmin]
+          deprecated: true
+          description: Deprecated. Use userManagementInfo instead.
+        userManagementInfo:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerUserManagementInfo'
+    ComputerUserManagementInfo:
+      type: object
+      properties:
+        capableUser:
+          type: string
+          example: admin
+        managementId:
+          type: string
+          example: 123e4567-e89b-12d3-a456-426614174000
+      required:
+        - capableUser
+        - managementId
+      example:
+        - capableUser: admin
+          managementId: 123e4567-e89b-42d3-a456-426614174000
+        - capableUser: rootadmin
+          managementId: 123e4567-e89b-42d3-a456-426614174001
+    ComputerDiskEncryption:
+      type: object
+      properties:
+        bootPartitionEncryptionDetails:
+          $ref: '#/components/schemas/ComputerPartitionEncryption'
+        individualRecoveryKeyValidityStatus:
+          type: string
+          enum:
+            - VALID
+            - INVALID
+            - UNKNOWN
+            - NOT_APPLICABLE
+          example: VALID
+        institutionalRecoveryKeyPresent:
+          type: boolean
+          example: true
+        diskEncryptionConfigurationName:
+          type: string
+          example: Test configuration
+        fileVault2Enabled:
+          type: boolean
+          example: true
+          readOnly: true
+        fileVault2EnabledUserNames:
+          type: array
+          items:
+            type: string
+          example: [admin]
+        fileVault2EligibilityMessage:
+          type: string
+          example: Not a boot partition
+    ComputerPartitionEncryption:
+      type: object
+      properties:
+        partitionName:
+          type: string
+          example: main
+        partitionFileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        partitionFileVault2Percent:
+          type: integer
+          example: 100
+    ComputerPartitionFileVault2State:
+      type: string
+      example: ENCRYPTING
+      enum:
+        - UNKNOWN
+        - UNENCRYPTED
+        - INELIGIBLE
+        - DECRYPTED
+        - DECRYPTING
+        - ENCRYPTED
+        - ENCRYPTING
+        - RESTART_NEEDED
+        - OPTIMIZING
+        - DECRYPTING_PAUSED
+        - ENCRYPTING_PAUSED
+    ComputerPurchase:
+      type: object
+      properties:
+        leased:
+          type: boolean
+          example: true
+        purchased:
+          type: boolean
+          example: true
+        poNumber:
+          type: string
+          example: 53-1
+        poDate:
+          type: string
+          format: date
+          example: 2019-01-01
+        vendor:
+          type: string
+          example: Example Vendor
+        warrantyDate:
+          type: string
+          format: date
+          example: 2019-01-01
+        appleCareId:
+          type: string
+          example: abcd
+        leaseDate:
+          type: string
+          format: date
+          example: 2019-01-01
+        purchasePrice:
+          type: string
+          example: $500
+        lifeExpectancy:
+          type: integer
+          example: 5
+        purchasingAccount:
+          type: string
+          example: admin
+        purchasingContact:
+          type: string
+          example: yes
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerApplication:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Microsoft Word
+        path:
+          type: string
+          example: /usr/local/app
+        version:
+          type: string
+          example: 1.0.0
+        macAppStore:
+          type: boolean
+          example: true
+        sizeMegabytes:
+          type: integer
+          example: 25
+        bundleId:
+          type: string
+          example: 1
+        updateAvailable:
+          type: boolean
+          example: false
+        externalVersionId:
+          type: string
+          example: 1
+          description: The app's external version ID. It can be used in the iTunes Search API to decide if the app needs to be updated
+    ComputerApplicationV3:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Microsoft Word
+        path:
+          type: string
+          example: /usr/local/app
+        version:
+          type: string
+          example: 1.0.0
+        cfBundleShortVersionString:
+          type: string
+          example: 1.0.0
+          nullable: false
+        cfBundleVersion:
+          type: string
+          example: 1.0.0
+          nullable: false
+        macAppStore:
+          type: boolean
+          example: true
+        sizeMegabytes:
+          type: integer
+          example: 25
+        bundleId:
+          type: string
+          example: 1
+        updateAvailable:
+          type: boolean
+          example: false
+        externalVersionId:
+          type: string
+          example: 1
+          description: The app's external version ID. It can be used in the iTunes Search API to decide if the app needs to be updated
+    ComputerService:
+      type: object
+      properties:
+        name:
+          type: string
+          example: SomeService
+    ComputerStorage:
+      type: object
+      properties:
+        bootDriveAvailableSpaceMegabytes:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 3072
+        disks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerDisk'
+    ComputerDisk:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 170
+        device:
+          type: string
+          readOnly: true
+          example: disk0
+        model:
+          type: string
+          readOnly: true
+          example: APPLE HDD TOSHIBA MK5065GSXF
+        revision:
+          type: string
+          readOnly: true
+          example: 5
+        serialNumber:
+          type: string
+          readOnly: true
+          example: a8598f013366
+        sizeMegabytes:
+          description: Disk Size in MB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 262144
+        smartStatus:
+          description: S.M.A.R.T Status
+          type: string
+          readOnly: true
+          example: OK
+        type:
+          description: Connection type attribute.
+          example: NO
+          type: string
+          readOnly: true
+        partitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerPartition'
+    ComputerPartition:
+      type: object
+      properties:
+        name:
+          type: string
+          readOnly: true
+          example: Foo
+        sizeMegabytes:
+          description: Partition Size in MB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 262144
+        availableMegabytes:
+          description: Available space in MB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 131072
+        partitionType:
+          type: string
+          enum:
+            - BOOT
+            - RECOVERY
+            - OTHER
+          readOnly: true
+          example: BOOT
+        percentUsed:
+          description: Percentage of space used.
+          type: integer
+          minimum: 0
+          maximum: 100
+          readOnly: true
+          example: 25
+        fileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        fileVault2ProgressPercent:
+          description: Percentage progress of current FileVault 2 operation.
+          type: integer
+          nullable: true
+          example: 45
+        lvmManaged:
+          type: boolean
+          example: true
+          readOnly: true
+    ComputerUserAndLocation:
+      type: object
+      properties:
+        username:
+          type: string
+          example: Madison Anderson
+        realname:
+          type: string
+          example: 13-inch MacBook
+        email:
+          type: string
+          example: email@com.pl
+        position:
+          type: string
+          example: IT Team Lead
+        phone:
+          type: string
+          example: 123-456-789
+        departmentId:
+          type: string
+          example: 1
+        buildingId:
+          type: string
+          example: 1
+        room:
+          type: string
+          example: 5
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerConfigurationProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 1
+        username:
+          type: string
+          readOnly: true
+          example: username
+        lastInstalled:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        removable:
+          type: boolean
+          readOnly: true
+          example: true
+        displayName:
+          type: string
+          readOnly: true
+          example: Displayed profile
+        profileIdentifier:
+          type: string
+          readOnly: true
+          example: 0ae590fe-9b30-11ea-bb37-0242ac130002
+    ComputerSoftwareUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: BEdit
+        version:
+          type: string
+          example: 1.15.2
+        packageName:
+          type: string
+          example: com.apple.pkg.AdditionalEssentials
+    ComputerPrinter:
+      type: object
+      properties:
+        name:
+          type: string
+          example: My Printer
+        type:
+          type: string
+          example: XYZ 1122
+        uri:
+          type: string
+          example: ipp://10.0.0.5
+        location:
+          type: string
+          example: 7th floor
+    ComputerAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: Attachment.pdf
+        fileType:
+          type: string
+          example: application/pdf
+        sizeBytes:
+          type: integer
+          format: int64
+          example: 1024
+          description: File size in bytes
+    ComputerHardware:
+      type: object
+      properties:
+        make:
+          type: string
+          readOnly: true
+          example: Apple
+        model:
+          type: string
+          readOnly: true
+          example: 13-inch MacBook Pro (Mid 2012)
+        modelIdentifier:
+          type: string
+          readOnly: true
+          example: MacBookPro9,2
+        serialNumber:
+          type: string
+          readOnly: true
+          example: C02ZC2QYLVDL
+        processorSpeedMhz:
+          description: Processor Speed in MHz.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 2100
+        processorCount:
+          type: integer
+          readOnly: true
+          example: 2
+        coreCount:
+          type: integer
+          readOnly: true
+          example: 2
+        processorType:
+          type: string
+          readOnly: true
+          example: Intel Core i5
+        processorArchitecture:
+          type: string
+          readOnly: true
+          example: i386
+        busSpeedMhz:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 2133
+        cacheSizeKilobytes:
+          description: Cache Size in KB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 3072
+        networkAdapterType:
+          type: string
+          example: Foo
+        macAddress:
+          type: string
+          example: 6A:2C:4B:B7:65:B5
+        altNetworkAdapterType:
+          type: string
+          example: Bar
+        altMacAddress:
+          type: string
+          example: 82:45:58:44:dc:01
+        totalRamMegabytes:
+          description: Total RAM Size in MB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 4096
+        openRamSlots:
+          description: Available RAM slots.
+          type: integer
+          readOnly: true
+          example: 0
+        batteryCapacityPercent:
+          description: Remaining percentage of battery power.
+          type: integer
+          minimum: 0
+          maximum: 100
+          readOnly: true
+          example: 85
+        batteryHealth:
+          type: string
+          readOnly: true
+          description: |
+            - NON_GENUINE: The battery isn’t a genuine Apple battery.
+            - NORMAL: The battery is operating normally.
+            - SERVICE_RECOMMENDED: The system recommends battery service.
+            - UNKNOWN: The system couldn’t determine battery health information.
+            - UNSUPPORTED: The device doesn’t support battery health reporting.
+          default: UNKNOWN
+          enum:
+            - NON_GENUINE
+            - NORMAL
+            - SERVICE_RECOMMENDED
+            - UNKNOWN
+            - UNSUPPORTED
+        smcVersion:
+          type: string
+          readOnly: true
+          example: 2.2f38
+        nicSpeed:
+          type: string
+          readOnly: true
+          example: N/A
+        opticalDrive:
+          type: string
+          readOnly: true
+          example: MATSHITA DVD-R UJ-8A8
+        bootRom:
+          type: string
+          readOnly: true
+          example: MBP91.00D3.B08
+        bleCapable:
+          type: boolean
+          readOnly: true
+          example: false
+        supportsIosAppInstalls:
+          type: boolean
+          readOnly: true
+          example: false
+        appleSilicon:
+          type: boolean
+          readOnly: true
+          example: false
+        provisioningUdid:
+          type: string
+          readOnly: true
+          example: 00000AAA888-IH866799UUJD991
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerLocalUserAccount:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: 501
+        userGuid:
+          type: string
+          readOnly: true
+          example: 844F1177-0CF5-40C6-901F-38EDD9969C1C
+        username:
+          type: string
+          example: jamf
+        fullName:
+          type: string
+          example: John Jamf
+        admin:
+          type: boolean
+          example: true
+        homeDirectory:
+          type: string
+          example: '/Users/jamf'
+        homeDirectorySizeMb:
+          description: Home directory size in MB.
+          type: integer
+          format: int64
+          readOnly: true
+          example: 131072
+        fileVault2Enabled:
+          type: boolean
+          example: true
+        userAccountType:
+          type: string
+          example: LOCAL
+          enum:
+            - LOCAL
+            - MOBILE
+            - UNKNOWN
+        passwordMinLength:
+          type: integer
+          example: 4
+        passwordMaxAge:
+          type: integer
+          example: 5
+        passwordMinComplexCharacters:
+          type: integer
+          example: 5
+        passwordHistoryDepth:
+          type: integer
+          example: 5
+        passwordRequireAlphanumeric:
+          type: boolean
+          example: true
+        computerAzureActiveDirectoryId:
+          type: string
+          example: 1
+        userAzureActiveDirectoryId:
+          type: string
+          example: 1
+        azureActiveDirectoryId:
+          type: string
+          example: ACTIVATED
+          enum:
+            - ACTIVATED
+            - DEACTIVATED
+            - UNRESPONSIVE
+            - UNKNOWN
+    ComputerSecurity:
+      type: object
+      properties:
+        sipStatus:
+          type: string
+          example: ENABLED
+          enum:
+            - NOT_COLLECTED
+            - NOT_AVAILABLE
+            - DISABLED
+            - ENABLED
+        gatekeeperStatus:
+          type: string
+          example: APP_STORE_AND_IDENTIFIED_DEVELOPERS
+          enum:
+            - NOT_COLLECTED
+            - DISABLED
+            - APP_STORE_AND_IDENTIFIED_DEVELOPERS
+            - APP_STORE
+        xprotectVersion:
+          type: string
+          example: 1.2.3
+        autoLoginDisabled:
+          type: boolean
+          example: false
+        remoteDesktopEnabled:
+          description: Collected for macOS 10.14.4 or later
+          type: boolean
+          example: true
+        activationLockEnabled:
+          description: Collected for macOS 10.15.0 or later
+          type: boolean
+          example: true
+        recoveryLockEnabled:
+          type: boolean
+          example: true
+        firewallEnabled:
+          type: boolean
+          example: true
+        secureBootLevel:
+          description: Collected for macOS 10.15.0 or later
+          type: string
+          example: FULL_SECURITY
+          enum:
+            - NO_SECURITY
+            - MEDIUM_SECURITY
+            - FULL_SECURITY
+            - NOT_SUPPORTED
+            - UNKNOWN
+        externalBootLevel:
+          description: Collected for macOS 10.15.0 or later
+          type: string
+          example: ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+          enum:
+            - ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - DISALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - NOT_SUPPORTED
+            - UNKNOWN
+        bootstrapTokenAllowed:
+          description: Collected for macOS 11 or later
+          type: boolean
+          example: true
+        bootstrapTokenEscrowedStatus:
+          description: Collected for macOS 11 or later
+          type: string
+          example: ESCROWED
+          enum:
+            - ESCROWED
+            - NOT_ESCROWED
+            - NOT_SUPPORTED
+        lastAttestationAttempt:
+          type: string
+          example: 1970-01-01T00:00:00Z
+          readOnly: true
+        lastSuccessfulAttestation:
+          type: string
+          example: 1970-01-01T00:00:00Z
+          readOnly: true
+        attestationStatus:
+          type: string
+          example: PENDING
+          enum:
+            - PENDING
+            - SUCCESS
+            - CERTIFICATE_INVALID
+            - DEVICE_PROPERTIES_MISMATCH
+            - MDA_UNSUPPORTED_DUE_TO_HARDWARE
+            - MDA_UNSUPPORTED_DUE_TO_SOFTWARE
+          readOnly: true
+    ComputerCertificate:
+      type: object
+      properties:
+        commonName:
+          type: string
+          example: jamf.com
+        identity:
+          type: boolean
+          example: true
+        expirationDate:
+          type: string
+          format: date-time
+          example: 2030-10-31T18:04:13Z
+        username:
+          type: string
+          example: test
+        lifecycleStatus:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          example: ACTIVE
+        certificateStatus:
+          type: string
+          enum:
+            - EXPIRING
+            - EXPIRED
+            - REVOKED
+            - PENDING_REVOKE
+            - ISSUED
+          example: ISSUED
+        subjectName:
+          type: string
+          example: CN=jamf.com
+        serialNumber:
+          type: string
+          example: 40f3d9fb
+        sha1Fingerprint:
+          type: string
+          example: ed361458724d06082b2314acdb82e1f586f085f5
+        issuedDate:
+          type: string
+          example: 2022-05-23T14:54:10Z
+    ComputerOperatingSystem:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Mac OS X
+          readOnly: true
+        version:
+          type: string
+          example: 10.9.5
+          readOnly: true
+        build:
+          type: string
+          example: 13A603
+          readOnly: true
+        supplementalBuildVersion:
+          type: string
+          example: 13A953
+          description: Collected for macOS 13.0 or later
+          readOnly: true
+        rapidSecurityResponse:
+          type: string
+          example: (a)
+          description: Collected for macOS 13.0 or later
+          readOnly: true
+        activeDirectoryStatus:
+          type: string
+          example: Not Bound
+          readOnly: true
+        fileVault2Status:
+          type: string
+          enum:
+            - NOT_APPLICABLE
+            - NOT_ENCRYPTED
+            - BOOT_ENCRYPTED
+            - SOME_ENCRYPTED
+            - ALL_ENCRYPTED
+          example: ALL_ENCRYPTED
+        softwareUpdateDeviceId:
+          type: string
+          example: J132AP
+          readOnly: true
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerIbeacon:
+      type: object
+      properties:
+        name:
+          type: string
+          example: room A
+    ComputerPackageReceipts:
+      type: object
+      description: 'All package receipts are listed by their package name'
+      properties:
+        installedByJamfPro:
+          type: array
+          items:
+            type: string
+            example: com.jamf.protect.JamfProtect
+        installedByInstallerSwu:
+          type: array
+          items:
+            type: string
+            example: com.apple.pkg.Core
+        cached:
+          type: array
+          items:
+            type: string
+            example: com.jamf.protect.JamfProtect
+    ComputerContentCaching:
+      type: object
+      properties:
+        computerContentCachingInformationId:
+          type: string
+          readOnly: true
+          example: 1
+        parents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingParent'
+          readOnly: true
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingAlert'
+          readOnly: true
+        activated:
+          type: boolean
+          readOnly: true
+          example: false
+        active:
+          type: boolean
+          readOnly: true
+          example: false
+        actualCacheBytesUsed:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        cacheDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingCacheDetail'
+          readOnly: true
+        cacheBytesFree:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 23353884672
+        cacheBytesLimit:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        cacheStatus:
+          type: string
+          readOnly: true
+          example: OK
+        cacheBytesUsed:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        dataMigrationCompleted:
+          type: boolean
+          readOnly: true
+          example: false
+        dataMigrationProgressPercentage:
+          type: integer
+          readOnly: true
+          example: 0
+        dataMigrationError:
+          $ref: '#/components/schemas/ComputerContentCachingDataMigrationError'
+        maxCachePressureLast1HourPercentage:
+          type: integer
+          readOnly: true
+          example: 0
+        personalCacheBytesFree:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 23353884672
+        personalCacheBytesLimit:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        personalCacheBytesUsed:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        port:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        publicAddress:
+          type: string
+          readOnly: true
+          example: SomeAddress
+        registrationError:
+          type: string
+          readOnly: true
+          example: NOT_ACTIVATED
+        registrationResponseCode:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 403
+        registrationStarted:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2018-10-31T18:04:13Z
+        registrationStatus:
+          type: string
+          enum:
+            - CONTENT_CACHING_FAILED
+            - CONTENT_CACHING_PENDING
+            - CONTENT_CACHING_SUCCEEDED
+          readOnly: true
+          example: CONTENT_CACHING_FAILED
+        restrictedMedia:
+          type: boolean
+          readOnly: true
+          example: false
+        serverGuid:
+          type: string
+          readOnly: true
+          example: CD1E1291-4AF9-4468-B5D5-0F780C13DB2F
+        startupStatus:
+          type: string
+          readOnly: true
+          example: FAILED
+        tetheratorStatus:
+          type: string
+          enum:
+            - CONTENT_CACHING_UNKNOWN
+            - CONTENT_CACHING_DISABLED
+            - CONTENT_CACHING_ENABLED
+          readOnly: true
+          example: CONTENT_CACHING_DISABLED
+        totalBytesAreSince:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2018-10-31T18:04:13Z
+        totalBytesDropped:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesImported:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesReturnedToChildren:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesReturnedToClients:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesReturnedToPeers:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesStoredFromOrigin:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesStoredFromParents:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        totalBytesStoredFromPeers:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+    ComputerContentCachingAlert:
+      type: object
+      properties:
+        cacheBytesLimit:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        className:
+          type: string
+          readOnly: true
+          example: SomeClass
+        pathPreventingAccess:
+          type: string
+          readOnly: true
+          example: /some/path
+        postDate:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2018-10-31T18:04:13Z
+        reservedVolumeBytes:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        resource:
+          type: string
+          readOnly: true
+          example: SomeResource
+    ComputerContentCachingCacheDetail:
+      type: object
+      properties:
+        computerContentCachingCacheDetailsId:
+          type: string
+          readOnly: true
+          example: 1
+        categoryName:
+          type: string
+          readOnly: true
+          example: SomeCategory
+        diskSpaceBytesUsed:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+    ComputerContentCachingDataMigrationError:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        domain:
+          type: string
+          readOnly: true
+          example: SomeDomain
+        userInfo:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingDataMigrationErrorUserInfo'
+          readOnly: true
+    ComputerContentCachingDataMigrationErrorUserInfo:
+      type: object
+      properties:
+        key:
+          type: string
+          readOnly: true
+          example: foo
+        value:
+          type: string
+          readOnly: true
+          example: bar
+    ComputerContentCachingParent:
+      type: object
+      properties:
+        contentCachingParentId:
+          type: string
+          readOnly: true
+          example: 1
+        address:
+          type: string
+          readOnly: true
+          example: SomeAddress
+        alerts:
+          $ref: '#/components/schemas/ComputerContentCachingParentAlert'
+        details:
+          $ref: '#/components/schemas/ComputerContentCachingParentDetails'
+        guid:
+          type: string
+          readOnly: true
+          example: CD1E1291-4AF9-4468-B5D5-0F780C13DB2F
+        healthy:
+          type: boolean
+          readOnly: true
+          example: true
+        port:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        version:
+          type: string
+          readOnly: true
+          example: 1
+    GroupMembership:
+      type: object
+      properties:
+        groupId:
+          type: string
+          example: 1
+        groupName:
+          type: string
+          example: groupOne
+        groupDescription:
+          type: string
+          example: groupOne description
+        smartGroup:
+          type: boolean
+          description: Indicates that group is smart group
+          example: true
+    ComputerLicensedSoftware:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+        name:
+          type: string
+          example: Microsoft Word
+    ComputerInventoryUpdateRequest:
+      type: object
+      properties:
+        udid:
+          type: string
+          example: 45436edf-864e-4364-982a-330b01d39e65
+        general:
+          $ref: '#/components/schemas/ComputerGeneralUpdate'
+        purchasing:
+          $ref: '#/components/schemas/ComputerPurchase'
+        userAndLocation:
+          $ref: '#/components/schemas/ComputerUserAndLocation'
+        hardware:
+          $ref: '#/components/schemas/ComputerHardwareUpdate'
+        operatingSystem:
+          $ref: '#/components/schemas/ComputerOperatingSystemUpdate'
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerGeneralUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Boalime
+        lastIpAddress:
+          type: string
+          example: 247.185.82.186
+        barcode1:
+          type: string
+          example: 5 12345 678900
+        barcode2:
+          type: string
+          example: 5 12345 678900
+        assetTag:
+          type: string
+          example: 304822
+        managed:
+          type: boolean
+          example: true
+        siteId:
+          type: string
+          example: 1
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerHardwareUpdate:
+      type: object
+      properties:
+        networkAdapterType:
+          type: string
+          example: Foo
+        macAddress:
+          type: string
+          example: 6A:2C:4B:B7:65:B5
+        altNetworkAdapterType:
+          type: string
+          example: Bar
+        altMacAddress:
+          type: string
+          example: 82:45:58:44:dc:01
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerOperatingSystemUpdate:
+      type: object
+      properties:
+        extensionAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+    ComputerContentCachingParentAlert:
+      type: object
+      properties:
+        contentCachingParentAlertId:
+          type: string
+          readOnly: true
+          example: 1
+        addresses:
+          type: array
+          items:
+            type: string
+          readOnly: true
+          example: []
+        className:
+          type: string
+          readOnly: true
+          example: SomeClass
+        postDate:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2018-10-31T18:04:13Z
+    ComputerContentCachingParentDetails:
+      type: object
+      properties:
+        contentCachingParentDetailsId:
+          type: string
+          readOnly: true
+          example: 1
+        acPower:
+          type: boolean
+          readOnly: true
+          example: true
+        cacheSizeBytes:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 0
+        capabilities:
+          $ref: '#/components/schemas/ComputerContentCachingParentCapabilities'
+        portable:
+          type: boolean
+          readOnly: true
+          example: true
+        localNetwork:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingParentLocalNetwork'
+    ComputerContentCachingParentCapabilities:
+      type: object
+      properties:
+        contentCachingParentCapabilitiesId:
+          type: string
+          readOnly: true
+          example: 1
+        imports:
+          type: boolean
+          readOnly: true
+          example: true
+        namespaces:
+          type: boolean
+          readOnly: true
+          example: true
+        personalContent:
+          type: boolean
+          readOnly: true
+          example: true
+        queryParameters:
+          type: boolean
+          readOnly: true
+          example: true
+        sharedContent:
+          type: boolean
+          readOnly: true
+          example: true
+        prioritization:
+          type: boolean
+          readOnly: true
+          example: true
+    ComputerContentCachingParentLocalNetwork:
+      type: object
+      properties:
+        contentCachingParentLocalNetworkId:
+          type: string
+          readOnly: true
+          example: 1
+        speed:
+          type: integer
+          format: int64
+          readOnly: true
+          example: 5000
+        wired:
+          type: boolean
+          readOnly: true
+          example: true
+    ComputerExtensionAttribute:
+      type: object
+      properties:
+        definitionId:
+          description: An identifier of extension attribute definition.
+          nullable: false
+          type: string
+          example: 23
+        name:
+          description: A human-readable name by which attribute can be referred to.
+          nullable: false
+          readOnly: true
+          type: string
+          example: Some Attribute
+        description:
+          description: An additional explanation of exact attribute meaning, possible values, etc.
+          nullable: true
+          readOnly: true
+          type: string
+          example: Some Attribute defines how much Foo impacts Bar.
+        enabled:
+          nullable: false
+          readOnly: true
+          type: boolean
+          example: true
+        multiValue:
+          nullable: false
+          readOnly: true
+          type: boolean
+          example: true
+        values:
+          description: |
+            A value of extension attribute, in some rare cases there may be multiple values present, hence the array.
+          nullable: true
+          readOnly: false
+          type: array
+          items:
+            type: string
+          example: [foo,bar]
+        dataType:
+          description: A data type of extension attribute.
+          nullable: true
+          readOnly: true
+          type: string
+          enum:
+            - STRING
+            - INTEGER
+            - DATE_TIME
+          example: STRING
+        options:
+          description: |
+            A closed list of possible values (applies to `popup` input type).
+          nullable: true
+          readOnly: true
+          type: array
+          items:
+            type: string
+          example: [foo,bar]
+        inputType:
+          description: |
+            The input method. `text` is most common and means simply free text, `popup` i a closed list of values from
+            which one or many can be selected and `script` value is calculated and can never be set directly.
+          nullable: true
+          readOnly: true
+          type: string
+          enum:
+            - TEXT
+            - POPUP
+            - SCRIPT
+            - LDAP
+          example: TEXT
+    EnrollmentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: 1
+        objectName:
+          type: string
+          readOnly: true
+          example: "user@domain.com"
+        objectType:
+          type: string
+          example: "User-initiated - no invitation"
+          readOnly: true
+    ComputerInventoryRecoveryLockPasswordResponse:
+      type: object
+      properties:
+        recoveryLockPassword:
+          type: string
+          readOnly: true
+          format: password
+          example: password123
+    ComputerInventoryDeviceLockPinResponse:
+      type: object
+      properties:
+        pin:
+          type: string
+          readOnly: true
+          minLength: 6
+          maxLength: 6
+          example: 123456
+    ComputerInventoryFileVaultSearchResults:
+      type: object
+      properties:
+        totalCount:
+          minimum: 0
+          type: integer
+          example: 3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerInventoryFileVault'
+    ComputerInventoryFileVault:
+      type: object
+      properties:
+        computerId:
+          type: string
+          example: "1"
+          readOnly: true
+        name:
+          type: string
+          example: Boalime
+        personalRecoveryKey:
+          type: string
+          example: Z4A6-ONF8-KUHD-AVTG-C3ER-6A8G
+        bootPartitionEncryptionDetails:
+          $ref: '#/components/schemas/ComputerPartitionEncryption'
+        individualRecoveryKeyValidityStatus:
+          type: string
+          enum:
+            - VALID
+            - INVALID
+            - UNKNOWN
+            - NOT_APPLICABLE
+          example: VALID
+        institutionalRecoveryKeyPresent:
+          type: boolean
+          example: true
+        diskEncryptionConfigurationName:
+          type: string
+          example: Test configuration
+    ComputerGeneralCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Boalime
+        lastIpAddress:
+          type: string
+          example: 247.185.82.186
+        lastReportedIp:
+          type: string
+          example: 247.185.82.186
+        jamfBinaryVersion:
+          type: string
+          example: 9.27
+        platform:
+          type: string
+          example: MAC
+          enum:
+            - WINDOWS
+            - MAC
+            - NONE
+        barcode1:
+          type: string
+          example: 5 12345 678900
+        barcode2:
+          type: string
+          example: 5 12345 678900
+        assetTag:
+          type: string
+          example: 304822
+        remoteManagement:
+          $ref: '#/components/schemas/ComputerRemoteManagementCreate'
+        supervised:
+          type: boolean
+          example: true
+        mdmCapable:
+          type: boolean
+          example: true
+        reportDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastContactTime:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastCloudBackupDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        lastEnrolledDate:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+        distributionPointId:
+          type: string
+          example: 1
+        siteId:
+          type: string
+          example: 1
+        itunesStoreAccountActive:
+          type: boolean
+          example: true
+        enrolledViaAutomatedDeviceEnrollment:
+          type: boolean
+          example: true
+        userApprovedMdm:
+          type: boolean
+          example: true
+        declarativeDeviceManagementEnabled:
+          type: boolean
+          example: true
+    ComputerHardwareCreate:
+      type: object
+      properties:
+        make:
+          type: string
+          example: Apple
+        model:
+          type: string
+          example: 13-inch MacBook Pro (Mid 2012)
+        modelIdentifier:
+          type: string
+          example: MacBookPro9,2
+        serialNumber:
+          type: string
+          example: C02ZC2QYLVDL
+        processorSpeedMhz:
+          description: Processor Speed in MHz.
+          type: integer
+          format: int64
+          example: 2100
+        processorCount:
+          type: integer
+          example: 2
+        coreCount:
+          type: integer
+          example: 2
+        processorType:
+          type: string
+          example: Intel Core i5
+        processorArchitecture:
+          type: string
+          example: i386
+        busSpeedMhz:
+          type: integer
+          format: int64
+          example: 2133
+        cacheSizeKilobytes:
+          description: Cache Size in KB.
+          type: integer
+          format: int64
+          example: 3072
+        networkAdapterType:
+          type: string
+          example: Foo
+        macAddress:
+          type: string
+          example: 6A:2C:4B:B7:65:B5
+        altNetworkAdapterType:
+          type: string
+          example: Bar
+        altMacAddress:
+          type: string
+          example: 82:45:58:44:dc:01
+        totalRamMegabytes:
+          description: Total RAM Size in MB.
+          type: integer
+          format: int64
+          example: 4096
+        openRamSlots:
+          description: Available RAM slots.
+          type: integer
+          example: 0
+        batteryCapacityPercent:
+          description: Remaining percentage of battery power.
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 85
+        batteryHealth:
+          type: string
+          description: |
+            - NON_GENUINE: The battery isn’t a genuine Apple battery.
+            - NORMAL: The battery is operating normally.
+            - SERVICE_RECOMMENDED: The system recommends battery service.
+            - UNKNOWN: The system couldn’t determine battery health information.
+            - UNSUPPORTED: The device doesn’t support battery health reporting.
+          default: UNKNOWN
+          enum:
+            - NON_GENUINE
+            - NORMAL
+            - SERVICE_RECOMMENDED
+            - UNKNOWN
+            - UNSUPPORTED
+        smcVersion:
+          type: string
+          example: 2.2f38
+        nicSpeed:
+          type: string
+          example: N/A
+        opticalDrive:
+          type: string
+          example: MATSHITA DVD-R UJ-8A8
+        bootRom:
+          type: string
+          example: MBP91.00D3.B08
+        bleCapable:
+          type: boolean
+          example: false
+        supportsIosAppInstalls:
+          type: boolean
+          example: false
+        appleSilicon:
+          type: boolean
+          example: false
+    ComputerOperatingSystemCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Mac OS X
+          nullable: true
+        version:
+          type: string
+          example: 10.9.5
+          nullable: true
+        build:
+          type: string
+          example: 13A603
+          nullable: true
+        supplementalBuildVersion:
+          type: string
+          example: 13A953
+          nullable: true
+        rapidSecurityResponse:
+          type: string
+          example: (a)
+          nullable: true
+        activeDirectoryStatus:
+          type: string
+          example: Not Bound
+          nullable: true
+        softwareUpdateDeviceId:
+          type: string
+          example: J132AP
+          nullable: true
+    ComputerApplicationCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Microsoft Word
+          nullable: true
+        path:
+          type: string
+          example: /usr/local/app
+          nullable: true
+        version:
+          type: string
+          example: 1.0.0
+          nullable: true
+    ComputerStorageCreate:
+      type: object
+      properties:
+        disks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerDiskCreate'
+          nullable: true
+    ComputerDiskCreate:
+      type: object
+      properties:
+        device:
+          type: string
+          example: disk0
+          nullable: true
+        model:
+          type: string
+          example: APPLE HDD TOSHIBA MK5065GSXF
+          nullable: true
+        revision:
+          type: string
+          example: 5
+          nullable: true
+        serialNumber:
+          type: string
+          example: a8598f013366
+          nullable: true
+        sizeMegabytes:
+          description: Disk Size in MB.
+          type: integer
+          format: int64
+          example: 262144
+          nullable: true
+        smartStatus:
+          description: S.M.A.R.T Status
+          type: string
+          example: OK
+          nullable: true
+        type:
+          description: Connection type attribute.
+          example: NO
+          type: string
+          nullable: true
+        partitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComputerPartitionCreate'
+          nullable: true
+    ComputerPartitionCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Foo
+          nullable: true
+        sizeMegabytes:
+          description: Partition Size in MB.
+          type: integer
+          format: int64
+          example: 262144
+          nullable: true
+        availableMegabytes:
+          description: Available space in MB.
+          type: integer
+          format: int64
+          example: 131072
+          nullable: true
+        partitionType:
+          type: string
+          enum:
+            - BOOT
+            - RECOVERY
+            - OTHER
+          example: BOOT
+          nullable: true
+        percentUsed:
+          description: Percentage of space used.
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 25
+          nullable: true
+        fileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        fileVault2ProgressPercent:
+          description: Percentage progress of current FileVault 2 operation.
+          type: integer
+          nullable: true
+          example: 45
+        lvmManaged:
+          type: boolean
+          example: true
+          nullable: true
+    ComputerConfigurationProfileCreate:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 1
+          nullable: true
+        username:
+          type: string
+          example: username
+          nullable: true
+        lastInstalled:
+          type: string
+          format: date-time
+          example: 2018-10-31T18:04:13Z
+          nullable: true
+        removable:
+          type: boolean
+          example: true
+          nullable: true
+        displayName:
+          type: string
+          example: Displayed profile
+          nullable: true
+        profileIdentifier:
+          type: string
+          example: 0ae590fe-9b30-11ea-bb37-0242ac130002
+          nullable: true
+    ComputerSoftwareUpdateCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: BEdit
+          nullable: true
+        version:
+          type: string
+          example: 1.15.2
+          nullable: true
+        packageName:
+          type: string
+          example: com.apple.pkg.AdditionalEssentials
+          nullable: true
+    ComputerPrinterCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: My Printer
+          nullable: true
+        type:
+          type: string
+          example: XYZ 1122
+          nullable: true
+        uri:
+          type: string
+          example: ipp://10.0.0.5
+          nullable: true
+        location:
+          type: string
+          example: 7th floor
+          nullable: true
+    ComputerServiceCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: SomeService
+          nullable: true
+    ComputerLocalUserAccountCreate:
+      type: object
+      properties:
+        uid:
+          type: string
+          example: 501
+          nullable: true
+        userGuid:
+          type: string
+          example: 844F1177-0CF5-40C6-901F-38EDD9969C1C
+          nullable: true
+        username:
+          type: string
+          example: jamf
+          nullable: true
+        fullName:
+          type: string
+          example: John Jamf
+          nullable: true
+        admin:
+          type: boolean
+          example: true
+          nullable: true
+        homeDirectory:
+          type: string
+          example: '/Users/jamf'
+          nullable: true
+        homeDirectorySizeMb:
+          description: Home directory size in MB.
+          type: integer
+          format: int64
+          example: 131072
+          nullable: true
+        fileVault2Enabled:
+          type: boolean
+          example: true
+          nullable: true
+        userAccountType:
+          type: string
+          example: LOCAL
+          enum:
+            - LOCAL
+            - MOBILE
+            - UNKNOWN
+          nullable: true
+        passwordMinLength:
+          type: integer
+          example: 4
+          nullable: true
+        passwordMaxAge:
+          type: integer
+          example: 5
+          nullable: true
+        passwordMinComplexCharacters:
+          type: integer
+          example: 5
+          nullable: true
+        passwordHistoryDepth:
+          type: integer
+          example: 5
+          nullable: true
+        passwordRequireAlphanumeric:
+          type: boolean
+          example: true
+          nullable: true
+        computerAzureActiveDirectoryId:
+          type: string
+          example: 1
+          nullable: true
+        userAzureActiveDirectoryId:
+          type: string
+          example: 1
+          nullable: true
+    ComputerSecurityCreate:
+      type: object
+      properties:
+        sipStatus:
+          type: string
+          example: ENABLED
+          enum:
+            - NOT_COLLECTED
+            - NOT_AVAILABLE
+            - DISABLED
+            - ENABLED
+          nullable: true
+        gatekeeperStatus:
+          type: string
+          example: APP_STORE_AND_IDENTIFIED_DEVELOPERS
+          enum:
+            - NOT_COLLECTED
+            - DISABLED
+            - APP_STORE_AND_IDENTIFIED_DEVELOPERS
+            - APP_STORE
+          nullable: true
+        xprotectVersion:
+          type: string
+          example: 1.2.3
+          nullable: true
+        activationLockEnabled:
+          type: boolean
+          example: true
+          nullable: true
+        recoveryLockEnabled:
+          type: boolean
+          example: true
+          nullable: true
+        firewallEnabled:
+          type: boolean
+          example: true
+          nullable: true
+        secureBootLevel:
+          type: string
+          example: FULL_SECURITY
+          enum:
+            - NO_SECURITY
+            - MEDIUM_SECURITY
+            - FULL_SECURITY
+            - NOT_SUPPORTED
+            - UNKNOWN
+          nullable: true
+        externalBootLevel:
+          type: string
+          example: ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+          enum:
+            - ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - DISALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - NOT_SUPPORTED
+            - UNKNOWN
+          nullable: true
+    ComputerCertificateCreate:
+      type: object
+      properties:
+        commonName:
+          type: string
+          example: jamf.com
+          nullable: true
+        identity:
+          type: boolean
+          example: true
+          nullable: true
+        username:
+          type: string
+          example: test
+          nullable: true
+    ComputerPackageReceiptsCreate:
+      type: object
+      description: 'All package receipts are listed by their package name'
+      properties:
+        installedByJamfPro:
+          type: array
+          items:
+            type: string
+            example: com.jamf.protect.JamfProtect
+          nullable: true
+        installedByInstallerSwu:
+          type: array
+          items:
+            type: string
+            example: com.apple.pkg.Core
+          nullable: true
+        cached:
+          type: array
+          items:
+            type: string
+            example: com.jamf.protect.JamfProtect
+          nullable: true
+    ComputerPurchaseCreate:
+      type: object
+      properties:
+        leased:
+          type: boolean
+          example: true
+          nullable: true
+        purchased:
+          type: boolean
+          example: true
+          nullable: true
+        poNumber:
+          type: string
+          example: 53-1
+          nullable: true
+        poDate:
+          type: string
+          format: date
+          example: 2019-01-01
+          nullable: true
+        vendor:
+          type: string
+          example: Example Vendor
+          nullable: true
+        warrantyDate:
+          type: string
+          format: date
+          example: 2019-01-01
+          nullable: true
+        appleCareId:
+          type: string
+          example: abcd
+          nullable: true
+        leaseDate:
+          type: string
+          format: date
+          example: 2019-01-01
+          nullable: true
+        purchasePrice:
+          type: string
+          example: $500
+          nullable: true
+        lifeExpectancy:
+          type: integer
+          example: 5
+          nullable: true
+        purchasingAccount:
+          type: string
+          example: admin
+          nullable: true
+        purchasingContact:
+          type: string
+          example: yes
+          nullable: true
+    ComputerUserAndLocationCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          example: Madison Anderson
+          nullable: true
+        realname:
+          type: string
+          example: 13-inch MacBook
+          nullable: true
+        email:
+          type: string
+          example: email@com.pl
+          nullable: true
+        position:
+          type: string
+          example: IT Team Lead
+          nullable: true
+        phone:
+          type: string
+          example: 123-456-789
+          nullable: true
+        departmentId:
+          type: string
+          example: 1
+          nullable: true
+        buildingId:
+          type: string
+          example: 1
+          nullable: true
+        room:
+          type: string
+          example: 5
+          nullable: true
+    ComputerRemoteManagementCreate:
+      type: object
+      properties:
+        managed:
+          type: boolean
+          example: true
+          nullable: true

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
 )
 
 // FetchJSON performs a GET request and returns the parsed JSON object.

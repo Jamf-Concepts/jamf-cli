@@ -1,0 +1,22 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Device Lock Command Definition
+  description: This MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    DeviceLockCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            message:
+              type: string
+              example: 'message123'
+            phoneNumber:
+              type: string
+              example: '(123) 456-7890'
+            pin:
+              type: string
+              example: 'pin123'

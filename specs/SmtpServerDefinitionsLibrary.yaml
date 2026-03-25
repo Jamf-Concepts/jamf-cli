@@ -1,0 +1,153 @@
+openapi: 3.0.1
+info:
+    title: Jamf Pro API - SMTP Server Definitions Library
+    description: These definitions exist to be re-used by other SMTP Server Swagger files
+    version: 0.0.1
+paths: { }
+components:
+    schemas:
+        SmtpServerV2:
+            type: object
+            required:
+                - enabled
+                - authenticationType
+                - senderSettings
+            properties:
+                enabled:
+                    type: boolean
+                    default: false
+                    example: true #todo: add examples, and defaults?
+                authenticationType:
+                    type: string
+                    enum:
+                        - NONE
+                        - BASIC
+                        - GRAPH_API
+                        - GOOGLE_MAIL
+                    example: NONE
+                connectionSettings:
+                    $ref: '#/components/schemas/SmtpConnectionSettings'
+                senderSettings:
+                    $ref: '#/components/schemas/SmtpSenderSettings'
+                basicAuthCredentials:
+                    $ref: '#/components/schemas/SmtpBasicCredentials'
+                graphApiCredentials:
+                    $ref: '#/components/schemas/SmtpGraphApiCredentials'
+                googleMailCredentials:
+                    $ref: '#/components/schemas/SmtpGoogleMailCredentials'
+        SmtpConnectionSettings:
+            type: object
+            required:
+                - host
+                - port
+                - encryptionType
+                - connectionTimeout
+            properties:
+                host:
+                    type: string
+                    default: ''
+                    example: "abcd.server.com"
+                port:
+                    type: integer
+                    default: 25
+                    example: 25
+                encryptionType:
+                    type: string
+                    enum:
+                        - NONE
+                        - SSL
+                        - TLS_1_2
+                        - TLS_1_1
+                        - TLS_1
+                        - TLS_1_3
+                    default: NONE
+                    example: SSL
+                connectionTimeout:
+                    type: integer
+                    default: 5
+                    example: 5
+        SmtpSenderSettings:
+            type: object
+            required:
+                - emailAddress
+            properties:
+                displayName:
+                    type: string
+                    default: "Jamf Pro Server"
+                    example: "Jamf Pro Server"
+                emailAddress:
+                    type: string
+                    default: ''
+                    example: "exampleEmail@example.com"
+        SmtpBasicCredentials:
+            type: object
+            required:
+                - username
+                - password
+            properties:
+                username:
+                    type: string
+                    default: ''
+                    example: "exampleEmail@example.com"
+                password:
+                    type: string
+                    format: password
+                    writeOnly: true
+                    default: ''
+        SmtpGraphApiCredentials:
+            type: object
+            required:
+                - tenantId
+                - clientId
+                - clientSecret
+            properties:
+                tenantId:
+                    type: string
+                    default: ''
+                    example: 'c84b7b82-c277-411b-975d-7431b4ce40ac'
+                clientId:
+                    type: string
+                    default: ''
+                    example: '5294f9d1-f723-419c-93db-ff040bf7c947'
+                clientSecret:
+                    type: string
+                    format: password
+                    writeOnly: true
+                    default: ''
+        SmtpGoogleMailCredentials:
+            type: object
+            required:
+                - clientId
+                - clientSecret
+            properties:
+                clientId:
+                    type: string
+                    default: ''
+                    example: '012345678901-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com'
+                clientSecret:
+                    type: string
+                    format: password
+                    writeOnly: true
+                    default: ''
+                authentications:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SmtpGoogleMailAuthentication'
+        SmtpGoogleMailAuthentication:
+            type: object
+            required:
+                - emailAddress
+                - status
+            properties:
+                emailAddress:
+                    type: string
+                    default: ''
+                    example: "exampleEmail@example.com"
+                status:
+                    type: string
+                    enum:
+                        - FAILED
+                        - UNAUTHENTICATED
+                        - AUTHENTICATED
+                    example: "AUTHENTICATED"
+                    readOnly: true

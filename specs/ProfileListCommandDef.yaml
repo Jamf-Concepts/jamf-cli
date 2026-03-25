@@ -1,0 +1,19 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Profile List Command Definition
+  description: This MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    ProfileListCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            managedOnly:
+              type: boolean
+              nullable: true
+              example: true
+              default: false
+              description: If true, only managed configuration profiles are returned. If false, all configuration profiles are returned. The default value is false.

@@ -50,7 +50,12 @@ jobs:
 
       - name: Sync specs and regenerate
         run: |
-          find jss -path '*/swagger_docs/uapi/*.yaml' -exec cp {} specs/ \;
+          rm -f specs/*.yaml
+          find jss -path '*/swagger_docs/uapi/*.yaml' \
+            -not -path '*/uapi/hiddenapi/*' -not -path '*/uapi/common/*' \
+            -exec cp {} specs/ +
+          find jss -path '*/swagger_docs/uapi/common/*.yaml' \
+            -exec cp {} specs/ +
           echo "$JAMF_PRO_VERSION" > specs/VERSION
           make generate
           go fmt ./internal/commands/generated/...

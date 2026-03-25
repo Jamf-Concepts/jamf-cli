@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
 )
 
 func TestCheckFailedMDMCommands(t *testing.T) {

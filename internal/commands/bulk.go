@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
-	"github.com/jamf/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
 )
 
 // newBulkCmd builds the "bulk" parent command with all subcommands attached.

@@ -141,7 +141,7 @@ Generated commands depend on two interfaces defined in `registry.go`:
 
 ### Syncing specs for a new Jamf Pro version
 
-1. `make sync-specs JAMF_SERVER_PATH=/path/to/jamf-pro-server`
+1. `make sync-specs JAMF_SERVER_PATH=/path/to/jss`
 2. Review: `git diff --stat -- internal/commands/generated/`
 3. Run: `make test`
 

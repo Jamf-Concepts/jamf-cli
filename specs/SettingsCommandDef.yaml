@@ -1,0 +1,184 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - MDM Commands Library
+  description: These MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    SettingsCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            bootstrapTokenAllowed:
+              type: boolean
+              nullable: true
+              example: true
+            bluetooth:
+              type: boolean
+              nullable: true
+              example: true
+            appAnalytics:
+              $ref: '#/components/schemas/AppAnalyticsSetting'
+            diagnosticSubmission:
+              $ref: '#/components/schemas/DiagnosticSubmissionSetting'
+            dataRoaming:
+              $ref: '#/components/schemas/DataRoamingSetting'
+            defaultApplications:
+              $ref: '#/components/schemas/DefaultApplications'
+            voiceRoaming:
+              $ref: '#/components/schemas/VoiceRoamingSetting'
+            personalHotspot:
+              $ref: '#/components/schemas/PersonalHotspotSetting'
+            maximumResidentUsers:
+              type: integer
+              nullable: true
+              example: 1
+            deviceName:
+              type: string
+              example: 'My iPhone'
+            applicationAttributes:
+              $ref: '#/components/schemas/ApplicationAttributes'
+            sharedDeviceConfiguration:
+              $ref: '#/components/schemas/SharedDeviceConfiguration'
+            applicationConfiguration:
+              $ref: '#/components/schemas/ApplicationConfiguration'
+            timeZone:
+              type: string
+              nullable: true
+              example: 'America/New_York'
+            softwareUpdateSettings:
+              $ref: '#/components/schemas/SoftwareUpdateSettings'
+            passcodeLockGracePeriod:
+              type: integer
+              nullable: true
+              example: 60
+              description: The number of seconds before a locked screen requires the user to enter the device passcode to unlock it. (Shared iPad Only)
+            activationLockAllowedWhileSupervised:
+              type: boolean
+              example: true
+              description: If true, a supervised device registers itself with Activation Lock when the user enables Find My. This setting is available for supervised devices in iOS 7 and later, and macOS 10.15 and later.
+    AppAnalyticsSetting:
+      type: string
+      example: 'ENABLE_APP_ANALYTICS'
+      enum:
+        - ENABLE_APP_ANALYTICS
+        - DISABLE_APP_ANALYTICS
+    DiagnosticSubmissionSetting:
+      type: string
+      example: 'ENABLE_DIAGNOSTIC_SUBMISSION'
+      enum:
+        - ENABLE_DIAGNOSTIC_SUBMISSION
+        - DISABLE_DIAGNOSTIC_SUBMISSION
+    DataRoamingSetting:
+      type: string
+      example: 'ENABLE_DATA_ROAMING'
+      enum:
+        - ENABLE_DATA_ROAMING
+        - DISABLE_DATA_ROAMING
+    VoiceRoamingSetting:
+      type: string
+      example: 'ENABLE_VOICE_ROAMING'
+      enum:
+        - ENABLE_VOICE_ROAMING
+        - DISABLE_VOICE_ROAMING
+    PersonalHotspotSetting:
+      type: string
+      example: 'ENABLE_PERSONAL_HOTSPOT'
+      enum:
+        - ENABLE_PERSONAL_HOTSPOT
+        - DISABLE_PERSONAL_HOTSPOT
+    ApplicationAttributes:
+      type: object
+      properties:
+        identifier:
+          type: string
+          nullable: true
+          example: 'com.jamf.selfservice'
+        attributes:
+          $ref: '#/components/schemas/Attributes'
+    Attributes:
+      type: object
+      properties:
+        vpnUuid:
+          type: string
+          nullable: true
+          example: 'aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937'
+        associatedDomains:
+          type: array
+          items:
+            type: string
+            example: 'jamf.com'
+        removable:
+          type: boolean
+          example: true
+        enableDirectDownloads:
+          type: boolean
+          example: true
+        contentFilterUuid:
+          type: string
+          example: 'b7e6a1d2-4b3a-4c5a-8b3a-ca0cd7430937'
+        dnsProxyUuid:
+          type: string
+          example: 'e2a1f5b4-3c6d-4e8a-9b3a-1a2b3c4d5e6f'
+        cellularSliceUuid:
+          type: string
+          example: 'f3b2c6d7-4e8a-9b3a-1a2b3c4d5e6f'
+        relayUuid:
+          type: string
+          example: 'd4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f9a'
+        tapToPayScreenLock:
+          type: boolean
+          example: true
+        hideable:
+          type: boolean
+          example: true
+        lockable:
+          type: boolean
+          example: true
+    SharedDeviceConfiguration:
+      type: object
+      properties:
+        quotaSize:
+          type: integer
+          nullable: true
+          example: 2048
+        residentUsers:
+          type: integer
+          example: 3
+    ApplicationConfiguration:
+      type: object
+      properties:
+        configuration:
+          type: string
+          nullable: true
+          example: '<plist><dict><key>Key</key><string>Value</string></dict></plist>'
+        identifier:
+          type: string
+          example: 'com.jamf.selfservice'
+    SoftwareUpdateSettings:
+      type: object
+      properties:
+        recommendationCadence:
+          type: string
+          example: 'ALLOW_ALL_UPDATES'
+          enum:
+            - ALLOW_ALL_UPDATES
+            - ONLY_ALLOW_LEAST_CURRENT_UPDATE
+            - ONLY_ALLOW_MOST_CURRENT_UPDATE
+    DefaultApplications:
+      type: object
+      properties:
+        webBrowser:
+          type: string
+          nullable: true
+          example: 'com.example.browser'
+        calling:
+          type: string
+          nullable: true
+          example: 'com.example.phone'
+        messaging:
+          type: string
+          nullable: true
+          example: 'com.example.messages'

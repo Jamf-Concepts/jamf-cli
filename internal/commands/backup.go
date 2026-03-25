@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
 )
 
 // backupFailure records a single resource fetch failure.

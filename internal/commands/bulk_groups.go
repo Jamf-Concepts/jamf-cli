@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamf/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
 )
 
 // newAddToGroupCmd creates the "bulk add-to-group" subcommand.

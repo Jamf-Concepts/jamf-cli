@@ -1,0 +1,23 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Apply Redemption Code Command Definition
+  description: This MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    ApplyRedemptionCodeCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            identifier:
+              type: string
+              example: com.example.app
+              required: true
+              description: The bundle identifier of the app
+            redemptionCode:
+              type: string
+              example: SB56LT7YX8RH
+              required: true
+              description: The redemption code that applies to the app pending installation

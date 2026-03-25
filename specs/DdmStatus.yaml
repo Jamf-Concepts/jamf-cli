@@ -27,6 +27,12 @@ paths:
                         'application/json':
                             schema:
                                 $ref: '#/components/schemas/StatusItems'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
                 404:
                     description: The client could not be found
                     content:
@@ -63,6 +69,12 @@ paths:
                         'application/json':
                             schema:
                                 $ref: '#/components/schemas/StatusItem'
+                400:
+                    description: Bad Request
+                    content:
+                        'application/json':
+                            schema:
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
                 404:
                     description: The client or specified key could not be found
                     content:
