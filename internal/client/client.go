@@ -78,6 +78,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "jamfpro-cli/1.0 (+https://github.com/Jamf-Concepts/jamfpro-cli)")
 	if bodyData != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

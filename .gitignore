@@ -34,3 +34,7 @@ secrets/
 .claude/*
 !.claude/settings.json
 completions/
+
+# Audit artifacts (local reference only, not committed)
+codeql-results-*.sarif
+gitleaks-results-*.txt
