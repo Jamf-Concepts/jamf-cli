@@ -925,36 +925,26 @@ func TestRunOverview_FullMock(t *testing.T) {
 		}
 	}
 
-	// Spot-check key values
+	// Spot-check key values (matches new section layout)
 	checks := map[string]string{
+		"Active Alerts":             "None",
+		"Failed Commands":           "0",
+		"Pending Computer Commands": "12",
+		"Pending Mobile Commands":   "3",
 		"Server URL":                "https://test.jamfcloud.com",
 		"Jamf Pro Version":          "11.0.0",
-		"SLASA Status":              "ACCEPTED",
-		"CSA Scopes":                "Not configured",
 		"Managed Computers":         "500",
 		"Unmanaged Computers":       "10",
 		"Managed Devices":           "200",
-		"VPP Token":                 "enabled",
-		"DEP Account":               "disabled",
-		"SSO (SAML)":                "disabled",
-		"SMTP":                      "enabled",
 		"Check-In Frequency":        "15 min",
-		"Create Hooks":              "disabled",
-		"Startup Script":            "enabled",
+		"DEP Instances":             "1",
+		"Computer Prestages":        "2",
 		"Sites":                     "2",
 		"Buildings":                 "3",
 		"Scripts":                   "25",
 		"Policies":                  "1",
 		"Packages":                  "3",
-		"DEP Instances":             "1",
-		"Pending Computer Commands": "12",
-		"Pending Mobile Commands":   "3",
-		"Failed Commands":           "0",
-		"LAPS Auto Deploy":          "enabled",
-		"LAPS Auto Rotate":          "disabled",
-		"Computer Prestages":        "2",
 		"Static User Groups":        "3",
-		"Active Alerts":             "None",
 	}
 
 	for resource, want := range checks {

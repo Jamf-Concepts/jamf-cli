@@ -189,6 +189,87 @@ func enabledDisabled(v interface{}) string {
 	return "disabled"
 }
 
+// friendlyAlertType converts a Jamf Pro notification type enum to a
+// human-readable label. Unknown types are returned as-is.
+func friendlyAlertType(t string) string {
+	friendly := map[string]string{
+		"APNS_CONNECTION_FAILURE":                                     "APNs connection failure",
+		"APNS_CERT_REVOKED":                                           "APNs certificate revoked",
+		"CLOUD_LDAP_CERT_EXPIRED":                                     "Cloud LDAP certificate expired",
+		"CLOUD_LDAP_CERT_WILL_EXPIRE":                                 "Cloud LDAP certificate expiring",
+		"SSO_CERT_EXPIRED":                                            "SSO certificate expired",
+		"SSO_IDP_CERT_EXPIRED":                                        "SSO IdP certificate expired",
+		"SSO_CERT_WILL_EXPIRE":                                        "SSO certificate expiring",
+		"SSO_IDP_CERT_WILL_EXPIRE":                                    "SSO IdP certificate expiring",
+		"TOMCAT_SSL_CERT_EXPIRED":                                     "SSL certificate expired",
+		"TOMCAT_SSL_CERT_WILL_EXPIRE":                                 "SSL certificate expiring",
+		"GSX_CERT_EXPIRED":                                            "GSX certificate expired",
+		"GSX_CERT_WILL_EXPIRE":                                        "GSX certificate expiring",
+		"INVALID_REFERENCES_SCRIPTS":                                  "Scripts with invalid references",
+		"INVALID_REFERENCES_EXT_ATTR":                                 "Extension attributes with invalid references",
+		"INVALID_REFERENCES_POLICIES":                                 "Policies with invalid references",
+		"VPP_ACCOUNT_EXPIRED":                                         "Volume Purchasing token expired",
+		"VPP_ACCOUNT_WILL_EXPIRE":                                     "Volume Purchasing token expiring",
+		"VPP_TOKEN_REVOKED":                                           "Volume Purchasing token revoked",
+		"DEP_INSTANCE_EXPIRED":                                        "Automated Device Enrollment token expired",
+		"DEP_INSTANCE_WILL_EXPIRE":                                    "Automated Device Enrollment token expiring",
+		"PUSH_PROXY_CERT_EXPIRED":                                     "Push proxy certificate expired",
+		"PUSH_CERT_EXPIRED":                                           "Push certificate expired",
+		"PUSH_CERT_WILL_EXPIRE":                                       "Push certificate expiring",
+		"FREQUENT_INVENTORY_COLLECTION_POLICY":                        "Frequent inventory collection policy",
+		"POLICY_MANAGEMENT_ACCOUNT_PAYLOAD_SECURITY_SINGLE":           "Management account security issue (single policy)",
+		"POLICY_MANAGEMENT_ACCOUNT_PAYLOAD_SECURITY_MULTIPLE":         "Management account security issue (multiple policies)",
+		"USER_INITIATED_ENROLLMENT_MANAGEMENT_ACCOUNT_SECURITY_ISSUE": "User enrollment management account security issue",
+		"PATCH_UPDATE":                                                "Patch update available",
+		"PATCH_EXTENTION_ATTRIBUTE":                                   "Patch extension attribute issue",
+		"HCL_ERROR":                                                   "Healthcare Listener error",
+		"HCL_BIND_ERROR":                                              "Healthcare Listener bind error",
+		"JIM_ERROR":                                                   "Jamf Infrastructure Manager error",
+		"EXCEEDED_LICENSE_COUNT":                                      "Device count exceeds license",
+		"MII_INVENTORY_UPLOAD_FAILED_NOTIFICATION":                    "Inventory upload failed",
+		"MII_HEARTBEAT_FAILED_NOTIFICATION":                           "Infrastructure heartbeat failed",
+		"MII_UNATHORIZED_RESPONSE_NOTIFICATION":                       "Infrastructure unauthorized response",
+		"MDM_EXTERNAL_SIGNING_CERTIFICATE_EXPIRED":                    "MDM signing certificate expired",
+		"MDM_EXTERNAL_SIGNING_CERTIFICATE_EXPIRING":                   "MDM signing certificate expiring",
+		"MDM_EXTERNAL_SIGNING_CERTIFICATE_EXPIRING_TODAY":             "MDM signing certificate expires today",
+		"INSECURE_LDAP":                                               "Insecure LDAP connection",
+		"LDAP_CONNECTION_CHECK_THROUGH_JIM_SUCCESSFUL":                "LDAP connection check successful (via JIM)",
+		"LDAP_CONNECTION_CHECK_THROUGH_JIM_FAILED":                    "LDAP connection check failed (via JIM)",
+		"DEVICE_ENROLLMENT_PROGRAM_T_C_NOT_SIGNED":                    "Apple Business Manager T&C not signed",
+		"APPLE_SCHOOL_MANAGER_T_C_NOT_SIGNED":                         "Apple School Manager T&C not signed",
+		"USER_MAID_MISMATCH_ERROR":                                    "User identity mismatch",
+		"USER_MAID_ROSTER_DUPLICATE_ERROR":                            "Duplicate user in roster",
+		"USER_MAID_DUPLICATE_ERROR":                                   "Duplicate user identity",
+		"BUILT_IN_CA_EXPIRING":                                        "Built-in CA expiring",
+		"BUILT_IN_CA_EXPIRED":                                         "Built-in CA expired",
+		"BUILT_IN_CA_RENEWAL_SUCCESS":                                 "Built-in CA renewal succeeded",
+		"BUILT_IN_CA_RENEWAL_FAILED":                                  "Built-in CA renewal failed",
+		"JAMF_PROTECT_UPDATE":                                         "Jamf Protect update available",
+		"JAMF_CONNECT_UPDATE":                                         "Jamf Connect update available",
+		"JAMF_CONNECT_MAJOR_UPDATE":                                   "Jamf Connect major update available",
+		"JAMF_PROTECT_CONNECTION_ISSUE":                               "Jamf Protect connection issue",
+		"DEVICE_COMPLIANCE_CONNECTION_ERROR":                          "Device compliance connection error",
+		"CONDITIONAL_ACCESS_CONNECTION_ERROR":                         "Conditional access connection error",
+		"NO_LONGER_DEVICE_ASSIGNABLE":                                 "App no longer device-assignable",
+		"BEYOND_CORP_CONNECTION_ERROR":                                "BeyondCorp connection error",
+		"APP_INSTALLERS_NEW_APP_VERSION_DEPLOYMENT_STARTED":           "App Installer deployment started",
+		"APP_INSTALLERS_NEW_APP_VERSION_AVAILABLE":                    "App Installer update available",
+		"APP_INSTALLERS_APP_VERSION_REMOVED":                          "App Installer version removed",
+		"APP_INSTALLERS_DEPLOYMENT_INSTALLATION_FAILED":               "App Installer deployment failed",
+		"APP_INSTALLERS_APP_TITLE_REMOVED":                            "App Installer title removed",
+		"SAML_RESPONSE_ASSERTION_SIGNING_REQUIRED":                    "SAML assertion signing required",
+		"SMTP_GOOGLE_MAIL_DEFAULT_EMAIL_UNAUTHENTICATED":              "SMTP Google Mail unauthenticated",
+		"CAN_ENABLE_PASSWORD_RESET_CLOUD_ENVIRONMENT":                 "Password reset available for cloud",
+		"USERS_HAVE_DUPLICATED_EMAIL_ADDRESSES":                       "Users with duplicate email addresses",
+		"DIRECTORY_CACHE_AWAITING_SYNC":                               "Directory cache awaiting sync",
+		"PSSO_EXTERNAL_URL_UNAVAILABLE":                               "Platform SSO external URL unavailable",
+	}
+	if f, ok := friendly[t]; ok {
+		return f
+	}
+	return t
+}
+
 // formatExpirationDate formats a date string and adds proximity context.
 // Returns the formatted date and a color hint: "red", "yellow", or "".
 func formatExpirationDate(dateStr string, now time.Time) (string, string) {
@@ -677,7 +758,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		var types []string
 		for _, a := range alerts {
 			if t, ok := a["type"].(string); ok {
-				types = append(types, t)
+				types = append(types, friendlyAlertType(t))
 			}
 		}
 		send("alert_detail", strings.Join(types, ", "), nil)
@@ -836,8 +917,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		return overviewItem{resource, value, ""}
 	}
 
-	// Build notifications section: list each alert type on its own line
-	notifItems := []overviewItem{
+	// Build alert items: list each alert type on its own line
+	alertItems := []overviewItem{
 		getItem("Active Alerts", "alerts"),
 	}
 	if detail := get("alert_detail"); detail != "" && detail != "N/A" {
@@ -847,7 +928,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			if i == 0 {
 				label = "Alert Types"
 			}
-			notifItems = append(notifItems, overviewItem{label, t, "red"})
+			alertItems = append(alertItems, overviewItem{label, t, "red"})
 		}
 	}
 
@@ -857,77 +938,95 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 		failedCmdsItem.ColorHint = "red"
 	}
 
+	// Build Configuration section — skip items with count = 0
+	var configItems []overviewItem
+	for _, pair := range []struct {
+		label, key string
+	}{
+		{"Policies", "policies"},
+		{"macOS Config Profiles", "macos_profiles"},
+		{"iOS Config Profiles", "ios_profiles"},
+		{"Packages", "packages"},
+		{"Scripts", "scripts"},
+		{"eBooks", "ebooks"},
+		{"JCDS Files", "jcds_files"},
+		{"Patch Titles", "patch_titles"},
+		{"LDAP/IdP Servers", "ldap_servers"},
+		{"Webhooks", "webhooks"},
+	} {
+		v := get(pair.key)
+		if v != "0" {
+			configItems = append(configItems, item(pair.label, v))
+		}
+	}
+
+	// Build Features section — only show enabled features
+	var featureItems []overviewItem
+	for _, pair := range []struct {
+		label, key string
+	}{
+		{"Volume Purchasing", "vpp"},
+		{"Device Enrollment", "dep"},
+		{"Cloud Distribution", "cloud_deploy"},
+		{"Patch Management", "patch"},
+		{"SSO (SAML)", "sso"},
+		{"SMTP", "smtp"},
+	} {
+		v := get(pair.key)
+		if v == "enabled" {
+			featureItems = append(featureItems, item(pair.label, v))
+		}
+	}
+
+	// Build Health & Alerts items
+	healthItems := []overviewItem{item("Health Status", get("health"))}
+	healthItems = append(healthItems, alertItems...)
+	healthItems = append(healthItems,
+		overviewItem{}, // blank separator
+		failedCmdsItem,
+		item("Pending Computer Commands", get("pending_computer_cmds")),
+		item("Pending Mobile Commands", get("pending_mobile_cmds")),
+	)
+
 	sections := []overviewSection{
 		{
-			Name: "Instance Info",
-			Items: append([]overviewItem{
-				item("Server URL", serverURL),
-				item("Jamf Pro Version", get("version")),
-				item("Health Status", get("health")),
-				item("SLASA Status", get("slasa")),
-				item("CSA Scopes", get("csa_scopes")),
-				{}, // blank separator
-			}, notifItems...),
+			Name:  "Health & Alerts",
+			Items: healthItems,
 		},
 		{
-			Name: "Inventory Summary",
+			Name: "Instance",
+			Items: []overviewItem{
+				item("Server URL", serverURL),
+				item("Jamf Pro Version", get("version")),
+			},
+		},
+		{
+			Name: "Fleet",
 			Items: []overviewItem{
 				item("Managed Computers", get("managed_computers")),
 				item("Unmanaged Computers", get("unmanaged_computers")),
+				item("Check-In Frequency", get("checkin_freq")),
 				item("Managed Devices", get("managed_devices")),
 				item("Unmanaged Devices", get("unmanaged_devices")),
 			},
 		},
 		{
-			Name: "Jamf Pro Features",
+			Name: "Enrollment & Certificates",
 			Items: []overviewItem{
-				item("VPP Token", get("vpp")),
-				item("DEP Account", get("dep")),
-				item("Cloud Deployments", get("cloud_deploy")),
-				item("Patch Management", get("patch")),
-				item("SSO (SAML)", get("sso")),
-				item("SMTP", get("smtp")),
-			},
-		},
-		{
-			Name: "Enrollment",
-			Items: []overviewItem{
-				item("macOS Enterprise Enrollment", get("enroll_macos_enterprise")),
-				item("iOS Enterprise Enrollment", get("enroll_ios_enterprise")),
-				item("iOS Personal Enrollment", get("enroll_ios_personal")),
-				item("Account-Driven User Enrollment", get("enroll_adue")),
-				item("Account-Driven Device (macOS)", get("enroll_adde_macos")),
-				{}, // blank separator
 				item("DEP Instances", get("dep_instances")),
 				getItem("DEP Token Expires", "dep_token_expires"),
 				item("DEP Sync Status", get("dep_sync_status")),
 				item("Computer Prestages", get("computer_prestages")),
 				item("Mobile Device Prestages", get("md_prestages")),
-			},
-		},
-		{
-			Name: "Client Check-In",
-			Items: []overviewItem{
-				item("Check-In Frequency", get("checkin_freq")),
-				item("Create Hooks", get("create_hooks")),
-				item("Startup Script", get("startup_script")),
-				item("Local Config Profiles", get("local_config")),
-			},
-		},
-		{
-			Name: "Security & MDM",
-			Items: []overviewItem{
-				item("LAPS Auto Deploy", get("laps_auto_deploy")),
-				item("LAPS Auto Rotate", get("laps_auto_rotate")),
+				{}, // blank separator
+				getItem("Built-in CA Expires", "ca_expires"),
 				item("MDM Auto Renew (Computers)", get("mdm_renew_computer")),
 				item("MDM Auto Renew (Mobile)", get("mdm_renew_mobile")),
-				item("Computer Cert Expiry Limit", get("mdm_cert_computer_days")),
-				item("Mobile Cert Expiry Limit", get("mdm_cert_mobile_days")),
-				getItem("Built-in CA Expires", "ca_expires"),
-				item("Pending Computer Commands", get("pending_computer_cmds")),
-				item("Pending Mobile Commands", get("pending_mobile_cmds")),
-				failedCmdsItem,
 			},
+		},
+		{
+			Name:  "Configuration",
+			Items: configItems,
 		},
 		{
 			Name: "Organization",
@@ -942,27 +1041,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 			},
 		},
 		{
-			Name: "Configuration & Deployment",
-			Items: []overviewItem{
-				item("Policies", get("policies")),
-				item("macOS Config Profiles", get("macos_profiles")),
-				item("iOS Config Profiles", get("ios_profiles")),
-				item("Packages", get("packages")),
-				item("Scripts", get("scripts")),
-				item("eBooks", get("ebooks")),
-				item("JCDS Files", get("jcds_files")),
-				item("Patch Titles", get("patch_titles")),
-				item("LDAP/IdP Servers", get("ldap_servers")),
-				item("Webhooks", get("webhooks")),
-			},
-		},
-		{
-			Name: "Self Service",
-			Items: []overviewItem{
-				item("Install Automatically", get("ss_install_auto")),
-				item("Login Required", get("ss_login_required")),
-				item("Notifications", get("ss_notifications")),
-			},
+			Name:  "Features",
+			Items: featureItems,
 		},
 	}
 
@@ -984,8 +1064,8 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 	red := "\033[31m"
 	dim := "\033[2m"
 
-	const labelWidth = 30
-	const totalWidth = 62
+	const labelWidth = 34
+	const totalWidth = 72
 
 	// Title
 	_, _ = fmt.Fprintln(w)
@@ -1010,33 +1090,37 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 
 			switch {
 			case item.ColorHint == "red":
-				displayValue = colorize("● "+item.Value, red)
+				displayValue = colorize(item.Value+" ●", red)
 				visibleLen += 2
 			case item.ColorHint == "yellow":
-				displayValue = colorize("● "+item.Value, yellow)
+				displayValue = colorize(item.Value+" ●", yellow)
 				visibleLen += 2
 			case item.Value == "ok" || item.Value == "ACCEPTED" || item.Value == "None":
-				displayValue = colorize("● "+item.Value, green)
+				displayValue = colorize(item.Value+" ●", green)
 				visibleLen += 2
 			case item.Value == "enabled":
-				displayValue = colorize("● "+item.Value, green)
+				displayValue = colorize(item.Value+" ●", green)
 				visibleLen += 2
 			case strings.HasPrefix(item.Value, "SUCCESSFUL"):
-				displayValue = colorize("● "+item.Value, green)
+				displayValue = colorize(item.Value+" ●", green)
 				visibleLen += 2
 			case item.Value == "disabled":
-				displayValue = colorize("○ "+item.Value, dim)
+				displayValue = colorize(item.Value+" ○", dim)
 				visibleLen += 2
 			case item.Value == "offline" || strings.HasPrefix(item.Value, "HTTP"):
-				displayValue = colorize("● "+item.Value, red)
+				displayValue = colorize(item.Value+" ●", red)
 				visibleLen += 2
 			case item.Value == "N/A" || item.Value == "Not configured" || item.Value == "None configured":
 				displayValue = colorize(item.Value, dim)
 			}
 
-			// Right-align values that fit; left-align long values (e.g. alert types)
+			// Right-align values; for long values or continuation lines
+			// (empty resource label), left-align with label-width indent.
 			padding := totalWidth - labelWidth - visibleLen
-			if padding >= 1 {
+			if item.Resource == "" && padding < 1 {
+				// Continuation line (e.g., alert types) — indent to label column
+				_, _ = fmt.Fprintf(w, "  %*s%s\n", labelWidth, "", displayValue)
+			} else if padding >= 1 {
 				_, _ = fmt.Fprintf(w, "  %-*s%*s%s\n", labelWidth, item.Resource, padding, "", displayValue)
 			} else {
 				_, _ = fmt.Fprintf(w, "  %-*s %s\n", labelWidth, item.Resource, displayValue)
