@@ -87,6 +87,8 @@ func allAuditChecks() []auditCheck {
 		// Enrollment
 		{Category: "enrollment", Name: "DEP token expiry", Run: checkDEPTokenExpiry},
 		{Category: "enrollment", Name: "Prestage coverage", Run: checkPrestageCoverage},
+		{Category: "security", Name: "Push certificate expiry", Run: checkPushCertExpiry},
+		{Category: "security", Name: "VPP token expiry", Run: checkVPPTokenExpiry},
 	}
 }
 
@@ -129,6 +131,7 @@ func runAudit(ctx context.Context, cliCtx *generated.CLIContext, opts auditOptio
 	rows := make([]map[string]interface{}, len(results))
 	for i, r := range results {
 		rows[i] = map[string]interface{}{
+			"category":       r.Category,
 			"severity":       r.Severity,
 			"name":           r.Name,
 			"affected":       r.AffectedCount,
@@ -419,6 +422,62 @@ func checkPrestageCoverage(ctx context.Context, client generated.HTTPClient, _ i
 		Name:           "No computer prestages configured",
 		AffectedCount:  int(enrollCount),
 		Recommendation: "Create computer prestages to auto-enroll DEP devices",
+	}, nil
+}
+
+// fetchNotifications fetches the /v1/notifications array. The endpoint returns
+// a JSON array at the top level, not a paginated object.
+func fetchNotifications(ctx context.Context, client generated.HTTPClient) ([]map[string]interface{}, error) {
+	items, err := FetchAllPaginated(ctx, client, "/v1/notifications", 100)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func checkPushCertExpiry(ctx context.Context, client generated.HTTPClient, _ int) (*auditResult, error) {
+	notifications, err := fetchNotifications(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, n := range notifications {
+		nType, _ := n["type"].(string)
+		if nType == "PUSH_CERT_EXPIRED" || nType == "PUSH_CERT_EXPIRING" {
+			return &auditResult{
+				Category:       "security",
+				Severity:       severityCritical,
+				Name:           "Push certificate expired or expiring",
+				AffectedCount:  1,
+				Recommendation: "Renew the Apple Push Notification certificate in Jamf Pro > Settings > Push Certificates",
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
+func checkVPPTokenExpiry(ctx context.Context, client generated.HTTPClient, _ int) (*auditResult, error) {
+	notifications, err := fetchNotifications(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	count := 0
+	for _, n := range notifications {
+		nType, _ := n["type"].(string)
+		if nType == "VPP_ACCOUNT_EXPIRED" || nType == "VPP_ACCOUNT_EXPIRING" {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil, nil
+	}
+	return &auditResult{
+		Category:       "security",
+		Severity:       severityWarning,
+		Name:           "VPP/Apps and Books token expired",
+		AffectedCount:  count,
+		Recommendation: "Renew the VPP token in Apple Business Manager and re-upload in Jamf Pro",
 	}, nil
 }
 

@@ -13,18 +13,24 @@ import (
 )
 
 func newReportSoftwareInstallsCmd(cliCtx *generated.CLIContext) *cobra.Command {
-	var titleFilter string
+	var (
+		titleFilter   string
+		includeSystem bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "software-installs",
 		Short: "Installed software version distribution",
 		Long: `Report the distribution of installed software versions across the fleet.
 
+By default, system apps (installed in /System/ or /Library/) are excluded.
+Use --include-system to show all applications.
+
 Use --title to filter to a specific application name (case-insensitive substring match).
 
 Output columns: title, version, device_count`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rows, err := runReportSoftwareInstalls(cmd.Context(), cliCtx.Client, titleFilter)
+			rows, err := runReportSoftwareInstalls(cmd.Context(), cliCtx.Client, titleFilter, includeSystem)
 			if err != nil {
 				return err
 			}
@@ -34,8 +40,18 @@ Output columns: title, version, device_count`,
 	}
 
 	cmd.Flags().StringVar(&titleFilter, "title", "", "filter to application names containing this substring (case-insensitive)")
+	cmd.Flags().BoolVar(&includeSystem, "include-system", false, "include system apps from /System/ and /Library/")
 
 	return cmd
+}
+
+// isSystemApp returns true for apps installed in macOS system paths.
+func isSystemApp(path string) bool {
+	return strings.HasPrefix(path, "/System/") ||
+		strings.HasPrefix(path, "/Library/") ||
+		strings.HasPrefix(path, "/usr/") ||
+		strings.HasPrefix(path, "/bin/") ||
+		strings.HasPrefix(path, "/Applications/Utilities/")
 }
 
 // softwareKey groups installs by application name + version.
@@ -46,7 +62,7 @@ type softwareKey struct {
 
 // runReportSoftwareInstalls fetches computer inventory with the APPLICATIONS
 // section and aggregates device counts per (title, version).
-func runReportSoftwareInstalls(ctx context.Context, client generated.HTTPClient, titleFilter string) ([]map[string]interface{}, error) {
+func runReportSoftwareInstalls(ctx context.Context, client generated.HTTPClient, titleFilter string, includeSystem bool) ([]map[string]interface{}, error) {
 	computers, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=APPLICATIONS", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
@@ -64,8 +80,12 @@ func runReportSoftwareInstalls(ctx context.Context, client generated.HTTPClient,
 			}
 			name, _ := app["name"].(string)
 			version, _ := app["version"].(string)
+			path, _ := app["path"].(string)
 
 			if name == "" {
+				continue
+			}
+			if !includeSystem && isSystemApp(path) {
 				continue
 			}
 			if filterLower != "" && !strings.Contains(strings.ToLower(name), filterLower) {

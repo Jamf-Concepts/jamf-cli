@@ -12,19 +12,25 @@ import (
 )
 
 func newReportEAResultsCmd(cliCtx *generated.CLIContext) *cobra.Command {
-	var nameFilter string
+	var (
+		nameFilter string
+		showAll    bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "ea-results",
 		Short: "Extension attribute results across devices",
 		Long: `Fetch extension attribute definitions and their values across all computers.
 
+By default, only devices with populated EA values are shown. Use --all to
+include devices where the EA value is empty.
+
 Use --name to filter to extension attributes whose name contains the given substring
 (case-insensitive).
 
-Output columns: ea_name, ea_id, device, value`,
+Output columns: ea_name, definition_id, device, value`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rows, err := runReportEAResults(cmd.Context(), cliCtx.Client, nameFilter)
+			rows, err := runReportEAResults(cmd.Context(), cliCtx.Client, nameFilter, showAll)
 			if err != nil {
 				return err
 			}
@@ -34,13 +40,14 @@ Output columns: ea_name, ea_id, device, value`,
 	}
 
 	cmd.Flags().StringVar(&nameFilter, "name", "", "filter to EA names containing this substring (case-insensitive)")
+	cmd.Flags().BoolVar(&showAll, "all", false, "include devices with empty EA values")
 
 	return cmd
 }
 
 // runReportEAResults fetches computer extension attribute definitions, then
 // queries each computer's inventory to collect EA values.
-func runReportEAResults(ctx context.Context, client generated.HTTPClient, nameFilter string) ([]map[string]interface{}, error) {
+func runReportEAResults(ctx context.Context, client generated.HTTPClient, nameFilter string, showAll bool) ([]map[string]interface{}, error) {
 	// Fetch EA definitions from the Classic API.
 	eaItems, err := FetchClassicList(ctx, client, "/JSSResource/computerextensionattributes", "computer_extension_attributes")
 	if err != nil {
@@ -131,15 +138,29 @@ func runReportEAResults(ctx context.Context, client generated.HTTPClient, nameFi
 			value := ""
 			if v, ok := ea["value"].(string); ok {
 				value = v
+			} else if vals, ok := ea["values"].([]interface{}); ok && len(vals) > 0 {
+				// Modern API returns values as an array
+				parts := make([]string, 0, len(vals))
+				for _, v := range vals {
+					if s, ok := v.(string); ok && s != "" {
+						parts = append(parts, s)
+					}
+				}
+				value = strings.Join(parts, ", ")
 			} else if ea["value"] != nil {
 				value = fmt.Sprintf("%v", ea["value"])
 			}
 
+			// Skip empty values by default
+			if !showAll && value == "" {
+				continue
+			}
+
 			rows = append(rows, map[string]interface{}{
-				"ea_name": eaName,
-				"ea_id":   eaID,
-				"device":  deviceName,
-				"value":   value,
+				"ea_name":       eaName,
+				"definition_id": eaID,
+				"device":        deviceName,
+				"value":         value,
 			})
 		}
 	}

@@ -191,27 +191,35 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
 						"id": "1",
 						"general": {
 							"name": "MacBook-001",
-							"lastContactTime": "2026-01-01T00:00:00Z"
+							"lastContactTime": "2026-01-01T00:00:00Z",
+							"remoteManagement": {"managed": true}
 						},
 						"hardware": {
 							"serialNumber": "C02X1234"
+						},
+						"operatingSystem": {
+							"version": "14.4"
 						}
 					},
 					{
 						"id": "2",
 						"general": {
 							"name": "MacBook-002",
-							"lastContactTime": "2026-03-14T00:00:00Z"
+							"lastContactTime": "2026-03-14T00:00:00Z",
+							"remoteManagement": {"managed": false}
 						},
 						"hardware": {
 							"serialNumber": "C02Y5678"
+						},
+						"operatingSystem": {
+							"version": "15.1"
 						}
 					}
 				]
@@ -238,12 +246,28 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	if row0["stale"] != true {
 		t.Errorf("stale = %v, want true (>14 days since 2026-01-01)", row0["stale"])
 	}
+	if row0["managed"] != true {
+		t.Errorf("managed = %v, want true", row0["managed"])
+	}
+	if row0["os_version"] != "14.4" {
+		t.Errorf("os_version = %q, want 14.4", row0["os_version"])
+	}
+	// Verify failed_commands was removed
+	if _, hasFC := row0["failed_commands"]; hasFC {
+		t.Error("failed_commands should not be present")
+	}
+
+	// MacBook-002 — unmanaged
+	row1 := rows[1]
+	if row1["managed"] != false {
+		t.Errorf("row1 managed = %v, want false", row1["managed"])
+	}
 }
 
 func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -259,7 +283,7 @@ func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "42"}]
 			}`,
@@ -434,7 +458,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "")
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -478,7 +502,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome")
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -505,7 +529,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 		},
 	}
 
-	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz")
+	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true)
 	if err == nil {
 		t.Fatal("expected error for no matches with filter, got nil")
 	}
@@ -518,7 +542,7 @@ func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "")
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -563,7 +587,7 @@ func TestRunReportEAResults_Basic(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportEAResults(context.Background(), client, "")
+	rows, err := runReportEAResults(context.Background(), client, "", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -610,7 +634,7 @@ func TestRunReportEAResults_NameFilter(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportEAResults(context.Background(), client, "asset")
+	rows, err := runReportEAResults(context.Background(), client, "asset", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -634,7 +658,7 @@ func TestRunReportEAResults_NoMatchFilter(t *testing.T) {
 		},
 	}
 
-	_, err := runReportEAResults(context.Background(), client, "nonexistent-ea-xyz")
+	_, err := runReportEAResults(context.Background(), client, "nonexistent-ea-xyz", true)
 	if err == nil {
 		t.Fatal("expected error for no matching EAs, got nil")
 	}
@@ -647,7 +671,7 @@ func TestRunReportEAResults_NoEAsConfigured(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportEAResults(context.Background(), client, "")
+	rows, err := runReportEAResults(context.Background(), client, "", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -663,7 +687,7 @@ func TestRunReportEAResults_EAFetchError(t *testing.T) {
 		},
 	}
 
-	_, err := runReportEAResults(context.Background(), client, "")
+	_, err := runReportEAResults(context.Background(), client, "", true)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

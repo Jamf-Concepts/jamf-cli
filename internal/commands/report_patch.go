@@ -17,7 +17,7 @@ func newReportPatchStatusCmd(cliCtx *generated.CLIContext) *cobra.Command {
 		Long: `Fetch all patch software title configurations and report compliance
 percentages per title.
 
-Output columns: title, installed, latest, compliance_pct`,
+Output columns: title, id, installed, total, latest, compliance_pct`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rows, err := runReportPatchStatus(cmd.Context(), cliCtx.Client)
 			if err != nil {
@@ -41,16 +41,14 @@ func runReportPatchStatus(ctx context.Context, client generated.HTTPClient) ([]m
 	for _, t := range titles {
 		titleName, _ := t["softwareTitleName"].(string)
 		if titleName == "" {
-			// Fall back to displayName or id for unnamed entries.
 			titleName, _ = t["displayName"].(string)
 		}
 		if titleName == "" {
 			titleName, _ = t["id"].(string)
 		}
 
-		// The API returns patchSummary with installedCount, totalCount, and
-		// latestVersion on each configuration object when the summary is
-		// embedded. Gracefully handle absent fields.
+		titleID := extractID(t)
+
 		summary, _ := t["patchSummary"].(map[string]interface{})
 
 		var installed, total int
@@ -68,7 +66,6 @@ func runReportPatchStatus(ctx context.Context, client generated.HTTPClient) ([]m
 			}
 		}
 
-		// Also check top-level fields which some API versions surface directly.
 		if latestVersion == "" {
 			latestVersion, _ = t["latestVersion"].(string)
 		}
@@ -81,7 +78,9 @@ func runReportPatchStatus(ctx context.Context, client generated.HTTPClient) ([]m
 
 		rows = append(rows, map[string]interface{}{
 			"title":          titleName,
+			"id":             titleID,
 			"installed":      installed,
+			"total":          total,
 			"latest":         latestVersion,
 			"compliance_pct": compliancePct,
 		})
