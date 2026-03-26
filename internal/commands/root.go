@@ -40,6 +40,7 @@ var (
 	clientID          string
 	clientSecret      string
 	clientSecretStdin bool
+	tenantID          string
 	cliVersion        string // set by NewRootCmd for use by power commands
 )
 
@@ -152,6 +153,7 @@ type AuthParams struct {
 	TokenStdin   bool
 	ClientID     string
 	ClientSecret string
+	TenantID     string
 }
 
 // ResolveAuthForProfile determines the server URL and auth provider for a
@@ -164,6 +166,8 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	tok := params.Token
 	cid := params.ClientID
 	csecret := params.ClientSecret
+	tid := params.TenantID
+	isPlatform := false
 
 	// Config profile: fill remaining gaps
 	if len(cfg.Profiles) > 0 {
@@ -173,6 +177,25 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 				url = p.URL
 			}
 			switch p.AuthMethod {
+			case "platform":
+				isPlatform = true
+				if cid == "" && p.ClientID != "" {
+					resolved, err := config.ResolveSecret(p.ClientID)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+					}
+					cid = resolved
+				}
+				if csecret == "" && p.ClientSecret != "" {
+					resolved, err := config.ResolveSecret(p.ClientSecret)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+					}
+					csecret = resolved
+				}
+				if tid == "" && p.TenantID != "" {
+					tid = p.TenantID
+				}
 			case "oauth2":
 				if cid == "" && p.ClientID != "" {
 					resolved, err := config.ResolveSecret(p.ClientID)
@@ -226,6 +249,17 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		return "", nil, exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
 	}
 
+	// Platform gateway auth: requires client credentials + tenant ID
+	if isPlatform || tid != "" {
+		if cid == "" || csecret == "" {
+			return "", nil, exitcode.New(exitcode.Usage, "--client-id and --client-secret are required for platform gateway auth")
+		}
+		if tid == "" {
+			return "", nil, exitcode.New(exitcode.Usage, "--tenant-id is required for platform gateway auth")
+		}
+		return url, auth.NewPlatformOAuth2Provider(url, cid, csecret, tid), nil
+	}
+
 	// Construct auth provider
 	switch {
 	case cid != "" && csecret != "":
@@ -258,46 +292,12 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if clientSecret == "" {
 		clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
 	}
-
-	// Config profile: fill remaining gaps
-	if len(cfg.Profiles) > 0 {
-		p, _, err := config.GetProfile(cfg, profile)
-		if err == nil {
-			if serverURL == "" {
-				serverURL = p.URL
-			}
-			switch p.AuthMethod {
-			case "oauth2":
-				if clientID == "" && p.ClientID != "" {
-					resolved, err := config.ResolveSecret(p.ClientID)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
-					}
-					clientID = resolved
-				}
-				if clientSecret == "" && p.ClientSecret != "" {
-					resolved, err := config.ResolveSecret(p.ClientSecret)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
-					}
-					clientSecret = resolved
-				}
-			default: // "token" or empty
-				if token == "" && p.Token != "" {
-					resolved, err := config.ResolveSecret(p.Token)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving token from profile: %w", err)
-					}
-					token = resolved
-				}
-			}
-		}
-		if err != nil && profile != "" {
-			return "", nil, fmt.Errorf("loading profile: %w", err)
-		}
+	if tenantID == "" {
+		tenantID = os.Getenv("JAMF_TENANT_ID")
 	}
 
-	// Token from file or stdin
+	// Token from file or stdin (before delegating to ResolveAuthForProfile
+	// which does not handle stdin)
 	if token == "" && tokenFile != "" {
 		data, err := os.ReadFile(tokenFile)
 		if err != nil {
@@ -330,6 +330,7 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 		TokenFile:    tokenFile,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
+		TenantID:     tenantID,
 	})
 	if err != nil {
 		return "", nil, err
@@ -393,7 +394,11 @@ device management, inventory/reporting, and configuration management.`,
 			}
 
 			// Build HTTP client with decorators
-			var httpClient generated.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verbose))}
+			clientOpts := []client.Option{client.WithVerbose(verbose)}
+			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
+				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
+			}
+			var httpClient generated.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}
@@ -447,6 +452,7 @@ device management, inventory/reporting, and configuration management.`,
 	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (visible in ps; prefer JAMF_CLIENT_ID env)")
 	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (visible in ps; prefer JAMF_CLIENT_SECRET env or --client-secret-stdin)")
 	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
+	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 
 	// Version command
 	cmd.AddCommand(&cobra.Command{

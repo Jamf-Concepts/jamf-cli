@@ -138,3 +138,109 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 func (p *OAuth2Provider) Name() string {
 	return "oauth2"
 }
+
+// PlatformOAuth2Provider uses the Jamf Platform Gateway for authentication.
+// Instead of authenticating directly against a Jamf Pro instance, it obtains
+// tokens from a regional platform gateway (e.g., https://us.api.platform.jamf.com)
+// and routes all API requests through that gateway using tenant-scoped URL paths.
+type PlatformOAuth2Provider struct {
+	baseURL      string
+	clientID     string
+	clientSecret string
+	tenantID     string
+	httpClient   *http.Client
+
+	// cached token state
+	mu            sync.Mutex
+	token         string
+	expiresAt     time.Time
+	refreshBuffer time.Duration
+}
+
+func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, tenantID string) *PlatformOAuth2Provider {
+	return &PlatformOAuth2Provider{
+		baseURL:      baseURL,
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		tenantID:     tenantID,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		refreshBuffer: 10 * time.Second,
+	}
+}
+
+func (p *PlatformOAuth2Provider) GetToken(ctx context.Context) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.token != "" && time.Now().Before(p.expiresAt.Add(-p.refreshBuffer)) {
+		return p.token, nil
+	}
+
+	token, expiresIn, err := p.exchangeToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	p.token = token
+	p.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
+	return p.token, nil
+}
+
+func (p *PlatformOAuth2Provider) exchangeToken(ctx context.Context) (string, int, error) {
+	data := url.Values{
+		"grant_type":    {"client_credentials"},
+		"client_id":     {p.clientID},
+		"client_secret": {p.clientSecret},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/auth/token",
+		strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", 0, fmt.Errorf("creating platform token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return "", 0, fmt.Errorf("platform token exchange request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return "", 0, fmt.Errorf("platform token exchange failed: invalid client credentials, verify your client-id and client-secret are correct")
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", 0, fmt.Errorf("platform token exchange failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return "", 0, fmt.Errorf("parsing platform token response: %w", err)
+	}
+
+	if tokenResp.AccessToken == "" {
+		return "", 0, fmt.Errorf("platform token exchange returned empty access_token")
+	}
+
+	if tokenResp.ExpiresIn <= 0 {
+		return "", 0, fmt.Errorf("platform token exchange returned invalid expires_in: %d", tokenResp.ExpiresIn)
+	}
+
+	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
+}
+
+// TenantID returns the tenant identifier used for gateway URL path rewriting.
+func (p *PlatformOAuth2Provider) TenantID() string {
+	return p.tenantID
+}
+
+func (p *PlatformOAuth2Provider) Name() string {
+	return "platform"
+}

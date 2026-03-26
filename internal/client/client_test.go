@@ -393,3 +393,130 @@ func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
 		t.Errorf("error should mention retry count, got: %q", err.Error())
 	}
 }
+
+// --- Platform gateway path rewriting tests ---
+
+func TestRewritePathForGateway_ClassicAPI(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"/JSSResource/computers", "/api/proclassic/tenant/abc-123/computers"},
+		{"/JSSResource/policies/id/5", "/api/proclassic/tenant/abc-123/policies/id/5"},
+		{"/JSSResource/mobiledevices", "/api/proclassic/tenant/abc-123/mobiledevices"},
+	}
+	for _, tt := range tests {
+		got := rewritePathForGateway(tt.input, "abc-123")
+		if got != tt.want {
+			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestRewritePathForGateway_ModernAPI(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"/api/v1/buildings", "/api/pro/tenant/abc-123/v1/buildings"},
+		{"/api/v2/mobile-devices", "/api/pro/tenant/abc-123/v2/mobile-devices"},
+		{"/api/v1/accounts/userid/1", "/api/pro/tenant/abc-123/v1/accounts/userid/1"},
+		{"/api/preview/computers", "/api/pro/tenant/abc-123/preview/computers"},
+	}
+	for _, tt := range tests {
+		got := rewritePathForGateway(tt.input, "abc-123")
+		if got != tt.want {
+			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestRewritePathForGateway_NoRewrite(t *testing.T) {
+	// Paths that don't match /api/ or /JSSResource pass through unchanged
+	tests := []string{
+		"/auth/token",
+		"/healthCheck.html",
+	}
+	for _, input := range tests {
+		got := rewritePathForGateway(input, "abc-123")
+		if got != input {
+			t.Errorf("rewritePathForGateway(%q) = %q, want unchanged", input, got)
+		}
+	}
+}
+
+func TestDo_PlatformGateway_ClassicPath(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	_, err := c.Do(context.Background(), "GET", "/JSSResource/computers", nil)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	want := "/api/proclassic/tenant/tenant-uuid/computers"
+	if gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+}
+
+func TestDo_PlatformGateway_ModernPath(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	// Path without /api prefix — should get /api prepended, then rewritten
+	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	want := "/api/pro/tenant/tenant-uuid/v1/buildings"
+	if gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+}
+
+func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	_, err := c.Do(context.Background(), "GET", "/api/v2/users", nil)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	want := "/api/pro/tenant/tenant-uuid/v2/users"
+	if gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+}
+
+func TestWithTenantID_SetsField(t *testing.T) {
+	c := New("https://example.com", auth.NewTokenProvider("tok"))
+	if c.tenantID != "" {
+		t.Error("tenantID should default to empty")
+	}
+
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithTenantID("my-tenant"))
+	if c.tenantID != "my-tenant" {
+		t.Errorf("tenantID = %q, want %q", c.tenantID, "my-tenant")
+	}
+}
