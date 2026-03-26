@@ -78,7 +78,7 @@ func TestDo_ExplicitAPIPrefix(t *testing.T) {
 	}
 }
 
-func TestDo_SetsJSONHeaders(t *testing.T) {
+func TestDo_SetsJSONHeaders_ModernAPI(t *testing.T) {
 	var gotAccept, gotContentType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAccept = r.Header.Get("Accept")
@@ -91,7 +91,7 @@ func TestDo_SetsJSONHeaders(t *testing.T) {
 	c := New(srv.URL, auth.NewTokenProvider("test-token"))
 
 	body := strings.NewReader(`{"name":"test"}`)
-	_, err := c.Do(context.Background(), "POST", "/JSSResource/policies/id/0", body)
+	_, err := c.Do(context.Background(), "POST", "/v1/buildings", body)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
@@ -101,6 +101,84 @@ func TestDo_SetsJSONHeaders(t *testing.T) {
 	}
 	if gotContentType != "application/json" {
 		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/json")
+	}
+}
+
+func TestDo_SetsXMLHeaders_ClassicAPI(t *testing.T) {
+	var gotAccept, gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAccept = r.Header.Get("Accept")
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<policy/>"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	body := strings.NewReader(`<policy><name>Test</name></policy>`)
+	_, err := c.Do(context.Background(), "POST", "/JSSResource/policies/id/0", body)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	if gotAccept != "application/xml" {
+		t.Errorf("Accept = %q, want %q", gotAccept, "application/xml")
+	}
+	if gotContentType != "application/xml" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/xml")
+	}
+}
+
+func TestDo_SetsXMLHeaders_ClassicAPIGet(t *testing.T) {
+	var gotAccept, gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAccept = r.Header.Get("Accept")
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<policies/>"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	_, err := c.Do(context.Background(), "GET", "/JSSResource/policies", nil)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	if gotAccept != "application/xml" {
+		t.Errorf("Accept = %q, want %q", gotAccept, "application/xml")
+	}
+	if gotContentType != "" {
+		t.Errorf("Content-Type should be empty for GET, got %q", gotContentType)
+	}
+}
+
+func TestDo_SetsXMLHeaders_PlatformGatewayClassic(t *testing.T) {
+	var gotAccept, gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAccept = r.Header.Get("Accept")
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<policy/>"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tid"))
+
+	body := strings.NewReader(`<policy><name>Test</name></policy>`)
+	_, err := c.Do(context.Background(), "POST", "/JSSResource/policies/id/0", body)
+	if err != nil {
+		t.Fatalf("Do() error = %v", err)
+	}
+
+	// After gateway rewrite, path is /api/proclassic/... — should still get XML headers
+	if gotAccept != "application/xml" {
+		t.Errorf("Accept = %q, want %q", gotAccept, "application/xml")
+	}
+	if gotContentType != "application/xml" {
+		t.Errorf("Content-Type = %q, want %q", gotContentType, "application/xml")
 	}
 }
 

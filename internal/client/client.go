@@ -93,10 +93,20 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "jamfpro-cli/1.0 (+https://github.com/Jamf-Concepts/jamfpro-cli)")
-	if bodyData != nil {
-		req.Header.Set("Content-Type", "application/json")
+
+	// Classic API endpoints use XML; modern API uses JSON.
+	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
+	if isClassic {
+		req.Header.Set("Accept", "application/xml")
+		if bodyData != nil {
+			req.Header.Set("Content-Type", "application/xml")
+		}
+	} else {
+		req.Header.Set("Accept", "application/json")
+		if bodyData != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	if c.verbose {
