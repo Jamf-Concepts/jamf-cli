@@ -89,7 +89,7 @@ func smokeGET(t *testing.T, httpClient generated.HTTPClient, path string) (body 
 		t.Fatalf("GET %s: %v", path, err)
 		return nil, true
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {

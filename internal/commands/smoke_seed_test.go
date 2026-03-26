@@ -205,7 +205,7 @@ func TestSmoke_Seed(t *testing.T) {
 					failed++
 					return
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				body, _ := io.ReadAll(resp.Body)
 				if resp.StatusCode >= 400 {
 					t.Logf("create failed (HTTP %d): %s", resp.StatusCode, truncate(body, 200))
@@ -222,7 +222,7 @@ func TestSmoke_Seed(t *testing.T) {
 					failed++
 					return
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				body, _ := io.ReadAll(resp.Body)
 				t.Logf("created (HTTP %d): %s", resp.StatusCode, truncate(body, 100))
 				created++
@@ -242,7 +242,7 @@ func resourceExists(ctx context.Context, client generated.HTTPClient, sd seedDef
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 
 	return strings.Contains(string(body), smokeTestPrefix)
@@ -301,7 +301,7 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 	if err != nil {
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 
 	var items []map[string]interface{}
@@ -315,7 +315,7 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 		if !ok {
 			return nil
 		}
-		json.Unmarshal(inner, &items)
+		_ = json.Unmarshal(inner, &items)
 	} else {
 		// Modern: try paginated, then array
 		var paginated struct {
@@ -324,7 +324,7 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 		if json.Unmarshal(body, &paginated) == nil && len(paginated.Results) > 0 {
 			items = paginated.Results
 		} else {
-			json.Unmarshal(body, &items)
+			_ = json.Unmarshal(body, &items)
 		}
 	}
 

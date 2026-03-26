@@ -21,6 +21,7 @@ func TestCheckFailedMDMCommands(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 15 {
 		t.Errorf("affected = %d, want 15", result.AffectedCount)
@@ -86,6 +87,7 @@ func TestCheckDEPTokenExpiry(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding for expiring token")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1 (only the 2026-04-01 token)", result.AffectedCount)
@@ -106,6 +108,7 @@ func TestCheckPrestageCoverage_NoPresetages(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding when no prestages configured")
+		return
 	}
 	if result.Severity != severityWarning {
 		t.Errorf("severity = %q, want %q", result.Severity, severityWarning)
@@ -146,6 +149,7 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding for empty groups")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2", result.AffectedCount)
@@ -171,6 +175,7 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding for unencrypted devices")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2 (NOT_STARTED + SOME_ENCRYPTED)", result.AffectedCount)
@@ -234,6 +239,7 @@ func TestCheckGatekeeper_Found(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding for disabled Gatekeeper")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2 (DISABLED + Disabled)", result.AffectedCount)
@@ -283,6 +289,7 @@ func TestCheckPoliciesNoScope(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding for unscoped policy")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1 (only id=2 has empty scope)", result.AffectedCount)
@@ -320,6 +327,7 @@ func TestCheckPoliciesNoScope_NoScopeKey(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected finding when scope key is missing entirely")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1", result.AffectedCount)

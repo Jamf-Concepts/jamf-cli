@@ -183,6 +183,7 @@ paths:
 	}
 	if resource == nil {
 		t.Fatal("ParseSpec() returned nil resource")
+		return
 	}
 
 	if resource.Name != "widgets" {
@@ -281,6 +282,7 @@ func TestParseSpec_RealBuildingSpec(t *testing.T) {
 	}
 	if resource == nil {
 		t.Fatal("ParseSpec(Building.yaml) returned nil")
+		return
 	}
 
 	if resource.Name != "buildings" {
@@ -374,6 +376,7 @@ components:
 	item := resource.Schemas["Item"]
 	if item == nil {
 		t.Fatal("missing Item schema")
+		return
 	}
 	if item.Type != "object" {
 		t.Errorf("schema type = %q, want %q", item.Type, "object")
