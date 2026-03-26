@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -234,7 +235,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *generated.CLIContex
 	}
 
 	// Fetch policy details in parallel (bounded concurrency)
-	details, _ := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, stub policyStub) (map[string]interface{}, error) {
+	details, fetchErrs := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, stub policyStub) (map[string]interface{}, error) {
 		path := fmt.Sprintf("/JSSResource/policies/id/%s", stub.id)
 		data, err := FetchJSON(ctx, cliCtx.Client, path)
 		if err != nil {
@@ -242,6 +243,12 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *generated.CLIContex
 		}
 		return unwrapClassicDetail(data), nil
 	})
+	if len(fetchErrs) > 0 {
+		fmt.Fprintf(os.Stderr, "WARNING: %d of %d policy detail fetches failed\n", len(fetchErrs), len(stubs))
+		if len(fetchErrs) == len(stubs) {
+			return fmt.Errorf("all policy detail fetches failed; cannot determine group usage")
+		}
+	}
 
 	// Build set of group names referenced by any policy scope
 	referenced := make(map[string]bool)

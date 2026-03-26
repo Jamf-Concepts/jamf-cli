@@ -128,6 +128,9 @@ func runGroupMutation(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Group update complete: %d succeeded, %d failed.\n", successCount, failCount)
+	if failCount > 0 {
+		return fmt.Errorf("%d of %d group membership operations failed", failCount, successCount+failCount)
+	}
 	return nil
 }
 

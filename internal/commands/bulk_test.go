@@ -689,9 +689,9 @@ func TestDisablePolicies_PartialFailure(t *testing.T) {
 
 	cmd := newBulkCmd(cliCtx)
 	_, stderr, err := runCobraCmd(t, cmd, "disable-policies", "--yes")
-	// Partial failure: command should succeed overall (not return an error)
-	if err != nil {
-		t.Fatalf("unexpected error on partial failure: %v", err)
+	// Partial failure: command should return an error for non-zero exit code
+	if err == nil {
+		t.Fatal("expected error on partial failure")
 	}
 
 	// Stderr should mention both "ok" (policy 1) and "ERROR" (policy 2)
@@ -725,8 +725,9 @@ func TestSendCommand_PartialFailure(t *testing.T) {
 		"--group", "Lab Macs",
 		"--yes",
 	)
-	if err != nil {
-		t.Fatalf("unexpected error on partial failure: %v", err)
+	// Partial failure: command should return an error for non-zero exit code
+	if err == nil {
+		t.Fatal("expected error on partial failure")
 	}
 
 	if !strings.Contains(stderr, "ok") {

@@ -231,18 +231,26 @@ func StripServerFields(obj map[string]interface{}) map[string]interface{} {
 		if stripKeys[k] {
 			continue
 		}
-		// Also strip keys ending in common timestamp suffixes
+		// Strip keys ending in common timestamp suffixes
 		lower := strings.ToLower(k)
 		if strings.HasSuffix(lower, "_epoch") || strings.HasSuffix(lower, "_utc") {
-			// Check if there's a corresponding non-epoch field
-			if _, isTimestamp := stripKeys[k]; isTimestamp {
-				continue
-			}
+			continue
 		}
-		// Recursively strip nested objects
-		if nested, ok := v.(map[string]interface{}); ok {
-			result[k] = StripServerFields(nested)
-		} else {
+		// Recursively strip nested objects and arrays
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[k] = StripServerFields(val)
+		case []interface{}:
+			stripped := make([]interface{}, len(val))
+			for i, elem := range val {
+				if m, ok := elem.(map[string]interface{}); ok {
+					stripped[i] = StripServerFields(m)
+				} else {
+					stripped[i] = elem
+				}
+			}
+			result[k] = stripped
+		default:
 			result[k] = v
 		}
 	}

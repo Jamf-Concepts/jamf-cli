@@ -86,6 +86,55 @@ func TestStripServerFields(t *testing.T) {
 	}
 }
 
+func TestStripServerFields_Arrays(t *testing.T) {
+	obj := map[string]interface{}{
+		"name": "Test Policy",
+		"scope": map[string]interface{}{
+			"computers": []interface{}{
+				map[string]interface{}{"id": float64(1), "name": "Mac1", "href": "/api/v1/computers/1"},
+				map[string]interface{}{"id": float64(2), "name": "Mac2"},
+			},
+		},
+	}
+
+	stripped := StripServerFields(obj)
+	scope := stripped["scope"].(map[string]interface{})
+	computers := scope["computers"].([]interface{})
+	if len(computers) != 2 {
+		t.Fatalf("expected 2 computers, got %d", len(computers))
+	}
+	comp := computers[0].(map[string]interface{})
+	if _, ok := comp["id"]; ok {
+		t.Error("id should be stripped from array elements")
+	}
+	if _, ok := comp["href"]; ok {
+		t.Error("href should be stripped from array elements")
+	}
+	if comp["name"] != "Mac1" {
+		t.Errorf("name should be preserved in array elements, got %v", comp["name"])
+	}
+}
+
+func TestStripServerFields_TimestampSuffixes(t *testing.T) {
+	obj := map[string]interface{}{
+		"name":                "Test",
+		"last_modified_epoch": float64(1234567890),
+		"some_field_utc":      "2026-01-01T00:00:00Z",
+		"normal_field":        "keep",
+	}
+
+	stripped := StripServerFields(obj)
+	if _, ok := stripped["last_modified_epoch"]; ok {
+		t.Error("_epoch suffix key should be stripped")
+	}
+	if _, ok := stripped["some_field_utc"]; ok {
+		t.Error("_utc suffix key should be stripped")
+	}
+	if stripped["normal_field"] != "keep" {
+		t.Error("normal fields should be preserved")
+	}
+}
+
 func TestStripServerFields_EmptyMap(t *testing.T) {
 	result := StripServerFields(map[string]interface{}{})
 	if len(result) != 0 {

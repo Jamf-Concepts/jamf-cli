@@ -201,6 +201,9 @@ func runBackup(ctx context.Context, cliCtx *generated.CLIContext, opts backupOpt
 	}
 	fmt.Fprintln(os.Stderr)
 
+	if len(failures) > 0 {
+		return fmt.Errorf("backup completed with %d failures (see _failures%s)", len(failures), ext)
+	}
 	return nil
 }
 

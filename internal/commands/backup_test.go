@@ -174,9 +174,9 @@ func TestBackup_PartialFailure(t *testing.T) {
 		Resources:   "policies",
 		Concurrency: 2,
 	})
-	// Should NOT return error — partial failures are tolerated
-	if err != nil {
-		t.Fatalf("runBackup should tolerate partial failures, got: %v", err)
+	// Should return error indicating failures occurred
+	if err == nil {
+		t.Fatal("runBackup should return error when failures exist")
 	}
 
 	// Good policy should be exported

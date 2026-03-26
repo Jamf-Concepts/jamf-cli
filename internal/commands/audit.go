@@ -140,16 +140,13 @@ func runAudit(ctx context.Context, cliCtx *generated.CLIContext, opts auditOptio
 
 	formatter := output.New(outputFmt, noColor, wide)
 	if outFile != "" {
-		// outFile is handled by root PersistentPreRunE via cliCtx.Output
-		return cliCtx.Output.PrintRaw(mustJSON(rows))
+		data, err := json.Marshal(rows)
+		if err != nil {
+			return fmt.Errorf("marshalling audit results: %w", err)
+		}
+		return cliCtx.Output.PrintRaw(data)
 	}
 	return formatter.Print(rows)
-}
-
-// mustJSON marshals data to JSON bytes (only for well-formed data).
-func mustJSON(data interface{}) []byte {
-	b, _ := json.Marshal(data)
-	return b
 }
 
 // --- Individual Check Implementations ---
@@ -266,6 +263,10 @@ func checkEmptySmartGroups(ctx context.Context, client generated.HTTPClient, _ i
 
 	emptyCount := 0
 	for _, g := range groups {
+		smart, _ := g["smartGroup"].(bool)
+		if !smart {
+			continue
+		}
 		if count, ok := g["memberCount"].(float64); ok && count == 0 {
 			emptyCount++
 		}
@@ -289,6 +290,7 @@ func checkPoliciesNoScope(ctx context.Context, client generated.HTTPClient, _ in
 	}
 
 	noScopeCount := 0
+	skippedCount := 0
 	for _, r := range raw {
 		m, ok := r.(map[string]interface{})
 		if !ok {
@@ -303,6 +305,8 @@ func checkPoliciesNoScope(ctx context.Context, client generated.HTTPClient, _ in
 		path := fmt.Sprintf("/JSSResource/policies/id/%s", id)
 		detail, err := fetchJSON(ctx, client, path)
 		if err != nil {
+			skippedCount++
+			fmt.Fprintf(os.Stderr, "WARNING: skipping policy id=%s: %v\n", id, err)
 			continue
 		}
 		detail = unwrapClassicDetail(detail)
@@ -321,6 +325,13 @@ func checkPoliciesNoScope(ctx context.Context, client generated.HTTPClient, _ in
 		}
 	}
 
+	if noScopeCount == 0 && skippedCount == 0 {
+		return nil, nil
+	}
+	rec := "Add scope to policies or disable/delete unscoped ones"
+	if skippedCount > 0 {
+		rec = fmt.Sprintf("%s (%d policies could not be checked)", rec, skippedCount)
+	}
 	if noScopeCount == 0 {
 		return nil, nil
 	}
@@ -329,7 +340,7 @@ func checkPoliciesNoScope(ctx context.Context, client generated.HTTPClient, _ in
 		Severity:       severityWarning,
 		Name:           "Policies with no scope",
 		AffectedCount:  noScopeCount,
-		Recommendation: "Add scope to policies or disable/delete unscoped ones",
+		Recommendation: rec,
 	}, nil
 }
 
@@ -382,7 +393,7 @@ func checkDEPTokenExpiry(ctx context.Context, client generated.HTTPClient, _ int
 		return nil, nil
 	}
 	sev := severityWarning
-	if expiringCount > 0 {
+	if expiringCount > 1 {
 		sev = severityCritical
 	}
 	return &auditResult{

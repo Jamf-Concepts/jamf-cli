@@ -136,6 +136,9 @@ func runSendCommand(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Command %q sent: %d succeeded, %d failed.\n", command, successCount, failCount)
+	if failCount > 0 {
+		return fmt.Errorf("%d of %d send-command operations failed", failCount, successCount+failCount)
+	}
 	return nil
 }
 

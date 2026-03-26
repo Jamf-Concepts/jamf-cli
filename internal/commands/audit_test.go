@@ -94,6 +94,68 @@ func TestCheckDEPTokenExpiry(t *testing.T) {
 	}
 }
 
+func TestCheckDEPTokenExpiry_SingleToken_Warning(t *testing.T) {
+	oldTimeNow := timeNow
+	timeNow = func() time.Time { return time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC) }
+	defer func() { timeNow = oldTimeNow }()
+
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/device-enrollments": {200, `{
+				"totalCount": 1,
+				"results": [
+					{"id": "1", "tokenExpirationDate": "2026-04-01"}
+				]
+			}`},
+		},
+	}
+
+	result, err := checkDEPTokenExpiry(context.Background(), client, 14)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected finding for expiring token")
+		return
+	}
+	if result.Severity != severityWarning {
+		t.Errorf("severity = %q, want %q for single expiring token", result.Severity, severityWarning)
+	}
+}
+
+func TestCheckDEPTokenExpiry_MultipleTokens_Critical(t *testing.T) {
+	oldTimeNow := timeNow
+	timeNow = func() time.Time { return time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC) }
+	defer func() { timeNow = oldTimeNow }()
+
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/device-enrollments": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id": "1", "tokenExpirationDate": "2026-04-01"},
+					{"id": "2", "tokenExpirationDate": "2026-03-20"}
+				]
+			}`},
+		},
+	}
+
+	result, err := checkDEPTokenExpiry(context.Background(), client, 14)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected finding for expiring tokens")
+		return
+	}
+	if result.AffectedCount != 2 {
+		t.Errorf("affected = %d, want 2", result.AffectedCount)
+	}
+	if result.Severity != severityCritical {
+		t.Errorf("severity = %q, want %q for multiple expiring tokens", result.Severity, severityCritical)
+	}
+}
+
 func TestCheckPrestageCoverage_NoPresetages(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
@@ -136,9 +198,10 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v1/computer-groups": {200, `[
-				{"id":"1","name":"All Macs","memberCount":50},
-				{"id":"2","name":"Empty Group","memberCount":0},
-				{"id":"3","name":"Also Empty","memberCount":0}
+				{"id":"1","name":"All Macs","smartGroup":true,"memberCount":50},
+				{"id":"2","name":"Empty Smart","smartGroup":true,"memberCount":0},
+				{"id":"3","name":"Empty Static","smartGroup":false,"memberCount":0},
+				{"id":"4","name":"Also Empty Smart","smartGroup":true,"memberCount":0}
 			]`},
 		},
 	}
@@ -148,11 +211,11 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result == nil {
-		t.Fatal("expected finding for empty groups")
+		t.Fatal("expected finding for empty smart groups")
 		return
 	}
 	if result.AffectedCount != 2 {
-		t.Errorf("affected = %d, want 2", result.AffectedCount)
+		t.Errorf("affected = %d, want 2 (only smart groups)", result.AffectedCount)
 	}
 }
 

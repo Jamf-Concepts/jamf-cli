@@ -167,6 +167,9 @@ func runTogglePolicies(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "%sd %d policies; %d failed.\n", capitalize(verb), successCount, failCount)
+	if failCount > 0 {
+		return fmt.Errorf("%d of %d policy %s operations failed", failCount, successCount+failCount, verb)
+	}
 	return nil
 }
 
