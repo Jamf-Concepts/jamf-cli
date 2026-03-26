@@ -17,9 +17,9 @@ build:
 install:
 	go install $(LDFLAGS) ./cmd/jamfpro-cli
 
-# Run tests
+# Run tests (with race detection for concurrent code)
 test:
-	go test -v ./...
+	go test -race -v ./...
 
 # Run tests with coverage
 test-cover:

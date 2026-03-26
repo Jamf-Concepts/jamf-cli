@@ -318,6 +318,7 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	results := make(map[string]string)
 	colorHints := make(map[string]string)
 	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10) // cap concurrent API calls
 
 	// Helper to send a single fetch result.
 	send := func(key, value string, err error) {
@@ -348,6 +349,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/jamf-pro-version")
 		if err != nil {
 			send("version", "", err)
@@ -364,6 +367,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		h := checkHealth(serverURL)
 		send("health", h.Status, nil)
 		if h.Healthy {
@@ -377,6 +382,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/slasa")
 		if err != nil {
 			send("slasa", "", err)
@@ -393,6 +400,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v2/jamf-pro-information")
 		if err != nil {
 			for _, k := range []string{"vpp", "dep", "cloud_deploy", "patch", "sso", "smtp"} {
@@ -412,6 +421,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		resp, err := client.Do(ctx, "GET", "/v1/csa/token", nil)
 		if err != nil {
 			send("csa_scopes", "", err)
@@ -451,6 +462,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v3/check-in")
 		if err != nil {
 			for _, k := range []string{"checkin_freq", "create_hooks", "startup_script", "local_config"} {
@@ -472,6 +485,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v4/enrollment")
 		if err != nil {
 			for _, k := range []string{"enroll_macos_enterprise", "enroll_ios_enterprise", "enroll_ios_personal", "enroll_adue", "enroll_adde_macos"} {
@@ -490,6 +505,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/self-service/settings")
 		if err != nil {
 			for _, k := range []string{"ss_install_auto", "ss_login_required", "ss_notifications"} {
@@ -522,6 +539,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v2/local-admin-password/settings")
 		if err != nil {
 			for _, k := range []string{"laps_auto_deploy", "laps_auto_rotate"} {
@@ -537,6 +556,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/device-communication-settings")
 		if err != nil {
 			for _, k := range []string{"mdm_renew_computer", "mdm_renew_mobile", "mdm_cert_computer_days", "mdm_cert_mobile_days"} {
@@ -562,6 +583,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/pki/certificate-authority/active")
 		if err != nil {
 			send("ca_expires", "", err)
@@ -579,6 +602,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/inventory-information")
 		if err != nil {
 			for _, k := range []string{"managed_computers", "unmanaged_computers", "managed_devices", "unmanaged_devices"} {
@@ -596,6 +621,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/sites")
 		send("sites", v, err)
 	}()
@@ -603,6 +630,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/buildings")
 		send("buildings", v, err)
 	}()
@@ -610,6 +639,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/departments")
 		send("departments", v, err)
 	}()
@@ -617,6 +648,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/categories")
 		send("categories", v, err)
 	}()
@@ -625,6 +658,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/computer-groups")
 		send("computer_groups", v, err)
 	}()
@@ -632,6 +667,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/smart-groups")
 		send("md_smart_groups", v, err)
 	}()
@@ -640,6 +677,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/scripts")
 		send("scripts", v, err)
 	}()
@@ -647,6 +686,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/ebooks")
 		send("ebooks", v, err)
 	}()
@@ -654,6 +695,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/jcds/files")
 		send("jcds_files", v, err)
 	}()
@@ -662,6 +705,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
 		if err != nil {
 			send("dep_instances", "", err)
@@ -701,6 +746,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v3/computer-prestages")
 		send("computer_prestages", v, err)
 	}()
@@ -708,6 +755,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v3/mobile-device-prestages")
 		send("md_prestages", v, err)
 	}()
@@ -716,6 +765,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/static-user-groups")
 		send("static_user_groups", v, err)
 	}()
@@ -724,6 +775,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		resp, err := client.Do(ctx, "GET", "/v1/notifications", nil)
 		if err != nil {
 			send("alerts", "", err)
@@ -770,6 +823,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/computercommands", "computer_commands")
 		send("pending_computer_cmds", v, err)
 	}()
@@ -777,6 +832,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/mobiledevicecommands", "mobile_device_commands")
 		send("pending_mobile_cmds", v, err)
 	}()
@@ -785,6 +842,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError")
 		send("failed_cmds", v, err)
 	}()
@@ -793,6 +852,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/policies", "policies")
 		send("policies", v, err)
 	}()
@@ -800,6 +861,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/osxconfigurationprofiles", "os_x_configuration_profiles")
 		send("macos_profiles", v, err)
 	}()
@@ -807,6 +870,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/mobiledeviceconfigurationprofiles", "configuration_profiles")
 		send("ios_profiles", v, err)
 	}()
@@ -814,6 +879,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/packages", "packages")
 		send("packages", v, err)
 	}()
@@ -822,6 +889,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/patchsoftwaretitles", "patch_software_titles")
 		send("patch_titles", v, err)
 	}()
@@ -830,6 +899,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/webhooks", "webhooks")
 		send("webhooks", v, err)
 	}()
@@ -837,6 +908,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/ldap/servers")
 		send("ldap_servers", v, err)
 	}()
@@ -845,6 +918,8 @@ func runOverview(ctx context.Context, cliCtx *generated.CLIContext) ([]overviewS
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		// First get enrollment instances to find the first ID
 		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
 		if err != nil {

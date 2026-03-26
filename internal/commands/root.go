@@ -441,11 +441,11 @@ device management, inventory/reporting, and configuration management.`,
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
-	cmd.PersistentFlags().StringVar(&token, "token", "", "API token (or JAMF_TOKEN env)")
+	cmd.PersistentFlags().StringVar(&token, "token", "", "API token (visible in ps; prefer JAMF_TOKEN env or --token-stdin)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
-	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (or JAMF_CLIENT_ID env)")
-	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (or JAMF_CLIENT_SECRET env)")
+	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (visible in ps; prefer JAMF_CLIENT_ID env)")
+	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (visible in ps; prefer JAMF_CLIENT_SECRET env or --client-secret-stdin)")
 	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
 
 	// Version command

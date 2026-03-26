@@ -378,7 +378,7 @@ config profile. The username and password are not stored.`,
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&setupUser, "username", "", "admin username")
-	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (prompted if omitted)")
+	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (visible in ps; omit to be prompted securely)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\")")
 
