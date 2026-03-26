@@ -1,0 +1,33 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Request Mirroring Command Definition
+  description: This MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    RequestMirroringCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            destinationDeviceId:
+              type: string
+              example: 'xx:xx:xx:xx:xx'
+              description: The hardware address of the destination device to which the screen will be mirrored. This value isn’t case-sensitive. Required if destinationName is not provided.
+            destinationName:
+              type: string
+              example: 'airplay name'
+              description: The name of the destination device to which the screen will be mirrored. Required if destinationDeviceId is not provided.
+            password:
+              type: string
+              format: password
+              example: 'password123'
+              writeOnly: true
+              nullable: true
+              description: The screen-sharing password used to connect to the destination device.
+            scanTime:
+              type: integer
+              example: 30
+              nullable: true
+              description: The scan time which device spends in seconds to find the destination device.

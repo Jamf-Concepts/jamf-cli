@@ -8,6 +8,12 @@ CLI tool for Jamf Pro Server API automation.
 
 ## Installation
 
+### Homebrew (macOS and Linux)
+
+```bash
+brew install Jamf-Concepts/tap/jamfpro-cli
+```
+
 ### Binary releases
 
 Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamfpro-cli/releases).
@@ -127,3 +133,9 @@ make generate    # Generate commands from OpenAPI specs
 ```
 
 See [Architecture & Development](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
+
+## License
+
+Copyright (c) 2025 Jamf. All rights reserved.
+
+This project is distributed under the [Jamf Concepts Use Agreement](LICENSE). See the LICENSE file for details.

@@ -40,6 +40,7 @@ var (
 	clientID          string
 	clientSecret      string
 	clientSecretStdin bool
+	cliVersion        string // set by NewRootCmd for use by power commands
 )
 
 // cliClient wraps our client to implement generated.HTTPClient
@@ -141,9 +142,105 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	}, nil
 }
 
+// AuthParams holds all auth-related inputs for profile resolution.
+// Enables callers (like diff) to resolve multiple profiles independently.
+type AuthParams struct {
+	Profile      string
+	ServerURL    string
+	Token        string
+	TokenFile    string
+	TokenStdin   bool
+	ClientID     string
+	ClientSecret string
+}
+
+// ResolveAuthForProfile determines the server URL and auth provider for a
+// specific profile name using the given config. Unlike resolveAuth, it does
+// not read or mutate package-level variables, making it safe to call multiple
+// times for different profiles (e.g., in the diff command).
+func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.Provider, error) {
+	profileName := params.Profile
+	url := params.ServerURL
+	tok := params.Token
+	cid := params.ClientID
+	csecret := params.ClientSecret
+
+	// Config profile: fill remaining gaps
+	if len(cfg.Profiles) > 0 {
+		p, _, err := config.GetProfile(cfg, profileName)
+		if err == nil {
+			if url == "" {
+				url = p.URL
+			}
+			switch p.AuthMethod {
+			case "oauth2":
+				if cid == "" && p.ClientID != "" {
+					resolved, err := config.ResolveSecret(p.ClientID)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+					}
+					cid = resolved
+				}
+				if csecret == "" && p.ClientSecret != "" {
+					resolved, err := config.ResolveSecret(p.ClientSecret)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+					}
+					csecret = resolved
+				}
+			default: // "token" or empty
+				if tok == "" && p.Token != "" {
+					resolved, err := config.ResolveSecret(p.Token)
+					if err != nil {
+						return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+					}
+					tok = resolved
+				}
+			}
+		}
+		if err != nil && profileName != "" {
+			return "", nil, fmt.Errorf("loading profile: %w", err)
+		}
+	}
+
+	// Token from file
+	if tok == "" && params.TokenFile != "" {
+		data, err := os.ReadFile(params.TokenFile)
+		if err != nil {
+			return "", nil, fmt.Errorf("reading token file %s: %w", params.TokenFile, err)
+		}
+		tok = strings.TrimSpace(string(data))
+	}
+
+	// Validate
+	if url == "" {
+		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
+	}
+	if strings.HasPrefix(url, "http://") {
+		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
+	}
+	if (cid != "") != (csecret != "") {
+		if cid != "" {
+			return "", nil, exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
+		}
+		return "", nil, exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
+	}
+
+	// Construct auth provider
+	switch {
+	case cid != "" && csecret != "":
+		return url, auth.NewOAuth2Provider(url, cid, csecret), nil
+	case tok != "":
+		return url, auth.NewTokenProvider(tok), nil
+	default:
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+	}
+}
+
 // resolveAuth determines the server URL and auth provider using the priority
 // chain: CLI flags > environment variables > config profile. It reads and
-// fills gaps in the package-level flag variables.
+// fills gaps in the package-level flag variables. Thin wrapper around
+// ResolveAuthForProfile.
 func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	// Environment variable fallbacks
 	if profile == "" {
@@ -226,32 +323,25 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 		clientSecret = strings.TrimSpace(string(data))
 	}
 
-	// Validate
-	if serverURL == "" {
-		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
-	}
-	if strings.HasPrefix(serverURL, "http://") {
-		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
-	}
-	if (clientID != "") != (clientSecret != "") {
-		if clientID != "" {
-			return "", nil, exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
-		}
-		return "", nil, exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
+	url, provider, err := ResolveAuthForProfile(cfg, AuthParams{
+		Profile:      profile,
+		ServerURL:    serverURL,
+		Token:        token,
+		TokenFile:    tokenFile,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+	})
+	if err != nil {
+		return "", nil, err
 	}
 
-	// Construct auth provider
-	switch {
-	case clientID != "" && clientSecret != "":
-		return serverURL, auth.NewOAuth2Provider(serverURL, clientID, clientSecret), nil
-	case token != "":
-		return serverURL, auth.NewTokenProvider(token), nil
-	default:
-		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
-	}
+	// Write back resolved URL so other code (overview health check) sees it
+	serverURL = url
+	return url, provider, nil
 }
 
 func NewRootCmd(version, commit, date string) *cobra.Command {
+	cliVersion = version
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &generated.CLIContext{}
 	var outFileHandle *os.File
@@ -278,6 +368,7 @@ device management, inventory/reporting, and configuration management.`,
 				"version":    true,
 				"config":     true,
 				"commands":   true,
+				"diff":       true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if skipCommands[c.Name()] {
@@ -350,11 +441,11 @@ device management, inventory/reporting, and configuration management.`,
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
-	cmd.PersistentFlags().StringVar(&token, "token", "", "API token (or JAMF_TOKEN env)")
+	cmd.PersistentFlags().StringVar(&token, "token", "", "API token (visible in ps; prefer JAMF_TOKEN env or --token-stdin)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
-	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (or JAMF_CLIENT_ID env)")
-	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (or JAMF_CLIENT_SECRET env)")
+	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (visible in ps; prefer JAMF_CLIENT_ID env)")
+	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (visible in ps; prefer JAMF_CLIENT_SECRET env or --client-secret-stdin)")
 	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
 
 	// Version command
@@ -379,6 +470,14 @@ device management, inventory/reporting, and configuration management.`,
 
 	// Overview command (requires auth — not in skipCommands)
 	cmd.AddCommand(newOverviewCmd(cliCtx))
+
+	// Power commands
+	cmd.AddCommand(newBackupCmd(cliCtx))
+	cmd.AddCommand(newAuditCmd(cliCtx))
+	cmd.AddCommand(newBulkCmd(cliCtx))
+	cmd.AddCommand(newReportCmd(cliCtx))
+	cmd.AddCommand(newDiffCmd())
+	cmd.AddCommand(newGroupToolsCmd(cliCtx))
 
 	// Register generated resource commands with CLIContext
 	generated.RegisterCommands(cmd, cliCtx)

@@ -1,0 +1,18 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Unlock User Account Command Definition
+  description: This MDM command exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    UnlockUserAccountCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            userName:
+              type: string
+              description: The username of the user account to unlock
+              example: 'user123'
+              required: true

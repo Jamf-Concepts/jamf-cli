@@ -9,5 +9,5 @@ metadata:
 spec:
   type: research
   lifecycle: experimental
-  owner: jamf-pro
-  system: jamf-pro-server
+  owner: concepts
+  system: jamf-concept-projects

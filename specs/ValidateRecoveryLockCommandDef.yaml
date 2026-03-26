@@ -1,0 +1,21 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Verify Recovery Lock Command Definition
+  description: This MDM commands exist to be re-used by multiple other Swagger files.
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    VerifyRecoveryLockCommand:
+      allOf:
+        - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
+        - type: object
+          properties:
+            password:
+              type: string
+              example: password123
+              format: password
+              minLength: 1
+              writeOnly: true
+              required: true
+              description: The password to verify.

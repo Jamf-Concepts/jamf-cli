@@ -210,6 +210,7 @@ func TestLoad_MissingFile(t *testing.T) {
 	}
 	if cfg == nil {
 		t.Fatal("Load() returned nil config")
+		return
 	}
 	if len(cfg.Profiles) != 0 {
 		t.Errorf("expected empty profiles, got %d", len(cfg.Profiles))

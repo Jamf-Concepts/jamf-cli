@@ -11,6 +11,7 @@ var commandAliases = map[string][]string{
 	"categories":     {"cat"},
 	"departments":    {"dept"},
 	"config":         {"cfg"},
+	"group-tools":    {"gt"},
 }
 
 // applyAliases appends Aliases to any root subcommand that has a mapping.

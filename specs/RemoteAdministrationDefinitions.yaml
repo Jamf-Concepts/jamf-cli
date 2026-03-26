@@ -1,0 +1,262 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - Definitions Library
+  description: These definitions exist to be re-used by other Remote administration Swagger files.
+  version: 0.0.1
+paths: { }
+components:
+  schemas:
+
+    RemoteAdministrationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          minimum: 1
+          example: 1
+        siteId:
+          type: string
+          example: 1
+        displayName:
+          type: string
+          example: Remote administration
+        type:
+          type: string
+          example: team-viewer
+          enum:
+            - team-viewer
+      description: A Remote administration response
+
+    RemoteAdministrationSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteAdministrationResponse'
+      description: A list with Remote administration configurations
+
+    ConnectionConfigurationCandidateRequest:
+      required:
+        - siteId
+        - displayName
+        - scriptToken
+        - enabled
+        - sessionTimeout
+      type: object
+      description: Request that creates configuration and initialize connection between Jamf Pro and Team Viewer
+      properties:
+        siteId:
+          type: string
+          description: An identifier of a site which Team Viewer Remote Administration will be configured on
+          example: '1'
+        displayName:
+          type: string
+          description: Name for Team Viewer Connection Configuration
+          minLength: 1
+          maxLength: 255
+          example: 'teamViewerConfiguration'
+        scriptToken:
+          type: string
+          description: Token which is used for connecting to Team Viewer
+          minLength: 1
+          maxLength: 255
+          example: '12847340-nPAX96bsaADH4Gz6K6i2'
+        enabled:
+          type: boolean
+          description: Defines the intent to enable or disable Team Viewer connection
+          example: true
+        sessionTimeout:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Number of minutes before the session expires
+          example: 15
+
+    ConnectionConfigurationResponse:
+      required:
+        - id
+        - siteId
+        - displayName
+        - enabled
+        - sessionTimeout
+      type: object
+      description: Response that contains information about connection configuration for Team Viewer
+      properties:
+        id:
+          type: string
+          description: An identifier of connection configuration for Team Viewer Remote Administration
+          example: '1'
+        siteId:
+          type: string
+          description: An identifier of a site which Team Viewer Remote Administration is configured on
+          example: '1'
+        displayName:
+          type: string
+          description: Name for Team Viewer Connection Configuration
+          example: 'teamViewerConfiguration'
+        enabled:
+          type: boolean
+          description: Describes if Team Viewer connection is enabled or disabled
+          example: true
+        sessionTimeout:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Number of minutes before the session expires
+          example: 15
+          nullable: true
+
+    ConnectionConfigurationUpdateRequest:
+      type: object
+      description: Request that updates configuration connection between Jamf Pro and Team Viewer
+      properties:
+        displayName:
+          type: string
+          description: Name for Team Viewer Connection Configuration
+          maxLength: 255
+          example: 'teamViewerConfiguration'
+        enabled:
+          type: boolean
+          description: Defines the intent to enable or disable Team Viewer connection
+          example: true
+        sessionTimeout:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Number of minutes before the session expires
+          example: 15
+        token:
+          type: string
+          description: Script token for Team Viewer Connection Configuration
+          maxLength: 255
+          example: '12843140-nPAX96bsaADH4Gz6K6i2'
+
+    ConnectionConfigurationStatusResponse:
+      required:
+        - connectionVerificationResult
+      type: object
+      description: Response that contains connection configuration status for Team Viewer
+      properties:
+        connectionVerificationResult:
+          type: string
+          description: connection configuration status for Team Viewer
+          example: 'VALID'
+
+    SessionDetails:
+      type: object
+      description: Session details
+      properties:
+        id:
+          type: string
+          description: Session identifier
+          example: '1'
+        code:
+          type: string
+          description: Sessions code
+          example: 's1234-5678'
+        description:
+          type: string
+          description: Session description. To be used for additional context on the reason of the session
+          example: 'Customer reported that he cannot install application X'
+        supporterLink:
+          type: string
+          description: Supporter session URL
+          example: 'https://get.teamviewer.com/v15/en/s12345678-a1b2c3d4e5f6'
+        endUserLink:
+          type: string
+          description: End user session URL
+          example: 'https://get.teamviewer.com/v15/en/s12345678'
+        deviceId:
+          type: string
+          description: Device identifier
+          example: '1'
+        deviceName:
+          type: string
+          description: Device name if found - null otherwise
+          example: 'Przemek MacBook Pro'
+        deviceType:
+          type: string
+          description: Device type
+          example: 'COMPUTER'
+          enum:
+            - 'COMPUTER'
+        state:
+          type: string
+          description: Session state
+          example: 'OPEN'
+          enum:
+            - 'OPEN'
+            - 'CLOSED'
+            - 'UNKNOWN'
+        creatorId:
+          type: string
+          description: ID of session creator if session created by Jamf Pro local user, null otherwise
+          example: '1'
+        creatorName:
+          type: string
+          description: Username of the session creator
+          example: 'creator'
+        createdAt:
+          type: string
+          description: Session creation time
+          format: date-time
+          example: '2021-06-10T12:00:00.00Z'
+
+    SessionStatus:
+      type: object
+      description: Session status
+      properties:
+        sessionState:
+          type: string
+          description: Session state
+          example: 'OPEN'
+          enum:
+            - 'OPEN'
+            - 'CLOSED'
+            - 'UNKNOWN'
+        online:
+          type: boolean
+          description: Defines if the end user is online
+          example: true
+
+    SessionDetailsSearchResults:
+      type: object
+      description: Sessions search result
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionDetails'
+
+    SessionCandidateRequest:
+      required:
+        - deviceId
+        - deviceType
+        - description
+      type: object
+      description: Request to crate new remote session. Ultimately this allows connection between an admin and an end-user
+      properties:
+        deviceId:
+          type: string
+          description: Device identifier
+          example: '1'
+        deviceType:
+          type: string
+          description: Device type
+          example: 'COMPUTER'
+          enum:
+            - 'COMPUTER'
+        description:
+          type: string
+          description: Session description. To be used for additional context on the reason of the session
+          minLength: 0
+          maxLength: 255
+          example: 'Customer reported that he cannot install application X'
+
