@@ -172,6 +172,20 @@ func BoundedParallelFetch[T any, R any](ctx context.Context, items []T, concurre
 	return values, errs
 }
 
+// extractDefinitionID extracts the "definitionId" field from a JSON object.
+// The Jamf Pro inventory API uses "definitionId" for extension attributes
+// instead of "id".
+func extractDefinitionID(m map[string]interface{}) string {
+	switch v := m["definitionId"].(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%d", int(v))
+	default:
+		return ""
+	}
+}
+
 // slugifyRegex matches non-alphanumeric characters for replacement.
 var slugifyRegex = regexp.MustCompile(`[^a-z0-9]+`)
 

@@ -107,6 +107,9 @@ func runReportEAResults(ctx context.Context, client generated.HTTPClient, nameFi
 				continue
 			}
 			eaID := extractID(ea)
+			if eaID == "" {
+				eaID = extractDefinitionID(ea)
+			}
 			eaName, _ := ea["name"].(string)
 
 			// Apply filter: check both the definition list and the per-device name.

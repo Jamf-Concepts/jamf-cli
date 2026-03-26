@@ -42,7 +42,7 @@ Output columns: name, serial, last_contact, days_since_contact, stale, failed_co
 // produces a compliance row for each device indicating stale check-in status
 // and failed command count.
 func runReportDeviceCompliance(ctx context.Context, client generated.HTTPClient, staleThresholdDays int) ([]map[string]interface{}, error) {
-	computers, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=GENERAL", 100)
+	computers, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=GENERAL&section=HARDWARE", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

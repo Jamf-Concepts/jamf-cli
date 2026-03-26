@@ -191,23 +191,27 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&page=0&page-size=100": `{
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
 						"id": "1",
 						"general": {
 							"name": "MacBook-001",
-							"serialNumber": "C02X1234",
 							"lastContactTime": "2026-01-01T00:00:00Z"
+						},
+						"hardware": {
+							"serialNumber": "C02X1234"
 						}
 					},
 					{
 						"id": "2",
 						"general": {
 							"name": "MacBook-002",
-							"serialNumber": "C02Y5678",
 							"lastContactTime": "2026-03-14T00:00:00Z"
+						},
+						"hardware": {
+							"serialNumber": "C02Y5678"
 						}
 					}
 				]
@@ -239,7 +243,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -255,7 +259,7 @@ func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&page=0&page-size=100": `{
+			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "42"}]
 			}`,
