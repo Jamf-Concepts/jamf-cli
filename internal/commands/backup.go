@@ -164,7 +164,7 @@ func runBackup(ctx context.Context, cliCtx *generated.CLIContext, opts backupOpt
 			// Add _meta block
 			obj["_meta"] = backupMeta{
 				SchemaVersion: 1,
-				CLIVersion:    "dev",
+				CLIVersion:    cliVersion,
 				ResourceType:  def.Name,
 				ExportedAt:    time.Now().UTC().Format(time.RFC3339),
 				SourceURL:     serverURL,

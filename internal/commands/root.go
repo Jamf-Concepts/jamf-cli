@@ -40,6 +40,7 @@ var (
 	clientID          string
 	clientSecret      string
 	clientSecretStdin bool
+	cliVersion        string // set by NewRootCmd for use by power commands
 )
 
 // cliClient wraps our client to implement generated.HTTPClient
@@ -340,6 +341,7 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 }
 
 func NewRootCmd(version, commit, date string) *cobra.Command {
+	cliVersion = version
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &generated.CLIContext{}
 	var outFileHandle *os.File

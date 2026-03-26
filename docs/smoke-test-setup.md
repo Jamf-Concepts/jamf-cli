@@ -30,7 +30,7 @@ Every generated CLI command's GET endpoint is called. The test asserts:
 - For get-by-ID endpoints, the ID is discovered from the corresponding list endpoint
 
 **Tier 2 — Field-path assertions (power commands):**
-API responses used by `report`, `audit`, `overview`, and `bulk` commands are validated for specific field paths the code depends on (e.g., `hardware.serialNumber` exists in the inventory response).
+API responses used by `report`, `audit`, `overview`, and `bulk` commands are validated for specific field paths the code depends on (e.g., `hardware.serialNumber` in the inventory response, `general.remoteManagement.managed` for managed status, `operatingSystem.version` for OS version).
 
 ## Seeding test data
 
