@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs release install lint verify-generated
+.PHONY: build test clean generate sync-specs release install lint verify-generated smoke
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -103,6 +103,10 @@ verify-generated:
 		exit 1; \
 	fi
 	@echo "Generated code is up to date."
+
+# Smoke test against a real Jamf Pro instance (reads from default config profile)
+smoke:
+	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke' -timeout 10m -count=1 ./internal/commands/...
 
 # Format code
 fmt:
