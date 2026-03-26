@@ -151,7 +151,7 @@ func idFromObject(data []byte) string {
 	if json.Unmarshal(data, &obj) != nil {
 		return ""
 	}
-	for _, key := range []string{"id", "udid", "deviceId"} {
+	for _, key := range []string{"id", "udid", "deviceId", "mobileDeviceId", "groupJamfProId"} {
 		if v, ok := obj[key]; ok {
 			switch val := v.(type) {
 			case string:

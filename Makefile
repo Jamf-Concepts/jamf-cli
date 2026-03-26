@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs release install lint verify-generated smoke
+.PHONY: build test clean generate sync-specs release install lint verify-generated smoke smoke-seed smoke-cleanup release-check
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -107,6 +107,17 @@ verify-generated:
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
 smoke:
 	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke' -timeout 10m -count=1 ./internal/commands/...
+
+# Seed test instance with minimal _smoke-test resources
+smoke-seed:
+	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke_Seed' -timeout 5m -count=1 ./internal/commands/...
+
+# Remove all _smoke-test resources from the test instance
+smoke-cleanup:
+	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke_Cleanup' -timeout 5m -count=1 ./internal/commands/...
+
+# Pre-release verification: unit tests + smoke tests
+release-check: test smoke
 
 # Format code
 fmt:
