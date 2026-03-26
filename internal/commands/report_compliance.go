@@ -62,7 +62,9 @@ func runReportDeviceCompliance(ctx context.Context, client generated.HTTPClient,
 		if general != nil {
 			name, _ = general["name"].(string)
 			lastContact, _ = general["lastContactTime"].(string)
-			managed, _ = general["remoteManagement"].(map[string]interface{})["managed"].(bool)
+			if rm, ok := general["remoteManagement"].(map[string]interface{}); ok {
+				managed, _ = rm["managed"].(bool)
+			}
 		}
 
 		if hw, ok := c["hardware"].(map[string]interface{}); ok {

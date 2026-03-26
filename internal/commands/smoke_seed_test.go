@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
 	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
 )
 
 // ---------------------------------------------------------------------------
@@ -277,12 +275,13 @@ func TestSmoke_Cleanup(t *testing.T) {
 				deletePath := buildDeletePath(sd, id)
 				reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 
-				_, err := httpClient.Do(reqCtx, "DELETE", deletePath, nil)
+				resp, err := httpClient.Do(reqCtx, "DELETE", deletePath, nil)
 				cancel()
 				if err != nil {
 					t.Logf("delete %s failed: %v", id, err)
 					failed++
 				} else {
+					_ = resp.Body.Close()
 					t.Logf("deleted %s", id)
 					deleted++
 				}
@@ -333,30 +332,20 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 	for _, item := range items {
 		name, _ := item["name"].(string)
 		if strings.Contains(name, smokeTestPrefix) {
-			id := extractSeedID(item)
+			id := extractID(item)
 			if id != "" {
 				ids = append(ids, id)
 			}
 		}
 		// Also check "extension" field for allowed-file-extensions
 		if ext, ok := item["extension"].(string); ok && strings.Contains(ext, "smoketest") {
-			id := extractSeedID(item)
+			id := extractID(item)
 			if id != "" {
 				ids = append(ids, id)
 			}
 		}
 	}
 	return ids
-}
-
-func extractSeedID(obj map[string]interface{}) string {
-	switch v := obj["id"].(type) {
-	case string:
-		return v
-	case float64:
-		return fmt.Sprintf("%d", int(v))
-	}
-	return ""
 }
 
 func buildDeletePath(sd seedDef, id string) string {
@@ -367,14 +356,4 @@ func buildDeletePath(sd seedDef, id string) string {
 	}
 	// Modern delete: same as list path + /<id>
 	return sd.ListPath + "/" + id
-}
-
-// ---------------------------------------------------------------------------
-// smokeDoIgnoreError is like client.Do but returns the response even for
-// 4xx errors. Used by cleanup to handle "already deleted" gracefully.
-// ---------------------------------------------------------------------------
-
-func init() {
-	// Verify exitcode import is used (cleanup checks error codes)
-	_ = exitcode.NotFound
 }

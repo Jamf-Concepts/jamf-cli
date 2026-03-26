@@ -259,14 +259,7 @@ func listModernItems(ctx context.Context, client generated.HTTPClient, def Resou
 
 // extractID gets the "id" field from a map, handling both string and float64.
 func extractID(m map[string]interface{}) string {
-	switch v := m["id"].(type) {
-	case string:
-		return v
-	case float64:
-		return fmt.Sprintf("%d", int(v))
-	default:
-		return ""
-	}
+	return extractField(m, "id")
 }
 
 // extractName gets the "name" field from a map.
