@@ -81,12 +81,12 @@ func runTogglePolicies(
 	//    the full detail (needed for category, scope group, and current state).
 	type policyEntry struct {
 		id     string
-		detail map[string]interface{}
+		detail map[string]any
 	}
 
 	var candidates []policyEntry
 	for _, r := range rawPolicies {
-		m, ok := r.(map[string]interface{})
+		m, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -138,7 +138,7 @@ func runTogglePolicies(
 	}
 
 	// 4. Build preview rows.
-	detailMaps := make([]map[string]interface{}, len(matched))
+	detailMaps := make([]map[string]any, len(matched))
 	for i, p := range matched {
 		detailMaps[i] = p.detail
 	}

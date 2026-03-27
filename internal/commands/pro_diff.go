@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -86,7 +87,7 @@ func isDirectoryPath(s string) bool {
 }
 
 // resourceSnapshot maps resource type name → (object name → stripped fields).
-type resourceSnapshot map[string]map[string]map[string]interface{}
+type resourceSnapshot map[string]map[string]map[string]any
 
 // loadSourceSnapshot loads objects from either a backup directory or a live profile.
 func loadSourceSnapshot(ctx context.Context, source string, nameFilter []string) (resourceSnapshot, error) {
@@ -160,13 +161,13 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 
 // readObjectsFromSubdir reads all .yaml and .json files in subDir and returns
 // a map of object name → fields (with _meta stripped).
-func readObjectsFromSubdir(subDir string) (map[string]map[string]interface{}, error) {
+func readObjectsFromSubdir(subDir string) (map[string]map[string]any, error) {
 	entries, err := os.ReadDir(subDir)
 	if err != nil {
 		return nil, err
 	}
 
-	objects := make(map[string]map[string]interface{})
+	objects := make(map[string]map[string]any)
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -184,7 +185,7 @@ func readObjectsFromSubdir(subDir string) (map[string]map[string]interface{}, er
 			continue
 		}
 
-		var obj map[string]interface{}
+		var obj map[string]any
 		if strings.HasSuffix(name, ".json") {
 			if err := json.Unmarshal(data, &obj); err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: parsing %s: %v\n", path, err)
@@ -221,12 +222,12 @@ func readObjectsFromSubdir(subDir string) (map[string]map[string]interface{}, er
 // normaliseViaJSON round-trips a map through JSON to coerce yaml.v3 types
 // (e.g., map[string]interface{} nested under interface{}) to the same types
 // produced by json.Unmarshal. This makes deep equality comparisons reliable.
-func normaliseViaJSON(v map[string]interface{}) map[string]interface{} {
+func normaliseViaJSON(v map[string]any) map[string]any {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return v
 	}
-	var out map[string]interface{}
+	var out map[string]any
 	if err := json.Unmarshal(b, &out); err != nil {
 		return v
 	}
@@ -269,7 +270,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			continue
 		}
 
-		objects := make(map[string]map[string]interface{})
+		objects := make(map[string]map[string]any)
 		for _, item := range items {
 			path := strings.Replace(def.GetPath, "{id}", item.ID, 1)
 			data, err := fetchJSON(ctx, httpCli, path)
@@ -291,9 +292,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			// Merge into existing bucket for this resource name (multiple ResourceDefs
 			// may share the same Name but cover different subdirs, e.g., profiles).
 			if existing, ok := snapshot[def.Name]; ok {
-				for k, v := range objects {
-					existing[k] = v
-				}
+				maps.Copy(existing, objects)
 			} else {
 				snapshot[def.Name] = objects
 			}
@@ -391,7 +390,7 @@ type fieldDiff struct {
 
 // diffObjects performs a shallow field-level comparison between two maps.
 // For nested objects, it compares their JSON representation as a single field.
-func diffObjects(src, tgt map[string]interface{}) []fieldDiff {
+func diffObjects(src, tgt map[string]any) []fieldDiff {
 	allKeys := make(map[string]bool)
 	for k := range src {
 		allKeys[k] = true
@@ -419,7 +418,7 @@ func diffObjects(src, tgt map[string]interface{}) []fieldDiff {
 }
 
 // formatFieldValue converts a field value to a compact string for display.
-func formatFieldValue(v interface{}) string {
+func formatFieldValue(v any) string {
 	if v == nil {
 		return "<nil>"
 	}
@@ -450,7 +449,7 @@ func runDiff(ctx context.Context, opts diffOptions) error {
 	// Parse resource filter.
 	var nameFilter []string
 	if opts.Resources != "" {
-		for _, r := range strings.Split(opts.Resources, ",") {
+		for r := range strings.SplitSeq(opts.Resources, ",") {
 			if t := strings.TrimSpace(r); t != "" {
 				nameFilter = append(nameFilter, t)
 			}
@@ -477,9 +476,9 @@ func runDiff(ctx context.Context, opts diffOptions) error {
 	}
 
 	// Convert to output rows.
-	rows := make([]map[string]interface{}, len(results))
+	rows := make([]map[string]any, len(results))
 	for i, r := range results {
-		row := map[string]interface{}{
+		row := map[string]any{
 			"resource": r.Resource,
 			"name":     r.Name,
 			"change":   string(r.Change),

@@ -173,7 +173,7 @@ func TestFormatError_JSON(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
 
-	var envelope map[string]interface{}
+	var envelope map[string]any
 	if jsonErr := json.Unmarshal(buf.Bytes(), &envelope); jsonErr != nil {
 		t.Fatalf("failed to parse JSON output: %v\nraw: %s", jsonErr, buf.String())
 	}

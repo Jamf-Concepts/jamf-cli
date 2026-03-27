@@ -113,7 +113,7 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 
 	// Parse x-required-privileges extension
 	if privs, ok := op.Extensions["x-required-privileges"]; ok {
-		if arr, ok := privs.([]interface{}); ok {
+		if arr, ok := privs.([]any); ok {
 			for _, p := range arr {
 				if s, ok := p.(string); ok {
 					operation.Privileges = append(operation.Privileges, s)

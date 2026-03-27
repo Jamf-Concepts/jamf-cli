@@ -29,7 +29,7 @@ type overviewItem struct {
 }
 
 // fetchJSON performs a GET request and returns the parsed JSON object.
-func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (map[string]interface{}, error) {
+func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (map[string]any, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 		return nil, err
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func fetchClassicNestedSize(ctx context.Context, client registry.HTTPClient, pat
 	if err != nil {
 		return "", err
 	}
-	inner, ok := data[outerKey].(map[string]interface{})
+	inner, ok := data[outerKey].(map[string]any)
 	if !ok {
 		return "0", nil
 	}
@@ -146,7 +146,7 @@ func fetchClassicNestedSize(ctx context.Context, client registry.HTTPClient, pat
 }
 
 // formatCount converts a numeric value to a comma-formatted string.
-func formatCount(v interface{}) string {
+func formatCount(v any) string {
 	var n int64
 	switch val := v.(type) {
 	case float64:
@@ -182,7 +182,7 @@ func commaFormat(n int64) string {
 }
 
 // enabledDisabled converts a boolean interface value to "enabled" or "disabled".
-func enabledDisabled(v interface{}) string {
+func enabledDisabled(v any) string {
 	if b, ok := v.(bool); ok && b {
 		return "enabled"
 	}
@@ -346,9 +346,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	}
 
 	// 1. Instance Info: version
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/jamf-pro-version")
@@ -361,12 +359,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("version", "N/A", nil)
 		}
-	}()
+	})
 
 	// 1. Instance Info: health
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		h := checkHealth(serverURL)
@@ -376,12 +372,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("health_ok", "false", nil)
 		}
-	}()
+	})
 
 	// 1. Instance Info: SLASA
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/slasa")
@@ -394,12 +388,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("slasa", "N/A", nil)
 		}
-	}()
+	})
 
 	// 2. Jamf Pro Features (single call)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v2/jamf-pro-information")
@@ -415,12 +407,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("patch", enabledDisabled(data["patchEnabled"]), nil)
 		send("sso", enabledDisabled(data["ssoSamlEnabled"]), nil)
 		send("smtp", enabledDisabled(data["smtpEnabled"]), nil)
-	}()
+	})
 
 	// 3. CSA Scopes
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		resp, err := client.Do(ctx, "GET", "/v1/csa/token", nil)
@@ -445,23 +435,21 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			return
 		}
 
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(body, &data); err != nil {
 			send("csa_scopes", "", err)
 			return
 		}
 
-		if scopes, ok := data["scopes"].([]interface{}); ok {
+		if scopes, ok := data["scopes"].([]any); ok {
 			send("csa_scopes", fmt.Sprintf("%d scopes", len(scopes)), nil)
 		} else {
 			send("csa_scopes", "N/A", nil)
 		}
-	}()
+	})
 
 	// 4. Client Check-In (single call)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v3/check-in")
@@ -479,12 +467,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("create_hooks", enabledDisabled(data["createHooks"]), nil)
 		send("startup_script", enabledDisabled(data["createStartupScript"]), nil)
 		send("local_config", enabledDisabled(data["enableLocalConfigurationProfiles"]), nil)
-	}()
+	})
 
 	// Enrollment Settings (single call → 5 booleans)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v4/enrollment")
@@ -499,12 +485,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("enroll_ios_personal", enabledDisabled(data["iosPersonalEnrollmentEnabled"]), nil)
 		send("enroll_adue", enabledDisabled(data["accountDrivenUserEnrollmentEnabled"]), nil)
 		send("enroll_adde_macos", enabledDisabled(data["accountDrivenDeviceMacosEnrollmentEnabled"]), nil)
-	}()
+	})
 
 	// Self Service (single call → nested fields)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/self-service/settings")
@@ -514,12 +498,12 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			}
 			return
 		}
-		if install, ok := data["installSettings"].(map[string]interface{}); ok {
+		if install, ok := data["installSettings"].(map[string]any); ok {
 			send("ss_install_auto", enabledDisabled(install["installAutomatically"]), nil)
 		} else {
 			send("ss_install_auto", "N/A", nil)
 		}
-		if login, ok := data["loginSettings"].(map[string]interface{}); ok {
+		if login, ok := data["loginSettings"].(map[string]any); ok {
 			if level, ok := login["userLoginLevel"].(string); ok {
 				send("ss_login_required", level, nil)
 			} else {
@@ -528,17 +512,15 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("ss_login_required", "N/A", nil)
 		}
-		if config, ok := data["configurationSettings"].(map[string]interface{}); ok {
+		if config, ok := data["configurationSettings"].(map[string]any); ok {
 			send("ss_notifications", enabledDisabled(config["notificationsEnabled"]), nil)
 		} else {
 			send("ss_notifications", "N/A", nil)
 		}
-	}()
+	})
 
 	// LAPS (single call → 2 booleans)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v2/local-admin-password/settings")
@@ -550,12 +532,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 		send("laps_auto_deploy", enabledDisabled(data["autoDeployEnabled"]), nil)
 		send("laps_auto_rotate", enabledDisabled(data["autoRotateEnabled"]), nil)
-	}()
+	})
 
 	// MDM Profile Renewal (single call → 2 booleans + 2 values)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/device-communication-settings")
@@ -577,12 +557,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("mdm_cert_mobile_days", "N/A", nil)
 		}
-	}()
+	})
 
 	// Certificate Authority (single call → expiration date)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/pki/certificate-authority/active")
@@ -596,12 +574,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("ca_expires", "N/A", nil)
 		}
-	}()
+	})
 
 	// 5. Inventory Summary (single call)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/inventory-information")
@@ -615,96 +591,76 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("unmanaged_computers", formatCount(data["unmanagedComputers"]), nil)
 		send("managed_devices", formatCount(data["managedDevices"]), nil)
 		send("unmanaged_devices", formatCount(data["unmanagedDevices"]), nil)
-	}()
+	})
 
 	// 6. Organizational Structure
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/sites")
 		send("sites", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/buildings")
 		send("buildings", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/departments")
 		send("departments", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/categories")
 		send("categories", v, err)
-	}()
+	})
 
 	// 7. Device Groups
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/computer-groups")
 		send("computer_groups", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/smart-groups")
 		send("md_smart_groups", v, err)
-	}()
+	})
 
 	// 8. Configuration & Deployment
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/scripts")
 		send("scripts", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/ebooks")
 		send("ebooks", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/jcds/files")
 		send("jcds_files", v, err)
-	}()
+	})
 
 	// 9. Enrollment (fetch full results for count + nearest token expiration)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
@@ -720,10 +676,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 
 		// Find earliest tokenExpirationDate from results
-		results, _ := data["results"].([]interface{})
+		results, _ := data["results"].([]any)
 		var earliest string
 		for _, r := range results {
-			item, ok := r.(map[string]interface{})
+			item, ok := r.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -741,40 +697,32 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			send("dep_token_expires", "None configured", nil)
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v3/computer-prestages")
 		send("computer_prestages", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v3/mobile-device-prestages")
 		send("md_prestages", v, err)
-	}()
+	})
 
 	// 10. Users & Access
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/v1/static-user-groups")
 		send("static_user_groups", v, err)
-	}()
+	})
 
 	// 11. Notifications/Alerts
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		resp, err := client.Do(ctx, "GET", "/v1/notifications", nil)
@@ -796,7 +744,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			return
 		}
 
-		var alerts []map[string]interface{}
+		var alerts []map[string]any
 		if err := json.Unmarshal(body, &alerts); err != nil {
 			send("alerts", "", err)
 			return
@@ -817,107 +765,85 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			}
 		}
 		send("alert_detail", strings.Join(types, ", "), nil)
-	}()
+	})
 
 	// 12. Pending MDM Commands (Classic API)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/computercommands", "computer_commands")
 		send("pending_computer_cmds", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/mobiledevicecommands", "mobile_device_commands")
 		send("pending_mobile_cmds", v, err)
-	}()
+	})
 
 	// 12b. Failed MDM Commands (Modern API v2 with RSQL filter)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError")
 		send("failed_cmds", v, err)
-	}()
+	})
 
 	// 13. Configuration Management (Classic API)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/policies", "policies")
 		send("policies", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/osxconfigurationprofiles", "os_x_configuration_profiles")
 		send("macos_profiles", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/mobiledeviceconfigurationprofiles", "configuration_profiles")
 		send("ios_profiles", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/packages", "packages")
 		send("packages", v, err)
-	}()
+	})
 
 	// 14. Patch Management (Classic API)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/patchsoftwaretitles", "patch_software_titles")
 		send("patch_titles", v, err)
-	}()
+	})
 
 	// 15. Integrations
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchClassicCount(ctx, client, "/JSSResource/webhooks", "webhooks")
 		send("webhooks", v, err)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		v, err := fetchArrayCount(ctx, client, "/ldap/servers")
 		send("ldap_servers", v, err)
-	}()
+	})
 
 	// 16. DEP Sync Status (latest sync for first enrollment instance)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		// First get enrollment instances to find the first ID
@@ -926,13 +852,13 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			send("dep_sync_status", "", err)
 			return
 		}
-		results, _ := data["results"].([]interface{})
+		results, _ := data["results"].([]any)
 		if len(results) == 0 {
 			send("dep_sync_status", "No DEP instances", nil)
 			return
 		}
 		// Get the first instance ID
-		first, ok := results[0].(map[string]interface{})
+		first, ok := results[0].(map[string]any)
 		if !ok {
 			send("dep_sync_status", "N/A", nil)
 			return
@@ -972,7 +898,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		} else {
 			sendWithColor("dep_sync_status", display, "yellow", nil)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -1208,11 +1134,11 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 }
 
 // overviewToRows flattens sections into []map[string]interface{} for structured output.
-func overviewToRows(sections []overviewSection) []map[string]interface{} {
-	var rows []map[string]interface{}
+func overviewToRows(sections []overviewSection) []map[string]any {
+	var rows []map[string]any
 	for _, section := range sections {
 		for _, item := range section.Items {
-			row := map[string]interface{}{
+			row := map[string]any{
 				"section":  section.Name,
 				"resource": item.Resource,
 				"value":    item.Value,

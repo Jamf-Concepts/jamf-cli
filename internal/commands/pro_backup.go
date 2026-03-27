@@ -130,7 +130,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		slugSeen := make(map[string]bool)
 		type itemResult struct {
 			Name string
-			Data map[string]interface{}
+			Data map[string]any
 		}
 
 		results, errs := BoundedParallelFetch(ctx, items, opts.Concurrency, func(ctx context.Context, item resourceItem) (itemResult, error) {
@@ -229,7 +229,7 @@ func listClassicItems(ctx context.Context, client registry.HTTPClient, def Resou
 
 	var items []resourceItem
 	for _, r := range raw {
-		m, ok := r.(map[string]interface{})
+		m, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -261,12 +261,12 @@ func listModernItems(ctx context.Context, client registry.HTTPClient, def Resour
 }
 
 // extractID gets the "id" field from a map, handling both string and float64.
-func extractID(m map[string]interface{}) string {
+func extractID(m map[string]any) string {
 	return extractField(m, "id")
 }
 
 // extractName gets the "name" field from a map.
-func extractName(m map[string]interface{}) string {
+func extractName(m map[string]any) string {
 	if n, ok := m["name"].(string); ok {
 		return n
 	}
@@ -275,10 +275,10 @@ func extractName(m map[string]interface{}) string {
 
 // unwrapClassicDetail unwraps Classic API single-object responses.
 // Classic GET /id/{id} returns {"policy": {...}} — we want the inner object.
-func unwrapClassicDetail(obj map[string]interface{}) map[string]interface{} {
+func unwrapClassicDetail(obj map[string]any) map[string]any {
 	if len(obj) == 1 {
 		for _, v := range obj {
-			if inner, ok := v.(map[string]interface{}); ok {
+			if inner, ok := v.(map[string]any); ok {
 				return inner
 			}
 		}
@@ -287,7 +287,7 @@ func unwrapClassicDetail(obj map[string]interface{}) map[string]interface{} {
 }
 
 // writeBackupFile writes an object to disk in the specified format.
-func writeBackupFile(path string, data interface{}, format string) error {
+func writeBackupFile(path string, data any, format string) error {
 	var content []byte
 	var err error
 

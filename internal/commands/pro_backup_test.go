@@ -30,8 +30,8 @@ func (m *backupMockClient) Do(_ context.Context, method, path string, _ io.Reade
 		}, nil
 	}
 	// Try without query params
-	if idx := strings.Index(path, "?"); idx != -1 {
-		base := path[:idx]
+	if before, _, ok := strings.Cut(path, "?"); ok {
+		base := before
 		if resp, ok := m.responses[base]; ok {
 			return &http.Response{
 				StatusCode: resp.statusCode,
@@ -92,7 +92,7 @@ func TestBackup_DirectoryStructure(t *testing.T) {
 		t.Fatalf("reading backup file: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := yaml.Unmarshal(content, &parsed); err != nil {
 		t.Fatalf("parsing YAML: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestBackup_JSONFormat(t *testing.T) {
 		t.Fatalf("reading JSON file: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(content, &parsed); err != nil {
 		t.Fatalf("parsing JSON: %v", err)
 	}
@@ -269,13 +269,13 @@ func TestBackup_DuplicateNames(t *testing.T) {
 
 func TestExtractID(t *testing.T) {
 	tests := []struct {
-		input map[string]interface{}
+		input map[string]any
 		want  string
 	}{
-		{map[string]interface{}{"id": "42"}, "42"},
-		{map[string]interface{}{"id": float64(42)}, "42"},
-		{map[string]interface{}{"id": nil}, ""},
-		{map[string]interface{}{}, ""},
+		{map[string]any{"id": "42"}, "42"},
+		{map[string]any{"id": float64(42)}, "42"},
+		{map[string]any{"id": nil}, ""},
+		{map[string]any{}, ""},
 	}
 	for _, tt := range tests {
 		got := extractID(tt.input)
@@ -287,8 +287,8 @@ func TestExtractID(t *testing.T) {
 
 func TestUnwrapClassicDetail(t *testing.T) {
 	// Single-key wrapper
-	wrapped := map[string]interface{}{
-		"policy": map[string]interface{}{"name": "Test"},
+	wrapped := map[string]any{
+		"policy": map[string]any{"name": "Test"},
 	}
 	result := unwrapClassicDetail(wrapped)
 	if result["name"] != "Test" {
@@ -296,7 +296,7 @@ func TestUnwrapClassicDetail(t *testing.T) {
 	}
 
 	// Non-wrapper (multiple keys)
-	multi := map[string]interface{}{
+	multi := map[string]any{
 		"name":    "Test",
 		"enabled": true,
 	}

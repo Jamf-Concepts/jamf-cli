@@ -15,7 +15,7 @@ import (
 
 // FetchJSON performs a GET request and returns the parsed JSON object.
 // Exported version of the overview.go fetchJSON helper.
-func FetchJSON(ctx context.Context, client registry.HTTPClient, path string) (map[string]interface{}, error) {
+func FetchJSON(ctx context.Context, client registry.HTTPClient, path string) (map[string]any, error) {
 	return fetchJSON(ctx, client, path)
 }
 
@@ -27,12 +27,12 @@ func FetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 // Some Jamf Pro endpoints (e.g. /v1/sites, /v1/computer-groups,
 // /v2/patch-software-title-configurations) return plain arrays even when
 // pagination params are provided. This function handles both transparently.
-func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath string, pageSize int) ([]map[string]interface{}, error) {
+func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath string, pageSize int) ([]map[string]any, error) {
 	if pageSize <= 0 {
 		pageSize = 100
 	}
 
-	var all []map[string]interface{}
+	var all []map[string]any
 	page := 0
 
 	for {
@@ -58,25 +58,25 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 		}
 
 		// Auto-detect: try array first, then paginated object.
-		var arr []interface{}
+		var arr []any
 		if json.Unmarshal(body, &arr) == nil {
 			// Plain array endpoint — return everything, no pagination.
 			for _, item := range arr {
-				if m, ok := item.(map[string]interface{}); ok {
+				if m, ok := item.(map[string]any); ok {
 					all = append(all, m)
 				}
 			}
 			return all, nil
 		}
 
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(body, &data); err != nil {
 			return all, fmt.Errorf("parsing page %d: %w", page, err)
 		}
 
-		results, _ := data["results"].([]interface{})
+		results, _ := data["results"].([]any)
 		for _, r := range results {
-			if m, ok := r.(map[string]interface{}); ok {
+			if m, ok := r.(map[string]any); ok {
 				all = append(all, m)
 			}
 		}
@@ -93,7 +93,7 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 
 // FetchClassicList performs a GET on a Classic API list endpoint and returns
 // the unwrapped array. Classic endpoints wrap arrays as {"key": [...]}.
-func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) ([]interface{}, error) {
+func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) ([]any, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wra
 	if !ok {
 		return nil, nil
 	}
-	var arr []interface{}
+	var arr []any
 	if err := json.Unmarshal(inner, &arr); err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func BoundedParallelFetch[T any, R any](ctx context.Context, items []T, concurre
 }
 
 // extractField extracts a string or numeric field from a JSON object by key.
-func extractField(m map[string]interface{}, key string) string {
+func extractField(m map[string]any, key string) string {
 	switch v := m[key].(type) {
 	case string:
 		return v
@@ -185,7 +185,7 @@ func extractField(m map[string]interface{}, key string) string {
 }
 
 // extractDefinitionID extracts the "definitionId" field from a JSON object.
-func extractDefinitionID(m map[string]interface{}) string {
+func extractDefinitionID(m map[string]any) string {
 	return extractField(m, "definitionId")
 }
 
@@ -211,7 +211,7 @@ func SlugifyName(name string) string {
 
 // StripServerFields removes server-generated fields from a JSON object
 // for clean diffing. Removes id, timestamps, and other server-set fields.
-func StripServerFields(obj map[string]interface{}) map[string]interface{} {
+func StripServerFields(obj map[string]any) map[string]any {
 	stripKeys := map[string]bool{
 		"id":                 true,
 		"href":               true,
@@ -226,7 +226,7 @@ func StripServerFields(obj map[string]interface{}) map[string]interface{} {
 		"date_created_utc":   true,
 	}
 
-	result := make(map[string]interface{}, len(obj))
+	result := make(map[string]any, len(obj))
 	for k, v := range obj {
 		if stripKeys[k] {
 			continue
@@ -238,12 +238,12 @@ func StripServerFields(obj map[string]interface{}) map[string]interface{} {
 		}
 		// Recursively strip nested objects and arrays
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			result[k] = StripServerFields(val)
-		case []interface{}:
-			stripped := make([]interface{}, len(val))
+		case []any:
+			stripped := make([]any, len(val))
 			for i, elem := range val {
-				if m, ok := elem.(map[string]interface{}); ok {
+				if m, ok := elem.(map[string]any); ok {
 					stripped[i] = StripServerFields(m)
 				} else {
 					stripped[i] = elem

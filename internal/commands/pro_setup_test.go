@@ -56,7 +56,7 @@ func TestSetupClient_FetchPrivileges(t *testing.T) {
 			t.Error("missing or incorrect authorization header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"privileges": []string{"Read Computers", "Create Computers"},
 		})
 	}))
@@ -80,7 +80,7 @@ func TestSetupClient_CreateAPIRole(t *testing.T) {
 		if r.URL.Path != "/api/v1/api-roles" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		var body map[string]interface{}
+		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["displayName"] != "test-role" {
 			t.Errorf("expected displayName=test-role, got %v", body["displayName"])

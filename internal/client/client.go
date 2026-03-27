@@ -148,7 +148,7 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 	baseDelay := time.Second
 
 	var lastErr error
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		// Reset body for each attempt so retries send the full payload.
 		if bodyData != nil {
 			req.Body = io.NopCloser(bytes.NewReader(bodyData))
@@ -204,17 +204,17 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 //	/api/v1/accounts              → /api/pro/tenant/{id}/v1/accounts
 //	/api/preview/computers        → /api/pro/tenant/{id}/preview/computers
 func rewritePathForGateway(path, tenantID string) string {
-	if strings.HasPrefix(path, "/JSSResource/") {
-		suffix := strings.TrimPrefix(path, "/JSSResource/")
+	if after, ok := strings.CutPrefix(path, "/JSSResource/"); ok {
+		suffix := after
 		return "/api/proclassic/tenant/" + tenantID + "/" + suffix
 	}
-	if strings.HasPrefix(path, "/JSSResource") {
-		suffix := strings.TrimPrefix(path, "/JSSResource")
+	if after, ok := strings.CutPrefix(path, "/JSSResource"); ok {
+		suffix := after
 		return "/api/proclassic/tenant/" + tenantID + suffix
 	}
 	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
-	if strings.HasPrefix(path, "/api/") {
-		suffix := strings.TrimPrefix(path, "/api/")
+	if after, ok := strings.CutPrefix(path, "/api/"); ok {
+		suffix := after
 		return "/api/pro/tenant/" + tenantID + "/" + suffix
 	}
 	return path

@@ -44,7 +44,7 @@ Output: preview table on stdout; mutation log on stderr.`,
 
 // bulkPreviewTable prints a table of affected items to stdout.
 // rows must have consistent keys; the first row's keys determine columns.
-func bulkPreviewTable(rows []map[string]interface{}) {
+func bulkPreviewTable(rows []map[string]any) {
 	if len(rows) == 0 {
 		fmt.Println("(no items match the given filters)")
 		return
@@ -62,7 +62,7 @@ func bulkLogW(w io.Writer, action, target, result string) {
 
 // fetchClassicPolicyDetail fetches a single Classic policy by ID and returns
 // its parsed detail map (unwrapped from the "policy" key).
-func fetchClassicPolicyDetail(ctx context.Context, client registry.HTTPClient, id string) (map[string]interface{}, error) {
+func fetchClassicPolicyDetail(ctx context.Context, client registry.HTTPClient, id string) (map[string]any, error) {
 	path := fmt.Sprintf("/JSSResource/policies/id/%s", id)
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
@@ -73,7 +73,7 @@ func fetchClassicPolicyDetail(ctx context.Context, client registry.HTTPClient, i
 
 // policyMatchesFilters returns true when the policy satisfies all active
 // filter criteria.  Empty values disable the corresponding filter.
-func policyMatchesFilters(policy map[string]interface{}, scopeGroup, category, namePattern string) (bool, error) {
+func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePattern string) (bool, error) {
 	// Name pattern (glob-style: only * wildcard supported)
 	if namePattern != "" {
 		name, _ := policy["name"].(string)
@@ -88,7 +88,7 @@ func policyMatchesFilters(policy map[string]interface{}, scopeGroup, category, n
 
 	// Category filter
 	if category != "" {
-		cat, _ := policy["category"].(map[string]interface{})
+		cat, _ := policy["category"].(map[string]any)
 		catName, _ := cat["name"].(string)
 		if !strings.EqualFold(catName, category) {
 			return false, nil
@@ -97,11 +97,11 @@ func policyMatchesFilters(policy map[string]interface{}, scopeGroup, category, n
 
 	// Scope group filter
 	if scopeGroup != "" {
-		scope, _ := policy["scope"].(map[string]interface{})
-		groups, _ := scope["computer_groups"].([]interface{})
+		scope, _ := policy["scope"].(map[string]any)
+		groups, _ := scope["computer_groups"].([]any)
 		found := false
 		for _, g := range groups {
-			gm, ok := g.(map[string]interface{})
+			gm, ok := g.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -189,7 +189,7 @@ func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient
 
 	groupID := ""
 	for _, r := range raw {
-		m, ok := r.(map[string]interface{})
+		m, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -209,23 +209,23 @@ func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient
 	}
 	detail := unwrapClassicDetail(data)
 
-	computers, _ := detail["computers"].(map[string]interface{})
+	computers, _ := detail["computers"].(map[string]any)
 	if computers == nil {
-		computers, _ = data["computers"].(map[string]interface{})
+		computers, _ = data["computers"].(map[string]any)
 	}
 
-	var members []interface{}
+	var members []any
 	if computers != nil {
-		members, _ = computers["computer"].([]interface{})
+		members, _ = computers["computer"].([]any)
 	}
 	if members == nil {
-		flat, _ := detail["computers"].([]interface{})
+		flat, _ := detail["computers"].([]any)
 		members = flat
 	}
 
 	var ids []string
 	for _, m := range members {
-		mm, ok := m.(map[string]interface{})
+		mm, ok := m.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -300,15 +300,15 @@ func sendMDMCommand(ctx context.Context, client registry.HTTPClient, computerID,
 }
 
 // bulkPolicyRows converts policy detail maps into preview rows.
-func bulkPolicyRows(policies []map[string]interface{}) []map[string]interface{} {
-	rows := make([]map[string]interface{}, len(policies))
+func bulkPolicyRows(policies []map[string]any) []map[string]any {
+	rows := make([]map[string]any, len(policies))
 	for i, p := range policies {
 		id := extractID(p)
 		name, _ := p["name"].(string)
-		cat, _ := p["category"].(map[string]interface{})
+		cat, _ := p["category"].(map[string]any)
 		catName, _ := cat["name"].(string)
 		enabled, _ := p["enabled"].(bool)
-		rows[i] = map[string]interface{}{
+		rows[i] = map[string]any{
 			"id":       id,
 			"name":     name,
 			"category": catName,
@@ -343,7 +343,7 @@ func lookupStaticGroupID(ctx context.Context, client registry.HTTPClient, groupN
 		return "", fmt.Errorf("listing computer groups: %w", err)
 	}
 	for _, r := range raw {
-		m, ok := r.(map[string]interface{})
+		m, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}

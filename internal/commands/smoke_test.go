@@ -148,7 +148,7 @@ func firstIDFromArray(data []byte) string {
 }
 
 func idFromObject(data []byte) string {
-	var obj map[string]interface{}
+	var obj map[string]any
 	if json.Unmarshal(data, &obj) != nil {
 		return ""
 	}
@@ -313,14 +313,13 @@ func TestSmoke_Tier2(t *testing.T) {
 	httpClient := smokeClient(t)
 
 	for _, check := range tier2Checks {
-		check := check
 		t.Run(check.Name, func(t *testing.T) {
 			body, skipped := smokeGET(t, httpClient, check.Path)
 			if skipped {
 				return
 			}
 
-			var parsed interface{}
+			var parsed any
 			if check.IsClassic && check.WrapperKey != "" {
 				var wrapper map[string]json.RawMessage
 				if err := json.Unmarshal(body, &wrapper); err != nil {
@@ -355,18 +354,18 @@ func TestSmoke_Tier2(t *testing.T) {
 
 // resolveFieldPath walks a dot-separated path through nested maps and arrays.
 // Numeric path segments index into arrays.
-func resolveFieldPath(data interface{}, path string) (interface{}, bool) {
+func resolveFieldPath(data any, path string) (any, bool) {
 	parts := strings.Split(path, ".")
 	current := data
 	for _, part := range parts {
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			val, ok := v[part]
 			if !ok {
 				return nil, false
 			}
 			current = val
-		case []interface{}:
+		case []any:
 			idx, err := strconv.Atoi(part)
 			if err != nil || idx < 0 || idx >= len(v) {
 				return nil, false

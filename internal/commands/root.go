@@ -72,21 +72,21 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 	}
 
 	// Parse JSON and extract the named field
-	var parsed interface{}
+	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return fmt.Errorf("cannot extract field from non-JSON response")
 	}
 
-	var objects []map[string]interface{}
+	var objects []map[string]any
 	switch v := parsed.(type) {
-	case []interface{}:
+	case []any:
 		for _, item := range v {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				objects = append(objects, m)
 			}
 		}
-	case map[string]interface{}:
-		objects = []map[string]interface{}{v}
+	case map[string]any:
+		objects = []map[string]any{v}
 	default:
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
@@ -564,10 +564,10 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
 // format expected by the output formatter. When full is true, aliases and flags
 // columns are included; otherwise only command and description are emitted
 // for a compact table.
-func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(entries))
+func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
+	result := make([]map[string]any, len(entries))
 	for i, e := range entries {
-		m := map[string]interface{}{
+		m := map[string]any{
 			"command":     e.Command,
 			"description": e.Description,
 		}
@@ -596,7 +596,7 @@ func FormatError(err error) bool {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
-	envelope := map[string]interface{}{
+	envelope := map[string]any{
 		"error":    exitcode.CodeName(code),
 		"message":  err.Error(),
 		"exitCode": code,

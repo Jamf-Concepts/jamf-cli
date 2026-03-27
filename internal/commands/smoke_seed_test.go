@@ -185,7 +185,6 @@ func TestSmoke_Seed(t *testing.T) {
 	var created, skipped, failed int
 
 	for _, sd := range seedDefs {
-		sd := sd
 		t.Run(sd.Name, func(t *testing.T) {
 			// Check if resource already exists
 			if resourceExists(ctx, httpClient, sd) {
@@ -263,7 +262,6 @@ func TestSmoke_Cleanup(t *testing.T) {
 	var deleted, failed int
 
 	for _, sd := range seedDefs {
-		sd := sd
 		t.Run(sd.Name, func(t *testing.T) {
 			ids := findSmokeResources(ctx, httpClient, sd)
 			if len(ids) == 0 {
@@ -304,7 +302,7 @@ func findSmokeResources(ctx context.Context, client registry.HTTPClient, sd seed
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 
-	var items []map[string]interface{}
+	var items []map[string]any
 
 	if sd.IsClassic && sd.WrapperKey != "" {
 		var wrapper map[string]json.RawMessage
@@ -319,7 +317,7 @@ func findSmokeResources(ctx context.Context, client registry.HTTPClient, sd seed
 	} else {
 		// Modern: try paginated, then array
 		var paginated struct {
-			Results []map[string]interface{} `json:"results"`
+			Results []map[string]any `json:"results"`
 		}
 		if json.Unmarshal(body, &paginated) == nil && len(paginated.Results) > 0 {
 			items = paginated.Results

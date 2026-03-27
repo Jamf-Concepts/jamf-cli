@@ -46,7 +46,7 @@ func TestIsDirectoryPath(t *testing.T) {
 
 // --- loadSnapshotFromDirectory ---
 
-func writeBackupFileForTest(t *testing.T, path string, data interface{}, format string) {
+func writeBackupFileForTest(t *testing.T, path string, data any, format string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("creating dirs: %v", err)
@@ -60,16 +60,16 @@ func TestLoadSnapshotFromDirectory_Basic(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write two policies as YAML backup files.
-	writeBackupFileForTest(t, filepath.Join(dir, "policies", "deploy-chrome.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(dir, "policies", "deploy-chrome.yaml"), map[string]any{
 		"name":    "Deploy Chrome",
 		"enabled": true,
-		"_meta":   map[string]interface{}{"schema_version": 1},
+		"_meta":   map[string]any{"schema_version": 1},
 	}, "yaml")
 
-	writeBackupFileForTest(t, filepath.Join(dir, "policies", "install-rosetta.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(dir, "policies", "install-rosetta.yaml"), map[string]any{
 		"name":    "Install Rosetta",
 		"enabled": false,
-		"_meta":   map[string]interface{}{"schema_version": 1},
+		"_meta":   map[string]any{"schema_version": 1},
 	}, "yaml")
 
 	snapshot, err := loadSnapshotFromDirectory(dir, nil)
@@ -101,7 +101,7 @@ func TestLoadSnapshotFromDirectory_Basic(t *testing.T) {
 func TestLoadSnapshotFromDirectory_JSONFormat(t *testing.T) {
 	dir := t.TempDir()
 
-	writeBackupFileForTest(t, filepath.Join(dir, "scripts", "run-updates.json"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(dir, "scripts", "run-updates.json"), map[string]any{
 		"name":       "Run Updates",
 		"scriptBody": "#!/bin/bash\n...",
 	}, "json")
@@ -123,8 +123,8 @@ func TestLoadSnapshotFromDirectory_JSONFormat(t *testing.T) {
 func TestLoadSnapshotFromDirectory_ResourceFilter(t *testing.T) {
 	dir := t.TempDir()
 
-	writeBackupFileForTest(t, filepath.Join(dir, "policies", "test.yaml"), map[string]interface{}{"name": "Test"}, "yaml")
-	writeBackupFileForTest(t, filepath.Join(dir, "scripts", "my-script.yaml"), map[string]interface{}{"name": "My Script"}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "policies", "test.yaml"), map[string]any{"name": "Test"}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "scripts", "my-script.yaml"), map[string]any{"name": "My Script"}, "yaml")
 
 	snapshot, err := loadSnapshotFromDirectory(dir, []string{"policies"})
 	if err != nil {
@@ -202,7 +202,7 @@ func TestLoadSnapshotFromDirectory_FallbackNameFromFilestem(t *testing.T) {
 	dir := t.TempDir()
 
 	// Object without a "name" field — should fall back to filename stem.
-	writeBackupFileForTest(t, filepath.Join(dir, "categories", "productivity.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(dir, "categories", "productivity.yaml"), map[string]any{
 		"priority": float64(5),
 	}, "yaml")
 
@@ -219,7 +219,7 @@ func TestLoadSnapshotFromDirectory_FallbackNameFromFilestem(t *testing.T) {
 
 // --- compareSnapshots ---
 
-func makeSnapshot(resource, name string, fields map[string]interface{}) resourceSnapshot {
+func makeSnapshot(resource, name string, fields map[string]any) resourceSnapshot {
 	return resourceSnapshot{
 		resource: {name: fields},
 	}
@@ -227,7 +227,7 @@ func makeSnapshot(resource, name string, fields map[string]interface{}) resource
 
 func TestCompareSnapshots_Added(t *testing.T) {
 	src := resourceSnapshot{}
-	tgt := makeSnapshot("policies", "New Policy", map[string]interface{}{"enabled": true})
+	tgt := makeSnapshot("policies", "New Policy", map[string]any{"enabled": true})
 
 	results := compareSnapshots(src, tgt)
 
@@ -247,7 +247,7 @@ func TestCompareSnapshots_Added(t *testing.T) {
 }
 
 func TestCompareSnapshots_Removed(t *testing.T) {
-	src := makeSnapshot("scripts", "Old Script", map[string]interface{}{"scriptBody": "echo hi"})
+	src := makeSnapshot("scripts", "Old Script", map[string]any{"scriptBody": "echo hi"})
 	tgt := resourceSnapshot{}
 
 	results := compareSnapshots(src, tgt)
@@ -261,7 +261,7 @@ func TestCompareSnapshots_Removed(t *testing.T) {
 }
 
 func TestCompareSnapshots_Identical(t *testing.T) {
-	obj := map[string]interface{}{"enabled": true, "name": "Test Policy"}
+	obj := map[string]any{"enabled": true, "name": "Test Policy"}
 	src := makeSnapshot("policies", "Test Policy", obj)
 	tgt := makeSnapshot("policies", "Test Policy", obj)
 
@@ -273,11 +273,11 @@ func TestCompareSnapshots_Identical(t *testing.T) {
 }
 
 func TestCompareSnapshots_Modified(t *testing.T) {
-	src := makeSnapshot("policies", "Deploy Chrome", map[string]interface{}{
+	src := makeSnapshot("policies", "Deploy Chrome", map[string]any{
 		"enabled":  true,
 		"category": "Productivity",
 	})
-	tgt := makeSnapshot("policies", "Deploy Chrome", map[string]interface{}{
+	tgt := makeSnapshot("policies", "Deploy Chrome", map[string]any{
 		"enabled":  false,
 		"category": "Productivity",
 	})
@@ -303,12 +303,12 @@ func TestCompareSnapshots_Modified(t *testing.T) {
 }
 
 func TestCompareSnapshots_MultipleFieldChanges(t *testing.T) {
-	src := makeSnapshot("scripts", "Patch Script", map[string]interface{}{
+	src := makeSnapshot("scripts", "Patch Script", map[string]any{
 		"priority":   float64(1),
 		"scriptBody": "#!/bin/bash\necho old",
 		"notes":      "v1",
 	})
-	tgt := makeSnapshot("scripts", "Patch Script", map[string]interface{}{
+	tgt := makeSnapshot("scripts", "Patch Script", map[string]any{
 		"priority":   float64(2),
 		"scriptBody": "#!/bin/bash\necho new",
 		"notes":      "v1",
@@ -365,7 +365,7 @@ func TestCompareSnapshots_MultipleResources(t *testing.T) {
 // --- diffObjects (field-level diff) ---
 
 func TestDiffObjects_NoChanges(t *testing.T) {
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"name":    "Test",
 		"enabled": true,
 	}
@@ -376,8 +376,8 @@ func TestDiffObjects_NoChanges(t *testing.T) {
 }
 
 func TestDiffObjects_FieldAdded(t *testing.T) {
-	src := map[string]interface{}{"name": "Test"}
-	tgt := map[string]interface{}{"name": "Test", "newField": "value"}
+	src := map[string]any{"name": "Test"}
+	tgt := map[string]any{"name": "Test", "newField": "value"}
 
 	diffs := diffObjects(src, tgt)
 	if len(diffs) != 1 {
@@ -392,8 +392,8 @@ func TestDiffObjects_FieldAdded(t *testing.T) {
 }
 
 func TestDiffObjects_FieldRemoved(t *testing.T) {
-	src := map[string]interface{}{"name": "Test", "oldField": "gone"}
-	tgt := map[string]interface{}{"name": "Test"}
+	src := map[string]any{"name": "Test", "oldField": "gone"}
+	tgt := map[string]any{"name": "Test"}
 
 	diffs := diffObjects(src, tgt)
 	if len(diffs) != 1 {
@@ -408,11 +408,11 @@ func TestDiffObjects_FieldRemoved(t *testing.T) {
 }
 
 func TestDiffObjects_NestedObjectChanges(t *testing.T) {
-	src := map[string]interface{}{
-		"scope": map[string]interface{}{"all_computers": true},
+	src := map[string]any{
+		"scope": map[string]any{"all_computers": true},
 	}
-	tgt := map[string]interface{}{
-		"scope": map[string]interface{}{"all_computers": false},
+	tgt := map[string]any{
+		"scope": map[string]any{"all_computers": false},
 	}
 
 	diffs := diffObjects(src, tgt)
@@ -428,7 +428,7 @@ func TestDiffObjects_NestedObjectChanges(t *testing.T) {
 
 func TestFormatFieldValue(t *testing.T) {
 	tests := []struct {
-		input interface{}
+		input any
 		want  string
 	}{
 		{nil, "<nil>"},
@@ -437,8 +437,8 @@ func TestFormatFieldValue(t *testing.T) {
 		{false, "false"},
 		{float64(42), "42"},
 		{float64(3.14), "3.14"},
-		{map[string]interface{}{"k": "v"}, `{"k":"v"}`},
-		{[]interface{}{"a", "b"}, `["a","b"]`},
+		{map[string]any{"k": "v"}, `{"k":"v"}`},
+		{[]any{"a", "b"}, `["a","b"]`},
 	}
 
 	for _, tt := range tests {
@@ -454,7 +454,7 @@ func TestFormatFieldValue(t *testing.T) {
 func TestNormaliseViaJSON(t *testing.T) {
 	// yaml.v3 may produce map[interface{}]interface{} in older versions;
 	// normaliseViaJSON should always return map[string]interface{}.
-	input := map[string]interface{}{
+	input := map[string]any{
 		"name":    "Test",
 		"enabled": true,
 		"count":   float64(3),
@@ -474,17 +474,17 @@ func TestRunDiff_TwoDirectories_Added(t *testing.T) {
 	tgtDir := t.TempDir()
 
 	// Source: one policy.
-	writeBackupFileForTest(t, filepath.Join(srcDir, "policies", "old.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(srcDir, "policies", "old.yaml"), map[string]any{
 		"name":    "Old Policy",
 		"enabled": true,
 	}, "yaml")
 
 	// Target: old policy plus a new one.
-	writeBackupFileForTest(t, filepath.Join(tgtDir, "policies", "old.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(tgtDir, "policies", "old.yaml"), map[string]any{
 		"name":    "Old Policy",
 		"enabled": true,
 	}, "yaml")
-	writeBackupFileForTest(t, filepath.Join(tgtDir, "policies", "new.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(tgtDir, "policies", "new.yaml"), map[string]any{
 		"name":    "New Policy",
 		"enabled": false,
 	}, "yaml")
@@ -515,11 +515,11 @@ func TestRunDiff_TwoDirectories_Modified(t *testing.T) {
 	srcDir := t.TempDir()
 	tgtDir := t.TempDir()
 
-	writeBackupFileForTest(t, filepath.Join(srcDir, "scripts", "deploy.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(srcDir, "scripts", "deploy.yaml"), map[string]any{
 		"name":     "Deploy Script",
 		"priority": float64(1),
 	}, "yaml")
-	writeBackupFileForTest(t, filepath.Join(tgtDir, "scripts", "deploy.yaml"), map[string]interface{}{
+	writeBackupFileForTest(t, filepath.Join(tgtDir, "scripts", "deploy.yaml"), map[string]any{
 		"name":     "Deploy Script",
 		"priority": float64(5),
 	}, "yaml")
@@ -585,11 +585,11 @@ func TestYAMLRoundTrip(t *testing.T) {
 	// Verify that objects written by writeBackupFile and read by
 	// readObjectsFromSubdir survive the round-trip intact.
 	dir := t.TempDir()
-	original := map[string]interface{}{
+	original := map[string]any{
 		"name":    "Round Trip Policy",
 		"enabled": true,
 		"count":   float64(7),
-		"tags":    []interface{}{"a", "b"},
+		"tags":    []any{"a", "b"},
 	}
 
 	writeBackupFileForTest(t, filepath.Join(dir, "rt.yaml"), original, "yaml")
@@ -599,7 +599,7 @@ func TestYAMLRoundTrip(t *testing.T) {
 		t.Fatalf("reading file: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := yaml.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("yaml parse: %v", err)
 	}
@@ -617,7 +617,7 @@ func TestYAMLRoundTrip(t *testing.T) {
 
 func TestJSONRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	original := map[string]interface{}{
+	original := map[string]any{
 		"name":    "Round Trip Script",
 		"enabled": false,
 	}
@@ -629,7 +629,7 @@ func TestJSONRoundTrip(t *testing.T) {
 		t.Fatalf("reading file: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("json parse: %v", err)
 	}

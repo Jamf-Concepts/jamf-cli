@@ -95,9 +95,9 @@ func runGroupMutation(
 	}
 
 	// 3. Build preview rows.
-	previewRows := make([]map[string]interface{}, len(targets))
+	previewRows := make([]map[string]any, len(targets))
 	for i, t := range targets {
-		previewRows[i] = map[string]interface{}{
+		previewRows[i] = map[string]any{
 			"computer_id":   t["id"],
 			"computer_name": t["name"],
 			"group":         groupName,

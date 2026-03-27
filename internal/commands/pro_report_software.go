@@ -62,7 +62,7 @@ type softwareKey struct {
 
 // runReportSoftwareInstalls fetches computer inventory with the APPLICATIONS
 // section and aggregates device counts per (title, version).
-func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, titleFilter string, includeSystem bool) ([]map[string]interface{}, error) {
+func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, titleFilter string, includeSystem bool) ([]map[string]any, error) {
 	computers, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=APPLICATIONS", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
@@ -72,9 +72,9 @@ func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, 
 	filterLower := strings.ToLower(titleFilter)
 
 	for _, c := range computers {
-		apps, _ := c["applications"].([]interface{})
+		apps, _ := c["applications"].([]any)
 		for _, a := range apps {
-			app, ok := a.(map[string]interface{})
+			app, ok := a.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -108,9 +108,9 @@ func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, 
 		return keys[i].version > keys[j].version
 	})
 
-	rows := make([]map[string]interface{}, 0, len(keys))
+	rows := make([]map[string]any, 0, len(keys))
 	for _, k := range keys {
-		rows = append(rows, map[string]interface{}{
+		rows = append(rows, map[string]any{
 			"title":        k.title,
 			"version":      k.version,
 			"device_count": counts[k],

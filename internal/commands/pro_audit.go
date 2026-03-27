@@ -127,9 +127,9 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 	}
 
 	// Convert to output format
-	rows := make([]map[string]interface{}, len(results))
+	rows := make([]map[string]any, len(results))
 	for i, r := range results {
-		rows[i] = map[string]interface{}{
+		rows[i] = map[string]any{
 			"category":       r.Category,
 			"severity":       r.Severity,
 			"name":           r.Name,
@@ -159,7 +159,7 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 	}
 	count := 0
 	for _, comp := range all {
-		sec, _ := comp["security"].(map[string]interface{})
+		sec, _ := comp["security"].(map[string]any)
 		if sec == nil {
 			continue
 		}
@@ -188,7 +188,7 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 	}
 	count := 0
 	for _, comp := range all {
-		sec, _ := comp["security"].(map[string]interface{})
+		sec, _ := comp["security"].(map[string]any)
 		if sec == nil {
 			continue
 		}
@@ -292,7 +292,7 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 	noScopeCount := 0
 	skippedCount := 0
 	for _, r := range raw {
-		m, ok := r.(map[string]interface{})
+		m, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -310,7 +310,7 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 			continue
 		}
 		detail = unwrapClassicDetail(detail)
-		scope, ok := detail["scope"].(map[string]interface{})
+		scope, ok := detail["scope"].(map[string]any)
 		if !ok {
 			noScopeCount++
 			continue
@@ -318,8 +318,8 @@ func checkPoliciesNoScope(ctx context.Context, client registry.HTTPClient, _ int
 		// Check if scope has any targets
 		allComputers, _ := scope["all_computers"].(bool)
 		allJSS, _ := scope["all_jss_users"].(bool)
-		computers, _ := scope["computers"].([]interface{})
-		groups, _ := scope["computer_groups"].([]interface{})
+		computers, _ := scope["computers"].([]any)
+		groups, _ := scope["computer_groups"].([]any)
 		if !allComputers && !allJSS && len(computers) == 0 && len(groups) == 0 {
 			noScopeCount++
 		}
@@ -372,10 +372,10 @@ func checkDEPTokenExpiry(ctx context.Context, client registry.HTTPClient, _ int)
 		return nil, err
 	}
 
-	results, _ := data["results"].([]interface{})
+	results, _ := data["results"].([]any)
 	expiringCount := 0
 	for _, r := range results {
-		item, ok := r.(map[string]interface{})
+		item, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}

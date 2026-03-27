@@ -43,14 +43,14 @@ func TestSlugifyName(t *testing.T) {
 // --- StripServerFields ---
 
 func TestStripServerFields(t *testing.T) {
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"id":          float64(42),
 		"name":        "Test Policy",
 		"enabled":     true,
 		"createdDate": "2026-01-01",
 		"updatedDate": "2026-03-01",
 		"href":        "/api/v1/policies/42",
-		"scope": map[string]interface{}{
+		"scope": map[string]any{
 			"id":   float64(1),
 			"name": "All Computers",
 		},
@@ -74,7 +74,7 @@ func TestStripServerFields(t *testing.T) {
 	}
 
 	// Should strip nested id
-	scope, ok := stripped["scope"].(map[string]interface{})
+	scope, ok := stripped["scope"].(map[string]any)
 	if !ok {
 		t.Fatal("scope should be a nested map")
 	}
@@ -87,23 +87,23 @@ func TestStripServerFields(t *testing.T) {
 }
 
 func TestStripServerFields_Arrays(t *testing.T) {
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"name": "Test Policy",
-		"scope": map[string]interface{}{
-			"computers": []interface{}{
-				map[string]interface{}{"id": float64(1), "name": "Mac1", "href": "/api/v1/computers/1"},
-				map[string]interface{}{"id": float64(2), "name": "Mac2"},
+		"scope": map[string]any{
+			"computers": []any{
+				map[string]any{"id": float64(1), "name": "Mac1", "href": "/api/v1/computers/1"},
+				map[string]any{"id": float64(2), "name": "Mac2"},
 			},
 		},
 	}
 
 	stripped := StripServerFields(obj)
-	scope := stripped["scope"].(map[string]interface{})
-	computers := scope["computers"].([]interface{})
+	scope := stripped["scope"].(map[string]any)
+	computers := scope["computers"].([]any)
 	if len(computers) != 2 {
 		t.Fatalf("expected 2 computers, got %d", len(computers))
 	}
-	comp := computers[0].(map[string]interface{})
+	comp := computers[0].(map[string]any)
 	if _, ok := comp["id"]; ok {
 		t.Error("id should be stripped from array elements")
 	}
@@ -116,7 +116,7 @@ func TestStripServerFields_Arrays(t *testing.T) {
 }
 
 func TestStripServerFields_TimestampSuffixes(t *testing.T) {
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"name":                "Test",
 		"last_modified_epoch": float64(1234567890),
 		"some_field_utc":      "2026-01-01T00:00:00Z",
@@ -136,7 +136,7 @@ func TestStripServerFields_TimestampSuffixes(t *testing.T) {
 }
 
 func TestStripServerFields_EmptyMap(t *testing.T) {
-	result := StripServerFields(map[string]interface{}{})
+	result := StripServerFields(map[string]any{})
 	if len(result) != 0 {
 		t.Errorf("expected empty map, got %v", result)
 	}

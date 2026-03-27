@@ -47,7 +47,7 @@ Output columns: ea_name, definition_id, device, value`,
 
 // runReportEAResults fetches computer extension attribute definitions, then
 // queries each computer's inventory to collect EA values.
-func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFilter string, showAll bool) ([]map[string]interface{}, error) {
+func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFilter string, showAll bool) ([]map[string]any, error) {
 	// Fetch EA definitions from the Classic API.
 	eaItems, err := FetchClassicList(ctx, client, "/JSSResource/computerextensionattributes", "computer_extension_attributes")
 	if err != nil {
@@ -63,7 +63,7 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 	}
 	var targetEAs []eaDef
 	for _, item := range eaItems {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -81,7 +81,7 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 			return nil, fmt.Errorf("no extension attributes found matching %q", nameFilter)
 		}
 		// No EAs configured at all — return empty result.
-		return []map[string]interface{}{}, nil
+		return []map[string]any{}, nil
 	}
 
 	// Fetch computer inventory with the EXTENSION_ATTRIBUTES section.
@@ -96,20 +96,20 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 		targetEAIDs[ea.id] = ea.name
 	}
 
-	var rows []map[string]interface{}
+	var rows []map[string]any
 
 	for _, c := range computers {
 		deviceName := ""
-		if general, ok := c["general"].(map[string]interface{}); ok {
+		if general, ok := c["general"].(map[string]any); ok {
 			deviceName, _ = general["name"].(string)
 		}
 		if deviceName == "" {
 			deviceName = extractID(c)
 		}
 
-		eas, _ := c["extensionAttributes"].([]interface{})
+		eas, _ := c["extensionAttributes"].([]any)
 		for _, e := range eas {
-			ea, ok := e.(map[string]interface{})
+			ea, ok := e.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -138,7 +138,7 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 			value := ""
 			if v, ok := ea["value"].(string); ok {
 				value = v
-			} else if vals, ok := ea["values"].([]interface{}); ok && len(vals) > 0 {
+			} else if vals, ok := ea["values"].([]any); ok && len(vals) > 0 {
 				// Modern API returns values as an array
 				parts := make([]string, 0, len(vals))
 				for _, v := range vals {
@@ -156,7 +156,7 @@ func runReportEAResults(ctx context.Context, client registry.HTTPClient, nameFil
 				continue
 			}
 
-			rows = append(rows, map[string]interface{}{
+			rows = append(rows, map[string]any{
 				"ea_name":       eaName,
 				"definition_id": eaID,
 				"device":        deviceName,

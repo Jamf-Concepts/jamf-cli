@@ -53,7 +53,7 @@ type inventoryKey struct {
 
 // runReportInventorySummary fetches computer inventory and aggregates counts.
 // groupBy controls the bucketing: "model", "os", or "both" (default).
-func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, groupFilter, groupBy string) ([]map[string]interface{}, error) {
+func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, groupFilter, groupBy string) ([]map[string]any, error) {
 	basePath := "/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM"
 	if groupFilter != "" {
 		basePath = fmt.Sprintf("%s&filter=general.groupMemberships.groupName%%3D%%3D\"%s\"",
@@ -71,12 +71,12 @@ func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, 
 		model := "Unknown"
 		osVersion := "Unknown"
 
-		if hw, ok := c["hardware"].(map[string]interface{}); ok {
+		if hw, ok := c["hardware"].(map[string]any); ok {
 			if m, ok := hw["model"].(string); ok && m != "" {
 				model = m
 			}
 		}
-		if os, ok := c["operatingSystem"].(map[string]interface{}); ok {
+		if os, ok := c["operatingSystem"].(map[string]any); ok {
 			if v, ok := os["version"].(string); ok && v != "" {
 				osVersion = v
 			}
@@ -106,9 +106,9 @@ func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, 
 		return keys[i].osVersion > keys[j].osVersion
 	})
 
-	rows := make([]map[string]interface{}, 0, len(keys))
+	rows := make([]map[string]any, 0, len(keys))
 	for _, k := range keys {
-		row := map[string]interface{}{"count": counts[k]}
+		row := map[string]any{"count": counts[k]}
 		switch groupBy {
 		case "model":
 			row["model"] = k.model

@@ -31,13 +31,13 @@ Output columns: title, id, installed, total, latest, compliance_pct`,
 
 // runReportPatchStatus fetches patch title configurations and computes
 // per-title compliance metrics.
-func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]map[string]interface{}, error) {
+func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]map[string]any, error) {
 	titles, err := FetchAllPaginated(ctx, client, "/v2/patch-software-title-configurations", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching patch title configurations: %w", err)
 	}
 
-	rows := make([]map[string]interface{}, 0, len(titles))
+	rows := make([]map[string]any, 0, len(titles))
 	for _, t := range titles {
 		titleName, _ := t["softwareTitleName"].(string)
 		if titleName == "" {
@@ -49,7 +49,7 @@ func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]ma
 
 		titleID := extractID(t)
 
-		summary, _ := t["patchSummary"].(map[string]interface{})
+		summary, _ := t["patchSummary"].(map[string]any)
 
 		var installed, total int
 		var latestVersion string
@@ -76,7 +76,7 @@ func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]ma
 			compliancePct = fmt.Sprintf("%.1f%%", pct)
 		}
 
-		rows = append(rows, map[string]interface{}{
+		rows = append(rows, map[string]any{
 			"title":          titleName,
 			"id":             titleID,
 			"installed":      installed,

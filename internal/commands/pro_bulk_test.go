@@ -40,8 +40,8 @@ func (m *bulkMockClient) Do(_ context.Context, method, path string, _ io.Reader)
 	}
 	// GET with prefix match (strip query params)
 	if method == "GET" {
-		if idx := strings.Index(path, "?"); idx != -1 {
-			base := "GET " + path[:idx]
+		if before, _, ok := strings.Cut(path, "?"); ok {
+			base := "GET " + before
 			if resp, ok := m.responses[base]; ok {
 				return &http.Response{
 					StatusCode: resp.statusCode,

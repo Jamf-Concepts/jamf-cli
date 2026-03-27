@@ -34,7 +34,7 @@ func newSetupClient(baseURL, token string) *setupClient {
 	}
 }
 
-func (c *setupClient) do(ctx context.Context, method, path string, body interface{}) ([]byte, int, error) {
+func (c *setupClient) do(ctx context.Context, method, path string, body any) ([]byte, int, error) {
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -85,7 +85,7 @@ func (c *setupClient) fetchPrivileges(ctx context.Context) ([]string, error) {
 // createAPIRole creates an API role with the given display name and privileges.
 // Returns the role ID.
 func (c *setupClient) createAPIRole(ctx context.Context, displayName string, privileges []string) (string, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"displayName": displayName,
 		"privileges":  privileges,
 	}
@@ -115,7 +115,7 @@ func (c *setupClient) createAPIRole(ctx context.Context, displayName string, pri
 // createAPIIntegration creates an API integration with the given display name and role scopes.
 // Returns the integration ID.
 func (c *setupClient) createAPIIntegration(ctx context.Context, displayName string, scopes []string) (int, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"displayName":         displayName,
 		"authorizationScopes": scopes,
 		"enabled":             true,

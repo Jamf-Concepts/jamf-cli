@@ -96,7 +96,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"needsFmt":          needsFmt,
 		"needsURL":          needsURL,
 		"hasDeleteMultiple": hasDeleteMultiple,
-		"defaultVal": func(paramType string, val interface{}) string {
+		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
 				return fmt.Sprintf("%q", fmt.Sprintf("%v", val))
@@ -322,7 +322,7 @@ func scaffoldJSON(s *Schema) string {
 	}
 	sort.Strings(names)
 
-	obj := make(map[string]interface{})
+	obj := make(map[string]any)
 	for _, name := range names {
 		prop := s.Properties[name]
 		if prop.ReadOnly {
@@ -339,9 +339,9 @@ func scaffoldJSON(s *Schema) string {
 			case "boolean":
 				obj[name] = false
 			case "array":
-				obj[name] = []interface{}{}
+				obj[name] = []any{}
 			case "object":
-				obj[name] = map[string]interface{}{}
+				obj[name] = map[string]any{}
 			default:
 				obj[name] = ""
 			}

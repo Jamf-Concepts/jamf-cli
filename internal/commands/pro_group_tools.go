@@ -67,7 +67,7 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
-	var rows []map[string]interface{}
+	var rows []map[string]any
 	for _, g := range groups {
 		// Type filter
 		if groupType != "" {
@@ -102,7 +102,7 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 	}
 
 	if len(rows) == 0 {
-		rows = []map[string]interface{}{}
+		rows = []map[string]any{}
 	}
 
 	formatter := output.New(outputFmt, noColor, wide)
@@ -151,14 +151,14 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		return fmt.Errorf("fetching group detail: %w", err)
 	}
 
-	members, _ := detail["members"].([]interface{})
-	var rows []map[string]interface{}
+	members, _ := detail["members"].([]any)
+	var rows []map[string]any
 	for _, m := range members {
-		member, ok := m.(map[string]interface{})
+		member, ok := m.(map[string]any)
 		if !ok {
 			continue
 		}
-		row := map[string]interface{}{
+		row := map[string]any{
 			"id":   extractID(member),
 			"name": extractName(member),
 		}
@@ -170,7 +170,7 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 	}
 
 	if len(rows) == 0 {
-		rows = []map[string]interface{}{}
+		rows = []map[string]any{}
 	}
 
 	formatter := output.New(outputFmt, noColor, wide)
@@ -227,7 +227,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 	}
 	var stubs []policyStub
 	for _, item := range policyItems {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -235,7 +235,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 	}
 
 	// Fetch policy details in parallel (bounded concurrency)
-	details, fetchErrs := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, stub policyStub) (map[string]interface{}, error) {
+	details, fetchErrs := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, stub policyStub) (map[string]any, error) {
 		path := fmt.Sprintf("/JSSResource/policies/id/%s", stub.id)
 		data, err := FetchJSON(ctx, cliCtx.Client, path)
 		if err != nil {
@@ -256,7 +256,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 		if detail == nil {
 			continue
 		}
-		scope, _ := detail["scope"].(map[string]interface{})
+		scope, _ := detail["scope"].(map[string]any)
 		if scope == nil {
 			continue
 		}
@@ -264,7 +264,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 	}
 
 	// Find groups not referenced
-	var rows []map[string]interface{}
+	var rows []map[string]any
 	for _, g := range groups {
 		name, _ := g["name"].(string)
 		if referenced[name] {
@@ -276,7 +276,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 	}
 
 	if len(rows) == 0 {
-		rows = []map[string]interface{}{}
+		rows = []map[string]any{}
 	}
 
 	formatter := output.New(outputFmt, noColor, wide)
@@ -284,11 +284,11 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 }
 
 // addGroupNamesFromScope extracts computer group names from a Classic API scope object.
-func addGroupNamesFromScope(scope map[string]interface{}, out map[string]bool) {
+func addGroupNamesFromScope(scope map[string]any, out map[string]bool) {
 	for _, key := range []string{"computerGroups", "computer_groups"} {
-		arr, _ := scope[key].([]interface{})
+		arr, _ := scope[key].([]any)
 		for _, item := range arr {
-			m, ok := item.(map[string]interface{})
+			m, ok := item.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -332,10 +332,10 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
-	rows := append([]map[string]interface{}{}, groups...)
+	rows := append([]map[string]any{}, groups...)
 
 	if len(rows) == 0 {
-		rows = []map[string]interface{}{}
+		rows = []map[string]any{}
 	}
 
 	formatter := output.New(format, noColor, wide)
@@ -347,13 +347,13 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 // ─────────────────────────────────────────────────────────────────
 
 // groupSummaryRow converts a computer group map to a summary row for output.
-func groupSummaryRow(g map[string]interface{}) map[string]interface{} {
+func groupSummaryRow(g map[string]any) map[string]any {
 	smart, _ := g["smartGroup"].(bool)
 	groupTypeStr := "static"
 	if smart {
 		groupTypeStr = "smart"
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"id":          extractID(g),
 		"name":        extractName(g),
 		"type":        groupTypeStr,
@@ -363,11 +363,11 @@ func groupSummaryRow(g map[string]interface{}) map[string]interface{} {
 
 // groupMemberCount extracts the member count from a group map.
 // The field may be "memberCount" (float64) or derived from the "members" array.
-func groupMemberCount(g map[string]interface{}) int {
+func groupMemberCount(g map[string]any) int {
 	if mc, ok := g["memberCount"].(float64); ok {
 		return int(mc)
 	}
-	if members, ok := g["members"].([]interface{}); ok {
+	if members, ok := g["members"].([]any); ok {
 		return len(members)
 	}
 	return 0
@@ -384,16 +384,16 @@ func groupMemberCount(g map[string]interface{}) int {
 
 // marshalGroupsYAML marshals a slice of group maps to YAML bytes.
 // Used by export when a caller needs raw bytes rather than formatted output.
-func marshalGroupsYAML(groups []map[string]interface{}) ([]byte, error) {
+func marshalGroupsYAML(groups []map[string]any) ([]byte, error) {
 	return yaml.Marshal(groups)
 }
 
 // marshalGroupsJSON marshals a slice of group maps to indented JSON bytes.
 // A nil slice is normalised to an empty slice so the output is always a JSON
 // array rather than null.
-func marshalGroupsJSON(groups []map[string]interface{}) ([]byte, error) {
+func marshalGroupsJSON(groups []map[string]any) ([]byte, error) {
 	if groups == nil {
-		groups = []map[string]interface{}{}
+		groups = []map[string]any{}
 	}
 	return json.MarshalIndent(groups, "", "  ")
 }

@@ -359,7 +359,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 	}
 
 	// Mac mini row
-	var miniRow map[string]interface{}
+	var miniRow map[string]any
 	for _, r := range rows {
 		if r["model"] == "Mac mini (2023)" {
 			miniRow = r
@@ -374,7 +374,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 	}
 
 	// MacBook Pro row
-	var mbpRow map[string]interface{}
+	var mbpRow map[string]any
 	for _, r := range rows {
 		if r["model"] == "MacBook Pro (16-inch, 2023)" {
 			mbpRow = r
@@ -469,7 +469,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 	}
 
 	// Find Chrome 123.0 row
-	var chrome123 map[string]interface{}
+	var chrome123 map[string]any
 	for _, r := range rows {
 		if r["title"] == "Google Chrome" && r["version"] == "123.0" {
 			chrome123 = r

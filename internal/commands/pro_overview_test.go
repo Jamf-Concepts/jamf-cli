@@ -35,8 +35,8 @@ func (m *overviewMockClient) Do(_ context.Context, method, path string, _ io.Rea
 	}
 
 	// Try without query params
-	if idx := strings.Index(path, "?"); idx != -1 {
-		base := path[:idx]
+	if before, _, ok := strings.Cut(path, "?"); ok {
+		base := before
 		if resp, ok := m.responses[base]; ok {
 			return &http.Response{
 				StatusCode: resp.statusCode,
@@ -423,7 +423,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	install, ok := data["installSettings"].(map[string]interface{})
+	install, ok := data["installSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("installSettings not a map")
 	}
@@ -431,7 +431,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 		t.Errorf("installAutomatically = %q, want %q", got, "enabled")
 	}
 
-	login, ok := data["loginSettings"].(map[string]interface{})
+	login, ok := data["loginSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("loginSettings not a map")
 	}
@@ -439,7 +439,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 		t.Errorf("userLoginLevel = %v, want %q", login["userLoginLevel"], "Required")
 	}
 
-	config, ok := data["configurationSettings"].(map[string]interface{})
+	config, ok := data["configurationSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("configurationSettings not a map")
 	}
@@ -552,14 +552,14 @@ func TestDEPTokenExpiration(t *testing.T) {
 	}
 
 	// Find earliest expiration
-	results, ok := data["results"].([]interface{})
+	results, ok := data["results"].([]any)
 	if !ok {
 		t.Fatal("results not an array")
 	}
 
 	var earliest string
 	for _, r := range results {
-		item, ok := r.(map[string]interface{})
+		item, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -592,14 +592,14 @@ func TestDEPTokenExpiration_NoneConfigured(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	results, ok := data["results"].([]interface{})
+	results, ok := data["results"].([]any)
 	if !ok {
 		t.Fatal("results not an array")
 	}
 
 	var earliest string
 	for _, r := range results {
-		item, ok := r.(map[string]interface{})
+		item, ok := r.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -809,7 +809,7 @@ func TestPrintOverviewTable_NotificationsActive(t *testing.T) {
 func TestFormatCount(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{"float64 zero", float64(0), "0"},

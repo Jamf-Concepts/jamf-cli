@@ -69,7 +69,7 @@ func TestSpinner_ConcurrentStartStop(t *testing.T) {
 	s := New("Concurrent test")
 	done := make(chan struct{})
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			s.Start()
 			s.Stop()
@@ -77,7 +77,7 @@ func TestSpinner_ConcurrentStartStop(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 }
@@ -130,7 +130,7 @@ func TestConcurrent_ActivePath(t *testing.T) {
 	s := New("Concurrent active")
 	done := make(chan struct{})
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			s.Start()
 			s.Stop()
@@ -138,7 +138,7 @@ func TestConcurrent_ActivePath(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 }

@@ -41,7 +41,7 @@ Output columns: name, serial, managed, os_version, last_contact, days_since_cont
 // runReportDeviceCompliance fetches all computers from the inventory API and
 // produces a compliance row for each device indicating management status,
 // OS version, and stale check-in status.
-func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, staleThresholdDays int) ([]map[string]interface{}, error) {
+func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, staleThresholdDays int) ([]map[string]any, error) {
 	computers, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
@@ -50,9 +50,9 @@ func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, 
 	now := time.Now()
 	threshold := time.Duration(staleThresholdDays) * 24 * time.Hour
 
-	rows := make([]map[string]interface{}, 0, len(computers))
+	rows := make([]map[string]any, 0, len(computers))
 	for _, c := range computers {
-		general, _ := c["general"].(map[string]interface{})
+		general, _ := c["general"].(map[string]any)
 
 		name := ""
 		serial := ""
@@ -62,12 +62,12 @@ func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, 
 		if general != nil {
 			name, _ = general["name"].(string)
 			lastContact, _ = general["lastContactTime"].(string)
-			if rm, ok := general["remoteManagement"].(map[string]interface{}); ok {
+			if rm, ok := general["remoteManagement"].(map[string]any); ok {
 				managed, _ = rm["managed"].(bool)
 			}
 		}
 
-		if hw, ok := c["hardware"].(map[string]interface{}); ok {
+		if hw, ok := c["hardware"].(map[string]any); ok {
 			serial, _ = hw["serialNumber"].(string)
 		}
 		if serial == "" && general != nil {
@@ -78,7 +78,7 @@ func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, 
 		}
 
 		osVersion := ""
-		if os, ok := c["operatingSystem"].(map[string]interface{}); ok {
+		if os, ok := c["operatingSystem"].(map[string]any); ok {
 			osVersion, _ = os["version"].(string)
 		}
 
@@ -98,7 +98,7 @@ func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, 
 			}
 		}
 
-		rows = append(rows, map[string]interface{}{
+		rows = append(rows, map[string]any{
 			"name":               name,
 			"serial":             serial,
 			"managed":            managed,

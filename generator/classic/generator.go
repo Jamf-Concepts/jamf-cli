@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -134,21 +135,11 @@ func templateFuncs() template.FuncMap {
 }
 
 func hasOp(ops []string, target string) bool {
-	for _, op := range ops {
-		if op == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ops, target)
 }
 
 func hasLookup(lookups []string, target string) bool {
-	for _, l := range lookups {
-		if l == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(lookups, target)
 }
 
 func extraLookups(lookups []string) []string {

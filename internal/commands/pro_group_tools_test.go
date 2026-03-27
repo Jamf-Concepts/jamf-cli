@@ -99,7 +99,7 @@ func TestGroupToolsList_FilterSmart(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var smart []map[string]interface{}
+	var smart []map[string]any
 	for _, g := range groups {
 		isSmart, _ := g["smartGroup"].(bool)
 		if isSmart {
@@ -118,7 +118,7 @@ func TestGroupToolsList_FilterStatic(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var static []map[string]interface{}
+	var static []map[string]any
 	for _, g := range groups {
 		isSmart, _ := g["smartGroup"].(bool)
 		if !isSmart {
@@ -140,7 +140,7 @@ func TestGroupToolsList_FilterEmpty(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var empty []map[string]interface{}
+	var empty []map[string]any
 	for _, g := range groups {
 		if groupMemberCount(g) == 0 {
 			empty = append(empty, g)
@@ -162,7 +162,7 @@ func TestGroupToolsList_FilterNamePattern(t *testing.T) {
 	}
 
 	pattern := "dev"
-	var matched []map[string]interface{}
+	var matched []map[string]any
 	for _, g := range groups {
 		name, _ := g["name"].(string)
 		if strings.Contains(strings.ToLower(name), strings.ToLower(pattern)) {
@@ -186,7 +186,7 @@ func TestGroupToolsList_NamePatternCaseInsensitive(t *testing.T) {
 
 	// "COMPUTERS" should match "All Computers" case-insensitively
 	pattern := "COMPUTERS"
-	var matched []map[string]interface{}
+	var matched []map[string]any
 	for _, g := range groups {
 		name, _ := g["name"].(string)
 		if strings.Contains(strings.ToLower(name), strings.ToLower(pattern)) {
@@ -248,13 +248,13 @@ func TestGroupToolsMembers_ByName(t *testing.T) {
 		t.Fatalf("fetching group detail: %v", err)
 	}
 
-	members, _ := detail["members"].([]interface{})
+	members, _ := detail["members"].([]any)
 	if len(members) != 2 {
 		t.Errorf("got %d members, want 2", len(members))
 	}
 
 	// Verify member names
-	m0, _ := members[0].(map[string]interface{})
+	m0, _ := members[0].(map[string]any)
 	if extractName(m0) != "mac-01" {
 		t.Errorf("member[0] name = %q, want %q", extractName(m0), "mac-01")
 	}
@@ -290,7 +290,7 @@ func TestGroupToolsMembers_EmptyGroup(t *testing.T) {
 		t.Fatalf("fetching group detail: %v", err)
 	}
 
-	members, _ := detail["members"].([]interface{})
+	members, _ := detail["members"].([]any)
 	if len(members) != 0 {
 		t.Errorf("got %d members, want 0", len(members))
 	}
@@ -377,7 +377,7 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 	// Fetch policy details and collect referenced group names
 	referenced := make(map[string]bool)
 	for _, item := range policyItems {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -390,7 +390,7 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 		if detail == nil {
 			continue
 		}
-		scope, _ := detail["scope"].(map[string]interface{})
+		scope, _ := detail["scope"].(map[string]any)
 		if scope != nil {
 			addGroupNamesFromScope(scope, referenced)
 		}
@@ -408,7 +408,7 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 	}
 
 	// Count unreferenced groups
-	var unused []map[string]interface{}
+	var unused []map[string]any
 	for _, g := range groups {
 		name, _ := g["name"].(string)
 		if !referenced[name] {
@@ -450,7 +450,7 @@ func TestGroupToolsAnalyze_AllReferenced(t *testing.T) {
 
 	referenced := make(map[string]bool)
 	for _, item := range policyItems {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -461,13 +461,13 @@ func TestGroupToolsAnalyze_AllReferenced(t *testing.T) {
 		}
 		detail := unwrapClassicDetail(data)
 		if detail != nil {
-			if scope, ok := detail["scope"].(map[string]interface{}); ok {
+			if scope, ok := detail["scope"].(map[string]any); ok {
 				addGroupNamesFromScope(scope, referenced)
 			}
 		}
 	}
 
-	var unused []map[string]interface{}
+	var unused []map[string]any
 	for _, g := range groups {
 		if n, _ := g["name"].(string); !referenced[n] {
 			unused = append(unused, g)
@@ -499,7 +499,7 @@ func TestGroupToolsAnalyze_NoPolicies(t *testing.T) {
 
 	referenced := make(map[string]bool)
 	for _, item := range policyItems {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -510,13 +510,13 @@ func TestGroupToolsAnalyze_NoPolicies(t *testing.T) {
 		}
 		detail := unwrapClassicDetail(data)
 		if detail != nil {
-			if scope, ok := detail["scope"].(map[string]interface{}); ok {
+			if scope, ok := detail["scope"].(map[string]any); ok {
 				addGroupNamesFromScope(scope, referenced)
 			}
 		}
 	}
 
-	var unused []map[string]interface{}
+	var unused []map[string]any
 	for _, g := range groups {
 		if n, _ := g["name"].(string); !referenced[n] {
 			unused = append(unused, g)
@@ -604,7 +604,7 @@ func TestGroupToolsExport_Empty(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestGroupSummaryRow_Smart(t *testing.T) {
-	g := map[string]interface{}{
+	g := map[string]any{
 		"id":          "42",
 		"name":        "My Smart Group",
 		"smartGroup":  true,
@@ -624,7 +624,7 @@ func TestGroupSummaryRow_Smart(t *testing.T) {
 }
 
 func TestGroupSummaryRow_Static(t *testing.T) {
-	g := map[string]interface{}{
+	g := map[string]any{
 		"id":          "7",
 		"name":        "Static Group",
 		"smartGroup":  false,
@@ -641,18 +641,18 @@ func TestGroupSummaryRow_Static(t *testing.T) {
 }
 
 func TestGroupMemberCount_FromField(t *testing.T) {
-	g := map[string]interface{}{"memberCount": float64(99)}
+	g := map[string]any{"memberCount": float64(99)}
 	if c := groupMemberCount(g); c != 99 {
 		t.Errorf("groupMemberCount = %d, want 99", c)
 	}
 }
 
 func TestGroupMemberCount_FromArray(t *testing.T) {
-	g := map[string]interface{}{
-		"members": []interface{}{
-			map[string]interface{}{"id": "1"},
-			map[string]interface{}{"id": "2"},
-			map[string]interface{}{"id": "3"},
+	g := map[string]any{
+		"members": []any{
+			map[string]any{"id": "1"},
+			map[string]any{"id": "2"},
+			map[string]any{"id": "3"},
 		},
 	}
 	if c := groupMemberCount(g); c != 3 {
@@ -661,7 +661,7 @@ func TestGroupMemberCount_FromArray(t *testing.T) {
 }
 
 func TestGroupMemberCount_Missing(t *testing.T) {
-	g := map[string]interface{}{"name": "No Count"}
+	g := map[string]any{"name": "No Count"}
 	if c := groupMemberCount(g); c != 0 {
 		t.Errorf("groupMemberCount = %d, want 0", c)
 	}
@@ -672,10 +672,10 @@ func TestGroupMemberCount_Missing(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestAddGroupNamesFromScope_ModernKey(t *testing.T) {
-	scope := map[string]interface{}{
-		"computerGroups": []interface{}{
-			map[string]interface{}{"id": float64(1), "name": "Group A"},
-			map[string]interface{}{"id": float64(2), "name": "Group B"},
+	scope := map[string]any{
+		"computerGroups": []any{
+			map[string]any{"id": float64(1), "name": "Group A"},
+			map[string]any{"id": float64(2), "name": "Group B"},
 		},
 	}
 	out := make(map[string]bool)
@@ -690,9 +690,9 @@ func TestAddGroupNamesFromScope_ModernKey(t *testing.T) {
 }
 
 func TestAddGroupNamesFromScope_ClassicKey(t *testing.T) {
-	scope := map[string]interface{}{
-		"computer_groups": []interface{}{
-			map[string]interface{}{"id": float64(5), "name": "Classic Group"},
+	scope := map[string]any{
+		"computer_groups": []any{
+			map[string]any{"id": float64(5), "name": "Classic Group"},
 		},
 	}
 	out := make(map[string]bool)
@@ -704,8 +704,8 @@ func TestAddGroupNamesFromScope_ClassicKey(t *testing.T) {
 }
 
 func TestAddGroupNamesFromScope_Empty(t *testing.T) {
-	scope := map[string]interface{}{
-		"computerGroups": []interface{}{},
+	scope := map[string]any{
+		"computerGroups": []any{},
 	}
 	out := make(map[string]bool)
 	addGroupNamesFromScope(scope, out)
@@ -716,9 +716,9 @@ func TestAddGroupNamesFromScope_Empty(t *testing.T) {
 }
 
 func TestAddGroupNamesFromScope_NoGroupsKey(t *testing.T) {
-	scope := map[string]interface{}{
-		"computers": []interface{}{
-			map[string]interface{}{"id": float64(1), "name": "mac-01"},
+	scope := map[string]any{
+		"computers": []any{
+			map[string]any{"id": float64(1), "name": "mac-01"},
 		},
 	}
 	out := make(map[string]bool)

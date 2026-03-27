@@ -34,7 +34,7 @@ type Parameter struct {
 	Description string
 	Required    bool
 	Type        string
-	Default     interface{}
+	Default     any
 	IsArray     bool
 }
 
@@ -65,7 +65,7 @@ type Property struct {
 	Name        string
 	Type        string
 	Description string
-	Example     interface{}
+	Example     any
 	Nullable    bool
 	ReadOnly    bool
 }
