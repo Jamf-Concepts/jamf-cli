@@ -21,10 +21,11 @@ type Config struct {
 // Profile represents a Jamf Pro server profile
 type Profile struct {
 	URL          string `yaml:"url"`
-	AuthMethod   string `yaml:"auth-method"` // token, oauth2
+	AuthMethod   string `yaml:"auth-method"` // token, oauth2, platform
 	Token        string `yaml:"token,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
+	TenantID     string `yaml:"tenant-id,omitempty"`
 }
 
 // ConfigPath returns the path to the config file using XDG conventions.

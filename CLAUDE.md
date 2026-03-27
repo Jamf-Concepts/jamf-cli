@@ -92,7 +92,7 @@ See `generator/README.md` for full template function reference and testing workf
 | `internal/commands/` | Handwritten commands (config, setup, overview, completion, aliases, groups) |
 | `internal/commands/generated/` | **Generated** — all API resource commands + registry |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
-| `internal/auth/` | Provider interface with OAuth2 (client credentials) and Token impls |
+| `internal/auth/` | Provider interface with OAuth2, Platform OAuth2, and Token impls |
 | `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes) |
 | `internal/output/` | Multi-format output: table, JSON, CSV, YAML, plain. Table has smart column selection, date formatting, status colorization |
 | `internal/keychain/` | System keychain abstraction (macOS Keychain, Linux secret-service) |
@@ -101,9 +101,14 @@ See `generator/README.md` for full template function reference and testing workf
 
 ### Auth Resolution Order
 
-1. CLI flags (`--token`, `--client-id`/`--client-secret`)
-2. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`)
+1. CLI flags (`--token`, `--client-id`/`--client-secret`, `--tenant-id`)
+2. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, `JAMF_TENANT_ID`)
 3. Config profile (resolved via `--profile`, `JAMF_PROFILE`, or `default-profile` in config)
+
+Three auth methods are supported:
+- **token** — Pre-existing bearer token, passed directly in Authorization header
+- **oauth2** — Client credentials flow against the instance's `/api/oauth/token` endpoint
+- **platform** — Client credentials flow against the Jamf Platform Gateway (e.g., `https://{region}.apigw.jamf.com/auth/token`). Requires `--tenant-id` for URL path rewriting: Classic API paths are routed through `/api/proclassic/tenant/{id}/`, modern API paths through `/api/pro/tenant/{id}/`
 
 Secret values in config use prefixed references: `env:VAR`, `file:/path`, `keychain:service/account`. Bare values passed to `config add-profile` are stored in the system keychain automatically.
 
@@ -127,7 +132,7 @@ Generated commands depend on two interfaces defined in `registry.go`:
 - Command grouping for `--help` output is maintained in `groups.go` — add new commands there.
 - Short aliases (e.g., `comp` for `computers`) are in `aliases.go`.
 - The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
-- Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths.
+- Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths. In platform gateway mode, they are rewritten to `/api/proclassic/tenant/{id}/` paths.
 - `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
 
 ## Common Workflows

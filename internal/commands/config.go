@@ -195,6 +195,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileTok       string
 		profileClientID  string
 		profileClientSec string
+		profileTenantID  string
 	)
 
 	cmd := &cobra.Command{
@@ -205,17 +206,30 @@ func newConfigAddProfileCmd() *cobra.Command {
 			name := args[0]
 
 			// Validate auth-method
-			validMethods := map[string]bool{"token": true, "oauth2": true}
+			validMethods := map[string]bool{"token": true, "oauth2": true, "platform": true}
 			if !validMethods[authMethod] {
-				return fmt.Errorf("invalid --auth-method %q: must be token or oauth2", authMethod)
+				return fmt.Errorf("invalid --auth-method %q: must be token, oauth2, or platform", authMethod)
 			}
 
 			// Validate auth-method-specific requirements
-			if authMethod == "oauth2" && profileClientID == "" {
-				return fmt.Errorf("--client-id is required when --auth-method is oauth2")
-			}
-			if authMethod == "oauth2" && profileClientSec == "" {
-				return fmt.Errorf("--client-secret is required when --auth-method is oauth2")
+			switch authMethod {
+			case "oauth2":
+				if profileClientID == "" {
+					return fmt.Errorf("--client-id is required when --auth-method is oauth2")
+				}
+				if profileClientSec == "" {
+					return fmt.Errorf("--client-secret is required when --auth-method is oauth2")
+				}
+			case "platform":
+				if profileClientID == "" {
+					return fmt.Errorf("--client-id is required when --auth-method is platform")
+				}
+				if profileClientSec == "" {
+					return fmt.Errorf("--client-secret is required when --auth-method is platform")
+				}
+				if profileTenantID == "" {
+					return fmt.Errorf("--tenant-id is required when --auth-method is platform")
+				}
 			}
 
 			cfg, err := config.Load()
@@ -226,6 +240,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 			p := config.Profile{
 				URL:        profileURL,
 				AuthMethod: authMethod,
+				TenantID:   profileTenantID,
 			}
 
 			// Store secrets: values with env: or file: prefix are written
@@ -260,11 +275,12 @@ func newConfigAddProfileCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL")
-	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2")
+	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
+	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
 	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or stored in keychain)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
 	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or stored in keychain)")
+	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
@@ -449,7 +465,7 @@ func newConfigValidateCmd() *cobra.Command {
 			}
 			sort.Strings(names)
 
-			validAuthMethods := map[string]bool{"token": true, "oauth2": true}
+			validAuthMethods := map[string]bool{"token": true, "oauth2": true, "platform": true}
 
 			for _, name := range names {
 				p := cfg.Profiles[name]
@@ -476,6 +492,30 @@ func newConfigValidateCmd() *cobra.Command {
 
 				// Auth-method-specific fields
 				switch authMethod {
+				case "platform":
+					if p.ClientID == "" {
+						fail("Missing client-id")
+					} else {
+						if _, err := config.ResolveSecret(p.ClientID); err != nil {
+							fail(fmt.Sprintf("client-id not resolvable: %v", err))
+						} else {
+							pass("client-id resolvable")
+						}
+					}
+					if p.ClientSecret == "" {
+						fail("Missing client-secret")
+					} else {
+						if _, err := config.ResolveSecret(p.ClientSecret); err != nil {
+							fail(fmt.Sprintf("client-secret not resolvable: %v", err))
+						} else {
+							pass("client-secret resolvable")
+						}
+					}
+					if p.TenantID == "" {
+						fail("Missing tenant-id")
+					} else {
+						pass(fmt.Sprintf("Tenant ID: %s", p.TenantID))
+					}
 				case "oauth2":
 					if p.ClientID == "" {
 						fail("Missing client-id")

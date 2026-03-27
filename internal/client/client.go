@@ -21,6 +21,7 @@ type Client struct {
 	httpClient *http.Client
 	auth       auth.Provider
 	verbose    bool
+	tenantID   string // non-empty when using platform gateway auth
 }
 
 // Option configures the client
@@ -30,6 +31,14 @@ type Option func(*Client)
 func WithVerbose(v bool) Option {
 	return func(c *Client) {
 		c.verbose = v
+	}
+}
+
+// WithTenantID enables platform gateway mode, where API paths are rewritten
+// to include the tenant identifier for routing through the Jamf Platform Gateway.
+func WithTenantID(id string) Option {
+	return func(c *Client) {
+		c.tenantID = id
 	}
 }
 
@@ -56,6 +65,13 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		path = "/api" + path
 	}
 
+	// Platform gateway mode: rewrite paths to include tenant routing.
+	//   /JSSResource/* → /api/proclassic/tenant/{id}/*
+	//   /api/v*        → /api/pro/tenant/{id}/v*
+	if c.tenantID != "" {
+		path = rewritePathForGateway(path, c.tenantID)
+	}
+
 	// Buffer the request body so it can be replayed on retries.
 	var bodyData []byte
 	if body != nil {
@@ -77,10 +93,20 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "jamfpro-cli/1.0 (+https://github.com/Jamf-Concepts/jamfpro-cli)")
-	if bodyData != nil {
-		req.Header.Set("Content-Type", "application/json")
+
+	// Classic API endpoints use XML; modern API uses JSON.
+	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
+	if isClassic {
+		req.Header.Set("Accept", "application/xml")
+		if bodyData != nil {
+			req.Header.Set("Content-Type", "application/xml")
+		}
+	} else {
+		req.Header.Set("Accept", "application/json")
+		if bodyData != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	if c.verbose {
@@ -170,4 +196,26 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// rewritePathForGateway transforms an API path for the Jamf Platform Gateway.
+//
+//	/JSSResource/computers        → /api/proclassic/tenant/{id}/computers
+//	/api/v1/accounts              → /api/pro/tenant/{id}/v1/accounts
+//	/api/preview/computers        → /api/pro/tenant/{id}/preview/computers
+func rewritePathForGateway(path, tenantID string) string {
+	if strings.HasPrefix(path, "/JSSResource/") {
+		suffix := strings.TrimPrefix(path, "/JSSResource/")
+		return "/api/proclassic/tenant/" + tenantID + "/" + suffix
+	}
+	if strings.HasPrefix(path, "/JSSResource") {
+		suffix := strings.TrimPrefix(path, "/JSSResource")
+		return "/api/proclassic/tenant/" + tenantID + suffix
+	}
+	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
+	if strings.HasPrefix(path, "/api/") {
+		suffix := strings.TrimPrefix(path, "/api/")
+		return "/api/pro/tenant/" + tenantID + "/" + suffix
+	}
+	return path
 }

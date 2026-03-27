@@ -37,6 +37,14 @@ jamfpro-cli config add-profile prod \
   --client-id abc123 \
   --client-secret "env:JAMF_CLIENT_SECRET"
 
+# Or use Jamf Platform Gateway auth
+jamfpro-cli config add-profile gateway \
+  --url https://us.apigw.jamf.com \
+  --auth-method platform \
+  --client-id abc123 \
+  --client-secret "env:PLATFORM_SECRET" \
+  --tenant-id e5b39e85-5ecd-4d40-9d13-02c7cf21c762
+
 # Instance health dashboard
 jamfpro-cli overview
 
@@ -81,9 +89,17 @@ profiles:
     auth-method: oauth2
     client-id: abc123
     client-secret: env:JAMF_PROD_SECRET
+
+  # Platform Gateway auth (routes through regional gateway)
+  platform-prod:
+    url: https://us.apigw.jamf.com
+    auth-method: platform
+    client-id: env:PLATFORM_CLIENT_ID
+    client-secret: env:PLATFORM_CLIENT_SECRET
+    tenant-id: e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 ```
 
-Two auth methods: `oauth2` (client credentials) and `token` (static bearer). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
+Three auth methods: `oauth2` (client credentials), `token` (static bearer), and `platform` (Jamf Platform Gateway). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Secrets-&-Keychain)
 
