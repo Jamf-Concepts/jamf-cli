@@ -79,6 +79,7 @@ var proGroups = []*cobra.Group{
 // proGroupMap maps each Jamf Pro command's Use name to its group ID.
 var proGroupMap = map[string]string{
 	// Core
+	"setup":    groupCore,
 	"overview": groupCore,
 
 	// Power Commands

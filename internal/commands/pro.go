@@ -13,6 +13,9 @@ func newProCmd(cliCtx *generated.CLIContext) *cobra.Command {
 		Long:  "Commands for interacting with Jamf Pro — device management, inventory, configuration, and reporting.",
 	}
 
+	// Setup (creates API roles/integrations on Jamf Pro)
+	cmd.AddCommand(newConfigSetupCmd())
+
 	// Handwritten Jamf Pro commands
 	cmd.AddCommand(newOverviewCmd(cliCtx))
 	cmd.AddCommand(newBackupCmd(cliCtx))

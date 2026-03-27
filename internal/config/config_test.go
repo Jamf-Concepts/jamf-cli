@@ -173,6 +173,53 @@ func TestConfigPath_XDGDefault(t *testing.T) {
 	}
 }
 
+func TestLoad_MigratesOldConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldDir := filepath.Join(tmpDir, "jamfpro-cli")
+	newDir := filepath.Join(tmpDir, "jamf-cli")
+	_ = os.MkdirAll(oldDir, 0o700)
+
+	oldConfig := "default-profile: test\nprofiles:\n  test:\n    url: https://example.com\n"
+	_ = os.WriteFile(filepath.Join(oldDir, "config.yaml"), []byte(oldConfig), 0o600)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.DefaultProfile != "test" {
+		t.Errorf("DefaultProfile = %q, want %q", cfg.DefaultProfile, "test")
+	}
+
+	if _, err := os.Stat(filepath.Join(newDir, "config.yaml")); err != nil {
+		t.Errorf("new config file not created: %v", err)
+	}
+}
+
+func TestLoad_NoMigrationWhenNewExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldDir := filepath.Join(tmpDir, "jamfpro-cli")
+	newDir := filepath.Join(tmpDir, "jamf-cli")
+	_ = os.MkdirAll(oldDir, 0o700)
+	_ = os.MkdirAll(newDir, 0o700)
+
+	_ = os.WriteFile(filepath.Join(oldDir, "config.yaml"), []byte("default-profile: old\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(newDir, "config.yaml"), []byte("default-profile: new\n"), 0o600)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.DefaultProfile != "new" {
+		t.Errorf("DefaultProfile = %q, want %q (should not overwrite existing)", cfg.DefaultProfile, "new")
+	}
+}
+
 // --- GetKeychainStore tests ---
 
 func TestGetKeychainStore_Override(t *testing.T) {

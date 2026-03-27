@@ -343,13 +343,14 @@ config profile. The username and password are not stored.`,
 				}
 			}
 
-			// Step 7b: Store client secret in keychain
+			// Step 7b: Store credentials in keychain
 			store := config.GetKeychainStore()
-			account := setupProfile + "/client-secret"
-			if err := store.Set(keychain.DefaultService, account, clientSecret); err != nil {
+			if err := store.Set(keychain.DefaultService, setupProfile+"/client-id", clientID); err != nil {
+				return fmt.Errorf("failed to store client ID in keychain: %w", err)
+			}
+			if err := store.Set(keychain.DefaultService, setupProfile+"/client-secret", clientSecret); err != nil {
 				return fmt.Errorf("failed to store client secret in keychain: %w", err)
 			}
-			profileClientSecret := keychain.KeychainRef(setupProfile, "client-secret")
 
 			cfg, err := config.Load()
 			if err != nil {
@@ -359,8 +360,8 @@ config profile. The username and password are not stored.`,
 			cfg.Profiles[setupProfile] = config.Profile{
 				URL:          setupURL,
 				AuthMethod:   "oauth2",
-				ClientID:     clientID,
-				ClientSecret: profileClientSecret,
+				ClientID:     keychain.KeychainRef(setupProfile, "client-id"),
+				ClientSecret: keychain.KeychainRef(setupProfile, "client-secret"),
 			}
 			cfg.DefaultProfile = setupProfile
 

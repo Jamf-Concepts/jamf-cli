@@ -370,6 +370,7 @@ configuration, reporting, and API automation).`,
 				"config":     true,
 				"commands":   true,
 				"diff":       true,
+				"setup":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if skipCommands[c.Name()] {
