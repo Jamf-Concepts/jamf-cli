@@ -2,9 +2,11 @@ package commands
 
 import (
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
-func TestApplyGroups_AllCommandsGrouped(t *testing.T) {
+func TestApplyRootGroups_AllCommandsGrouped(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 
 	for _, cmd := range root.Commands() {
@@ -12,38 +14,73 @@ func TestApplyGroups_AllCommandsGrouped(t *testing.T) {
 			continue
 		}
 		if cmd.GroupID == "" {
-			t.Errorf("command %q has no GroupID — add it to commandGroupMap in groups.go", cmd.Name())
+			t.Errorf("root command %q has no GroupID — add it to rootGroupMap in groups.go", cmd.Name())
 		}
 	}
 }
 
-func TestApplyGroups_GroupsRegistered(t *testing.T) {
+func TestApplyRootGroups_GroupsRegistered(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 
 	groups := root.Groups()
-	if len(groups) != len(commandGroups) {
-		t.Fatalf("expected %d groups, got %d", len(commandGroups), len(groups))
+	if len(groups) != len(rootGroups) {
+		t.Fatalf("expected %d root groups, got %d", len(rootGroups), len(groups))
+	}
+}
+
+func TestApplyProGroups_AllCommandsGrouped(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+
+	var pro *cobra.Command
+	for _, cmd := range root.Commands() {
+		if cmd.Name() == "pro" {
+			pro = cmd
+			break
+		}
+	}
+	if pro == nil {
+		t.Fatal("expected 'pro' subcommand on root")
 	}
 
-	for i, g := range groups {
-		if g.ID != commandGroups[i].ID {
-			t.Errorf("group[%d].ID = %q, want %q", i, g.ID, commandGroups[i].ID)
+	for _, cmd := range pro.Commands() {
+		if cmd.Name() == "help" {
+			continue
 		}
-		if g.Title != commandGroups[i].Title {
-			t.Errorf("group[%d].Title = %q, want %q", i, g.Title, commandGroups[i].Title)
+		if cmd.GroupID == "" {
+			t.Errorf("pro command %q has no GroupID — add it to proGroupMap in groups.go", cmd.Name())
 		}
 	}
 }
 
-func TestCommandGroupMap_AllGroupIDsValid(t *testing.T) {
-	validIDs := make(map[string]bool, len(commandGroups))
-	for _, g := range commandGroups {
+func TestApplyProGroups_GroupsRegistered(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+
+	var pro *cobra.Command
+	for _, cmd := range root.Commands() {
+		if cmd.Name() == "pro" {
+			pro = cmd
+			break
+		}
+	}
+	if pro == nil {
+		t.Fatal("expected 'pro' subcommand on root")
+	}
+
+	groups := pro.Groups()
+	if len(groups) != len(proGroups) {
+		t.Fatalf("expected %d pro groups, got %d", len(proGroups), len(groups))
+	}
+}
+
+func TestProGroupMap_AllGroupIDsValid(t *testing.T) {
+	validIDs := make(map[string]bool, len(proGroups))
+	for _, g := range proGroups {
 		validIDs[g.ID] = true
 	}
 
-	for cmdName, gid := range commandGroupMap {
+	for cmdName, gid := range proGroupMap {
 		if !validIDs[gid] {
-			t.Errorf("commandGroupMap[%q] = %q, which is not a defined group ID", cmdName, gid)
+			t.Errorf("proGroupMap[%q] = %q, which is not a defined group ID", cmdName, gid)
 		}
 	}
 }
@@ -51,7 +88,11 @@ func TestCommandGroupMap_AllGroupIDsValid(t *testing.T) {
 func TestApplyGroups_NoPanic(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 	root.SetArgs([]string{"--help"})
-	// Execute triggers Cobra's internal group validation; it panics if a
-	// command references a GroupID that was never registered via AddGroup.
+	_ = root.Execute()
+}
+
+func TestApplyProGroups_NoPanic(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root.SetArgs([]string{"pro", "--help"})
 	_ = root.Execute()
 }

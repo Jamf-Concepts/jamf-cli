@@ -27,31 +27,31 @@ All bulk operations follow this flow:
 ### Policy Management
 ```bash
 # Preview: disable all policies scoped to a group
-jamf-cli bulk disable-policies --scope-group "Lab Machines"
+jamf-cli pro bulk disable-policies --scope-group "Lab Machines"
 
 # Execute after confirmation
-jamf-cli bulk disable-policies --scope-group "Lab Machines" --yes
+jamf-cli pro bulk disable-policies --scope-group "Lab Machines" --yes
 ```
 
 ### Group Management
 ```bash
 # Preview: add devices to a static group
-jamf-cli bulk add-to-group --group "Needs Update" --from-file device-ids.txt
+jamf-cli pro bulk add-to-group --group "Needs Update" --from-file device-ids.txt
 
 # Execute after confirmation
-jamf-cli bulk add-to-group --group "Needs Update" --from-file device-ids.txt --yes
+jamf-cli pro bulk add-to-group --group "Needs Update" --from-file device-ids.txt --yes
 ```
 
 ### MDM Commands
 ```bash
 # Preview: send restart to a group
-jamf-cli bulk send-command --command RestartDevice --group "Lab Machines"
+jamf-cli pro bulk send-command --command RestartDevice --group "Lab Machines"
 
 # Execute after confirmation
-jamf-cli bulk send-command --command RestartDevice --group "Lab Machines" --yes
+jamf-cli pro bulk send-command --command RestartDevice --group "Lab Machines" --yes
 
 # Destructive commands require additional flag
-jamf-cli bulk send-command --command EraseDevice --group "Decomm" --yes --confirm-destructive
+jamf-cli pro bulk send-command --command EraseDevice --group "Decomm" --yes --confirm-destructive
 ```
 
 ## Translating Natural Language

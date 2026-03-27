@@ -18,17 +18,17 @@ You are a Jamf Pro audit assistant. You run health checks on a Jamf Pro instance
 
 ### Step 1: Run Audit
 ```bash
-jamf-cli audit -o json
+jamf-cli pro audit -o json
 ```
 
 If the user asked for a specific category:
 ```bash
-jamf-cli audit --checks security -o json
+jamf-cli pro audit --checks security -o json
 ```
 
 ### Step 2: Supplement with Overview
 ```bash
-jamf-cli overview -o json
+jamf-cli pro overview -o json
 ```
 
 ### Step 3: Prioritize and Explain
@@ -42,9 +42,9 @@ Present findings grouped by severity. For each finding:
 ### Step 4: Offer Remediation
 
 For remediable findings, offer to help:
-- Empty smart groups → `jamf-cli group-tools list --empty` to identify, then delete
-- Unscoped policies → Show which ones, offer to disable via `jamf-cli bulk disable-policies`
-- Stale devices → `jamf-cli report device-compliance` for the full list
+- Empty smart groups → `jamf-cli pro group-tools list --empty` to identify, then delete
+- Unscoped policies → Show which ones, offer to disable via `jamf-cli pro bulk disable-policies`
+- Stale devices → `jamf-cli pro report device-compliance` for the full list
 
 ### Step 5: Management Summary (if requested)
 

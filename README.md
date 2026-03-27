@@ -46,19 +46,19 @@ jamf-cli config add-profile gateway \
   --tenant-id e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 
 # Instance health dashboard
-jamf-cli overview
+jamf-cli pro overview
 
 # List computers
-jamf-cli comp list -o table
+jamf-cli pro comp list -o table
 
 # Extract just the names
-jamf-cli comp list --field name
+jamf-cli pro comp list --field name
 
 # Export inventory
-jamf-cli comp list -o csv --out-file inventory.csv
+jamf-cli pro comp list -o csv --out-file inventory.csv
 
 # Show the JSON template for creating a building
-jamf-cli buildings create --scaffold
+jamf-cli pro buildings create --scaffold
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -72,7 +72,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 ### Cross-product
 
-- **`--field`** — Extract a single field from any response: `jamf-cli comp list --field id`
+- **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results

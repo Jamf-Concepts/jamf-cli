@@ -18,7 +18,7 @@ Hide
 Type "export PATH=./bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:$PATH"
 Enter
 Sleep 0.5s
-Type "alias jpc='jamf-cli -q'"
+Type "alias jpc='jamf-cli -q pro'"
 Enter
 Sleep 0.5s
 Type "clear"

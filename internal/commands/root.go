@@ -352,8 +352,8 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 		Short: "CLI for the Jamf platform",
 		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
-It provides API automation across Jamf products including Jamf Pro,
-with support for device management, inventory, reporting, and configuration.`,
+Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
+configuration, reporting, and API automation).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -474,28 +474,12 @@ with support for device management, inventory, reporting, and configuration.`,
 	// Commands discovery subcommand
 	cmd.AddCommand(newCommandsCmd(cmd))
 
-	// Overview command (requires auth — not in skipCommands)
-	cmd.AddCommand(newOverviewCmd(cliCtx))
+	// Jamf Pro product namespace
+	cmd.AddCommand(newProCmd(cliCtx))
 
-	// Power commands
-	cmd.AddCommand(newBackupCmd(cliCtx))
-	cmd.AddCommand(newAuditCmd(cliCtx))
-	cmd.AddCommand(newBulkCmd(cliCtx))
-	cmd.AddCommand(newReportCmd(cliCtx))
-	cmd.AddCommand(newDiffCmd())
-	cmd.AddCommand(newGroupToolsCmd(cliCtx))
-
-	// Register generated resource commands with CLIContext
-	generated.RegisterCommands(cmd, cliCtx)
-
-	// Register Classic API resource commands
-	generated.RegisterClassicCommands(cmd, cliCtx)
-
-	// Apply short aliases (e.g., "comp" for "computers")
-	applyAliases(cmd)
-
-	// Organize commands into logical groups for --help output
-	applyGroups(cmd)
+	// Apply root-level aliases and groups for --help output
+	applyRootAliases(cmd)
+	applyRootGroups(cmd)
 
 	return cmd
 }

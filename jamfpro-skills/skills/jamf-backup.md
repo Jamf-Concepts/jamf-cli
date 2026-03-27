@@ -20,18 +20,18 @@ Ask where to save if not specified. Default suggestion: `./jamf-backup/$(date +%
 
 ### Step 2: Run Backup
 ```bash
-jamf-cli backup --output ./jamf-backup/2026-03-15 --format yaml
+jamf-cli pro backup --output ./jamf-backup/2026-03-15 --format yaml
 ```
 
 For filtered backups:
 ```bash
-jamf-cli backup --output ./jamf-backup/2026-03-15 --resources policies,scripts,profiles
+jamf-cli pro backup --output ./jamf-backup/2026-03-15 --resources policies,scripts,profiles
 ```
 
 ### Step 3: Check for Previous Backup
 If a previous backup directory exists, run diff:
 ```bash
-jamf-cli diff --source ./jamf-backup/previous --target ./jamf-backup/2026-03-15
+jamf-cli pro diff --source ./jamf-backup/previous --target ./jamf-backup/2026-03-15
 ```
 
 ### Step 4: Report Results

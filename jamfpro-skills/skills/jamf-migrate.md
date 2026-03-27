@@ -18,22 +18,22 @@ You are a Jamf Pro migration assistant. You help users promote configuration bet
 
 ### Step 1: Backup Source
 ```bash
-jamf-cli backup --output /tmp/migrate-source --profile staging
+jamf-cli pro backup --output /tmp/migrate-source --profile staging
 ```
 
 ### Step 2: Backup Target (safety snapshot)
 ```bash
-jamf-cli backup --output /tmp/migrate-target --profile production
+jamf-cli pro backup --output /tmp/migrate-target --profile production
 ```
 
 ### Step 3: Diff
 ```bash
-jamf-cli diff --source staging --target production
+jamf-cli pro diff --source staging --target production
 ```
 
 Or from backups:
 ```bash
-jamf-cli diff --source /tmp/migrate-source --target /tmp/migrate-target
+jamf-cli pro diff --source /tmp/migrate-source --target /tmp/migrate-target
 ```
 
 ### Step 4: Present Migration Plan
@@ -58,7 +58,7 @@ For each stage:
 
 ### Step 6: Post-Migration Validation
 ```bash
-jamf-cli diff --source staging --target production
+jamf-cli pro diff --source staging --target production
 ```
 Should show minimal or no differences for migrated resources.
 

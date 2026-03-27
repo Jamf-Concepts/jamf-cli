@@ -7,7 +7,7 @@ Smoke tests verify all CLI endpoints against a real Jamf Pro instance. They catc
 A configured CLI profile pointing at a Jamf Pro instance:
 
 ```bash
-bin/jamf-cli setup   # interactive profile creation
+bin/jamf-cli config setup   # interactive profile creation
 ```
 
 Or set environment variables: `JAMF_URL`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`.

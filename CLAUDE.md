@@ -50,8 +50,8 @@ go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ### Running the CLI
 
 ```bash
-bin/jamf-cli setup                     # Interactive first-time config (creates profile)
-bin/jamf-cli --url https://... --token ... computers list  # One-off with flags
+bin/jamf-cli config setup              # Interactive first-time config (creates profile)
+bin/jamf-cli --url https://... --token ... pro computers list  # One-off with flags
 ```
 
 ## Architecture
