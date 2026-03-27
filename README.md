@@ -1,17 +1,17 @@
-# jamfpro-cli
+# jamf-cli
 
-CLI tool for Jamf Pro Server API automation.
+Unified CLI for the Jamf platform. Currently supports Jamf Pro, with more products coming.
 
 **[Documentation Wiki](https://github.com/Jamf-Concepts/jamfpro-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
-![jamfpro-cli demo](docs/demo.gif)
+![jamf-cli demo](docs/demo.gif)
 
 ## Installation
 
 ### Homebrew (macOS and Linux)
 
 ```bash
-brew install Jamf-Concepts/tap/jamfpro-cli
+brew install Jamf-Concepts/tap/jamf-cli
 ```
 
 ### Binary releases
@@ -21,24 +21,24 @@ Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamfpro-cli/rel
 ### From source
 
 ```bash
-go install github.com/Jamf-Concepts/jamfpro-cli/cmd/jamfpro-cli@latest
+go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 ```
 
 ## Quick Start
 
 ```bash
 # One-time setup: create OAuth2 credentials from an admin account
-jamfpro-cli config setup --url https://jamf.company.com
+jamf-cli pro setup --url https://jamf.company.com
 
 # Or configure manually with existing credentials
-jamfpro-cli config add-profile prod \
+jamf-cli config add-profile prod \
   --url https://jamf.company.com \
   --auth-method oauth2 \
   --client-id abc123 \
   --client-secret "env:JAMF_CLIENT_SECRET"
 
 # Or use Jamf Platform Gateway auth
-jamfpro-cli config add-profile gateway \
+jamf-cli config add-profile gateway \
   --url https://us.apigw.jamf.com \
   --auth-method platform \
   --client-id abc123 \
@@ -46,19 +46,19 @@ jamfpro-cli config add-profile gateway \
   --tenant-id e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 
 # Instance health dashboard
-jamfpro-cli overview
+jamf-cli pro overview
 
 # List computers
-jamfpro-cli comp list -o table
+jamf-cli pro comp list -o table
 
 # Extract just the names
-jamfpro-cli comp list --field name
+jamf-cli pro comp list --field name
 
 # Export inventory
-jamfpro-cli comp list -o csv --out-file inventory.csv
+jamf-cli pro comp list -o csv --out-file inventory.csv
 
 # Show the JSON template for creating a building
-jamfpro-cli buildings create --scaffold
+jamf-cli pro buildings create --scaffold
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -66,7 +66,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Gu
 ## Features
 
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
-- **`--field`** — Extract a single field from any response: `jamfpro-cli comp list --field id`
+- **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
@@ -77,7 +77,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Gu
 
 ## Configuration
 
-Config file: `~/.config/jamfpro-cli/config.yaml`
+Config file: `~/.config/jamf-cli/config.yaml`
 
 ```yaml
 default-profile: prod
@@ -103,7 +103,15 @@ Three auth methods: `oauth2` (client credentials), `token` (static bearer), and 
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Secrets-&-Keychain)
 
-## Command Aliases
+## Command Structure
+
+All Jamf Pro commands live under the `pro` namespace:
+
+```bash
+jamf-cli pro <command> [subcommand] [flags]
+```
+
+### Aliases
 
 | Command | Alias |
 |---------|-------|
@@ -134,7 +142,7 @@ See [Error Handling & Exit Codes](https://github.com/Jamf-Concepts/jamfpro-cli/w
 ## Shell Completion
 
 ```bash
-jamfpro-cli completion install
+jamf-cli completion install
 ```
 
 Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide#shell-completion) for manual installation.
