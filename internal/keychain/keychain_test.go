@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseRef_DefaultServicePrefix(t *testing.T) {
-	service, account := ParseRef("jamfpro-cli/prod/client-secret")
+	service, account := ParseRef("jamf-cli/prod/client-secret")
 	if service != DefaultService {
 		t.Errorf("service = %q, want %q", service, DefaultService)
 	}
@@ -48,7 +48,7 @@ func TestParseRef_SingleSegment(t *testing.T) {
 
 func TestKeychainRef(t *testing.T) {
 	ref := KeychainRef("prod", "client-secret")
-	want := "keychain:jamfpro-cli/prod/client-secret"
+	want := "keychain:jamf-cli/prod/client-secret"
 	if ref != want {
 		t.Errorf("KeychainRef = %q, want %q", ref, want)
 	}

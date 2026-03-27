@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {
@@ -698,7 +698,7 @@ func setupConfigProfile(t *testing.T, cfgYaml string) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	jDir := filepath.Join(dir, "jamfpro-cli")
+	jDir := filepath.Join(dir, "jamf-cli")
 	_ = os.MkdirAll(jDir, 0o700)
 	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(cfgYaml), 0o600)
 }

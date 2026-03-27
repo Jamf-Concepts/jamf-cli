@@ -1,4 +1,4 @@
-# VHS tape for jamfpro-cli power commands demo
+# VHS tape for jamf-cli power commands demo
 # Regenerate: vhs docs/power-commands-demo.tape
 # Requires: brew install charmbracelet/tap/vhs
 # NOTE: Requires a configured CLI profile with a real Jamf Pro instance
@@ -18,7 +18,7 @@ Hide
 Type "export PATH=./bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:$PATH"
 Enter
 Sleep 0.5s
-Type "alias jpc='jamfpro-cli -q'"
+Type "alias jpc='jamf-cli -q'"
 Enter
 Sleep 0.5s
 Type "clear"

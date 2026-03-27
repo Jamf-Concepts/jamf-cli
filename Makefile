@@ -11,11 +11,11 @@ all: build
 
 # Build the CLI
 build:
-	go build $(LDFLAGS) -o bin/jamfpro-cli ./cmd/jamfpro-cli
+	go build $(LDFLAGS) -o bin/jamf-cli ./cmd/jamf-cli
 
 # Install locally
 install:
-	go install $(LDFLAGS) ./cmd/jamfpro-cli
+	go install $(LDFLAGS) ./cmd/jamf-cli
 
 # Run tests (with race detection for concurrent code)
 test:
@@ -86,7 +86,7 @@ release-snapshot:
 
 # Development helpers
 dev: build
-	./bin/jamfpro-cli
+	./bin/jamf-cli
 
 # Update dependencies
 deps:

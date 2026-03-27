@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
 	"gopkg.in/yaml.v3"
 )
 

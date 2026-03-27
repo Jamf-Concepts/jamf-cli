@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // setupClient wraps a bearer token for making authenticated API calls during setup.
@@ -299,7 +299,7 @@ config profile. The username and password are not stored.`,
 				rolePrivileges = allPrivileges
 			}
 
-			roleName := "jamfpro-cli-" + setupScope
+			roleName := "jamf-cli-" + setupScope
 
 			// Step 4: Create API role
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API role %q... ", roleName)
@@ -311,7 +311,7 @@ config profile. The username and password are not stored.`,
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			// Step 5: Create API integration
-			integrationName := "jamfpro-cli"
+			integrationName := "jamf-cli"
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API integration %q... ", integrationName)
 			integrationID, err := client.createAPIIntegration(ctx, integrationName, []string{roleName})
 			if err != nil {

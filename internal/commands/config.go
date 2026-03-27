@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -114,7 +114,7 @@ func newConfigListCmd() *cobra.Command {
 			}
 
 			if len(cfg.Profiles) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamf-cli config add-profile <name> --url <url>")
 				return nil
 			}
 

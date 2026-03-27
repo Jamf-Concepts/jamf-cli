@@ -90,7 +90,7 @@ func TestCompletionInstall_Fish(t *testing.T) {
 	}
 
 	// Verify the file was written
-	fishPath := dir + "/fish/completions/jamfpro-cli.fish"
+	fishPath := dir + "/fish/completions/jamf-cli.fish"
 	info, err := os.Stat(fishPath)
 	if err != nil {
 		t.Fatalf("completion file not created at %s: %v", fishPath, err)
@@ -119,7 +119,7 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 		t.Fatalf("completion install zsh failed: %v", err)
 	}
 
-	zshPath := zshDir + "/_jamfpro-cli"
+	zshPath := zshDir + "/_jamf-cli"
 	info, err := os.Stat(zshPath)
 	if err != nil {
 		t.Fatalf("completion file not created at %s: %v", zshPath, err)

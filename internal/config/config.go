@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // Config represents the CLI configuration
@@ -31,10 +31,10 @@ type Profile struct {
 // ConfigPath returns the path to the config file using XDG conventions.
 func ConfigPath() string {
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
-		return filepath.Join(xdgConfig, "jamfpro-cli", "config.yaml")
+		return filepath.Join(xdgConfig, "jamf-cli", "config.yaml")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "jamfpro-cli", "config.yaml")
+	return filepath.Join(home, ".config", "jamf-cli", "config.yaml")
 }
 
 // Load reads the config from disk. If the file doesn't exist, returns an
@@ -93,7 +93,7 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 	}
 
 	if name == "" {
-		return nil, "", fmt.Errorf("no profile specified and no default profile configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+		return nil, "", fmt.Errorf("no profile specified and no default profile configured. Run: jamf-cli config add-profile <name> --url <url>")
 	}
 
 	p, ok := cfg.Profiles[name]

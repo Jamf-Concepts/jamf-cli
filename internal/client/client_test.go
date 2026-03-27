@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 func TestDo_ModernAPIPathPrefix(t *testing.T) {

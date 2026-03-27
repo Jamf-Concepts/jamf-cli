@@ -1,5 +1,5 @@
 {
   "name": "jamfpro-skills",
-  "description": "Conversational skills for Jamf Pro administration — composes jamfpro-cli commands for audit, backup, bulk operations, reporting, migration, and ad-hoc investigation.",
+  "description": "Conversational skills for Jamf Pro administration — composes jamf-cli commands for audit, backup, bulk operations, reporting, migration, and ad-hoc investigation.",
   "version": "0.1.0"
 }

@@ -1,44 +1,44 @@
-# jamfpro-cli
+# jamf-cli
 
-CLI tool for Jamf Pro Server API automation.
+CLI for the Jamf platform — automate across Jamf Pro, with more products coming.
 
-**[Documentation Wiki](https://github.com/Jamf-Concepts/jamfpro-cli/wiki)** — full guides, configuration reference, and workflow recipes.
+**[Documentation Wiki](https://github.com/Jamf-Concepts/jamf-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
-![jamfpro-cli demo](docs/demo.gif)
+![jamf-cli demo](docs/demo.gif)
 
 ## Installation
 
 ### Homebrew (macOS and Linux)
 
 ```bash
-brew install Jamf-Concepts/tap/jamfpro-cli
+brew install Jamf-Concepts/tap/jamf-cli
 ```
 
 ### Binary releases
 
-Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamfpro-cli/releases).
+Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamf-cli/releases).
 
 ### From source
 
 ```bash
-go install github.com/Jamf-Concepts/jamfpro-cli/cmd/jamfpro-cli@latest
+go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 ```
 
 ## Quick Start
 
 ```bash
 # One-time setup: create OAuth2 credentials from an admin account
-jamfpro-cli config setup --url https://jamf.company.com
+jamf-cli config setup --url https://jamf.company.com
 
 # Or configure manually with existing credentials
-jamfpro-cli config add-profile prod \
+jamf-cli config add-profile prod \
   --url https://jamf.company.com \
   --auth-method oauth2 \
   --client-id abc123 \
   --client-secret "env:JAMF_CLIENT_SECRET"
 
 # Or use Jamf Platform Gateway auth
-jamfpro-cli config add-profile gateway \
+jamf-cli config add-profile gateway \
   --url https://us.apigw.jamf.com \
   --auth-method platform \
   --client-id abc123 \
@@ -46,38 +46,44 @@ jamfpro-cli config add-profile gateway \
   --tenant-id e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 
 # Instance health dashboard
-jamfpro-cli overview
+jamf-cli overview
 
 # List computers
-jamfpro-cli comp list -o table
+jamf-cli comp list -o table
 
 # Extract just the names
-jamfpro-cli comp list --field name
+jamf-cli comp list --field name
 
 # Export inventory
-jamfpro-cli comp list -o csv --out-file inventory.csv
+jamf-cli comp list -o csv --out-file inventory.csv
 
 # Show the JSON template for creating a building
-jamfpro-cli buildings create --scaffold
+jamf-cli buildings create --scaffold
 ```
 
-See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide) for the full walkthrough.
+See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
 
 ## Features
 
+### Jamf Pro
+
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
-- **`--field`** — Extract a single field from any response: `jamfpro-cli comp list --field id`
-- **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
+
+### Cross-product
+
+- **`--field`** — Extract a single field from any response: `jamf-cli comp list --field id`
+- **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
 - **Destructive safeguards** — Delete/erase/wipe require `--yes` confirmation
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
+- **Jamf Platform Gateway** — Route through regional gateways with `--tenant-id`
 
 ## Configuration
 
-Config file: `~/.config/jamfpro-cli/config.yaml`
+Config file: `~/.config/jamf-cli/config.yaml`
 
 ```yaml
 default-profile: prod
@@ -101,7 +107,7 @@ profiles:
 
 Three auth methods: `oauth2` (client credentials), `token` (static bearer), and `platform` (Jamf Platform Gateway). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
-See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Secrets-&-Keychain)
+See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamf-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamf-cli/wiki/Secrets-&-Keychain)
 
 ## Command Aliases
 
@@ -115,7 +121,7 @@ See the wiki for full details: [Configuration & Profiles](https://github.com/Jam
 | `departments` | `dept` |
 | `config` | `cfg` |
 
-Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Command-Reference) · [Output Formats](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Common-Workflows)
+Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamf-cli/wiki/Command-Reference) · [Output Formats](https://github.com/Jamf-Concepts/jamf-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/Jamf-Concepts/jamf-cli/wiki/Common-Workflows)
 
 ## Exit Codes
 
@@ -129,15 +135,15 @@ Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamfp
 | 5 | Permission denied |
 | 6 | Rate limited |
 
-See [Error Handling & Exit Codes](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
+See [Error Handling & Exit Codes](https://github.com/Jamf-Concepts/jamf-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
 
 ## Shell Completion
 
 ```bash
-jamfpro-cli completion install
+jamf-cli completion install
 ```
 
-Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Setup-Guide#shell-completion) for manual installation.
+Supports bash, zsh, fish, and PowerShell. See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide#shell-completion) for manual installation.
 
 ## Development
 
@@ -148,7 +154,7 @@ make lint        # Lint code
 make generate    # Generate commands from OpenAPI specs
 ```
 
-See [Architecture & Development](https://github.com/Jamf-Concepts/jamfpro-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
+See [Architecture & Development](https://github.com/Jamf-Concepts/jamf-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
 
 ## License
 

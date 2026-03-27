@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 // newGroupToolsCmd builds the "group-tools" parent command with subcommands.

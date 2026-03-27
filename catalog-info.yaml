@@ -1,8 +1,8 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: jamfpro-cli
-  description: Jamf Pro CLI
+  name: jamf-cli
+  description: CLI for the Jamf platform
   tags:
   - api
   - ai

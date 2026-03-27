@@ -37,7 +37,7 @@ After modifying a template: `make generate && make test`
 ## Build & Dev Commands
 
 ```bash
-make build                  # Build binary to bin/jamfpro-cli
+make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
@@ -50,13 +50,13 @@ go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ### Running the CLI
 
 ```bash
-bin/jamfpro-cli setup                     # Interactive first-time config (creates profile)
-bin/jamfpro-cli --url https://... --token ... computers list  # One-off with flags
+bin/jamf-cli setup                     # Interactive first-time config (creates profile)
+bin/jamf-cli --url https://... --token ... computers list  # One-off with flags
 ```
 
 ## Architecture
 
-This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI specs (modern API) and a YAML manifest (Classic API). The handwritten code is thin glue.
+This is a CLI for the Jamf platform. Jamf Pro commands are **code-generated** from OpenAPI specs (modern API) and a YAML manifest (Classic API). The handwritten code is thin glue. Support for additional Jamf products will be added over time.
 
 ### Code Generation Pipeline
 
@@ -81,7 +81,7 @@ See `generator/README.md` for full template function reference and testing workf
 
 ### Runtime Flow
 
-`cmd/jamfpro-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> generated commands
+`cmd/jamf-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> generated commands
 
 `PersistentPreRunE` in `root.go` is the critical path: it resolves credentials through a priority chain (flags > env vars > config profile), builds the auth provider, and wires up the HTTP client with optional spinner/dry-run decorators.
 
@@ -124,7 +124,7 @@ Generated commands depend on two interfaces defined in `registry.go`:
 
 ### Config File
 
-`~/.config/jamfpro-cli/config.yaml` (XDG-compliant)
+`~/.config/jamf-cli/config.yaml` (XDG-compliant)
 
 ## Conventions
 

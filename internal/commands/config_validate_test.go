@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // runValidateCmd executes "config validate" with a temp config file and returns
@@ -26,8 +26,8 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 
 	// Point config at temp file
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	// config.ConfigPath() uses XDG_CONFIG_HOME + "jamfpro-cli/config.yaml"
-	jDir := filepath.Join(dir, "jamfpro-cli")
+	// config.ConfigPath() uses XDG_CONFIG_HOME + "jamf-cli/config.yaml"
+	jDir := filepath.Join(dir, "jamf-cli")
 	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -72,7 +72,7 @@ profiles:
 func TestConfigValidate_MissingFile(t *testing.T) {
 	// Don't write any file — just set XDG to an empty temp dir
 	dir := t.TempDir()
-	jDir := filepath.Join(dir, "jamfpro-cli")
+	jDir := filepath.Join(dir, "jamf-cli")
 	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -270,8 +270,8 @@ func (m *mockKeychainStore) Delete(service, account string) error {
 
 func TestConfigValidate_KeychainSecret(t *testing.T) {
 	mock := newMockKeychainStore()
-	mock.items["jamfpro-cli/prod/client-secret"] = "resolved-secret"
-	mock.items["jamfpro-cli/prod/client-id"] = "resolved-id"
+	mock.items["jamf-cli/prod/client-secret"] = "resolved-secret"
+	mock.items["jamf-cli/prod/client-id"] = "resolved-id"
 
 	old := config.KeychainStore
 	config.KeychainStore = mock
@@ -282,8 +282,8 @@ profiles:
   prod:
     url: https://jamf.example.com
     auth-method: oauth2
-    client-id: "keychain:jamfpro-cli/prod/client-id"
-    client-secret: "keychain:jamfpro-cli/prod/client-secret"
+    client-id: "keychain:jamf-cli/prod/client-id"
+    client-secret: "keychain:jamf-cli/prod/client-secret"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err != nil {
@@ -309,8 +309,8 @@ profiles:
   prod:
     url: https://jamf.example.com
     auth-method: oauth2
-    client-id: "keychain:jamfpro-cli/prod/client-id"
-    client-secret: "keychain:jamfpro-cli/prod/client-secret"
+    client-id: "keychain:jamf-cli/prod/client-id"
+    client-secret: "keychain:jamf-cli/prod/client-secret"
 `
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {

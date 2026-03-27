@@ -29,7 +29,7 @@ jobs:
       SERVER_REPO_REF: ${{ inputs.server_repo_ref }}
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
-      - name: Checkout jamfpro-cli
+      - name: Checkout jamf-cli
         uses: actions/checkout@v6
 
       - name: Checkout jss

@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 // auditSeverity levels for findings.

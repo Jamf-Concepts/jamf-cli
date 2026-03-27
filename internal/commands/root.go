@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 )
 
 // Global flags
@@ -237,7 +237,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 
 	// Validate
 	if url == "" {
-		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamf-cli config add-profile")
 	}
 	if strings.HasPrefix(url, "http://") {
 		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
@@ -267,7 +267,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	case tok != "":
 		return url, auth.NewTokenProvider(tok), nil
 	default:
-		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamf-cli config add-profile")
 	}
 }
 
@@ -348,12 +348,12 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
-		Use:   "jamfpro-cli",
-		Short: "CLI tool for Jamf Pro Server API automation",
-		Long: `jamfpro-cli is a command-line interface for the Jamf Pro Server API.
+		Use:   "jamf-cli",
+		Short: "CLI for the Jamf platform",
+		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
-It provides full API coverage for admin automation workflows including
-device management, inventory/reporting, and configuration management.`,
+It provides API automation across Jamf products including Jamf Pro,
+with support for device management, inventory, reporting, and configuration.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -459,7 +459,7 @@ device management, inventory/reporting, and configuration management.`,
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("jamfpro-cli %s\n", version)
+			fmt.Printf("jamf-cli %s\n", version)
 			fmt.Printf("  commit: %s\n", commit)
 			fmt.Printf("  built:  %s\n", date)
 		},

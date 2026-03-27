@@ -12,9 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 // diffChangeKind classifies a single diff result.
@@ -57,10 +57,10 @@ Each source can be either:
   - A local backup directory (paths starting with /, ./, or ~)
 
 Examples:
-  jamfpro-cli diff --source staging --target production
-  jamfpro-cli diff --source ./backup-2026-01 --target production
-  jamfpro-cli diff --source ./old-backup --target ./new-backup
-  jamfpro-cli diff --source staging --target production --resources policies,scripts`,
+  jamf-cli diff --source staging --target production
+  jamf-cli diff --source ./backup-2026-01 --target production
+  jamf-cli diff --source ./old-backup --target ./new-backup
+  jamf-cli diff --source staging --target production --resources policies,scripts`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDiff(cmd.Context(), opts)
 		},

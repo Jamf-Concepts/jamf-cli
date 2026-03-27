@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
 )
 
 func TestHasPathParam(t *testing.T) {

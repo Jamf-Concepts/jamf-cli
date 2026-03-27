@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -93,7 +93,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "jamfpro-cli/1.0 (+https://github.com/Jamf-Concepts/jamfpro-cli)")
+	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
 
 	// Classic API endpoints use XML; modern API uses JSON.
 	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
@@ -128,7 +128,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		_ = resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
-			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamfpro-cli config validate", string(body)))
+			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamf-cli config validate", string(body)))
 		case http.StatusForbidden:
 			return nil, exitcode.New(exitcode.PermissionDenied, fmt.Sprintf("permission denied (HTTP 403): %s\nThe authenticated account lacks the required API privileges.", string(body)))
 		case http.StatusNotFound:
