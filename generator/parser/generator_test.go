@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
 )
 
 func TestHasPathParam(t *testing.T) {
@@ -490,7 +490,7 @@ func TestScaffoldJSON_BasicProperties(t *testing.T) {
 	}
 	got := scaffoldJSON(s)
 	// Verify valid JSON
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("scaffoldJSON produced invalid JSON: %v\n%s", err, got)
 	}
@@ -513,7 +513,7 @@ func TestScaffoldJSON_SkipsReadOnly(t *testing.T) {
 		},
 	}
 	got := scaffoldJSON(s)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -556,7 +556,7 @@ func TestScaffoldJSON_DeterministicOrder(t *testing.T) {
 	}
 	// Run multiple times to check determinism
 	first := scaffoldJSON(s)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if got := scaffoldJSON(s); got != first {
 			t.Fatalf("non-deterministic output on iteration %d:\n%s\nvs\n%s", i, first, got)
 		}
@@ -581,17 +581,17 @@ func TestScaffoldJSON_AllTypes(t *testing.T) {
 		},
 	}
 	got := scaffoldJSON(s)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
 	// array → []
-	if arr, ok := parsed["arr"].([]interface{}); !ok || len(arr) != 0 {
+	if arr, ok := parsed["arr"].([]any); !ok || len(arr) != 0 {
 		t.Errorf("arr = %v, want empty array", parsed["arr"])
 	}
 	// object → {}
-	if obj, ok := parsed["obj"].(map[string]interface{}); !ok || len(obj) != 0 {
+	if obj, ok := parsed["obj"].(map[string]any); !ok || len(obj) != 0 {
 		t.Errorf("obj = %v, want empty object", parsed["obj"])
 	}
 	if parsed["str"] != "" {
@@ -948,7 +948,7 @@ func TestGenerate_Filename(t *testing.T) {
 }
 
 func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
-	generatedDir := filepath.Join("..", "..", "internal", "commands", "generated")
+	generatedDir := filepath.Join("..", "..", "internal", "commands", "pro", "generated")
 
 	entries, err := os.ReadDir(generatedDir)
 	if err != nil {

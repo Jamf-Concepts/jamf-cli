@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // mockStore implements keychain.Store for testing.
@@ -93,14 +93,14 @@ func TestResolveSecret_File_Missing(t *testing.T) {
 
 func TestResolveSecret_Keychain(t *testing.T) {
 	mock := newMockStore()
-	mock.items["jamfpro-cli/prod/client-secret"] = "keychain-value"
+	mock.items["jamf-cli/prod/client-secret"] = "keychain-value"
 
 	// Inject mock store
 	old := KeychainStore
 	KeychainStore = mock
 	defer func() { KeychainStore = old }()
 
-	val, err := ResolveSecret("keychain:jamfpro-cli/prod/client-secret")
+	val, err := ResolveSecret("keychain:jamf-cli/prod/client-secret")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestResolveSecret_Keychain(t *testing.T) {
 
 func TestResolveSecret_Keychain_BareRef(t *testing.T) {
 	mock := newMockStore()
-	mock.items["jamfpro-cli/prod/token"] = "bare-value"
+	mock.items["jamf-cli/prod/token"] = "bare-value"
 
 	old := KeychainStore
 	KeychainStore = mock
@@ -133,7 +133,7 @@ func TestResolveSecret_Keychain_NotFound(t *testing.T) {
 	KeychainStore = mock
 	defer func() { KeychainStore = old }()
 
-	_, err := ResolveSecret("keychain:jamfpro-cli/missing/secret")
+	_, err := ResolveSecret("keychain:jamf-cli/missing/secret")
 	if err == nil {
 		t.Fatal("expected error for missing keychain item")
 	}
@@ -156,7 +156,7 @@ func TestConfigPath_XDG(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
 	got := ConfigPath()
-	want := filepath.Join(dir, "jamfpro-cli", "config.yaml")
+	want := filepath.Join(dir, "jamf-cli", "config.yaml")
 	if got != want {
 		t.Errorf("ConfigPath() = %q, want %q", got, want)
 	}
@@ -168,8 +168,55 @@ func TestConfigPath_XDGDefault(t *testing.T) {
 
 	// Since we can't predict HOME, just verify it ends with the expected suffix
 	got := ConfigPath()
-	if !strings.HasSuffix(got, filepath.Join("jamfpro-cli", "config.yaml")) {
-		t.Errorf("ConfigPath() = %q, expected to end with jamfpro-cli/config.yaml", got)
+	if !strings.HasSuffix(got, filepath.Join("jamf-cli", "config.yaml")) {
+		t.Errorf("ConfigPath() = %q, expected to end with jamf-cli/config.yaml", got)
+	}
+}
+
+func TestLoad_MigratesOldConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldDir := filepath.Join(tmpDir, "jamfpro-cli")
+	newDir := filepath.Join(tmpDir, "jamf-cli")
+	_ = os.MkdirAll(oldDir, 0o700)
+
+	oldConfig := "default-profile: test\nprofiles:\n  test:\n    url: https://example.com\n"
+	_ = os.WriteFile(filepath.Join(oldDir, "config.yaml"), []byte(oldConfig), 0o600)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.DefaultProfile != "test" {
+		t.Errorf("DefaultProfile = %q, want %q", cfg.DefaultProfile, "test")
+	}
+
+	if _, err := os.Stat(filepath.Join(newDir, "config.yaml")); err != nil {
+		t.Errorf("new config file not created: %v", err)
+	}
+}
+
+func TestLoad_NoMigrationWhenNewExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldDir := filepath.Join(tmpDir, "jamfpro-cli")
+	newDir := filepath.Join(tmpDir, "jamf-cli")
+	_ = os.MkdirAll(oldDir, 0o700)
+	_ = os.MkdirAll(newDir, 0o700)
+
+	_ = os.WriteFile(filepath.Join(oldDir, "config.yaml"), []byte("default-profile: old\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(newDir, "config.yaml"), []byte("default-profile: new\n"), 0o600)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.DefaultProfile != "new" {
+		t.Errorf("DefaultProfile = %q, want %q (should not overwrite existing)", cfg.DefaultProfile, "new")
 	}
 }
 
@@ -224,7 +271,7 @@ func TestLoad_ValidYAML(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	configDir := filepath.Join(dir, "jamfpro-cli")
+	configDir := filepath.Join(dir, "jamf-cli")
 	_ = os.MkdirAll(configDir, 0o700)
 
 	yaml := `default-profile: prod
@@ -266,7 +313,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	configDir := filepath.Join(dir, "jamfpro-cli")
+	configDir := filepath.Join(dir, "jamf-cli")
 	_ = os.MkdirAll(configDir, 0o700)
 	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("{{not valid yaml:::"), 0o600)
 
@@ -303,7 +350,7 @@ func TestLoad_NilProfiles(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	configDir := filepath.Join(dir, "jamfpro-cli")
+	configDir := filepath.Join(dir, "jamf-cli")
 	_ = os.MkdirAll(configDir, 0o700)
 	// YAML with no profiles key at all
 	_ = os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)

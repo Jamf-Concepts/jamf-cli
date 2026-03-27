@@ -2,7 +2,7 @@
 
 ## v1.0.0
 
-First public release of `jamfpro-cli` — a command-line interface for the Jamf Pro Server API.
+First public release of `jamf-cli` — a command-line interface for the Jamf platform.
 
 ### Features
 
@@ -13,7 +13,7 @@ First public release of `jamfpro-cli` — a command-line interface for the Jamf 
 - **JSON scaffolding** — `--scaffold` flag on create/update commands to generate JSON templates
 - **OAuth2 and bearer token auth** — client credentials flow with automatic token refresh, or static bearer tokens
 - **Secure secret storage** — system keychain integration (macOS Keychain, Linux secret-service) with `env:`, `file:`, and `keychain:` prefixes
-- **Multi-profile config** — named profiles in `~/.config/jamfpro-cli/config.yaml` with `--profile` switching
+- **Multi-profile config** — named profiles in `~/.config/jamf-cli/config.yaml` with `--profile` switching
 - **Interactive setup** — `setup` command creates API roles, clients, and stores credentials in one flow
 - **Dry-run mode** — `--dry-run` flag previews mutating operations without executing
 - **Destructive operation safeguards** — delete commands require interactive confirmation

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ---------------------------------------------------------------------------
@@ -185,7 +185,6 @@ func TestSmoke_Seed(t *testing.T) {
 	var created, skipped, failed int
 
 	for _, sd := range seedDefs {
-		sd := sd
 		t.Run(sd.Name, func(t *testing.T) {
 			// Check if resource already exists
 			if resourceExists(ctx, httpClient, sd) {
@@ -234,7 +233,7 @@ func TestSmoke_Seed(t *testing.T) {
 }
 
 // resourceExists checks if a _smoke-test resource already exists for this type.
-func resourceExists(ctx context.Context, client generated.HTTPClient, sd seedDef) bool {
+func resourceExists(ctx context.Context, client registry.HTTPClient, sd seedDef) bool {
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -263,7 +262,6 @@ func TestSmoke_Cleanup(t *testing.T) {
 	var deleted, failed int
 
 	for _, sd := range seedDefs {
-		sd := sd
 		t.Run(sd.Name, func(t *testing.T) {
 			ids := findSmokeResources(ctx, httpClient, sd)
 			if len(ids) == 0 {
@@ -293,7 +291,7 @@ func TestSmoke_Cleanup(t *testing.T) {
 }
 
 // findSmokeResources lists resources and returns IDs of any containing _smoke-test.
-func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd seedDef) []string {
+func findSmokeResources(ctx context.Context, client registry.HTTPClient, sd seedDef) []string {
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -304,7 +302,7 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 
-	var items []map[string]interface{}
+	var items []map[string]any
 
 	if sd.IsClassic && sd.WrapperKey != "" {
 		var wrapper map[string]json.RawMessage
@@ -319,7 +317,7 @@ func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd see
 	} else {
 		// Modern: try paginated, then array
 		var paginated struct {
-			Results []map[string]interface{} `json:"results"`
+			Results []map[string]any `json:"results"`
 		}
 		if json.Unmarshal(body, &paginated) == nil && len(paginated.Results) > 0 {
 			items = paginated.Results

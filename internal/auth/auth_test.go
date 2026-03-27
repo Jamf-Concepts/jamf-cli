@@ -34,7 +34,7 @@ func TestOAuth2Provider_GetToken_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "test-jwt-token",
 			"token_type":   "Bearer",
 			"expires_in":   300,
@@ -57,7 +57,7 @@ func TestOAuth2Provider_GetToken_CachesToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "cached-token",
 			"token_type":   "Bearer",
 			"expires_in":   300,
@@ -84,7 +84,7 @@ func TestOAuth2Provider_GetToken_RefreshesExpiredToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "token-" + string(rune('0'+count)),
 			"token_type":   "Bearer",
 			"expires_in":   1, // 1 second TTL
@@ -107,7 +107,7 @@ func TestOAuth2Provider_GetToken_RefreshesExpiredToken(t *testing.T) {
 func TestOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "valid-token",
 			"token_type":   "Bearer",
 			"expires_in":   0,
@@ -190,7 +190,7 @@ func TestPlatformOAuth2Provider_GetToken_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "platform-opaque-token",
 			"token_type":   "Bearer",
 			"expires_in":   1799,
@@ -213,7 +213,7 @@ func TestPlatformOAuth2Provider_GetToken_CachesToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "cached-platform-token",
 			"token_type":   "Bearer",
 			"expires_in":   1799,
@@ -251,7 +251,7 @@ func TestPlatformOAuth2Provider_GetToken_InvalidCredentials(t *testing.T) {
 func TestPlatformOAuth2Provider_GetToken_EmptyAccessToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "",
 			"token_type":   "Bearer",
 			"expires_in":   1799,
@@ -269,7 +269,7 @@ func TestPlatformOAuth2Provider_GetToken_EmptyAccessToken(t *testing.T) {
 func TestPlatformOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "valid-token",
 			"token_type":   "Bearer",
 			"expires_in":   0,

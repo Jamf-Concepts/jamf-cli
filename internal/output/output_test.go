@@ -30,7 +30,7 @@ func TestPrintRaw_JSON_SingleObject(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Should be pretty-printed
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
 		t.Fatalf("output is not valid JSON: %v\nOutput: %s", err, buf.String())
 	}
@@ -53,7 +53,7 @@ func TestPrintRaw_JSON_Array(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var result []map[string]interface{}
+	var result []map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
 		t.Fatalf("output is not valid JSON array: %v\nOutput: %s", err, buf.String())
 	}
@@ -373,7 +373,7 @@ func TestPrintRaw_Plain_DeterministicColumnOrder(t *testing.T) {
 func TestFormatValue(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected string
 	}{
 		{"nil", nil, ""},
@@ -382,8 +382,8 @@ func TestFormatValue(t *testing.T) {
 		{"decimal float", float64(3.14), "3.14"},
 		{"bool true", true, "true"},
 		{"bool false", false, "false"},
-		{"nested map", map[string]interface{}{"a": "b"}, `{"a":"b"}`},
-		{"nested slice", []interface{}{"a", "b"}, `["a","b"]`},
+		{"nested map", map[string]any{"a": "b"}, `{"a":"b"}`},
+		{"nested slice", []any{"a", "b"}, `["a","b"]`},
 	}
 
 	for _, tc := range tests {
@@ -399,7 +399,7 @@ func TestFormatValue(t *testing.T) {
 // --- sortedKeys tests ---
 
 func TestSortedKeys(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"zebra": "z",
 		"id":    1,
 		"name":  "test",
@@ -418,7 +418,7 @@ func TestSortedKeys(t *testing.T) {
 }
 
 func TestSortedKeys_NoIdNoName(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"zebra": "z",
 		"alpha": "a",
 		"beta":  "b",
@@ -435,12 +435,12 @@ func TestSortedKeys_NoIdNoName(t *testing.T) {
 // --- normalizeJSON tests ---
 
 func TestNormalizeJSON_SliceOfMaps(t *testing.T) {
-	input := []interface{}{
-		map[string]interface{}{"id": float64(1)},
-		map[string]interface{}{"id": float64(2)},
+	input := []any{
+		map[string]any{"id": float64(1)},
+		map[string]any{"id": float64(2)},
 	}
 	result := normalizeJSON(input)
-	slice, ok := result.([]map[string]interface{})
+	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)
 	}
@@ -450,9 +450,9 @@ func TestNormalizeJSON_SliceOfMaps(t *testing.T) {
 }
 
 func TestNormalizeJSON_SingleMap(t *testing.T) {
-	input := map[string]interface{}{"id": float64(1), "name": "test"}
+	input := map[string]any{"id": float64(1), "name": "test"}
 	result := normalizeJSON(input)
-	slice, ok := result.([]map[string]interface{})
+	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)
 	}
@@ -475,14 +475,14 @@ func TestNormalizeJSON_ScalarString(t *testing.T) {
 
 func TestNormalizeJSON_MixedArray(t *testing.T) {
 	// Mixed array should return raw data, not drop non-map items
-	input := []interface{}{
-		map[string]interface{}{"id": "1"},
+	input := []any{
+		map[string]any{"id": "1"},
 		"stray string",
-		map[string]interface{}{"id": "2"},
+		map[string]any{"id": "2"},
 	}
 	result := normalizeJSON(input)
 	// Should return the original data unchanged (not []map[string]interface{})
-	arr, ok := result.([]interface{})
+	arr, ok := result.([]any)
 	if !ok {
 		t.Fatalf("expected []interface{}, got %T", result)
 	}
@@ -492,9 +492,9 @@ func TestNormalizeJSON_MixedArray(t *testing.T) {
 }
 
 func TestNormalizeJSON_EmptySlice(t *testing.T) {
-	input := []interface{}{}
+	input := []any{}
 	result := normalizeJSON(input)
-	slice, ok := result.([]map[string]interface{})
+	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)
 	}
@@ -1151,7 +1151,7 @@ func TestSetWriter(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f.SetWriter(buf)
 
-	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	data := []map[string]any{{"id": float64(1), "name": "test"}}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1167,12 +1167,12 @@ func TestSetWriter(t *testing.T) {
 
 func TestPrint_JSON(t *testing.T) {
 	f, buf := newTestFormatter("json")
-	data := []map[string]interface{}{{"id": float64(1)}}
+	data := []map[string]any{{"id": float64(1)}}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Should be valid JSON
-	var result []map[string]interface{}
+	var result []map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
 		t.Fatalf("output is not valid JSON: %v", err)
 	}
@@ -1180,7 +1180,7 @@ func TestPrint_JSON(t *testing.T) {
 
 func TestPrint_YAML(t *testing.T) {
 	f, buf := newTestFormatter("yaml")
-	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	data := []map[string]any{{"id": float64(1), "name": "test"}}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1191,7 +1191,7 @@ func TestPrint_YAML(t *testing.T) {
 
 func TestPrint_CSV(t *testing.T) {
 	f, buf := newTestFormatter("csv")
-	data := []map[string]interface{}{{"id": float64(1), "name": "test"}}
+	data := []map[string]any{{"id": float64(1), "name": "test"}}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1203,7 +1203,7 @@ func TestPrint_CSV(t *testing.T) {
 
 func TestPrint_CSV_Empty(t *testing.T) {
 	f, buf := newTestFormatter("csv")
-	data := []map[string]interface{}{}
+	data := []map[string]any{}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1245,7 +1245,7 @@ func TestPrint_Table_NonSlice(t *testing.T) {
 
 func TestPrint_Table_Empty(t *testing.T) {
 	f, buf := newTestFormatter("table")
-	data := []map[string]interface{}{}
+	data := []map[string]any{}
 	if err := f.Print(data); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1259,10 +1259,10 @@ func TestPrint_Table_Empty(t *testing.T) {
 func TestPrintError_JSON(t *testing.T) {
 	f, buf := newTestFormatter("json")
 	testErr := fmt.Errorf("something went wrong")
-	details := map[string]interface{}{"field": "name"}
+	details := map[string]any{"field": "name"}
 	f.PrintError(testErr, "validation_error", details)
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
 		t.Fatalf("output is not valid JSON: %v\nOutput: %s", err, buf.String())
 	}

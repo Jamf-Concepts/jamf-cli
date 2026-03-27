@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 )
 
 // Global flags
@@ -44,7 +44,7 @@ var (
 	cliVersion        string // set by NewRootCmd for use by power commands
 )
 
-// cliClient wraps our client to implement generated.HTTPClient
+// cliClient wraps our client to implement registry.HTTPClient
 type cliClient struct {
 	*client.Client
 }
@@ -53,7 +53,7 @@ func (c *cliClient) Do(ctx context.Context, method, path string, body io.Reader)
 	return c.Client.Do(ctx, method, path, body)
 }
 
-// cliOutput wraps our output formatter to implement generated.OutputFormatter
+// cliOutput wraps our output formatter to implement registry.OutputFormatter
 type cliOutput struct {
 	*output.Formatter
 }
@@ -72,21 +72,21 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 	}
 
 	// Parse JSON and extract the named field
-	var parsed interface{}
+	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return fmt.Errorf("cannot extract field from non-JSON response")
 	}
 
-	var objects []map[string]interface{}
+	var objects []map[string]any
 	switch v := parsed.(type) {
-	case []interface{}:
+	case []any:
 		for _, item := range v {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				objects = append(objects, m)
 			}
 		}
-	case map[string]interface{}:
-		objects = []map[string]interface{}{v}
+	case map[string]any:
+		objects = []map[string]any{v}
 	default:
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
@@ -105,7 +105,7 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
 type spinnerClient struct {
-	inner generated.HTTPClient
+	inner registry.HTTPClient
 }
 
 func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -119,7 +119,7 @@ func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Rea
 // GET/HEAD pass through; POST/PUT/PATCH/DELETE print what would happen
 // and return a synthetic empty response.
 type dryRunClient struct {
-	inner generated.HTTPClient
+	inner registry.HTTPClient
 }
 
 func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -237,7 +237,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 
 	// Validate
 	if url == "" {
-		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamfpro-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamf-cli config add-profile")
 	}
 	if strings.HasPrefix(url, "http://") {
 		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
@@ -267,7 +267,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	case tok != "":
 		return url, auth.NewTokenProvider(tok), nil
 	default:
-		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamfpro-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamf-cli config add-profile")
 	}
 }
 
@@ -344,16 +344,16 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	cliVersion = version
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
-	cliCtx := &generated.CLIContext{}
+	cliCtx := &registry.CLIContext{}
 	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
-		Use:   "jamfpro-cli",
-		Short: "CLI tool for Jamf Pro Server API automation",
-		Long: `jamfpro-cli is a command-line interface for the Jamf Pro Server API.
+		Use:   "jamf-cli",
+		Short: "CLI for the Jamf platform",
+		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
-It provides full API coverage for admin automation workflows including
-device management, inventory/reporting, and configuration management.`,
+Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
+configuration, reporting, and API automation).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -370,6 +370,7 @@ device management, inventory/reporting, and configuration management.`,
 				"config":     true,
 				"commands":   true,
 				"diff":       true,
+				"setup":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if skipCommands[c.Name()] {
@@ -398,7 +399,7 @@ device management, inventory/reporting, and configuration management.`,
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
 			}
-			var httpClient generated.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			var httpClient registry.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}
@@ -459,7 +460,7 @@ device management, inventory/reporting, and configuration management.`,
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("jamfpro-cli %s\n", version)
+			fmt.Printf("jamf-cli %s\n", version)
 			fmt.Printf("  commit: %s\n", commit)
 			fmt.Printf("  built:  %s\n", date)
 		},
@@ -474,28 +475,12 @@ device management, inventory/reporting, and configuration management.`,
 	// Commands discovery subcommand
 	cmd.AddCommand(newCommandsCmd(cmd))
 
-	// Overview command (requires auth — not in skipCommands)
-	cmd.AddCommand(newOverviewCmd(cliCtx))
+	// Jamf Pro product namespace
+	cmd.AddCommand(newProCmd(cliCtx))
 
-	// Power commands
-	cmd.AddCommand(newBackupCmd(cliCtx))
-	cmd.AddCommand(newAuditCmd(cliCtx))
-	cmd.AddCommand(newBulkCmd(cliCtx))
-	cmd.AddCommand(newReportCmd(cliCtx))
-	cmd.AddCommand(newDiffCmd())
-	cmd.AddCommand(newGroupToolsCmd(cliCtx))
-
-	// Register generated resource commands with CLIContext
-	generated.RegisterCommands(cmd, cliCtx)
-
-	// Register Classic API resource commands
-	generated.RegisterClassicCommands(cmd, cliCtx)
-
-	// Apply short aliases (e.g., "comp" for "computers")
-	applyAliases(cmd)
-
-	// Organize commands into logical groups for --help output
-	applyGroups(cmd)
+	// Apply root-level aliases and groups for --help output
+	applyRootAliases(cmd)
+	applyRootGroups(cmd)
 
 	return cmd
 }
@@ -579,10 +564,10 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
 // format expected by the output formatter. When full is true, aliases and flags
 // columns are included; otherwise only command and description are emitted
 // for a compact table.
-func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(entries))
+func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
+	result := make([]map[string]any, len(entries))
 	for i, e := range entries {
-		m := map[string]interface{}{
+		m := map[string]any{
 			"command":     e.Command,
 			"description": e.Description,
 		}
@@ -611,7 +596,7 @@ func FormatError(err error) bool {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
-	envelope := map[string]interface{}{
+	envelope := map[string]any{
 		"error":    exitcode.CodeName(code),
 		"message":  err.Error(),
 		"exitCode": code,

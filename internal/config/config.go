@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // Config represents the CLI configuration
@@ -28,23 +28,58 @@ type Profile struct {
 	TenantID     string `yaml:"tenant-id,omitempty"`
 }
 
+const (
+	configDirName       = "jamf-cli"
+	legacyConfigDirName = "jamfpro-cli"
+)
+
 // ConfigPath returns the path to the config file using XDG conventions.
 func ConfigPath() string {
+	return filepath.Join(configDir(), "config.yaml")
+}
+
+func configDir() string {
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
-		return filepath.Join(xdgConfig, "jamfpro-cli", "config.yaml")
+		return filepath.Join(xdgConfig, configDirName)
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "jamfpro-cli", "config.yaml")
+	return filepath.Join(home, ".config", configDirName)
+}
+
+func legacyConfigPath() string {
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		return filepath.Join(xdgConfig, legacyConfigDirName, "config.yaml")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", legacyConfigDirName, "config.yaml")
 }
 
 // Load reads the config from disk. If the file doesn't exist, returns an
-// empty config (not an error).
+// empty config (not an error). Automatically migrates from the legacy
+// ~/.config/jamfpro-cli/ location if found.
 func Load() (*Config, error) {
 	cfg := &Config{
 		Profiles: make(map[string]Profile),
 	}
 
-	data, err := os.ReadFile(ConfigPath())
+	path := ConfigPath()
+
+	// One-time migration from old config location
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if oldPath := legacyConfigPath(); oldPath != "" {
+			if oldData, readErr := os.ReadFile(oldPath); readErr == nil {
+				dir := filepath.Dir(path)
+				if mkErr := os.MkdirAll(dir, 0o700); mkErr == nil {
+					if writeErr := os.WriteFile(path, oldData, 0o600); writeErr == nil {
+						fmt.Fprintf(os.Stderr, "Migrated config from %s to %s\n",
+							filepath.Dir(oldPath), dir)
+					}
+				}
+			}
+		}
+	}
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return cfg, nil
@@ -93,7 +128,7 @@ func GetProfile(cfg *Config, name string) (*Profile, string, error) {
 	}
 
 	if name == "" {
-		return nil, "", fmt.Errorf("no profile specified and no default profile configured. Run: jamfpro-cli config add-profile <name> --url <url>")
+		return nil, "", fmt.Errorf("no profile specified and no default profile configured. Run: jamf-cli config add-profile <name> --url <url>")
 	}
 
 	p, ok := cfg.Profiles[name]

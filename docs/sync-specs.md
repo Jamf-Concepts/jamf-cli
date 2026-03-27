@@ -54,8 +54,8 @@ New commands must be added to `commandGroupMap` in `internal/commands/groups.go`
 #### 5. Manual testing
 
 ```bash
-./bin/jamfpro-cli computers list
-./bin/jamfpro-cli mobile-devices list
+./bin/jamf-cli pro computers list
+./bin/jamf-cli pro mobile-devices list
 ```
 
 #### 6. Commit

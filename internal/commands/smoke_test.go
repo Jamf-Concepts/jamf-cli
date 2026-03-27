@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/client"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/commands/generated"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ import (
 
 // smokeClient builds a real HTTP client from the CLI config, or skips the test
 // if no profile is available.
-func smokeClient(t *testing.T) generated.HTTPClient {
+func smokeClient(t *testing.T) registry.HTTPClient {
 	t.Helper()
 
 	cfg, err := config.Load()
@@ -54,7 +55,7 @@ func smokeClient(t *testing.T) generated.HTTPClient {
 
 // smokeGET makes a GET request and returns the response body. It handles
 // expected error codes (404, 403) as skips rather than failures.
-func smokeGET(t *testing.T, httpClient generated.HTTPClient, path string) (body []byte, skipped bool) {
+func smokeGET(t *testing.T, httpClient registry.HTTPClient, path string) (body []byte, skipped bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -147,7 +148,7 @@ func firstIDFromArray(data []byte) string {
 }
 
 func idFromObject(data []byte) string {
-	var obj map[string]interface{}
+	var obj map[string]any
 	if json.Unmarshal(data, &obj) != nil {
 		return ""
 	}
@@ -312,14 +313,13 @@ func TestSmoke_Tier2(t *testing.T) {
 	httpClient := smokeClient(t)
 
 	for _, check := range tier2Checks {
-		check := check
 		t.Run(check.Name, func(t *testing.T) {
 			body, skipped := smokeGET(t, httpClient, check.Path)
 			if skipped {
 				return
 			}
 
-			var parsed interface{}
+			var parsed any
 			if check.IsClassic && check.WrapperKey != "" {
 				var wrapper map[string]json.RawMessage
 				if err := json.Unmarshal(body, &wrapper); err != nil {
@@ -354,18 +354,18 @@ func TestSmoke_Tier2(t *testing.T) {
 
 // resolveFieldPath walks a dot-separated path through nested maps and arrays.
 // Numeric path segments index into arrays.
-func resolveFieldPath(data interface{}, path string) (interface{}, bool) {
+func resolveFieldPath(data any, path string) (any, bool) {
 	parts := strings.Split(path, ".")
 	current := data
 	for _, part := range parts {
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			val, ok := v[part]
 			if !ok {
 				return nil, false
 			}
 			current = val
-		case []interface{}:
+		case []any:
 			idx, err := strconv.Atoi(part)
 			if err != nil || idx < 0 || idx >= len(v) {
 				return nil, false

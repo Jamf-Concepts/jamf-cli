@@ -7,8 +7,8 @@ import (
 	gokeyring "github.com/zalando/go-keyring"
 )
 
-// DefaultService is the keychain service name used by jamfpro-cli.
-const DefaultService = "jamfpro-cli"
+// DefaultService is the keychain service name used by jamf-cli.
+const DefaultService = "jamf-cli"
 
 // ErrNotFound is returned when a keychain item does not exist.
 var ErrNotFound = errors.New("keychain item not found")
@@ -60,8 +60,8 @@ func (s *systemStore) Delete(service, account string) error {
 //
 // Examples:
 //
-//	"jamfpro-cli/prod/client-secret" -> service="jamfpro-cli", account="prod/client-secret"
-//	"prod/client-secret"             -> service="jamfpro-cli", account="prod/client-secret"
+//	"jamf-cli/prod/client-secret" -> service="jamf-cli", account="prod/client-secret"
+//	"prod/client-secret"             -> service="jamf-cli", account="prod/client-secret"
 func ParseRef(value string) (service, account string) {
 	// If the value starts with the default service name followed by a slash,
 	// treat the first segment as the service.
@@ -79,7 +79,7 @@ func ParseRef(value string) (service, account string) {
 }
 
 // KeychainRef builds a keychain: reference string for use in config files.
-// Example: KeychainRef("prod", "client-secret") returns "keychain:jamfpro-cli/prod/client-secret"
+// Example: KeychainRef("prod", "client-secret") returns "keychain:jamf-cli/prod/client-secret"
 func KeychainRef(profile, field string) string {
 	return "keychain:" + DefaultService + "/" + profile + "/" + field
 }
