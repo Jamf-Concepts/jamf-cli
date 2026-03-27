@@ -28,7 +28,7 @@ go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 
 ```bash
 # One-time setup: create OAuth2 credentials from an admin account
-jamf-cli config setup --url https://jamf.company.com
+jamf-cli pro setup --url https://jamf.company.com
 
 # Or configure manually with existing credentials
 jamf-cli config add-profile prod \
