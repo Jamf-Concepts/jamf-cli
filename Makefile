@@ -70,11 +70,11 @@ sync-specs:
 # Generate CLI commands from OpenAPI specs and Classic API manifest
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
-	go run ./generator/main.go --specs ./specs --output ./internal/commands/generated
-	@go fmt ./internal/commands/generated/...
+	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated
+	@go fmt ./internal/commands/pro/generated/...
 	@echo "Generated commands:"
-	@ls internal/commands/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
-	@ls internal/commands/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"
+	@ls internal/commands/pro/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
+	@ls internal/commands/pro/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"
 
 # Release (requires goreleaser)
 release:
@@ -95,11 +95,11 @@ deps:
 
 # Verify generated code is up to date (CI-safe)
 verify-generated:
-	@rm -f internal/commands/generated/*.go
+	@rm -f internal/commands/pro/generated/*.go
 	@$(MAKE) generate
-	@if ! git diff --quiet -- internal/commands/generated/; then \
+	@if ! git diff --quiet -- internal/commands/pro/generated/; then \
 		echo "Error: generated code is out of date"; \
-		git diff --stat -- internal/commands/generated/; \
+		git diff --stat -- internal/commands/pro/generated/; \
 		exit 1; \
 	fi
 	@echo "Generated code is up to date."

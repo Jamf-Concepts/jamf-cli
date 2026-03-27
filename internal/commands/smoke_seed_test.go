@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ func TestSmoke_Seed(t *testing.T) {
 }
 
 // resourceExists checks if a _smoke-test resource already exists for this type.
-func resourceExists(ctx context.Context, client generated.HTTPClient, sd seedDef) bool {
+func resourceExists(ctx context.Context, client registry.HTTPClient, sd seedDef) bool {
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -293,7 +293,7 @@ func TestSmoke_Cleanup(t *testing.T) {
 }
 
 // findSmokeResources lists resources and returns IDs of any containing _smoke-test.
-func findSmokeResources(ctx context.Context, client generated.HTTPClient, sd seedDef) []string {
+func findSmokeResources(ctx context.Context, client registry.HTTPClient, sd seedDef) []string {
 	reqCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 

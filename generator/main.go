@@ -27,7 +27,7 @@ type smokeEntry struct {
 
 func main() {
 	specsDir := "./specs"
-	outputDir := "./internal/commands/generated"
+	outputDir := "./internal/commands/pro/generated"
 
 	fmt.Println("jamf-cli code generator")
 	fmt.Println("==========================")

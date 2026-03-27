@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
-	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ import (
 
 // smokeClient builds a real HTTP client from the CLI config, or skips the test
 // if no profile is available.
-func smokeClient(t *testing.T) generated.HTTPClient {
+func smokeClient(t *testing.T) registry.HTTPClient {
 	t.Helper()
 
 	cfg, err := config.Load()
@@ -54,7 +55,7 @@ func smokeClient(t *testing.T) generated.HTTPClient {
 
 // smokeGET makes a GET request and returns the response body. It handles
 // expected error codes (404, 403) as skips rather than failures.
-func smokeGET(t *testing.T, httpClient generated.HTTPClient, path string) (body []byte, skipped bool) {
+func smokeGET(t *testing.T, httpClient registry.HTTPClient, path string) (body []byte, skipped bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

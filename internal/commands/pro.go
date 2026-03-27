@@ -3,10 +3,11 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func newProCmd(cliCtx *generated.CLIContext) *cobra.Command {
+func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pro",
 		Short: "Jamf Pro commands",

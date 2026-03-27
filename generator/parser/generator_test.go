@@ -948,7 +948,7 @@ func TestGenerate_Filename(t *testing.T) {
 }
 
 func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
-	generatedDir := filepath.Join("..", "..", "internal", "commands", "generated")
+	generatedDir := filepath.Join("..", "..", "internal", "commands", "pro", "generated")
 
 	entries, err := os.ReadDir(generatedDir)
 	if err != nil {

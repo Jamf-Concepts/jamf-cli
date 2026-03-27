@@ -14,10 +14,10 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
-	"github.com/Jamf-Concepts/jamf-cli/internal/commands/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 )
 
@@ -44,7 +44,7 @@ var (
 	cliVersion        string // set by NewRootCmd for use by power commands
 )
 
-// cliClient wraps our client to implement generated.HTTPClient
+// cliClient wraps our client to implement registry.HTTPClient
 type cliClient struct {
 	*client.Client
 }
@@ -53,7 +53,7 @@ func (c *cliClient) Do(ctx context.Context, method, path string, body io.Reader)
 	return c.Client.Do(ctx, method, path, body)
 }
 
-// cliOutput wraps our output formatter to implement generated.OutputFormatter
+// cliOutput wraps our output formatter to implement registry.OutputFormatter
 type cliOutput struct {
 	*output.Formatter
 }
@@ -105,7 +105,7 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
 type spinnerClient struct {
-	inner generated.HTTPClient
+	inner registry.HTTPClient
 }
 
 func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -119,7 +119,7 @@ func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Rea
 // GET/HEAD pass through; POST/PUT/PATCH/DELETE print what would happen
 // and return a synthetic empty response.
 type dryRunClient struct {
-	inner generated.HTTPClient
+	inner registry.HTTPClient
 }
 
 func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -344,7 +344,7 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	cliVersion = version
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
-	cliCtx := &generated.CLIContext{}
+	cliCtx := &registry.CLIContext{}
 	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
@@ -399,7 +399,7 @@ configuration, reporting, and API automation).`,
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
 			}
-			var httpClient generated.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			var httpClient registry.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}

@@ -58,7 +58,7 @@ jobs:
             -exec cp {} specs/ +
           echo "$JAMF_PRO_VERSION" > specs/VERSION
           make generate
-          go fmt ./internal/commands/generated/...
+          go fmt ./internal/commands/pro/generated/...
 
       - name: Run tests
         run: make test
@@ -66,16 +66,16 @@ jobs:
       - name: Generate diff summary
         id: diff
         run: |
-          ADDED=$(git diff --name-only --diff-filter=A -- specs/ internal/commands/generated/)
-          MODIFIED=$(git diff --name-only --diff-filter=M -- specs/ internal/commands/generated/)
-          DELETED=$(git diff --name-only --diff-filter=D -- specs/ internal/commands/generated/)
+          ADDED=$(git diff --name-only --diff-filter=A -- specs/ internal/commands/pro/generated/)
+          MODIFIED=$(git diff --name-only --diff-filter=M -- specs/ internal/commands/pro/generated/)
+          DELETED=$(git diff --name-only --diff-filter=D -- specs/ internal/commands/pro/generated/)
 
           NEW_SPECS=$(echo "$ADDED" | grep '^specs/' | grep -c '\.yaml$' || true)
           MOD_SPECS=$(echo "$MODIFIED" | grep '^specs/' | grep -c '\.yaml$' || true)
           DEL_SPECS=$(echo "$DELETED" | grep '^specs/' | grep -c '\.yaml$' || true)
-          NEW_CMDS=$(echo "$ADDED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
-          MOD_CMDS=$(echo "$MODIFIED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
-          DEL_CMDS=$(echo "$DELETED" | grep '^internal/commands/generated/' | grep -c '\.go$' || true)
+          NEW_CMDS=$(echo "$ADDED" | grep '^internal/commands/pro/generated/' | grep -c '\.go$' || true)
+          MOD_CMDS=$(echo "$MODIFIED" | grep '^internal/commands/pro/generated/' | grep -c '\.go$' || true)
+          DEL_CMDS=$(echo "$DELETED" | grep '^internal/commands/pro/generated/' | grep -c '\.go$' || true)
 
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           {
