@@ -28,8 +28,10 @@ type Profile struct {
 	TenantID     string `yaml:"tenant-id,omitempty"`
 }
 
-const configDirName = "jamf-cli"
-const legacyConfigDirName = "jamfpro-cli"
+const (
+	configDirName       = "jamf-cli"
+	legacyConfigDirName = "jamfpro-cli"
+)
 
 // ConfigPath returns the path to the config file using XDG conventions.
 func ConfigPath() string {
