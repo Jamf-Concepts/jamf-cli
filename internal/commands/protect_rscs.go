@@ -254,7 +254,7 @@ func rebuildRSCSInput(set *jamfprotect.RemovableStorageControlSet) jamfprotect.R
 }
 
 func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var ruleType, mountAction, vendors, serials string
+	var ruleType, mountAction, applyTo, vendors, serials string
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "add-rule <set-name>",
@@ -276,27 +276,62 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			input := rebuildRSCSInput(set)
 
-			newRule := jamfprotect.RemovableStorageControlRuleInput{
-				Type: ruleType,
+			// Normalize flag values to canonical API casing
+			switch strings.ToLower(applyTo) {
+			case "all":
+				applyTo = "All"
+			case "encrypted":
+				applyTo = "Encrypted"
+			case "unencrypted":
+				applyTo = "Unencrypted"
+			default:
+				return fmt.Errorf("unsupported --apply-to value %q; must be All, Encrypted, or Unencrypted", applyTo)
 			}
+			switch strings.ToLower(mountAction) {
+			case "readwrite", "read-write":
+				mountAction = "ReadWrite"
+			case "readonly", "read-only":
+				mountAction = "ReadOnly"
+			case "prevented", "deny":
+				mountAction = "Prevented"
+			default:
+				return fmt.Errorf("unsupported --mount-action value %q; must be ReadWrite, ReadOnly, or Prevented", mountAction)
+			}
+
+			var newRule jamfprotect.RemovableStorageControlRuleInput
 			switch strings.ToLower(ruleType) {
 			case "vendor":
-				newRule.VendorRule = &jamfprotect.RemovableStorageControlRuleDetails{
-					MountAction: mountAction,
-					Vendors:     splitCSV(vendors),
+				newRule = jamfprotect.RemovableStorageControlRuleInput{
+					Type: "Vendor",
+					VendorRule: &jamfprotect.RemovableStorageControlRuleDetails{
+						MountAction: mountAction,
+						ApplyTo:     &applyTo,
+						Vendors:     splitCSV(vendors),
+					},
 				}
 			case "serial":
-				newRule.SerialRule = &jamfprotect.RemovableStorageControlRuleDetails{
-					MountAction: mountAction,
-					Serials:     splitCSV(serials),
+				newRule = jamfprotect.RemovableStorageControlRuleInput{
+					Type: "Serial",
+					SerialRule: &jamfprotect.RemovableStorageControlRuleDetails{
+						MountAction: mountAction,
+						ApplyTo:     &applyTo,
+						Serials:     splitCSV(serials),
+					},
 				}
 			case "product":
-				newRule.ProductRule = &jamfprotect.RemovableStorageControlProductRuleDetails{
-					MountAction: mountAction,
+				newRule = jamfprotect.RemovableStorageControlRuleInput{
+					Type: "Product",
+					ProductRule: &jamfprotect.RemovableStorageControlProductRuleDetails{
+						MountAction: mountAction,
+						ApplyTo:     &applyTo,
+					},
 				}
 			case "encryption":
-				newRule.EncryptionRule = &jamfprotect.RemovableStorageControlRuleDetails{
-					MountAction: mountAction,
+				newRule = jamfprotect.RemovableStorageControlRuleInput{
+					Type: "Encryption",
+					EncryptionRule: &jamfprotect.RemovableStorageControlRuleDetails{
+						MountAction: mountAction,
+					},
 				}
 			default:
 				return fmt.Errorf("unsupported rule type %q; must be vendor, serial, product, or encryption", ruleType)
@@ -330,7 +365,8 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&ruleType, "type", "", "Rule type: vendor, serial, product, encryption")
-	cmd.Flags().StringVar(&mountAction, "mount-action", "", "Mount action: ALLOW, DENY, READ_ONLY")
+	cmd.Flags().StringVar(&mountAction, "mount-action", "", "Mount action: ReadWrite, ReadOnly, Prevented")
+	cmd.Flags().StringVar(&applyTo, "apply-to", "All", "Apply to: All, Encrypted, Unencrypted (for vendor/serial/product rules)")
 	cmd.Flags().StringVar(&vendors, "vendors", "", "Comma-separated vendor identifiers (for vendor rules)")
 	cmd.Flags().StringVar(&serials, "serials", "", "Comma-separated serial numbers (for serial rules)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing an existing rule")
