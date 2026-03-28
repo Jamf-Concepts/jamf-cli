@@ -6,7 +6,6 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-
 // ─── flattenPlan ────────────────────────────────────────────────────────────
 
 func TestFlattenPlan_BasicFields(t *testing.T) {
