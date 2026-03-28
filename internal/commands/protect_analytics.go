@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +70,12 @@ func newProtectAnalyticsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, analytics)
+			rows := make([]map[string]any, 0, len(analytics))
+			for _, a := range analytics {
+				rows = append(rows, flattenAnalytic(a))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }
@@ -359,6 +365,20 @@ func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 		Severity:        ay.Severity,
 		SnapshotFiles:   snapshotFiles,
 	}
+}
+
+// flattenAnalytic converts an Analytic to a clean map for list table output.
+func flattenAnalytic(a jamfprotect.Analytic) map[string]any {
+	m := map[string]any{
+		"name":      a.Name,
+		"severity":  a.Severity,
+		"inputType": a.InputType,
+		"jamf":      a.Jamf,
+	}
+	if len(a.Categories) > 0 {
+		m["categories"] = strings.Join(a.Categories, ", ")
+	}
+	return m
 }
 
 // analyticToYAML converts an SDK Analytic to the community YAML schema.
