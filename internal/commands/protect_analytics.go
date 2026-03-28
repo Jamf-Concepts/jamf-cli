@@ -323,9 +323,13 @@ func newProtectAnalyticsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 	analyticActions := make([]jamfprotect.AnalyticActionInput, 0, len(ay.Actions))
 	for _, a := range ay.Actions {
+		params := a.Parameters
+		if params == "" {
+			params = "{}"
+		}
 		analyticActions = append(analyticActions, jamfprotect.AnalyticActionInput{
 			Name:       a.Name,
-			Parameters: a.Parameters,
+			Parameters: params,
 		})
 	}
 
