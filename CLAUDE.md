@@ -56,8 +56,10 @@ go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ### Running the CLI
 
 ```bash
-bin/jamf-cli pro setup                    # Interactive first-time config (creates profile)
+bin/jamf-cli pro setup                    # Interactive first-time config (creates Jamf Pro profile)
+bin/jamf-cli protect setup                # Interactive first-time config (creates Jamf Protect profile)
 bin/jamf-cli --url https://... --token ... pro computers list  # One-off with flags
+bin/jamf-cli -p my-protect-profile protect overview            # Use a named protect profile
 ```
 
 ## Architecture
@@ -72,17 +74,18 @@ internal/
   auth/                  Auth providers (OAuth2, Platform, Token) — Jamf Pro only
   client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
-  protect/               Jamf Protect helpers: name-to-ID resolution, output formatting
+  protect/               Jamf Protect helpers: name-to-ID Resolver, PrintList/PrintOne output
   commands/
     root.go              Root command, shared flags, product-aware auth resolution
     config.go            Config subcommands (shared)
     completion.go        Shell completion (shared)
     groups.go            Help groups for root + pro + protect
     aliases.go           Aliases for root + pro + protect
+    protect_helpers.go   Shared Protect helpers: input reading, confirmation, export formatting
     pro.go               Bridge: wires all Jamf Pro commands under "pro"
     pro_*.go             Jamf Pro handwritten commands (overview, audit, etc.)
     protect.go           Bridge: wires all Jamf Protect commands under "protect"
-    protect_*.go         Jamf Protect handwritten commands (overview, plans, analytics, etc.)
+    protect_*.go         Jamf Protect commands (CRUD, import/export, granular mutations)
     pro/
       generated/         Pro generated commands from OpenAPI specs + Classic manifest
 ```
@@ -112,7 +115,7 @@ See `generator/README.md` for full template function reference and testing workf
 
 `cmd/jamf-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> `pro` subcommand --> generated commands
 
-`PersistentPreRunE` in `root.go` is the critical path: it resolves credentials through a priority chain (flags > env vars > config profile), builds the auth provider, and wires up the HTTP client with optional spinner/dry-run decorators. Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
+`PersistentPreRunE` in `root.go` is the critical path: it determines the product type from the command hierarchy (commands under `protect` → Protect, under `pro` → Pro), resolves credentials through a priority chain (flags > env vars > config profile), and builds the appropriate client. For Pro, it builds the HTTP client with spinner/dry-run decorators. For Protect, it constructs a `jamfprotect.NewClient()` SDK client. Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
 
 ### Key Packages
 
@@ -157,12 +160,27 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 
 Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles its own OAuth2 auth, retry, and pagination. Key differences from Pro:
 
-- **Auth**: SDK manages tokens internally. `PersistentPreRunE` resolves credentials and passes them to `jamfprotect.NewClient()`. No use of `internal/auth/` or `internal/client/`.
-- **Config profiles**: Protect profiles have `product: protect`. Env vars: `JAMFPROTECT_URL`, `JAMFPROTECT_CLIENT_ID`, `JAMFPROTECT_CLIENT_SECRET`.
-- **Name resolution**: All commands use `--name` (not ID/UUID). `internal/protect/Resolver` maps names to IDs via lazy-cached list calls.
-- **Output**: SDK returns typed Go structs. `protect.PrintList`/`PrintOne` marshal to JSON then pass to `OutputFormatter.PrintRaw()`.
-- **YAML import/export**: Analytics and unified logging filters support YAML import/export matching the `jamf/jamfprotect` community repo schema.
-- **Granular mutations**: `add-analytic`/`remove-analytic` on analytic sets, `add-exception`/`remove-exception` on exception sets, `add-rule`/`remove-rule` on removable storage control sets use read-modify-write pattern.
+- **Auth**: SDK manages tokens internally. `PersistentPreRunE` resolves credentials and passes them to `jamfprotect.NewClient()`. No use of `internal/auth/` or `internal/client/`. Env vars: `JAMFPROTECT_URL`, `JAMFPROTECT_CLIENT_ID`, `JAMFPROTECT_CLIENT_SECRET` (also falls back to `JAMF_URL`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`).
+- **Config profiles**: Protect profiles have `product: protect` and `auth-method: oauth2`. Product type is also auto-detected from the command hierarchy (`jamf-cli protect ...` always uses Protect auth).
+- **Name resolution**: All `get`/`delete`/`export` commands take a positional `<name>` arg (not `--name` flag), matching Pro's pattern. `internal/protect/Resolver` maps names to IDs via lazy-cached list calls.
+- **CRUD pattern**: Protect uses `apply` (upsert) instead of separate `create`/`update`. `apply` reads JSON or YAML input (from `--from-file` or stdin), checks if the resource exists by name, and creates or updates accordingly. Replacing an existing resource prompts for confirmation (skippable with `--yes`).
+- **Export**: Every resource has an `export <name>` command that outputs the SDK input format (not the API response). Respects `-o` flag: JSON by default, YAML with `-o yaml`. Export output can be piped directly to `apply`.
+- **Output**: List commands use flatten functions to show only essential fields in table mode. `get`/`apply`/mutation commands use `printProtectResult()` which flattens for table/csv/plain and shows full JSON for json/yaml output.
+- **YAML import/export**: Analytics and unified logging filters additionally support `import --file`/`--dir` with YAML files matching the `jamf/jamfprotect` community repo schema. Import is upsert (creates or updates by name).
+- **Granular mutations**: `add-analytic`/`remove-analytic` on analytic sets, `add-exception`/`remove-exception` on exception sets, `add-rule`/`remove-rule` on removable storage control sets use read-modify-write pattern. These are idempotent: adding a duplicate is a no-op (or replaces for rules, with `--yes` confirmation).
+- **Downloads**: `protect downloads` has subcommands for downloading actual files: `installer`, `uninstaller`, `pppc-profile`, `tamper-prevention-profile`, `root-ca`, `csr`, `websocket-auth`, `summary`. Profiles/certs are base64-decoded and written as files. Packages are downloaded via authenticated HTTP.
+- **Plans config-profile**: `protect plans config-profile <name>` downloads a `.mobileconfig` file with all payloads included by default. Use `--no-*` flags to exclude specific payloads (pppc, token, ca, csr, websocket, system-extension, service-management). `--sign` cryptographically signs the profile.
+
+### Protect Command Helpers (`protect_helpers.go`)
+
+| Helper | Purpose |
+|--------|---------|
+| `readProtectInput(fromFile)` | Reads JSON/YAML from `--from-file` or stdin pipe |
+| `unmarshalProtectInput(data, target)` | Tries JSON then YAML unmarshal |
+| `printProtectResult(out, item, flattened)` | Table-aware output (flatten for table, full struct for json/yaml) |
+| `printProtectExport(data)` | Export as JSON or YAML based on `-o` flag |
+| `confirmProtectDelete(type, name, yes)` | Delete confirmation with dry-run support |
+| `confirmProtectReplace(type, name, yes)` | Replace confirmation for `apply` upsert |
 
 ### Config File
 
@@ -175,7 +193,10 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 - Jamf Protect commands use the `protect_` filename prefix (e.g., `protect_overview.go`, `protect_analytics.go`).
 - Command grouping for `--help` output is maintained in `groups.go` — root groups, pro groups, and protect groups are separate.
 - Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root, pro, and protect aliases.
-- The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
+- The Pro `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command. The Protect `overview` makes ~14 parallel calls.
+- Protect `apply` commands accept both JSON and YAML input. `export` output can be piped directly to `apply` for round-tripping.
+- Protect list commands use flatten functions for clean table output (essential fields only). Full detail is available via `get` (json/yaml output) or `export` (input-compatible format).
+- Protect delete and apply-replace operations require `--yes` or interactive confirmation. Dry-run mode (`-n`) prints what would happen without executing.
 - Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths. In platform gateway mode, they are rewritten to `/api/proclassic/tenant/{id}/` paths.
 - `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
 
@@ -201,14 +222,22 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 3. Add to the appropriate group in `groups.go` (`proGroupMap`)
 4. Optionally add a short alias in `aliases.go` (`commandAliases`)
 
-### Adding a new Jamf Protect command
+### Adding a new Jamf Protect CRUD resource
 
-1. Create new file in `internal/commands/` with `protect_` prefix (e.g., `protect_mycommand.go`)
-2. Wire it into the protect command in `protect.go`
-3. Add to the appropriate group in `groups.go` (`protectGroupMap`)
-4. Optionally add a short alias in `aliases.go` (`protectAliases`)
-5. Use `protect.NewResolver(cliCtx.ProtectClient)` for name-to-ID resolution
-6. Use `protect.PrintList()`/`protect.PrintOne()` for output
+1. Create `internal/commands/protect_myresource.go` with:
+   - `newProtectMyResourceCmd()` — parent, wires subcommands
+   - `newProtectMyResourceListCmd()` — flatten output for table, use `json.Marshal(rows)` + `PrintRaw`
+   - `newProtectMyResourceGetCmd()` — positional `<name>` arg, resolve via `protect.NewResolver`, use `printProtectResult` for table-aware output
+   - `newProtectMyResourceApplyCmd()` — upsert with `readProtectInput`/`unmarshalProtectInput`, resolve name, create-or-update, `--yes` for replace confirmation
+   - `newProtectMyResourceDeleteCmd()` — positional `<name>` arg, `--yes` flag, `confirmProtectDelete`
+   - `newProtectMyResourceExportCmd()` — positional `<name>` arg, convert API response to input type, output via `printProtectExport`
+   - `flattenMyResource()` — essential fields only for table output
+   - `myResourceToInput()` — strip server fields for export
+2. Wire into `protect.go`: `cmd.AddCommand(newProtectMyResourceCmd(cliCtx))`
+3. Add to `groups.go` (`protectGroupMap`)
+4. Optionally add alias in `aliases.go` (`protectAliases`)
+5. Add resolver method in `internal/protect/resolve.go`
+6. Add tests in `protect_test.go` (subcommands), `protect_conversions_test.go` (flatten/toInput)
 
 ### Adding a new product namespace
 
