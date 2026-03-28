@@ -229,6 +229,15 @@ func newProtectExceptionSetsAddExceptionCmd(cliCtx *registry.CLIContext) *cobra.
 			}
 
 			input := rebuildExceptionSetInput(set)
+
+			// Check if this type+value already exists
+			for _, e := range set.Exceptions {
+				if e.Type == exType && e.Value == value {
+					fmt.Fprintf(os.Stderr, "Exception %s=%q already exists in set %q\n", exType, value, args[0])
+					return nil
+				}
+			}
+
 			input.Exceptions = append(input.Exceptions, jamfprotect.ExceptionInput{
 				Type:           exType,
 				Value:          value,

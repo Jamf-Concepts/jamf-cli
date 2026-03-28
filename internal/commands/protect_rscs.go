@@ -255,6 +255,7 @@ func rebuildRSCSInput(set *jamfprotect.RemovableStorageControlSet) jamfprotect.R
 
 func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var ruleType, mountAction, vendors, serials string
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "add-rule <set-name>",
 		Short: "Add a rule to a removable storage control set",
@@ -301,7 +302,25 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("unsupported rule type %q; must be vendor, serial, product, or encryption", ruleType)
 			}
 
-			input.Rules = append(input.Rules, newRule)
+			// Replace existing rule of the same type, or append if new
+			replaced := false
+			for i, r := range input.Rules {
+				if strings.EqualFold(r.Type, ruleType) {
+					proceed, err := confirmProtectReplace(ruleType+" rule", args[0], yes)
+					if err != nil {
+						return err
+					}
+					if !proceed {
+						return nil
+					}
+					input.Rules[i] = newRule
+					replaced = true
+					break
+				}
+			}
+			if !replaced {
+				input.Rules = append(input.Rules, newRule)
+			}
 
 			result, err := cliCtx.ProtectClient.UpdateRemovableStorageControlSet(ctx, id, input)
 			if err != nil {
@@ -314,6 +333,7 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&mountAction, "mount-action", "", "Mount action: ALLOW, DENY, READ_ONLY")
 	cmd.Flags().StringVar(&vendors, "vendors", "", "Comma-separated vendor identifiers (for vendor rules)")
 	cmd.Flags().StringVar(&serials, "serials", "", "Comma-separated serial numbers (for serial rules)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing an existing rule")
 	_ = cmd.MarkFlagRequired("type")
 	_ = cmd.MarkFlagRequired("mount-action")
 	return cmd

@@ -203,10 +203,18 @@ func newProtectAnalyticSetsAddAnalyticCmd(cliCtx *registry.CLIContext) *cobra.Co
 				return err
 			}
 
-			// Build the updated analytics list
+			// Build the updated analytics list, skipping if already present
 			uuids := make([]string, 0, len(set.Analytics)+1)
+			alreadyPresent := false
 			for _, a := range set.Analytics {
 				uuids = append(uuids, a.UUID)
+				if a.UUID == analyticUUID {
+					alreadyPresent = true
+				}
+			}
+			if alreadyPresent {
+				fmt.Fprintf(os.Stderr, "Analytic %q is already in set %q\n", analyticName, args[0])
+				return nil
 			}
 			uuids = append(uuids, analyticUUID)
 
