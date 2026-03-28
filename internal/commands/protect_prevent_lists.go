@@ -45,7 +45,10 @@ func newProtectPreventListsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					"count": p.Count,
 				})
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

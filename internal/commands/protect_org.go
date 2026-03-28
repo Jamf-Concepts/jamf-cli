@@ -178,7 +178,10 @@ func newProtectDownloadsSummaryCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				"hasWebsocketAuth":           downloads.WebsocketAuth != "",
 				"hasTamperPreventionProfile": downloads.TamperPreventionProfile != "",
 			}
-			data, _ := json.Marshal(summary)
+			data, err := json.Marshal(summary)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

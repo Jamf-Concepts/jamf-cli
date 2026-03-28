@@ -42,7 +42,10 @@ func newProtectActionConfigsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 					"name": a.Name,
 				})
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

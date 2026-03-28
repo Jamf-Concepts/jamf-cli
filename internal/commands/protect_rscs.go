@@ -43,7 +43,10 @@ func newProtectRSCSListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, s := range items {
 				rows = append(rows, flattenRSCS(s))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

@@ -41,7 +41,10 @@ func newProtectUsersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, u := range items {
 				rows = append(rows, flattenUser(u))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

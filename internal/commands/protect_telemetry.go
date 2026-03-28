@@ -40,7 +40,10 @@ func newProtectTelemetryListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, t := range items {
 				rows = append(rows, flattenTelemetry(t))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

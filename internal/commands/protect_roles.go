@@ -60,7 +60,10 @@ func newProtectRolesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, r := range items {
 				rows = append(rows, flattenRole(r))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

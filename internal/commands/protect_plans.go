@@ -42,7 +42,10 @@ func newProtectPlansListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, p := range plans {
 				rows = append(rows, flattenPlan(p))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

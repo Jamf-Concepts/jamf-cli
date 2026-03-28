@@ -41,7 +41,10 @@ func newProtectGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, g := range items {
 				rows = append(rows, flattenGroup(g))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

@@ -74,7 +74,10 @@ func newProtectAnalyticsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, a := range analytics {
 				rows = append(rows, flattenAnalytic(a))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}

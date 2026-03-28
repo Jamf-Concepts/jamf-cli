@@ -36,7 +36,10 @@ func newProtectComputersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, c := range computers {
 				rows = append(rows, flattenComputer(c))
 			}
-			data, _ := json.Marshal(rows)
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}
