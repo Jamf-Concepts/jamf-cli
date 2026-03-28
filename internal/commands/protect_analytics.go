@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +100,6 @@ func newProtectAnalyticsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
-		scaffold bool
 		yes      bool
 	)
 
@@ -109,11 +107,6 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:   "apply",
 		Short: "Create or update an analytic",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if scaffold {
-				fmt.Println(analyticScaffoldJSON)
-				return nil
-			}
-
 			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
@@ -121,7 +114,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			var input jamfprotect.AnalyticInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -162,9 +155,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
 
 	return cmd
 }
@@ -407,28 +398,3 @@ func analyticToYAML(a jamfprotect.Analytic) analyticYAML {
 	}
 }
 
-const analyticScaffoldJSON = `{
-  "Name": "",
-  "InputType": "",
-  "Description": "",
-  "Actions": [],
-  "AnalyticActions": [
-    {
-      "Name": "",
-      "Parameters": ""
-    }
-  ],
-  "Tags": [],
-  "Categories": [],
-  "Filter": "",
-  "Context": [
-    {
-      "Name": "",
-      "Type": "",
-      "Exprs": []
-    }
-  ],
-  "Level": 0,
-  "Severity": "",
-  "SnapshotFiles": []
-}`

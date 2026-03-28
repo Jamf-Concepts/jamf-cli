@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -24,6 +23,7 @@ func newProtectExceptionSetsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectExceptionSetsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsAddExceptionCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsRemoveExceptionCmd(cliCtx))
+	cmd.AddCommand(newProtectExceptionSetsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -77,7 +77,7 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			var input jamfprotect.ExceptionSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -303,4 +303,25 @@ func newProtectExceptionSetsRemoveExceptionCmd(cliCtx *registry.CLIContext) *cob
 	_ = cmd.MarkFlagRequired("type")
 	_ = cmd.MarkFlagRequired("value")
 	return cmd
+}
+
+func newProtectExceptionSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export an exception set as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveExceptionSetUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetExceptionSet(ctx, uuid)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(rebuildExceptionSetInput(item))
+		},
+	}
 }

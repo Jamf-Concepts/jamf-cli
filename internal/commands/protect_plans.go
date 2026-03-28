@@ -24,6 +24,7 @@ func newProtectPlansCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectPlansApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectPlansDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectPlansConfigProfileCmd(cliCtx))
+	cmd.AddCommand(newProtectPlansExportCmd(cliCtx))
 
 	return cmd
 }
@@ -100,7 +101,6 @@ func newProtectPlansGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
-		scaffold bool
 		yes      bool
 	)
 
@@ -108,11 +108,6 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:   "apply",
 		Short: "Create or update a plan",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if scaffold {
-				fmt.Println(planScaffoldJSON)
-				return nil
-			}
-
 			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
@@ -120,7 +115,7 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			var input jamfprotect.PlanInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -161,9 +156,7 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
 
 	return cmd
 }
@@ -289,31 +282,81 @@ exclude specific payloads. Use --sign to cryptographically sign the profile.`,
 	return cmd
 }
 
-const planScaffoldJSON = `{
-  "Name": "",
-  "Description": "",
-  "LogLevel": null,
-  "ActionConfigs": "",
-  "ExceptionSets": [],
-  "Telemetry": null,
-  "TelemetryV2": null,
-  "AnalyticSets": [
-    {
-      "Type": "",
-      "UUID": ""
-    }
-  ],
-  "USBControlSet": null,
-  "CommsConfig": {
-    "FQDN": "",
-    "Protocol": ""
-  },
-  "InfoSync": {
-    "Attrs": [],
-    "InsightsSyncInterval": 0
-  },
-  "AutoUpdate": false,
-  "SignaturesFeedConfig": {
-    "Mode": ""
-  }
-}`
+func newProtectPlansExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a plan as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolvePlanID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetPlan(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(planToInput(item))
+		},
+	}
+}
+
+// planToInput converts a Plan response to a PlanInput, stripping server-only fields.
+func planToInput(p *jamfprotect.Plan) jamfprotect.PlanInput {
+	input := jamfprotect.PlanInput{
+		Name:        p.Name,
+		Description: p.Description,
+		AutoUpdate:  p.AutoUpdate,
+	}
+	if p.LogLevel != "" {
+		input.LogLevel = &p.LogLevel
+	}
+	if p.ActionConfigs != nil {
+		input.ActionConfigs = p.ActionConfigs.ID
+	}
+	if len(p.ExceptionSets) > 0 {
+		uuids := make([]string, len(p.ExceptionSets))
+		for i, es := range p.ExceptionSets {
+			uuids[i] = es.UUID
+		}
+		input.ExceptionSets = uuids
+	}
+	if p.TelemetryV2 != nil {
+		input.TelemetryV2 = &p.TelemetryV2.ID
+	} else if p.Telemetry != nil {
+		input.Telemetry = &p.Telemetry.ID
+	}
+	if p.USBControlSet != nil {
+		input.USBControlSet = &p.USBControlSet.ID
+	}
+	if len(p.AnalyticSets) > 0 {
+		sets := make([]jamfprotect.PlanAnalyticSetInput, len(p.AnalyticSets))
+		for i, as := range p.AnalyticSets {
+			sets[i] = jamfprotect.PlanAnalyticSetInput{
+				Type: as.Type,
+				UUID: as.AnalyticSet.UUID,
+			}
+		}
+		input.AnalyticSets = sets
+	}
+	if p.CommsConfig != nil {
+		input.CommsConfig = jamfprotect.PlanCommsConfigInput{
+			FQDN:     p.CommsConfig.FQDN,
+			Protocol: p.CommsConfig.Protocol,
+		}
+	}
+	if p.InfoSync != nil {
+		input.InfoSync = jamfprotect.PlanInfoSyncInput{
+			Attrs:                p.InfoSync.Attrs,
+			InsightsSyncInterval: p.InfoSync.InsightsSyncInterval,
+		}
+	}
+	if p.SignaturesFeedConfig != nil {
+		input.SignaturesFeedConfig = jamfprotect.PlanSignaturesFeedConfigInput{
+			Mode: p.SignaturesFeedConfig.Mode,
+		}
+	}
+	return input
+}

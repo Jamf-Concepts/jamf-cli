@@ -25,6 +25,7 @@ func newProtectRemovableStorageControlSetsCmd(cliCtx *registry.CLIContext) *cobr
 	cmd.AddCommand(newProtectRSCSDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSAddRuleCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSRemoveRuleCmd(cliCtx))
+	cmd.AddCommand(newProtectRSCSExportCmd(cliCtx))
 
 	return cmd
 }
@@ -112,7 +113,7 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.RemovableStorageControlSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -432,4 +433,25 @@ func splitCSV(s string) []string {
 		}
 	}
 	return result
+}
+
+func newProtectRSCSExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a removable storage control set as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveRemovableStorageControlSetID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetRemovableStorageControlSet(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(rebuildRSCSInput(item))
+		},
+	}
 }

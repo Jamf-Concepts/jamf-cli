@@ -43,6 +43,7 @@ func newProtectRolesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectRolesGetCmd(cliCtx))
 	cmd.AddCommand(newProtectRolesApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectRolesDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectRolesExportCmd(cliCtx))
 
 	return cmd
 }
@@ -116,7 +117,7 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.RoleInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -194,4 +195,34 @@ func newProtectRolesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectRolesExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a role as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveRoleID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetRole(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(roleToInput(item))
+		},
+	}
+}
+
+// roleToInput converts a Role response to a RoleInput, stripping server-only fields.
+func roleToInput(r *jamfprotect.Role) jamfprotect.RoleInput {
+	return jamfprotect.RoleInput{
+		Name:           r.Name,
+		ReadResources:  r.Permissions.Read,
+		WriteResources: r.Permissions.Write,
+	}
 }

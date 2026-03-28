@@ -57,7 +57,7 @@ func newProtectDataForwardingUpdateCmd(cliCtx *registry.CLIContext) *cobra.Comma
 				return err
 			}
 			var input jamfprotect.DataForwardingInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -114,7 +114,7 @@ func newProtectDataRetentionUpdateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 				return err
 			}
 			var input jamfprotect.DataRetentionInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 

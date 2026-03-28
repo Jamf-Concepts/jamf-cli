@@ -22,6 +22,7 @@ func newProtectActionConfigsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectActionConfigsGetCmd(cliCtx))
 	cmd.AddCommand(newProtectActionConfigsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectActionConfigsDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectActionConfigsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -75,7 +76,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			var input jamfprotect.ActionConfigInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -149,4 +150,53 @@ func newProtectActionConfigsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Comman
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export an action configuration as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveActionConfigID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetActionConfig(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(actionConfigToInput(item))
+		},
+	}
+}
+
+// actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.
+// AlertConfig and Clients use map[string]any in the input type, so we marshal/unmarshal to convert.
+func actionConfigToInput(a *jamfprotect.ActionConfig) jamfprotect.ActionConfigInput {
+	input := jamfprotect.ActionConfigInput{
+		Name:        a.Name,
+		Description: a.Description,
+	}
+	if a.AlertConfig != nil {
+		b, _ := json.Marshal(a.AlertConfig)
+		var m map[string]any
+		_ = json.Unmarshal(b, &m)
+		input.AlertConfig = m
+	}
+	if len(a.Clients) > 0 {
+		clients := make([]map[string]any, len(a.Clients))
+		for i, c := range a.Clients {
+			b, _ := json.Marshal(c)
+			var m map[string]any
+			_ = json.Unmarshal(b, &m)
+			// Strip server-generated id field
+			delete(m, "id")
+			clients[i] = m
+		}
+		input.Clients = clients
+	}
+	return input
 }

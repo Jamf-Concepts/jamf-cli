@@ -1,10 +1,38 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
+
+// printProtectExport outputs data as JSON (default) or YAML based on the global output format.
+func printProtectExport(data any) error {
+	switch outputFmt {
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(data)
+	default:
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(data)
+	}
+}
+
+// unmarshalProtectInput tries JSON first, then YAML, into the target.
+func unmarshalProtectInput(data []byte, target any) error {
+	if err := json.Unmarshal(data, target); err == nil {
+		return nil
+	}
+	if err := yaml.Unmarshal(data, target); err == nil {
+		return nil
+	}
+	return fmt.Errorf("input is not valid JSON or YAML")
+}
 
 // readProtectInput reads JSON input from --from-file flag or stdin.
 func readProtectInput(fromFile string) ([]byte, error) {

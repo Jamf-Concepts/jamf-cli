@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,7 +79,6 @@ func newProtectULFGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
-		scaffold bool
 		yes      bool
 	)
 
@@ -88,11 +86,6 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:   "apply",
 		Short: "Create or update a unified logging filter",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if scaffold {
-				fmt.Println(ulfScaffoldJSON)
-				return nil
-			}
-
 			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
@@ -100,7 +93,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			var input jamfprotect.UnifiedLoggingFilterInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -141,9 +134,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
 
 	return cmd
 }
@@ -324,10 +315,3 @@ func ulfToYAML(f jamfprotect.UnifiedLoggingFilter) unifiedLoggingFilterYAML {
 	}
 }
 
-const ulfScaffoldJSON = `{
-  "Name": "",
-  "Description": "",
-  "Tags": [],
-  "Filter": "",
-  "Enabled": false
-}`

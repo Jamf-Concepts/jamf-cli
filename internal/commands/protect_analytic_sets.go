@@ -25,6 +25,7 @@ func newProtectAnalyticSetsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectAnalyticSetsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsAddAnalyticCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -103,7 +104,7 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				return err
 			}
 			var input jamfprotect.AnalyticSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -284,4 +285,39 @@ func newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx *registry.CLIContext) *cobra
 	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to remove")
 	_ = cmd.MarkFlagRequired("analytic")
 	return cmd
+}
+
+func newProtectAnalyticSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export an analytic set as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveAnalyticSetUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetAnalyticSet(ctx, uuid)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(analyticSetToInput(item))
+		},
+	}
+}
+
+// analyticSetToInput converts an AnalyticSet response to an AnalyticSetInput, stripping server-only fields.
+func analyticSetToInput(s *jamfprotect.AnalyticSet) jamfprotect.AnalyticSetInput {
+	uuids := make([]string, len(s.Analytics))
+	for i, a := range s.Analytics {
+		uuids[i] = a.UUID
+	}
+	return jamfprotect.AnalyticSetInput{
+		Name:        s.Name,
+		Description: s.Description,
+		Types:       s.Types,
+		Analytics:   uuids,
+	}
 }

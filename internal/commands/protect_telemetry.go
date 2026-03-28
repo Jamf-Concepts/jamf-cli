@@ -23,6 +23,7 @@ func newProtectTelemetryCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectTelemetryGetCmd(cliCtx))
 	cmd.AddCommand(newProtectTelemetryApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectTelemetryDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectTelemetryExportCmd(cliCtx))
 
 	return cmd
 }
@@ -109,7 +110,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.TelemetryV2Input
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -183,4 +184,38 @@ func newProtectTelemetryDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectTelemetryExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a telemetry configuration as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveTelemetryV2ID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetTelemetryV2(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(telemetryToInput(item))
+		},
+	}
+}
+
+// telemetryToInput converts a TelemetryV2 response to a TelemetryV2Input, stripping server-only fields.
+func telemetryToInput(t *jamfprotect.TelemetryV2) jamfprotect.TelemetryV2Input {
+	return jamfprotect.TelemetryV2Input{
+		Name:               t.Name,
+		Description:        t.Description,
+		LogFiles:           t.LogFiles,
+		LogFileCollection:  t.LogFileCollection,
+		PerformanceMetrics: t.PerformanceMetrics,
+		Events:             t.Events,
+		FileHashing:        t.FileHashing,
+	}
 }

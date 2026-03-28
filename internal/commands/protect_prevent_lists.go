@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -23,6 +22,7 @@ func newProtectCustomPreventListsCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newProtectPreventListsGetCmd(cliCtx))
 	cmd.AddCommand(newProtectPreventListsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectPreventListsDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -64,7 +64,7 @@ func newProtectPreventListsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile, name, listType, listValues string
-		yes                                   bool
+		yes                                  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "apply",
@@ -79,7 +79,7 @@ func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				if err != nil {
 					return err
 				}
-				if err := json.Unmarshal(data, &input); err != nil {
+				if err := unmarshalProtectInput(data, &input); err != nil {
 					return fmt.Errorf("parsing input JSON: %w", err)
 				}
 			} else {
@@ -186,4 +186,36 @@ func newProtectPreventListsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectPreventListsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a custom prevent list as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveCustomPreventListID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetCustomPreventList(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(preventListToInput(item))
+		},
+	}
+}
+
+// preventListToInput converts a CustomPreventList response to a CustomPreventListInput, stripping server-only fields.
+func preventListToInput(p *jamfprotect.CustomPreventList) jamfprotect.CustomPreventListInput {
+	return jamfprotect.CustomPreventListInput{
+		Name:        p.Name,
+		Description: p.Description,
+		Type:        p.Type,
+		Tags:        p.Tags,
+		List:        p.List,
+	}
 }

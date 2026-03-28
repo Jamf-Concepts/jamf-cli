@@ -23,6 +23,7 @@ func newProtectApiClientsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectApiClientsGetCmd(cliCtx))
 	cmd.AddCommand(newProtectApiClientsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectApiClientsDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectApiClientsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -103,7 +104,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.ApiClientInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -181,4 +182,36 @@ func newProtectApiClientsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectApiClientsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export an API client as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			clientID, err := r.ResolveApiClientID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetApiClient(ctx, clientID)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(apiClientToInput(item))
+		},
+	}
+}
+
+// apiClientToInput converts an ApiClient response to an ApiClientInput, stripping server-only fields.
+func apiClientToInput(a *jamfprotect.ApiClient) jamfprotect.ApiClientInput {
+	input := jamfprotect.ApiClientInput{
+		Name: a.Name,
+	}
+	for _, r := range a.AssignedRoles {
+		input.RoleIDs = append(input.RoleIDs, r.ID)
+	}
+	return input
 }

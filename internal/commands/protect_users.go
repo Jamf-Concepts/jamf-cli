@@ -23,6 +23,7 @@ func newProtectUsersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectUsersGetCmd(cliCtx))
 	cmd.AddCommand(newProtectUsersApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectUsersDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectUsersExportCmd(cliCtx))
 
 	return cmd
 }
@@ -119,7 +120,7 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.UserInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -197,4 +198,44 @@ func newProtectUsersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectUsersExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <email>",
+		Short: "Export a user as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveUserID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetUser(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(userToInput(item))
+		},
+	}
+}
+
+// userToInput converts a User response to a UserInput, stripping server-only fields.
+func userToInput(u *jamfprotect.User) jamfprotect.UserInput {
+	input := jamfprotect.UserInput{
+		Email:                 u.Email,
+		ReceiveEmailAlert:     u.ReceiveEmailAlert,
+		EmailAlertMinSeverity: u.EmailAlertMinSeverity,
+	}
+	if u.Connection != nil {
+		input.ConnectionID = &u.Connection.ID
+	}
+	for _, r := range u.AssignedRoles {
+		input.RoleIDs = append(input.RoleIDs, r.ID)
+	}
+	for _, g := range u.AssignedGroups {
+		input.GroupIDs = append(input.GroupIDs, g.ID)
+	}
+	return input
 }

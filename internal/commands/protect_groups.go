@@ -23,6 +23,7 @@ func newProtectGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectGroupsGetCmd(cliCtx))
 	cmd.AddCommand(newProtectGroupsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectGroupsDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectGroupsExportCmd(cliCtx))
 
 	return cmd
 }
@@ -107,7 +108,7 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input jamfprotect.GroupInput
-			if err := json.Unmarshal(data, &input); err != nil {
+			if err := unmarshalProtectInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -185,4 +186,40 @@ func newProtectGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
+}
+
+func newProtectGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <name>",
+		Short: "Export a group as JSON or YAML",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveGroupID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetGroup(ctx, id)
+			if err != nil {
+				return err
+			}
+			return printProtectExport(groupToInput(item))
+		},
+	}
+}
+
+// groupToInput converts a Group response to a GroupInput, stripping server-only fields.
+func groupToInput(g *jamfprotect.Group) jamfprotect.GroupInput {
+	input := jamfprotect.GroupInput{
+		Name:        g.Name,
+		AccessGroup: g.AccessGroup,
+	}
+	if g.Connection != nil {
+		input.ConnectionID = &g.Connection.ID
+	}
+	for _, r := range g.AssignedRoles {
+		input.RoleIDs = append(input.RoleIDs, r.ID)
+	}
+	return input
 }
