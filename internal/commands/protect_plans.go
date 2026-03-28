@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -116,17 +117,24 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			var input jamfprotect.PlanInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			var export planExport
+			if err := unmarshalProtectInput(data, &export); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
-			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+			if export.Name == "" {
+				return fmt.Errorf("input must include a 'name' field")
+			}
+
+			r := protect.NewResolver(cliCtx.ProtectClient)
+
+			// Resolve names to IDs
+			input, err := planExportToInput(ctx, export, r)
+			if err != nil {
+				return err
 			}
 
 			// Check if plan exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolvePlanID(ctx, input.Name)
 			if err != nil {
 				// Not found — create
@@ -299,65 +307,150 @@ func newProtectPlansExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(planToInput(item))
+			return printProtectExport(planToExport(item))
 		},
 	}
 }
 
-// planToInput converts a Plan response to a PlanInput, stripping server-only fields.
-func planToInput(p *jamfprotect.Plan) jamfprotect.PlanInput {
-	input := jamfprotect.PlanInput{
+// planExport is the human-friendly export/import format for plans.
+// References use names instead of IDs/UUIDs so files are portable across tenants.
+type planExport struct {
+	Name                 string                                     `json:"name" yaml:"name"`
+	Description          string                                     `json:"description" yaml:"description"`
+	LogLevel             string                                     `json:"logLevel,omitempty" yaml:"logLevel,omitempty"`
+	AutoUpdate           bool                                       `json:"autoUpdate" yaml:"autoUpdate"`
+	ActionConfig         string                                     `json:"actionConfig" yaml:"actionConfig"`
+	ExceptionSets        []string                                   `json:"exceptionSets,omitempty" yaml:"exceptionSets,omitempty"`
+	AnalyticSets         []planAnalyticSetExport                    `json:"analyticSets,omitempty" yaml:"analyticSets,omitempty"`
+	USBControlSet        string                                     `json:"usbControlSet,omitempty" yaml:"usbControlSet,omitempty"`
+	Telemetry            string                                     `json:"telemetry,omitempty" yaml:"telemetry,omitempty"`
+	CommsConfig          *jamfprotect.PlanCommsConfigInput          `json:"commsConfig,omitempty" yaml:"commsConfig,omitempty"`
+	InfoSync             *jamfprotect.PlanInfoSyncInput             `json:"infoSync,omitempty" yaml:"infoSync,omitempty"`
+	SignaturesFeedConfig *jamfprotect.PlanSignaturesFeedConfigInput `json:"signaturesFeedConfig,omitempty" yaml:"signaturesFeedConfig,omitempty"`
+}
+
+type planAnalyticSetExport struct {
+	Name string `json:"name" yaml:"name"`
+	Type string `json:"type" yaml:"type"`
+}
+
+// planToExport converts a Plan API response to the human-friendly export format.
+func planToExport(p *jamfprotect.Plan) planExport {
+	e := planExport{
 		Name:        p.Name,
 		Description: p.Description,
+		LogLevel:    p.LogLevel,
 		AutoUpdate:  p.AutoUpdate,
 	}
-	if p.LogLevel != "" {
-		input.LogLevel = &p.LogLevel
-	}
 	if p.ActionConfigs != nil {
-		input.ActionConfigs = p.ActionConfigs.ID
+		e.ActionConfig = p.ActionConfigs.Name
 	}
 	if len(p.ExceptionSets) > 0 {
-		uuids := make([]string, len(p.ExceptionSets))
+		names := make([]string, len(p.ExceptionSets))
 		for i, es := range p.ExceptionSets {
-			uuids[i] = es.UUID
+			names[i] = es.Name
 		}
-		input.ExceptionSets = uuids
-	}
-	if p.TelemetryV2 != nil {
-		input.TelemetryV2 = &p.TelemetryV2.ID
-	} else if p.Telemetry != nil {
-		input.Telemetry = &p.Telemetry.ID
-	}
-	if p.USBControlSet != nil {
-		input.USBControlSet = &p.USBControlSet.ID
+		e.ExceptionSets = names
 	}
 	if len(p.AnalyticSets) > 0 {
-		sets := make([]jamfprotect.PlanAnalyticSetInput, len(p.AnalyticSets))
+		sets := make([]planAnalyticSetExport, len(p.AnalyticSets))
 		for i, as := range p.AnalyticSets {
-			sets[i] = jamfprotect.PlanAnalyticSetInput{
+			sets[i] = planAnalyticSetExport{
+				Name: as.AnalyticSet.Name,
 				Type: as.Type,
-				UUID: as.AnalyticSet.UUID,
 			}
 		}
-		input.AnalyticSets = sets
+		e.AnalyticSets = sets
+	}
+	if p.USBControlSet != nil {
+		e.USBControlSet = p.USBControlSet.Name
+	}
+	if p.TelemetryV2 != nil {
+		e.Telemetry = p.TelemetryV2.Name
+	} else if p.Telemetry != nil {
+		e.Telemetry = p.Telemetry.Name
 	}
 	if p.CommsConfig != nil {
-		input.CommsConfig = jamfprotect.PlanCommsConfigInput{
+		e.CommsConfig = &jamfprotect.PlanCommsConfigInput{
 			FQDN:     p.CommsConfig.FQDN,
 			Protocol: p.CommsConfig.Protocol,
 		}
 	}
 	if p.InfoSync != nil {
-		input.InfoSync = jamfprotect.PlanInfoSyncInput{
+		e.InfoSync = &jamfprotect.PlanInfoSyncInput{
 			Attrs:                p.InfoSync.Attrs,
 			InsightsSyncInterval: p.InfoSync.InsightsSyncInterval,
 		}
 	}
 	if p.SignaturesFeedConfig != nil {
-		input.SignaturesFeedConfig = jamfprotect.PlanSignaturesFeedConfigInput{
+		e.SignaturesFeedConfig = &jamfprotect.PlanSignaturesFeedConfigInput{
 			Mode: p.SignaturesFeedConfig.Mode,
 		}
 	}
-	return input
+	return e
+}
+
+// planExportToInput resolves names to IDs and builds a PlanInput for the SDK.
+func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (jamfprotect.PlanInput, error) {
+	input := jamfprotect.PlanInput{
+		Name:        e.Name,
+		Description: e.Description,
+		AutoUpdate:  e.AutoUpdate,
+	}
+	if e.LogLevel != "" {
+		input.LogLevel = &e.LogLevel
+	}
+	if e.ActionConfig != "" {
+		id, err := r.ResolveActionConfigID(ctx, e.ActionConfig)
+		if err != nil {
+			return input, fmt.Errorf("resolving action config %q: %w", e.ActionConfig, err)
+		}
+		input.ActionConfigs = id
+	}
+	if len(e.ExceptionSets) > 0 {
+		uuids := make([]string, len(e.ExceptionSets))
+		for i, name := range e.ExceptionSets {
+			uuid, err := r.ResolveExceptionSetUUID(ctx, name)
+			if err != nil {
+				return input, fmt.Errorf("resolving exception set %q: %w", name, err)
+			}
+			uuids[i] = uuid
+		}
+		input.ExceptionSets = uuids
+	}
+	if len(e.AnalyticSets) > 0 {
+		sets := make([]jamfprotect.PlanAnalyticSetInput, len(e.AnalyticSets))
+		for i, as := range e.AnalyticSets {
+			uuid, err := r.ResolveAnalyticSetUUID(ctx, as.Name)
+			if err != nil {
+				return input, fmt.Errorf("resolving analytic set %q: %w", as.Name, err)
+			}
+			sets[i] = jamfprotect.PlanAnalyticSetInput{Type: as.Type, UUID: uuid}
+		}
+		input.AnalyticSets = sets
+	}
+	if e.USBControlSet != "" {
+		id, err := r.ResolveRemovableStorageControlSetID(ctx, e.USBControlSet)
+		if err != nil {
+			return input, fmt.Errorf("resolving USB control set %q: %w", e.USBControlSet, err)
+		}
+		input.USBControlSet = &id
+	}
+	if e.Telemetry != "" {
+		id, err := r.ResolveTelemetryV2ID(ctx, e.Telemetry)
+		if err != nil {
+			return input, fmt.Errorf("resolving telemetry %q: %w", e.Telemetry, err)
+		}
+		input.TelemetryV2 = &id
+	}
+	if e.CommsConfig != nil {
+		input.CommsConfig = *e.CommsConfig
+	}
+	if e.InfoSync != nil {
+		input.InfoSync = *e.InfoSync
+	}
+	if e.SignaturesFeedConfig != nil {
+		input.SignaturesFeedConfig = *e.SignaturesFeedConfig
+	}
+	return input, nil
 }

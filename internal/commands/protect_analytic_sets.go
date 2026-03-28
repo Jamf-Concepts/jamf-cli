@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -106,17 +107,24 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.AnalyticSetInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
+			var export analyticSetExport
+			if err := unmarshalProtectInput(data, &export); err != nil {
+				return fmt.Errorf("parsing input: %w", err)
 			}
 
-			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+			if export.Name == "" {
+				return fmt.Errorf("input must include a 'name' field")
+			}
+
+			r := protect.NewResolver(cliCtx.ProtectClient)
+
+			// Resolve analytic names to UUIDs
+			input, err := analyticSetExportToInput(ctx, export, r)
+			if err != nil {
+				return err
 			}
 
 			// Check if analytic set exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveAnalyticSetUUID(ctx, input.Name)
 			if err != nil {
 				// Not found — create
@@ -305,21 +313,48 @@ func newProtectAnalyticSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			return printProtectExport(analyticSetToInput(item))
+			return printProtectExport(analyticSetToExport(item))
 		},
 	}
 }
 
-// analyticSetToInput converts an AnalyticSet response to an AnalyticSetInput, stripping server-only fields.
-func analyticSetToInput(s *jamfprotect.AnalyticSet) jamfprotect.AnalyticSetInput {
-	uuids := make([]string, len(s.Analytics))
+// analyticSetExport is the human-friendly export/import format for analytic sets.
+// Uses analytic names instead of UUIDs so files are portable across tenants.
+type analyticSetExport struct {
+	Name        string   `json:"name" yaml:"name"`
+	Description string   `json:"description" yaml:"description"`
+	Types       []string `json:"types" yaml:"types"`
+	Analytics   []string `json:"analytics" yaml:"analytics"`
+}
+
+// analyticSetToExport converts an AnalyticSet API response to the export format with names.
+func analyticSetToExport(s *jamfprotect.AnalyticSet) analyticSetExport {
+	names := make([]string, len(s.Analytics))
 	for i, a := range s.Analytics {
-		uuids[i] = a.UUID
+		names[i] = a.Name
 	}
-	return jamfprotect.AnalyticSetInput{
+	return analyticSetExport{
 		Name:        s.Name,
 		Description: s.Description,
 		Types:       s.Types,
-		Analytics:   uuids,
+		Analytics:   names,
 	}
+}
+
+// analyticSetExportToInput resolves analytic names to UUIDs and builds an AnalyticSetInput.
+func analyticSetExportToInput(ctx context.Context, e analyticSetExport, r *protect.Resolver) (jamfprotect.AnalyticSetInput, error) {
+	uuids := make([]string, len(e.Analytics))
+	for i, name := range e.Analytics {
+		uuid, err := r.ResolveAnalyticUUID(ctx, name)
+		if err != nil {
+			return jamfprotect.AnalyticSetInput{}, fmt.Errorf("resolving analytic %q: %w", name, err)
+		}
+		uuids[i] = uuid
+	}
+	return jamfprotect.AnalyticSetInput{
+		Name:        e.Name,
+		Description: e.Description,
+		Types:       e.Types,
+		Analytics:   uuids,
+	}, nil
 }

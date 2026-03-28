@@ -184,9 +184,9 @@ func TestRoleToInput_MapsPermissions(t *testing.T) {
 	}
 }
 
-// ─── planToInput ────────────────────────────────────────────────────────────
+// ─── planToExport ───────────────────────────────────────────────────────────
 
-func TestPlanToInput_ExceptionSetUUIDs(t *testing.T) {
+func TestPlanToExport_ExceptionSetNames(t *testing.T) {
 	p := &jamfprotect.Plan{
 		Name: "Plan with ES",
 		ExceptionSets: []jamfprotect.PlanExceptionSet{
@@ -194,32 +194,32 @@ func TestPlanToInput_ExceptionSetUUIDs(t *testing.T) {
 			{UUID: "es-2", Name: "Exception Set 2"},
 		},
 	}
-	input := planToInput(p)
+	export := planToExport(p)
 
-	if len(input.ExceptionSets) != 2 {
-		t.Fatalf("ExceptionSets length = %d, want 2", len(input.ExceptionSets))
+	if len(export.ExceptionSets) != 2 {
+		t.Fatalf("ExceptionSets length = %d, want 2", len(export.ExceptionSets))
 	}
-	if input.ExceptionSets[0] != "es-1" {
-		t.Errorf("ExceptionSets[0] = %q, want %q", input.ExceptionSets[0], "es-1")
+	if export.ExceptionSets[0] != "Exception Set 1" {
+		t.Errorf("ExceptionSets[0] = %q, want %q", export.ExceptionSets[0], "Exception Set 1")
 	}
-	if input.ExceptionSets[1] != "es-2" {
-		t.Errorf("ExceptionSets[1] = %q, want %q", input.ExceptionSets[1], "es-2")
+	if export.ExceptionSets[1] != "Exception Set 2" {
+		t.Errorf("ExceptionSets[1] = %q, want %q", export.ExceptionSets[1], "Exception Set 2")
 	}
 }
 
-func TestPlanToInput_AnalyticSets(t *testing.T) {
+func TestPlanToExport_AnalyticSetNames(t *testing.T) {
 	p := &jamfprotect.Plan{
 		Name: "Plan with AS",
 		AnalyticSets: []jamfprotect.PlanAnalyticSet{
 			{
-				Type: "custom",
+				Type: "Report",
 				AnalyticSet: jamfprotect.PlanAnalyticSetRef{
 					UUID: "as-uuid-1",
 					Name: "Custom Set",
 				},
 			},
 			{
-				Type: "managed",
+				Type: "Prevent",
 				AnalyticSet: jamfprotect.PlanAnalyticSetRef{
 					UUID: "as-uuid-2",
 					Name: "Managed Set",
@@ -227,22 +227,19 @@ func TestPlanToInput_AnalyticSets(t *testing.T) {
 			},
 		},
 	}
-	input := planToInput(p)
+	export := planToExport(p)
 
-	if len(input.AnalyticSets) != 2 {
-		t.Fatalf("AnalyticSets length = %d, want 2", len(input.AnalyticSets))
+	if len(export.AnalyticSets) != 2 {
+		t.Fatalf("AnalyticSets length = %d, want 2", len(export.AnalyticSets))
 	}
-	if input.AnalyticSets[0].Type != "custom" {
-		t.Errorf("AnalyticSets[0].Type = %q, want %q", input.AnalyticSets[0].Type, "custom")
+	if export.AnalyticSets[0].Name != "Custom Set" {
+		t.Errorf("AnalyticSets[0].Name = %q, want %q", export.AnalyticSets[0].Name, "Custom Set")
 	}
-	if input.AnalyticSets[0].UUID != "as-uuid-1" {
-		t.Errorf("AnalyticSets[0].UUID = %q, want %q", input.AnalyticSets[0].UUID, "as-uuid-1")
+	if export.AnalyticSets[0].Type != "Report" {
+		t.Errorf("AnalyticSets[0].Type = %q, want %q", export.AnalyticSets[0].Type, "Report")
 	}
-	if input.AnalyticSets[1].Type != "managed" {
-		t.Errorf("AnalyticSets[1].Type = %q, want %q", input.AnalyticSets[1].Type, "managed")
-	}
-	if input.AnalyticSets[1].UUID != "as-uuid-2" {
-		t.Errorf("AnalyticSets[1].UUID = %q, want %q", input.AnalyticSets[1].UUID, "as-uuid-2")
+	if export.AnalyticSets[1].Name != "Managed Set" {
+		t.Errorf("AnalyticSets[1].Name = %q, want %q", export.AnalyticSets[1].Name, "Managed Set")
 	}
 }
 
