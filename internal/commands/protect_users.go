@@ -21,8 +21,7 @@ func newProtectUsersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectUsersListCmd(cliCtx))
 	cmd.AddCommand(newProtectUsersGetCmd(cliCtx))
-	cmd.AddCommand(newProtectUsersCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectUsersUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectUsersApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectUsersDeleteCmd(cliCtx))
 
 	return cmd
@@ -104,51 +103,17 @@ func newProtectUsersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectUsersCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a user",
+		Use:   "apply",
+		Short: "Create or update a user",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-			var input jamfprotect.UserInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input file: %w", err)
-			}
-
-			item, err := cliCtx.ProtectClient.CreateUser(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, item)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-
-	return cmd
-}
-
-func newProtectUsersUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <email>",
-		Short: "Update a user",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			id, err := r.ResolveUserID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -158,15 +123,44 @@ func newProtectUsersUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
-			item, err := cliCtx.ProtectClient.UpdateUser(ctx, id, input)
+			if input.Email == "" {
+				return fmt.Errorf("input must include an 'Email' field")
+			}
+
+			// Check if user exists by email
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveUserID(ctx, input.Email)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateUser(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created user %q\n", input.Email)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("user", input.Email, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateUser(ctx, id, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated user %q\n", input.Email)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 
 	return cmd
 }

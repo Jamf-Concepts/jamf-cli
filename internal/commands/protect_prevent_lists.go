@@ -21,8 +21,7 @@ func newProtectCustomPreventListsCmd(cliCtx *registry.CLIContext) *cobra.Command
 
 	cmd.AddCommand(newProtectPreventListsListCmd(cliCtx))
 	cmd.AddCommand(newProtectPreventListsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectPreventListsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectPreventListsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectPreventListsDeleteCmd(cliCtx))
 
 	return cmd
@@ -62,16 +61,20 @@ func newProtectPreventListsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectPreventListsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile, name, listType, listValues string
+func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile, name, listType, listValues string
+		yes                                   bool
+	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a custom prevent list",
-		Long:  "Create a custom prevent list from a JSON file (--from-file) or from flags (--name, --type, --list).",
+		Use:   "apply",
+		Short: "Create or update a custom prevent list",
+		Long:  "Create or update a custom prevent list from a JSON file (--from-file), stdin, or from flags (--name, --type, --list).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			var input jamfprotect.CustomPreventListInput
 
-			if fromFile != "" {
+			if fromFile != "" || !hasInlineFlags(name, listType) {
 				data, err := readProtectInput(fromFile)
 				if err != nil {
 					return err
@@ -100,10 +103,38 @@ func newProtectPreventListsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 				}
 			}
 
-			result, err := cliCtx.ProtectClient.CreateCustomPreventList(cmd.Context(), input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if custom prevent list exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveCustomPreventListID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateCustomPreventList(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created custom prevent list %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("custom prevent list", input.Name, yes)
 			if err != nil {
 				return err
 			}
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateCustomPreventList(ctx, id, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated custom prevent list %q\n", input.Name)
 			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
@@ -111,38 +142,18 @@ func newProtectPreventListsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringVar(&name, "name", "", "Name of the prevent list (used with --type)")
 	cmd.Flags().StringVar(&listType, "type", "", "List type (e.g. \"HASH\")")
 	cmd.Flags().StringVar(&listValues, "list", "", "Comma-separated list values")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	return cmd
 }
 
-func newProtectPreventListsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a custom prevent list",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			r := protect.NewResolver(cliCtx.ProtectClient)
-			id, err := r.ResolveCustomPreventListID(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-			var input jamfprotect.CustomPreventListInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
-			}
-			result, err := cliCtx.ProtectClient.UpdateCustomPreventList(cmd.Context(), id, input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, result)
-		},
+// hasInlineFlags returns true if any of the given flag values are non-empty.
+func hasInlineFlags(vals ...string) bool {
+	for _, v := range vals {
+		if v != "" {
+			return true
+		}
 	}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	return cmd
+	return false
 }
 
 func newProtectPreventListsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {

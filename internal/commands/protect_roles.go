@@ -41,8 +41,7 @@ func newProtectRolesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectRolesListCmd(cliCtx))
 	cmd.AddCommand(newProtectRolesGetCmd(cliCtx))
-	cmd.AddCommand(newProtectRolesCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectRolesUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectRolesApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectRolesDeleteCmd(cliCtx))
 
 	return cmd
@@ -101,51 +100,17 @@ func newProtectRolesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectRolesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a role",
+		Use:   "apply",
+		Short: "Create or update a role",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-			var input jamfprotect.RoleInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input file: %w", err)
-			}
-
-			item, err := cliCtx.ProtectClient.CreateRole(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, item)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-
-	return cmd
-}
-
-func newProtectRolesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a role",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			id, err := r.ResolveRoleID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -155,15 +120,44 @@ func newProtectRolesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
-			item, err := cliCtx.ProtectClient.UpdateRole(ctx, id, input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if role exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveRoleID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateRole(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created role %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("role", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateRole(ctx, id, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated role %q\n", input.Name)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 
 	return cmd
 }

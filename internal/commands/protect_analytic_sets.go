@@ -21,8 +21,7 @@ func newProtectAnalyticSetsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectAnalyticSetsListCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectAnalyticSetsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectAnalyticSetsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsAddAnalyticCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx))
@@ -89,12 +88,16 @@ func newProtectAnalyticSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectAnalyticSetsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an analytic set",
+		Use:   "apply",
+		Short: "Create or update an analytic set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -103,45 +106,44 @@ func newProtectAnalyticSetsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err := json.Unmarshal(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
-			result, err := cliCtx.ProtectClient.CreateAnalyticSet(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, result)
-		},
-	}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	return cmd
-}
 
-func newProtectAnalyticSetsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update an analytic set",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if analytic set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			uuid, err := r.ResolveAnalyticSetUUID(cmd.Context(), args[0])
+			uuid, err := r.ResolveAnalyticSetUUID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateAnalyticSet(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created analytic set %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("analytic set", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			data, err := readProtectInput(fromFile)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateAnalyticSet(ctx, uuid, input)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.AnalyticSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
-			}
-			result, err := cliCtx.ProtectClient.UpdateAnalyticSet(cmd.Context(), uuid, input)
-			if err != nil {
-				return err
-			}
+			fmt.Fprintf(os.Stderr, "Updated analytic set %q\n", input.Name)
 			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	return cmd
 }
 

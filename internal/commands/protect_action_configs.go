@@ -20,8 +20,7 @@ func newProtectActionConfigsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectActionConfigsListCmd(cliCtx))
 	cmd.AddCommand(newProtectActionConfigsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectActionConfigsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectActionConfigsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectActionConfigsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectActionConfigsDeleteCmd(cliCtx))
 
 	return cmd
@@ -61,12 +60,16 @@ func newProtectActionConfigsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectActionConfigsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an action configuration",
+		Use:   "apply",
+		Short: "Create or update an action configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -75,45 +78,44 @@ func newProtectActionConfigsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err := json.Unmarshal(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
-			result, err := cliCtx.ProtectClient.CreateActionConfig(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, result)
-		},
-	}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	return cmd
-}
 
-func newProtectActionConfigsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update an action configuration",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if action config exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			id, err := r.ResolveActionConfigID(cmd.Context(), args[0])
+			id, err := r.ResolveActionConfigID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateActionConfig(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created action configuration %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("action config", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			data, err := readProtectInput(fromFile)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateActionConfig(ctx, id, input)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.ActionConfigInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
-			}
-			result, err := cliCtx.ProtectClient.UpdateActionConfig(cmd.Context(), id, input)
-			if err != nil {
-				return err
-			}
+			fmt.Fprintf(os.Stderr, "Updated action configuration %q\n", input.Name)
 			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	return cmd
 }
 

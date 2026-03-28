@@ -32,8 +32,7 @@ func newProtectUnifiedLoggingFiltersCmd(cliCtx *registry.CLIContext) *cobra.Comm
 
 	cmd.AddCommand(newProtectULFListCmd(cliCtx))
 	cmd.AddCommand(newProtectULFGetCmd(cliCtx))
-	cmd.AddCommand(newProtectULFCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectULFUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectULFApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectULFDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectULFImportCmd(cliCtx))
 	cmd.AddCommand(newProtectULFExportCmd(cliCtx))
@@ -78,21 +77,23 @@ func newProtectULFGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectULFCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
 		scaffold bool
+		yes      bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a unified logging filter",
+		Use:   "apply",
+		Short: "Create or update a unified logging filter",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				fmt.Println(ulfScaffoldJSON)
 				return nil
 			}
 
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -103,56 +104,46 @@ func newProtectULFCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
-			filter, err := cliCtx.ProtectClient.CreateUnifiedLoggingFilter(cmd.Context(), input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if unified logging filter exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveUnifiedLoggingFilterUUID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateUnifiedLoggingFilter(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created unified logging filter %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("unified logging filter", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, filter)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateUnifiedLoggingFilter(ctx, uuid, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated unified logging filter %q\n", input.Name)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
-
-	return cmd
-}
-
-func newProtectULFUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a unified logging filter",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			uuid, err := r.ResolveUnifiedLoggingFilterUUID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-
-			var input jamfprotect.UnifiedLoggingFilterInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input: %w", err)
-			}
-
-			filter, err := cliCtx.ProtectClient.UpdateUnifiedLoggingFilter(ctx, uuid, input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, filter)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 
 	return cmd
 }

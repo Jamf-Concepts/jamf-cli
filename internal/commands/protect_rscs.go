@@ -21,8 +21,7 @@ func newProtectRemovableStorageControlSetsCmd(cliCtx *registry.CLIContext) *cobr
 
 	cmd.AddCommand(newProtectRSCSListCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSGetCmd(cliCtx))
-	cmd.AddCommand(newProtectRSCSCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectRSCSUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectRSCSApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSAddRuleCmd(cliCtx))
 	cmd.AddCommand(newProtectRSCSRemoveRuleCmd(cliCtx))
@@ -98,12 +97,16 @@ func newProtectRSCSGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectRSCSCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a removable storage control set",
+		Use:   "apply",
+		Short: "Create or update a removable storage control set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -112,45 +115,44 @@ func newProtectRSCSCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := json.Unmarshal(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
-			result, err := cliCtx.ProtectClient.CreateRemovableStorageControlSet(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, result)
-		},
-	}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	return cmd
-}
 
-func newProtectRSCSUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a removable storage control set",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if removable storage control set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			id, err := r.ResolveRemovableStorageControlSetID(cmd.Context(), args[0])
+			id, err := r.ResolveRemovableStorageControlSetID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateRemovableStorageControlSet(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created removable storage control set %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("removable storage control set", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			data, err := readProtectInput(fromFile)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateRemovableStorageControlSet(ctx, id, input)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.RemovableStorageControlSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
-			}
-			result, err := cliCtx.ProtectClient.UpdateRemovableStorageControlSet(cmd.Context(), id, input)
-			if err != nil {
-				return err
-			}
+			fmt.Fprintf(os.Stderr, "Updated removable storage control set %q\n", input.Name)
 			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	return cmd
 }
 

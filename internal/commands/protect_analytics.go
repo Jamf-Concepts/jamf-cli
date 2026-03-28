@@ -53,8 +53,7 @@ func newProtectAnalyticsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectAnalyticsListCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectAnalyticsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectAnalyticsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsImportCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsExportCmd(cliCtx))
@@ -99,21 +98,23 @@ func newProtectAnalyticsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectAnalyticsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
 		scaffold bool
+		yes      bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an analytic",
+		Use:   "apply",
+		Short: "Create or update an analytic",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				fmt.Println(analyticScaffoldJSON)
 				return nil
 			}
 
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -124,56 +125,46 @@ func newProtectAnalyticsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
-			analytic, err := cliCtx.ProtectClient.CreateAnalytic(cmd.Context(), input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if analytic exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveAnalyticUUID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateAnalytic(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created analytic %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("analytic", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, analytic)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateAnalytic(ctx, uuid, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated analytic %q\n", input.Name)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
-
-	return cmd
-}
-
-func newProtectAnalyticsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update an analytic",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			uuid, err := r.ResolveAnalyticUUID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-
-			var input jamfprotect.AnalyticInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input: %w", err)
-			}
-
-			analytic, err := cliCtx.ProtectClient.UpdateAnalytic(ctx, uuid, input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, analytic)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 
 	return cmd
 }

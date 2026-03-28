@@ -21,8 +21,7 @@ func newProtectPlansCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectPlansListCmd(cliCtx))
 	cmd.AddCommand(newProtectPlansGetCmd(cliCtx))
-	cmd.AddCommand(newProtectPlansCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectPlansUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectPlansApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectPlansDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectPlansConfigProfileCmd(cliCtx))
 
@@ -98,21 +97,23 @@ func newProtectPlansGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectPlansCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
 		scaffold bool
+		yes      bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a plan",
+		Use:   "apply",
+		Short: "Create or update a plan",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				fmt.Println(planScaffoldJSON)
 				return nil
 			}
 
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -123,56 +124,46 @@ func newProtectPlansCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
-			plan, err := cliCtx.ProtectClient.CreatePlan(cmd.Context(), input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if plan exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolvePlanID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreatePlan(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created plan %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("plan", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, plan)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdatePlan(ctx, id, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated plan %q\n", input.Name)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.MarkFlagsMutuallyExclusive("from-file", "scaffold")
-
-	return cmd
-}
-
-func newProtectPlansUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a plan",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			id, err := r.ResolvePlanID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-
-			var input jamfprotect.PlanInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input: %w", err)
-			}
-
-			plan, err := cliCtx.ProtectClient.UpdatePlan(ctx, id, input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, plan)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 
 	return cmd
 }

@@ -20,8 +20,7 @@ func newProtectExceptionSetsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectExceptionSetsListCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectExceptionSetsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectExceptionSetsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectExceptionSetsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsAddExceptionCmd(cliCtx))
 	cmd.AddCommand(newProtectExceptionSetsRemoveExceptionCmd(cliCtx))
@@ -63,12 +62,16 @@ func newProtectExceptionSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectExceptionSetsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an exception set",
+		Use:   "apply",
+		Short: "Create or update an exception set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -77,45 +80,44 @@ func newProtectExceptionSetsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err := json.Unmarshal(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
-			result, err := cliCtx.ProtectClient.CreateExceptionSet(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, result)
-		},
-	}
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	return cmd
-}
 
-func newProtectExceptionSetsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update an exception set",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if exception set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			uuid, err := r.ResolveExceptionSetUUID(cmd.Context(), args[0])
+			uuid, err := r.ResolveExceptionSetUUID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateExceptionSet(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created exception set %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("exception set", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			data, err := readProtectInput(fromFile)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateExceptionSet(ctx, uuid, input)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.ExceptionSetInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input JSON: %w", err)
-			}
-			result, err := cliCtx.ProtectClient.UpdateExceptionSet(cmd.Context(), uuid, input)
-			if err != nil {
-				return err
-			}
+			fmt.Fprintf(os.Stderr, "Updated exception set %q\n", input.Name)
 			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	return cmd
 }
 

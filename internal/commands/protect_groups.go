@@ -21,8 +21,7 @@ func newProtectGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectGroupsListCmd(cliCtx))
 	cmd.AddCommand(newProtectGroupsGetCmd(cliCtx))
-	cmd.AddCommand(newProtectGroupsCreateCmd(cliCtx))
-	cmd.AddCommand(newProtectGroupsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectGroupsApplyCmd(cliCtx))
 	cmd.AddCommand(newProtectGroupsDeleteCmd(cliCtx))
 
 	return cmd
@@ -92,51 +91,17 @@ func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newProtectGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
+func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+		yes      bool
+	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a group",
+		Use:   "apply",
+		Short: "Create or update a group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := readProtectInput(fromFile)
-			if err != nil {
-				return err
-			}
-			var input jamfprotect.GroupInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parsing input file: %w", err)
-			}
-
-			item, err := cliCtx.ProtectClient.CreateGroup(cmd.Context(), input)
-			if err != nil {
-				return err
-			}
-			return protect.PrintOne(cliCtx.Output, item)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-
-	return cmd
-}
-
-func newProtectGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var fromFile string
-
-	cmd := &cobra.Command{
-		Use:   "update <name>",
-		Short: "Update a group",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			r := protect.NewResolver(cliCtx.ProtectClient)
-
-			id, err := r.ResolveGroupID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-
 			data, err := readProtectInput(fromFile)
 			if err != nil {
 				return err
@@ -146,15 +111,44 @@ func newProtectGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
-			item, err := cliCtx.ProtectClient.UpdateGroup(ctx, id, input)
+			if input.Name == "" {
+				return fmt.Errorf("input must include a 'Name' field")
+			}
+
+			// Check if group exists by name
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveGroupID(ctx, input.Name)
+
+			if err != nil {
+				// Not found — create
+				result, err := cliCtx.ProtectClient.CreateGroup(ctx, input)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Created group %q\n", input.Name)
+				return protect.PrintOne(cliCtx.Output, result)
+			}
+
+			// Found — confirm before replacing
+			proceed, err := confirmProtectReplace("group", input.Name, yes)
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			if !proceed {
+				return nil
+			}
+
+			result, err := cliCtx.ProtectClient.UpdateGroup(ctx, id, input)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Updated group %q\n", input.Name)
+			return protect.PrintOne(cliCtx.Output, result)
 		},
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 
 	return cmd
 }
