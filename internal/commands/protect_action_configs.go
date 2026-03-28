@@ -87,7 +87,6 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 			// Check if action config exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveActionConfigID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateActionConfig(ctx, input)

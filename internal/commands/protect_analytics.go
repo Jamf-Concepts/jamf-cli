@@ -125,7 +125,6 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if analytic exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveAnalyticUUID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateAnalytic(ctx, input)

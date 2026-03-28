@@ -127,7 +127,6 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if role exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveRoleID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateRole(ctx, input)

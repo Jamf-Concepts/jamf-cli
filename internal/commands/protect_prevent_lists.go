@@ -110,7 +110,6 @@ func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			// Check if custom prevent list exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveCustomPreventListID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateCustomPreventList(ctx, input)

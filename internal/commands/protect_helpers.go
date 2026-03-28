@@ -71,7 +71,9 @@ func confirmProtectDelete(resourceType, name string, yes bool) (bool, error) {
 		}
 		fmt.Fprintf(os.Stderr, "This will delete %s %q. Type 'yes' to confirm: ", resourceType, name)
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			return false, fmt.Errorf("reading confirmation: %w", err)
+		}
 		if confirm != "yes" {
 			return false, fmt.Errorf("aborted")
 		}
@@ -92,7 +94,9 @@ func confirmProtectReplace(resourceType, name string, yes bool) (bool, error) {
 		}
 		fmt.Fprintf(os.Stderr, "%s %q already exists and will be replaced. Type 'yes' to confirm: ", resourceType, name)
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			return false, fmt.Errorf("reading confirmation: %w", err)
+		}
 		if confirm != "yes" {
 			return false, fmt.Errorf("aborted")
 		}

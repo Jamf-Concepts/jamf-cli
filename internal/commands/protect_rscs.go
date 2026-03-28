@@ -124,7 +124,6 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if removable storage control set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveRemovableStorageControlSetID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateRemovableStorageControlSet(ctx, input)

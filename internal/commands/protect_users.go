@@ -131,7 +131,6 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if user exists by email
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveUserID(ctx, input.Email)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateUser(ctx, input)

@@ -88,7 +88,6 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 			// Check if exception set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveExceptionSetUUID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateExceptionSet(ctx, input)

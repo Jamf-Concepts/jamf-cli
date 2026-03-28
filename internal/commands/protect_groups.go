@@ -119,7 +119,6 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if group exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveGroupID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateGroup(ctx, input)

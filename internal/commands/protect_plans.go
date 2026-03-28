@@ -126,7 +126,6 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if plan exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolvePlanID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreatePlan(ctx, input)

@@ -115,7 +115,6 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			// Check if analytic set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveAnalyticSetUUID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateAnalyticSet(ctx, input)

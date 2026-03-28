@@ -415,7 +415,7 @@ func downloadProtectFile(ctx context.Context, client registry.ProtectClient, fil
 	if err != nil {
 		return fmt.Errorf("downloading file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
@@ -425,7 +425,7 @@ func downloadProtectFile(ctx context.Context, client registry.ProtectClient, fil
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	n, err := io.Copy(f, resp.Body)
 	if err != nil {

@@ -121,7 +121,6 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if telemetry configuration exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveTelemetryV2ID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateTelemetryV2(ctx, input)

@@ -104,7 +104,6 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// Check if unified logging filter exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveUnifiedLoggingFilterUUID(ctx, input.Name)
-
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateUnifiedLoggingFilter(ctx, input)
