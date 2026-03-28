@@ -53,20 +53,9 @@ func newProtectRSCSListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // readable table output, summarising rules and plans.
 func flattenRSCS(s jamfprotect.RemovableStorageControlSet) map[string]any {
 	m := map[string]any{
-		"name":                 s.Name,
-		"description":          s.Description,
-		"defaultMountAction":   s.DefaultMountAction,
-		"defaultMessageAction": s.DefaultMessageAction,
-		"created":              s.Created,
-		"updated":              s.Updated,
-	}
-	if len(s.Rules) > 0 {
-		types := make([]string, 0, len(s.Rules))
-		for _, r := range s.Rules {
-			types = append(types, r.Type)
-		}
-		m["rules"] = strings.Join(types, ", ")
-		m["rulesCount"] = len(s.Rules)
+		"name":               s.Name,
+		"defaultMountAction": s.DefaultMountAction,
+		"rulesCount":         len(s.Rules),
 	}
 	if len(s.Plans) > 0 {
 		names := make([]string, 0, len(s.Plans))
@@ -93,7 +82,7 @@ func newProtectRSCSGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenRSCS(*item))
 		},
 	}
 }
@@ -131,7 +120,7 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created removable storage control set %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
 			}
 
 			// Found — confirm before replacing
@@ -148,7 +137,7 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated removable storage control set %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -361,7 +350,7 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&ruleType, "type", "", "Rule type: vendor, serial, product, encryption")
@@ -411,7 +400,7 @@ func newProtectRSCSRemoveRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&ruleType, "type", "", "Rule type to remove: vendor, serial, product, encryption")

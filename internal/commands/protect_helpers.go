@@ -6,8 +6,25 @@ import (
 	"io"
 	"os"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"gopkg.in/yaml.v3"
 )
+
+// printProtectResult outputs a single item. For table/csv/plain, it uses the
+// flattened map for clean column output. For json/yaml, it outputs the full struct.
+func printProtectResult(out registry.OutputFormatter, item any, flattened map[string]any) error {
+	switch outputFmt {
+	case "table", "csv", "plain":
+		data, err := json.Marshal(flattened)
+		if err != nil {
+			return fmt.Errorf("marshalling output: %w", err)
+		}
+		return out.PrintRaw(data)
+	default:
+		return protect.PrintOne(out, item)
+	}
+}
 
 // printProtectExport outputs data as JSON (default) or YAML based on the global output format.
 func printProtectExport(data any) error {

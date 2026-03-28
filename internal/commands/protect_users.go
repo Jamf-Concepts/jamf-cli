@@ -99,7 +99,7 @@ func newProtectUsersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenUser(*item))
 		},
 	}
 }
@@ -138,7 +138,7 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created user %q\n", input.Email)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenUser(result))
 			}
 
 			// Found — confirm before replacing
@@ -155,7 +155,7 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated user %q\n", input.Email)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenUser(result))
 		},
 	}
 

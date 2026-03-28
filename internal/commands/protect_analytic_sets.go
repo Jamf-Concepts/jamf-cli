@@ -84,7 +84,7 @@ func newProtectAnalyticSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenAnalyticSet(*item))
 		},
 	}
 }
@@ -122,7 +122,7 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created analytic set %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
 			}
 
 			// Found — confirm before replacing
@@ -139,7 +139,7 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated analytic set %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -228,7 +228,7 @@ func newProtectAnalyticSetsAddAnalyticCmd(cliCtx *registry.CLIContext) *cobra.Co
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to add")
@@ -278,7 +278,7 @@ func newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx *registry.CLIContext) *cobra
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to remove")

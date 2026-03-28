@@ -95,7 +95,7 @@ func newProtectRolesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenRole(*item))
 		},
 	}
 }
@@ -134,7 +134,7 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created role %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenRole(result))
 			}
 
 			// Found — confirm before replacing
@@ -151,7 +151,7 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated role %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenRole(result))
 		},
 	}
 

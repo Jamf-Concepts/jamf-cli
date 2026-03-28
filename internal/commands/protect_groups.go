@@ -87,7 +87,7 @@ func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenGroup(*item))
 		},
 	}
 }
@@ -126,7 +126,7 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created group %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenGroup(result))
 			}
 
 			// Found — confirm before replacing
@@ -143,7 +143,7 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated group %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenGroup(result))
 		},
 	}
 

@@ -83,7 +83,7 @@ func newProtectApiClientsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenApiClient(*item))
 		},
 	}
 }
@@ -122,7 +122,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created API client %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenApiClient(result))
 			}
 
 			// Found — confirm before replacing
@@ -139,7 +139,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated API client %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenApiClient(result))
 		},
 	}
 

@@ -52,10 +52,9 @@ func newProtectPlansListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // reducing nested objects to names/counts.
 func flattenPlan(p jamfprotect.Plan) map[string]any {
 	m := map[string]any{
-		"name":        p.Name,
-		"description": p.Description,
-		"logLevel":    p.LogLevel,
-		"autoUpdate":  p.AutoUpdate,
+		"name":       p.Name,
+		"logLevel":   p.LogLevel,
+		"autoUpdate": p.AutoUpdate,
 	}
 
 	if p.ActionConfigs != nil {
@@ -93,7 +92,7 @@ func newProtectPlansGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, plan)
+			return printProtectResult(cliCtx.Output, plan, flattenPlan(*plan))
 		},
 	}
 }
@@ -133,7 +132,7 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created plan %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenPlan(result))
 			}
 
 			// Found — confirm before replacing
@@ -150,7 +149,7 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated plan %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenPlan(result))
 		},
 	}
 

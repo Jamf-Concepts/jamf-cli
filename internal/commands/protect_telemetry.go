@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -50,29 +49,12 @@ func newProtectTelemetryListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // flattenTelemetry converts a TelemetryV2 into a clean map for readable
 // table output, reducing nested slices to comma-separated strings.
 func flattenTelemetry(t jamfprotect.TelemetryV2) map[string]any {
-	m := map[string]any{
+	return map[string]any{
 		"name":               t.Name,
-		"description":        t.Description,
 		"logFileCollection":  t.LogFileCollection,
 		"performanceMetrics": t.PerformanceMetrics,
 		"fileHashing":        t.FileHashing,
-		"created":            t.Created,
-		"updated":            t.Updated,
 	}
-	if len(t.Plans) > 0 {
-		names := make([]string, 0, len(t.Plans))
-		for _, p := range t.Plans {
-			names = append(names, p.Name)
-		}
-		m["plans"] = strings.Join(names, ", ")
-	}
-	if len(t.Events) > 0 {
-		m["events"] = strings.Join(t.Events, ", ")
-	}
-	if len(t.LogFiles) > 0 {
-		m["logFiles"] = strings.Join(t.LogFiles, ", ")
-	}
-	return m
 }
 
 func newProtectTelemetryGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -90,7 +72,7 @@ func newProtectTelemetryGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenTelemetry(*item))
 		},
 	}
 }
@@ -128,7 +110,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created telemetry configuration %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenTelemetry(result))
 			}
 
 			// Found — confirm before replacing
@@ -145,7 +127,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated telemetry configuration %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenTelemetry(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")

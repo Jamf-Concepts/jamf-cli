@@ -98,7 +98,7 @@ func newProtectAnalyticsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, analytic)
+			return printProtectResult(cliCtx.Output, analytic, flattenAnalytic(*analytic))
 		},
 	}
 }
@@ -138,7 +138,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created analytic %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenAnalytic(result))
 			}
 
 			// Found — confirm before replacing
@@ -155,7 +155,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated analytic %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenAnalytic(result))
 		},
 	}
 

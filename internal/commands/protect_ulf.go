@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,7 +49,16 @@ func newProtectULFListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, filters)
+			rows := make([]map[string]any, 0, len(filters))
+			for _, f := range filters {
+				rows = append(rows, map[string]any{
+					"name":    f.Name,
+					"enabled": f.Enabled,
+					"filter":  f.Filter,
+				})
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }

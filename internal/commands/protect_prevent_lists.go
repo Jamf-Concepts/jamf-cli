@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -36,7 +37,16 @@ func newProtectPreventListsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, p := range items {
+				rows = append(rows, map[string]any{
+					"name":  p.Name,
+					"type":  p.Type,
+					"count": p.Count,
+				})
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }

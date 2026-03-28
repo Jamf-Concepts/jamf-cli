@@ -42,6 +42,18 @@ func newProtectExceptionSetsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	}
 }
 
+// flattenExceptionSet converts an ExceptionSet into a clean map for readable
+// table output, reducing nested slices to counts.
+func flattenExceptionSet(s jamfprotect.ExceptionSet) map[string]any {
+	return map[string]any{
+		"name":              s.Name,
+		"description":       s.Description,
+		"exceptionsCount":   len(s.Exceptions),
+		"esExceptionsCount": len(s.EsExceptions),
+		"managed":           s.Managed,
+	}
+}
+
 func newProtectExceptionSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <name>",
@@ -57,7 +69,7 @@ func newProtectExceptionSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, item)
+			return printProtectResult(cliCtx.Output, item, flattenExceptionSet(*item))
 		},
 	}
 }
@@ -95,7 +107,7 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created exception set %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
 			}
 
 			// Found — confirm before replacing
@@ -112,7 +124,7 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated exception set %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -247,7 +259,7 @@ func newProtectExceptionSetsAddExceptionCmd(cliCtx *registry.CLIContext) *cobra.
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&exType, "type", "", "Exception type (e.g. \"Path\")")
@@ -294,7 +306,7 @@ func newProtectExceptionSetsRemoveExceptionCmd(cliCtx *registry.CLIContext) *cob
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, result)
+			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&exType, "type", "", "Exception type to match")

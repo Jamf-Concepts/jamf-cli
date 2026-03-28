@@ -36,7 +36,14 @@ func newProtectActionConfigsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, a := range items {
+				rows = append(rows, map[string]any{
+					"name": a.Name,
+				})
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }
