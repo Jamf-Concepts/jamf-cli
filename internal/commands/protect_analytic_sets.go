@@ -1,0 +1,251 @@
+package commands
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+)
+
+func newProtectAnalyticSetsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "analytic-sets",
+		Short: "Manage Jamf Protect analytic sets",
+	}
+
+	cmd.AddCommand(newProtectAnalyticSetsListCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsGetCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsCreateCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsAddAnalyticCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx))
+
+	return cmd
+}
+
+func newProtectAnalyticSetsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all analytic sets",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			items, err := cliCtx.ProtectClient.ListAnalyticSets(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return protect.PrintList(cliCtx.Output, items)
+		},
+	}
+}
+
+func newProtectAnalyticSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <name>",
+		Short: "Get an analytic set by name",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveAnalyticSetUUID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetAnalyticSet(cmd.Context(), uuid)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, item)
+		},
+	}
+}
+
+func newProtectAnalyticSetsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var fromFile string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create an analytic set",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			data, err := readProtectInput(fromFile)
+			if err != nil {
+				return err
+			}
+			var input jamfprotect.AnalyticSetInput
+			if err := json.Unmarshal(data, &input); err != nil {
+				return fmt.Errorf("parsing input JSON: %w", err)
+			}
+			result, err := cliCtx.ProtectClient.CreateAnalyticSet(cmd.Context(), input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	return cmd
+}
+
+func newProtectAnalyticSetsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var fromFile string
+	cmd := &cobra.Command{
+		Use:   "update <name>",
+		Short: "Update an analytic set",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveAnalyticSetUUID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			data, err := readProtectInput(fromFile)
+			if err != nil {
+				return err
+			}
+			var input jamfprotect.AnalyticSetInput
+			if err := json.Unmarshal(data, &input); err != nil {
+				return fmt.Errorf("parsing input JSON: %w", err)
+			}
+			result, err := cliCtx.ProtectClient.UpdateAnalyticSet(cmd.Context(), uuid, input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	return cmd
+}
+
+func newProtectAnalyticSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "delete <name>",
+		Short: "Delete an analytic set",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveAnalyticSetUUID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+
+			proceed, err := confirmProtectDelete("analytic set", args[0], yes)
+			if err != nil {
+				return err
+			}
+			if !proceed {
+				return nil
+			}
+
+			if err := cliCtx.ProtectClient.DeleteAnalyticSet(cmd.Context(), uuid); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Deleted analytic set %q\n", args[0])
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	return cmd
+}
+
+func newProtectAnalyticSetsAddAnalyticCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var analyticName string
+	cmd := &cobra.Command{
+		Use:   "add-analytic <set-name>",
+		Short: "Add an analytic to a set",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+
+			setUUID, err := r.ResolveAnalyticSetUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			analyticUUID, err := r.ResolveAnalyticUUID(ctx, analyticName)
+			if err != nil {
+				return err
+			}
+
+			set, err := cliCtx.ProtectClient.GetAnalyticSet(ctx, setUUID)
+			if err != nil {
+				return err
+			}
+
+			// Build the updated analytics list
+			uuids := make([]string, 0, len(set.Analytics)+1)
+			for _, a := range set.Analytics {
+				uuids = append(uuids, a.UUID)
+			}
+			uuids = append(uuids, analyticUUID)
+
+			input := jamfprotect.AnalyticSetInput{
+				Name:        set.Name,
+				Description: set.Description,
+				Types:       set.Types,
+				Analytics:   uuids,
+			}
+			result, err := cliCtx.ProtectClient.UpdateAnalyticSet(ctx, setUUID, input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to add")
+	_ = cmd.MarkFlagRequired("analytic")
+	return cmd
+}
+
+func newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var analyticName string
+	cmd := &cobra.Command{
+		Use:   "remove-analytic <set-name>",
+		Short: "Remove an analytic from a set",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+
+			setUUID, err := r.ResolveAnalyticSetUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			analyticUUID, err := r.ResolveAnalyticUUID(ctx, analyticName)
+			if err != nil {
+				return err
+			}
+
+			set, err := cliCtx.ProtectClient.GetAnalyticSet(ctx, setUUID)
+			if err != nil {
+				return err
+			}
+
+			// Build the updated analytics list without the target
+			uuids := make([]string, 0, len(set.Analytics))
+			for _, a := range set.Analytics {
+				if a.UUID != analyticUUID {
+					uuids = append(uuids, a.UUID)
+				}
+			}
+
+			input := jamfprotect.AnalyticSetInput{
+				Name:        set.Name,
+				Description: set.Description,
+				Types:       set.Types,
+				Analytics:   uuids,
+			}
+			result, err := cliCtx.ProtectClient.UpdateAnalyticSet(ctx, setUUID, input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to remove")
+	_ = cmd.MarkFlagRequired("analytic")
+	return cmd
+}

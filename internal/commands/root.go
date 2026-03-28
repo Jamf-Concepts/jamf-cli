@@ -19,6 +19,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
 // Global flags
@@ -353,7 +354,9 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
 Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
-configuration, reporting, and API automation).`,
+configuration, reporting, and API automation).
+Use "jamf-cli protect" for Jamf Protect commands (endpoint security,
+analytics, threat prevention, and configuration).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -384,14 +387,37 @@ configuration, reporting, and API automation).`,
 				return fmt.Errorf("loading config: %w", err)
 			}
 
-			resolvedURL, authProvider, err := resolveAuth(cfg)
-			if err != nil {
-				return err
-			}
-
 			// Apply default output from config if flag not explicitly set
 			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
 				outputFmt = cfg.DefaultOutput
+			}
+
+			// Build output formatter (shared by all products)
+			if outFile != "" {
+				f, err := os.Create(outFile)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				outFileHandle = f
+				noColor = true
+			}
+			formatter := output.New(outputFmt, noColor, wide)
+			if outFileHandle != nil {
+				formatter.SetWriter(outFileHandle)
+			}
+			cliCtx.Output = &cliOutput{formatter}
+
+			// Determine product type from command hierarchy or profile
+			product := resolveProduct(cmd, cfg)
+
+			if product == "protect" {
+				return resolveProtectClient(cfg, cliCtx)
+			}
+
+			// Default: Jamf Pro auth flow
+			resolvedURL, authProvider, err := resolveAuth(cfg)
+			if err != nil {
+				return err
 			}
 
 			// Build HTTP client with decorators
@@ -407,21 +433,6 @@ configuration, reporting, and API automation).`,
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
-
-			// Build output formatter
-			if outFile != "" {
-				f, err := os.Create(outFile)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				outFileHandle = f
-				noColor = true
-			}
-			formatter := output.New(outputFmt, noColor, wide)
-			if outFileHandle != nil {
-				formatter.SetWriter(outFileHandle)
-			}
-			cliCtx.Output = &cliOutput{formatter}
 
 			return nil
 		},
@@ -477,6 +488,9 @@ configuration, reporting, and API automation).`,
 
 	// Jamf Pro product namespace
 	cmd.AddCommand(newProCmd(cliCtx))
+
+	// Jamf Protect product namespace
+	cmd.AddCommand(newProtectCmd(cliCtx))
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
@@ -586,6 +600,113 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 		result[i] = m
 	}
 	return result
+}
+
+// resolveProduct determines the product type from the profile. Returns "pro" or "protect".
+// resolveProduct determines the product type. It checks the command hierarchy
+// first (a command under "protect" is always protect), then falls back to the
+// config profile's product field.
+func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
+	// Check command hierarchy: if any parent is "protect", that's definitive
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "protect" {
+			return "protect"
+		}
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "pro" {
+			return "pro"
+		}
+	}
+
+	// Fall back to profile product field
+	profileName := profile
+	if profileName == "" {
+		profileName = os.Getenv("JAMF_PROFILE")
+	}
+	if profileName == "" {
+		profileName = cfg.DefaultProfile
+	}
+	if profileName == "" {
+		return "pro"
+	}
+	p, ok := cfg.Profiles[profileName]
+	if !ok {
+		return "pro"
+	}
+	if p.Product == "protect" {
+		return "protect"
+	}
+	return "pro"
+}
+
+// resolveProtectClient constructs a Jamf Protect SDK client from config/flags/env
+// and assigns it to cliCtx.ProtectClient.
+func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	profileName := profile
+	if profileName == "" {
+		profileName = os.Getenv("JAMF_PROFILE")
+	}
+
+	url := serverURL
+	cid := clientID
+	csecret := clientSecret
+
+	// Environment variable fallbacks (Protect-specific)
+	if url == "" {
+		url = os.Getenv("JAMFPROTECT_URL")
+	}
+	if cid == "" {
+		cid = os.Getenv("JAMFPROTECT_CLIENT_ID")
+	}
+	if csecret == "" {
+		csecret = os.Getenv("JAMFPROTECT_CLIENT_SECRET")
+	}
+
+	// Fill from config profile
+	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+		if url == "" {
+			url = p.URL
+		}
+		if cid == "" && p.ClientID != "" {
+			resolved, err := config.ResolveSecret(p.ClientID)
+			if err != nil {
+				return fmt.Errorf("resolving client-id from profile: %w", err)
+			}
+			cid = resolved
+		}
+		if csecret == "" && p.ClientSecret != "" {
+			resolved, err := config.ResolveSecret(p.ClientSecret)
+			if err != nil {
+				return fmt.Errorf("resolving client-secret from profile: %w", err)
+			}
+			csecret = resolved
+		}
+	}
+
+	// Also check generic env vars as fallback
+	if url == "" {
+		url = os.Getenv("JAMF_URL")
+	}
+	if cid == "" {
+		cid = os.Getenv("JAMF_CLIENT_ID")
+	}
+	if csecret == "" {
+		csecret = os.Getenv("JAMF_CLIENT_SECRET")
+	}
+
+	if url == "" {
+		return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMFPROTECT_URL env var, or configure a protect profile")
+	}
+	if cid == "" || csecret == "" {
+		return exitcode.New(exitcode.Usage, "client-id and client-secret are required for Jamf Protect: use --client-id/--client-secret, JAMFPROTECT_CLIENT_ID/JAMFPROTECT_CLIENT_SECRET env vars, or configure a protect profile")
+	}
+
+	sdkClient := jamfprotect.NewClient(url, cid, csecret,
+		jamfprotect.WithUserAgent("jamf-cli/"+cliVersion),
+	)
+	cliCtx.ProtectClient = sdkClient
+	return nil
 }
 
 // FormatError writes a structured JSON error to stdout when the output format

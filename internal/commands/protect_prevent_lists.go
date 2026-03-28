@@ -1,0 +1,178 @@
+package commands
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+)
+
+func newProtectCustomPreventListsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "custom-prevent-lists",
+		Short: "Manage Jamf Protect custom prevent lists",
+	}
+
+	cmd.AddCommand(newProtectPreventListsListCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsGetCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsCreateCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsUpdateCmd(cliCtx))
+	cmd.AddCommand(newProtectPreventListsDeleteCmd(cliCtx))
+
+	return cmd
+}
+
+func newProtectPreventListsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all custom prevent lists",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			items, err := cliCtx.ProtectClient.ListCustomPreventLists(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return protect.PrintList(cliCtx.Output, items)
+		},
+	}
+}
+
+func newProtectPreventListsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <name>",
+		Short: "Get a custom prevent list by name",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveCustomPreventListID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			item, err := cliCtx.ProtectClient.GetCustomPreventList(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, item)
+		},
+	}
+}
+
+func newProtectPreventListsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var fromFile, name, listType, listValues string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a custom prevent list",
+		Long:  "Create a custom prevent list from a JSON file (--from-file) or from flags (--name, --type, --list).",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			var input jamfprotect.CustomPreventListInput
+
+			if fromFile != "" {
+				data, err := readProtectInput(fromFile)
+				if err != nil {
+					return err
+				}
+				if err := json.Unmarshal(data, &input); err != nil {
+					return fmt.Errorf("parsing input JSON: %w", err)
+				}
+			} else {
+				if name == "" || listType == "" {
+					return fmt.Errorf("--name and --type are required when not using --from-file")
+				}
+				input = jamfprotect.CustomPreventListInput{
+					Name: name,
+					Type: listType,
+					Tags: []string{},
+				}
+				if listValues != "" {
+					parts := strings.Split(listValues, ",")
+					items := make([]string, 0, len(parts))
+					for _, p := range parts {
+						if v := strings.TrimSpace(p); v != "" {
+							items = append(items, v)
+						}
+					}
+					input.List = items
+				}
+			}
+
+			result, err := cliCtx.ProtectClient.CreateCustomPreventList(cmd.Context(), input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&name, "name", "", "Name of the prevent list (used with --type)")
+	cmd.Flags().StringVar(&listType, "type", "", "List type (e.g. \"HASH\")")
+	cmd.Flags().StringVar(&listValues, "list", "", "Comma-separated list values")
+	return cmd
+}
+
+func newProtectPreventListsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var fromFile string
+	cmd := &cobra.Command{
+		Use:   "update <name>",
+		Short: "Update a custom prevent list",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveCustomPreventListID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			data, err := readProtectInput(fromFile)
+			if err != nil {
+				return err
+			}
+			var input jamfprotect.CustomPreventListInput
+			if err := json.Unmarshal(data, &input); err != nil {
+				return fmt.Errorf("parsing input JSON: %w", err)
+			}
+			result, err := cliCtx.ProtectClient.UpdateCustomPreventList(cmd.Context(), id, input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, result)
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	return cmd
+}
+
+func newProtectPreventListsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "delete <name>",
+		Short: "Delete a custom prevent list",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			id, err := r.ResolveCustomPreventListID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+
+			proceed, err := confirmProtectDelete("custom prevent list", args[0], yes)
+			if err != nil {
+				return err
+			}
+			if !proceed {
+				return nil
+			}
+
+			if err := cliCtx.ProtectClient.DeleteCustomPreventList(cmd.Context(), id); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Deleted custom prevent list %q\n", args[0])
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	return cmd
+}

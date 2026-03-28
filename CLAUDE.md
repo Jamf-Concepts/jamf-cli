@@ -26,8 +26,11 @@ After modifying a template: `make generate && make test`
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
+| Add a new Jamf Protect command | `internal/commands/protect_*.go` (new file + wire in `protect.go`) |
+| Change Protect name-to-ID resolution | `internal/protect/resolve.go` |
+| Change Protect YAML import/export schemas | `internal/commands/protect_analytics.go`, `protect_ulf.go` |
 | Add a new cross-product command | `internal/commands/` (new file + wire in `root.go`) |
-| Add a new product namespace | `internal/commands/` (e.g., `protect.go` + `protect_*.go` files) |
+| Add a new product namespace | `internal/commands/` (e.g., `newproduct.go` + `newproduct_*.go` files) |
 | Modify auth behavior | `internal/auth/` |
 | Change HTTP client / retry / exit codes | `internal/client/` |
 | Add or change output formats | `internal/output/` |
@@ -59,24 +62,27 @@ bin/jamf-cli --url https://... --token ... pro computers list  # One-off with fl
 
 ## Architecture
 
-This is a CLI for the Jamf platform. The root command holds shared infrastructure (config, auth, completion). Each Jamf product gets its own namespace — currently `pro` for Jamf Pro, with support for additional products (e.g., Protect) to be added over time.
+This is a CLI for the Jamf platform. The root command holds shared infrastructure (config, auth, completion). Each Jamf product gets its own namespace — `pro` for Jamf Pro and `protect` for Jamf Protect.
 
 ### Project Structure
 
 ```
 internal/
-  registry/              Shared interfaces: CLIContext, HTTPClient, OutputFormatter
-  auth/                  Auth providers (OAuth2, Platform, Token)
-  client/                HTTP client with retry, auth injection, exit-code mapping
+  registry/              Shared interfaces: CLIContext, HTTPClient, OutputFormatter, ProtectClient
+  auth/                  Auth providers (OAuth2, Platform, Token) — Jamf Pro only
+  client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
+  protect/               Jamf Protect helpers: name-to-ID resolution, output formatting
   commands/
-    root.go              Root command, shared flags, auth resolution
+    root.go              Root command, shared flags, product-aware auth resolution
     config.go            Config subcommands (shared)
     completion.go        Shell completion (shared)
-    groups.go            Help groups for root + pro
-    aliases.go           Aliases for root + pro
+    groups.go            Help groups for root + pro + protect
+    aliases.go           Aliases for root + pro + protect
     pro.go               Bridge: wires all Jamf Pro commands under "pro"
     pro_*.go             Jamf Pro handwritten commands (overview, audit, etc.)
+    protect.go           Bridge: wires all Jamf Protect commands under "protect"
+    protect_*.go         Jamf Protect handwritten commands (overview, plans, analytics, etc.)
     pro/
       generated/         Pro generated commands from OpenAPI specs + Classic manifest
 ```
@@ -112,8 +118,9 @@ See `generator/README.md` for full template function reference and testing workf
 
 | Package | Purpose |
 |---------|---------|
-| `internal/registry/` | Shared interfaces: `CLIContext`, `HTTPClient`, `OutputFormatter` |
-| `internal/commands/` | Root command, config, completion, product bridges, Pro handwritten commands (`pro_*.go`) |
+| `internal/registry/` | Shared interfaces: `CLIContext`, `HTTPClient`, `OutputFormatter`, `ProtectClient` |
+| `internal/commands/` | Root command, config, completion, product bridges, Pro (`pro_*.go`) and Protect (`protect_*.go`) handwritten commands |
+| `internal/protect/` | Protect helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/commands/pro/generated/` | **Generated** — all Jamf Pro API resource commands + registries |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
 | `internal/auth/` | Provider interface with OAuth2, Platform OAuth2, and Token impls |
@@ -146,6 +153,17 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 
 `cliOutput.PrintRaw` has a `--field` override: when `fieldName` is set, it parses JSON and extracts the named field from each object instead of delegating to the formatter. Generated `create`/`update` commands include a `--scaffold` flag that prints a JSON template (produced by `scaffoldJSON()` in the generator).
 
+### Jamf Protect Integration
+
+Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles its own OAuth2 auth, retry, and pagination. Key differences from Pro:
+
+- **Auth**: SDK manages tokens internally. `PersistentPreRunE` resolves credentials and passes them to `jamfprotect.NewClient()`. No use of `internal/auth/` or `internal/client/`.
+- **Config profiles**: Protect profiles have `product: protect`. Env vars: `JAMFPROTECT_URL`, `JAMFPROTECT_CLIENT_ID`, `JAMFPROTECT_CLIENT_SECRET`.
+- **Name resolution**: All commands use `--name` (not ID/UUID). `internal/protect/Resolver` maps names to IDs via lazy-cached list calls.
+- **Output**: SDK returns typed Go structs. `protect.PrintList`/`PrintOne` marshal to JSON then pass to `OutputFormatter.PrintRaw()`.
+- **YAML import/export**: Analytics and unified logging filters support YAML import/export matching the `jamf/jamfprotect` community repo schema.
+- **Granular mutations**: `add-analytic`/`remove-analytic` on analytic sets, `add-exception`/`remove-exception` on exception sets, `add-rule`/`remove-rule` on removable storage control sets use read-modify-write pattern.
+
 ### Config File
 
 `~/.config/jamf-cli/config.yaml` (XDG-compliant, auto-migrated from `~/.config/jamfpro-cli/` on first run)
@@ -154,8 +172,9 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 
 - Global flags are package-level vars in `root.go` (not struct fields) — accessed by generated commands via the `CLIContext` struct.
 - Jamf Pro commands use the `pro_` filename prefix (e.g., `pro_overview.go`, `pro_audit.go`).
-- Command grouping for `--help` output is maintained in `groups.go` — root groups and pro groups are separate.
-- Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root and pro aliases.
+- Jamf Protect commands use the `protect_` filename prefix (e.g., `protect_overview.go`, `protect_analytics.go`).
+- Command grouping for `--help` output is maintained in `groups.go` — root groups, pro groups, and protect groups are separate.
+- Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root, pro, and protect aliases.
 - The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
 - Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths. In platform gateway mode, they are rewritten to `/api/proclassic/tenant/{id}/` paths.
 - `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
@@ -181,6 +200,15 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 2. Wire it into the pro command in `pro.go`
 3. Add to the appropriate group in `groups.go` (`proGroupMap`)
 4. Optionally add a short alias in `aliases.go` (`commandAliases`)
+
+### Adding a new Jamf Protect command
+
+1. Create new file in `internal/commands/` with `protect_` prefix (e.g., `protect_mycommand.go`)
+2. Wire it into the protect command in `protect.go`
+3. Add to the appropriate group in `groups.go` (`protectGroupMap`)
+4. Optionally add a short alias in `aliases.go` (`protectAliases`)
+5. Use `protect.NewResolver(cliCtx.ProtectClient)` for name-to-ID resolution
+6. Use `protect.PrintList()`/`protect.PrintOne()` for output
 
 ### Adding a new product namespace
 

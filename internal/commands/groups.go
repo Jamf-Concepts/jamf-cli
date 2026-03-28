@@ -15,6 +15,7 @@ var rootGroupMap = map[string]string{
 	"completion": "core",
 	"commands":   "core",
 	"pro":        "products",
+	"protect":    "products",
 }
 
 // applyRootGroups registers groups on the root command and assigns each
@@ -291,6 +292,63 @@ func applyProGroups(pro *cobra.Command) {
 
 	for _, cmd := range pro.Commands() {
 		if gid, ok := proGroupMap[cmd.Name()]; ok {
+			cmd.GroupID = gid
+		}
+	}
+}
+
+// ─── Jamf Protect groups (children of the "protect" command) ───────────────
+
+const (
+	groupProtectCore     = "protect-core"
+	groupProtectSecurity = "protect-security"
+	groupProtectEndpoint = "protect-endpoints"
+	groupProtectOrg      = "protect-org"
+	groupProtectAccess   = "protect-access"
+)
+
+var protectGroups = []*cobra.Group{
+	{ID: groupProtectCore, Title: "Core Commands:"},
+	{ID: groupProtectSecurity, Title: "Security Configuration:"},
+	{ID: groupProtectEndpoint, Title: "Endpoints:"},
+	{ID: groupProtectOrg, Title: "Organization:"},
+	{ID: groupProtectAccess, Title: "Access & Identity:"},
+}
+
+var protectGroupMap = map[string]string{
+	"setup":    groupProtectCore,
+	"overview": groupProtectCore,
+
+	"plans":                          groupProtectSecurity,
+	"analytics":                      groupProtectSecurity,
+	"analytic-sets":                  groupProtectSecurity,
+	"exception-sets":                 groupProtectSecurity,
+	"removable-storage-control-sets": groupProtectSecurity,
+	"action-configs":                 groupProtectSecurity,
+	"telemetry":                      groupProtectSecurity,
+	"custom-prevent-lists":           groupProtectSecurity,
+	"unified-logging-filters":        groupProtectSecurity,
+
+	"computers": groupProtectEndpoint,
+
+	"data-forwarding": groupProtectOrg,
+	"data-retention":  groupProtectOrg,
+	"downloads":       groupProtectOrg,
+	"config-freeze":   groupProtectOrg,
+	"connections":     groupProtectOrg,
+
+	"roles":       groupProtectAccess,
+	"users":       groupProtectAccess,
+	"groups":      groupProtectAccess,
+	"api-clients": groupProtectAccess,
+}
+
+func applyProtectGroups(protect *cobra.Command) {
+	protect.AddGroup(protectGroups...)
+	protect.SetHelpCommandGroupID(groupProtectCore)
+
+	for _, cmd := range protect.Commands() {
+		if gid, ok := protectGroupMap[cmd.Name()]; ok {
 			cmd.GroupID = gid
 		}
 	}
