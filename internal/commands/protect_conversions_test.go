@@ -20,8 +20,8 @@ func TestFlattenPlan_BasicFields(t *testing.T) {
 	if m["name"] != "Test Plan" {
 		t.Errorf("name = %v, want %q", m["name"], "Test Plan")
 	}
-	if m["description"] != "A test plan" {
-		t.Errorf("description = %v, want %q", m["description"], "A test plan")
+	if _, ok := m["description"]; ok {
+		t.Error("description should not be in flattened plan output")
 	}
 	if m["logLevel"] != "info" {
 		t.Errorf("logLevel = %v, want %q", m["logLevel"], "info")
