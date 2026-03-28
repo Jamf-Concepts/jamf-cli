@@ -8,7 +8,8 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-func strPtr(s string) *string { return &s }
+//go:fix inline
+func strPtr(s string) *string { return new(s) }
 
 // mockProtectClient embeds the interface so only the methods we need must be
 // implemented. The zero-value embed will panic if an unimplemented method is
@@ -150,9 +151,9 @@ func TestResolveComputerUUID_ByHostname(t *testing.T) {
 	mock := &mockProtectClient{
 		computers: []jamfprotect.Computer{
 			{
-				UUID:     strPtr("comp-uuid-1"),
-				HostName: strPtr("mac-01.local"),
-				Serial:   strPtr("C02X1234"),
+				UUID:     new("comp-uuid-1"),
+				HostName: new("mac-01.local"),
+				Serial:   new("C02X1234"),
 			},
 		},
 	}
@@ -171,9 +172,9 @@ func TestResolveComputerUUID_BySerial(t *testing.T) {
 	mock := &mockProtectClient{
 		computers: []jamfprotect.Computer{
 			{
-				UUID:     strPtr("comp-uuid-2"),
-				HostName: strPtr("mac-02.local"),
-				Serial:   strPtr("C02Y5678"),
+				UUID:     new("comp-uuid-2"),
+				HostName: new("mac-02.local"),
+				Serial:   new("C02Y5678"),
 			},
 		},
 	}
@@ -192,9 +193,9 @@ func TestResolveComputerUUID_NotFound(t *testing.T) {
 	mock := &mockProtectClient{
 		computers: []jamfprotect.Computer{
 			{
-				UUID:     strPtr("comp-uuid-1"),
-				HostName: strPtr("mac-01.local"),
-				Serial:   strPtr("C02X1234"),
+				UUID:     new("comp-uuid-1"),
+				HostName: new("mac-01.local"),
+				Serial:   new("C02X1234"),
 			},
 		},
 	}

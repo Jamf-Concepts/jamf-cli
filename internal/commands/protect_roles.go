@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -16,10 +17,8 @@ import (
 // e.g. "R: all, W: 3 resources" or "R: 5 resources, W: all".
 func permissionsSummary(p jamfprotect.RolePermissions) string {
 	describe := func(label string, items []string) string {
-		for _, v := range items {
-			if v == "*" {
-				return label + ": all"
-			}
+		if slices.Contains(items, "*") {
+			return label + ": all"
 		}
 		switch len(items) {
 		case 0:

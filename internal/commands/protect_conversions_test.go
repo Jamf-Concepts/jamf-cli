@@ -6,9 +6,14 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-func strPtr(s string) *string       { return &s }
-func int64Ptr(i int64) *int64       { return &i }
-func float64Ptr(f float64) *float64 { return &f }
+//go:fix inline
+func strPtr(s string) *string { return new(s) }
+
+//go:fix inline
+func int64Ptr(i int64) *int64 { return new(i) }
+
+//go:fix inline
+func float64Ptr(f float64) *float64 { return new(f) }
 
 // ─── flattenPlan ────────────────────────────────────────────────────────────
 
@@ -77,7 +82,7 @@ func TestFlattenPlan_NilOptionalFields(t *testing.T) {
 
 func TestFlattenComputer_OmitsNilFields(t *testing.T) {
 	c := jamfprotect.Computer{
-		HostName: strPtr("test-host"),
+		HostName: new("test-host"),
 		// All other pointer fields are nil
 	}
 	m := flattenComputer(c)
@@ -95,14 +100,14 @@ func TestFlattenComputer_OmitsNilFields(t *testing.T) {
 
 func TestFlattenComputer_IncludesPresentFields(t *testing.T) {
 	c := jamfprotect.Computer{
-		HostName:         strPtr("my-mac"),
-		Serial:           strPtr("C02XYZ"),
-		OSString:         strPtr("14.4.1"),
+		HostName:         new("my-mac"),
+		Serial:           new("C02XYZ"),
+		OSString:         new("14.4.1"),
 		OSMajor:          int64Ptr(14),
 		OSMinor:          int64Ptr(4),
 		OSPatch:          int64Ptr(1),
-		ConnectionStatus: strPtr("connected"),
-		MemorySize:       float64Ptr(16.0),
+		ConnectionStatus: new("connected"),
+		MemorySize:       new(16.0),
 	}
 	m := flattenComputer(c)
 
@@ -128,10 +133,10 @@ func TestFlattenComputer_IncludesPresentFields(t *testing.T) {
 
 func TestFlattenComputer_PlanName(t *testing.T) {
 	c := jamfprotect.Computer{
-		HostName: strPtr("plan-host"),
+		HostName: new("plan-host"),
 		Plan: &jamfprotect.ComputerPlan{
-			ID:   strPtr("plan-1"),
-			Name: strPtr("Production Plan"),
+			ID:   new("plan-1"),
+			Name: new("Production Plan"),
 		},
 	}
 	m := flattenComputer(c)
