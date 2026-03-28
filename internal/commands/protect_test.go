@@ -96,6 +96,7 @@ func TestProtectSubcommands(t *testing.T) {
 	expected := []string{
 		"overview",
 		"setup",
+		"auth",
 		"plans",
 		"computers",
 		"analytics",
