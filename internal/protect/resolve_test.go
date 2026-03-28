@@ -8,9 +8,6 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-//go:fix inline
-func strPtr(s string) *string { return new(s) }
-
 // mockProtectClient embeds the interface so only the methods we need must be
 // implemented. The zero-value embed will panic if an unimplemented method is
 // called, which is the correct behavior for tests.

@@ -6,14 +6,6 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-//go:fix inline
-func strPtr(s string) *string { return new(s) }
-
-//go:fix inline
-func int64Ptr(i int64) *int64 { return new(i) }
-
-//go:fix inline
-func float64Ptr(f float64) *float64 { return new(f) }
 
 // ─── flattenPlan ────────────────────────────────────────────────────────────
 
@@ -103,9 +95,9 @@ func TestFlattenComputer_IncludesPresentFields(t *testing.T) {
 		HostName:         new("my-mac"),
 		Serial:           new("C02XYZ"),
 		OSString:         new("14.4.1"),
-		OSMajor:          int64Ptr(14),
-		OSMinor:          int64Ptr(4),
-		OSPatch:          int64Ptr(1),
+		OSMajor:          new(int64(14)),
+		OSMinor:          new(int64(4)),
+		OSPatch:          new(int64(1)),
 		ConnectionStatus: new("connected"),
 		MemorySize:       new(16.0),
 	}
