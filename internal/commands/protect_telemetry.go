@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -36,9 +37,42 @@ func newProtectTelemetryListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, t := range items {
+				rows = append(rows, flattenTelemetry(t))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenTelemetry converts a TelemetryV2 into a clean map for readable
+// table output, reducing nested slices to comma-separated strings.
+func flattenTelemetry(t jamfprotect.TelemetryV2) map[string]any {
+	m := map[string]any{
+		"name":               t.Name,
+		"description":        t.Description,
+		"logFileCollection":  t.LogFileCollection,
+		"performanceMetrics": t.PerformanceMetrics,
+		"fileHashing":        t.FileHashing,
+		"created":            t.Created,
+		"updated":            t.Updated,
+	}
+	if len(t.Plans) > 0 {
+		names := make([]string, 0, len(t.Plans))
+		for _, p := range t.Plans {
+			names = append(names, p.Name)
+		}
+		m["plans"] = strings.Join(names, ", ")
+	}
+	if len(t.Events) > 0 {
+		m["events"] = strings.Join(t.Events, ", ")
+	}
+	if len(t.LogFiles) > 0 {
+		m["logFiles"] = strings.Join(t.LogFiles, ", ")
+	}
+	return m
 }
 
 func newProtectTelemetryGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

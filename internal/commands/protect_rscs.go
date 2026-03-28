@@ -39,9 +39,43 @@ func newProtectRSCSListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, s := range items {
+				rows = append(rows, flattenRSCS(s))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenRSCS converts a RemovableStorageControlSet into a clean map for
+// readable table output, summarising rules and plans.
+func flattenRSCS(s jamfprotect.RemovableStorageControlSet) map[string]any {
+	m := map[string]any{
+		"name":                 s.Name,
+		"description":          s.Description,
+		"defaultMountAction":   s.DefaultMountAction,
+		"defaultMessageAction": s.DefaultMessageAction,
+		"created":              s.Created,
+		"updated":              s.Updated,
+	}
+	if len(s.Rules) > 0 {
+		types := make([]string, 0, len(s.Rules))
+		for _, r := range s.Rules {
+			types = append(types, r.Type)
+		}
+		m["rules"] = strings.Join(types, ", ")
+		m["rulesCount"] = len(s.Rules)
+	}
+	if len(s.Plans) > 0 {
+		names := make([]string, 0, len(s.Plans))
+		for _, p := range s.Plans {
+			names = append(names, p.Name)
+		}
+		m["plans"] = strings.Join(names, ", ")
+	}
+	return m
 }
 
 func newProtectRSCSGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

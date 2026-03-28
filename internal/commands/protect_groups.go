@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -36,9 +37,36 @@ func newProtectGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, g := range items {
+				rows = append(rows, flattenGroup(g))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenGroup converts a Group into a clean map for readable table output,
+// reducing nested objects to names.
+func flattenGroup(g jamfprotect.Group) map[string]any {
+	m := map[string]any{
+		"name":        g.Name,
+		"accessGroup": g.AccessGroup,
+		"created":     g.Created,
+		"updated":     g.Updated,
+	}
+	if g.Connection != nil {
+		m["connection"] = g.Connection.Name
+	}
+	if len(g.AssignedRoles) > 0 {
+		names := make([]string, 0, len(g.AssignedRoles))
+		for _, r := range g.AssignedRoles {
+			names = append(names, r.Name)
+		}
+		m["assignedRoles"] = strings.Join(names, ", ")
+	}
+	return m
 }
 
 func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -36,9 +37,48 @@ func newProtectUsersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, u := range items {
+				rows = append(rows, flattenUser(u))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenUser converts a User into a clean map for readable table output,
+// reducing nested objects to names.
+func flattenUser(u jamfprotect.User) map[string]any {
+	m := map[string]any{
+		"email":                 u.Email,
+		"source":                u.Source,
+		"receiveEmailAlert":     u.ReceiveEmailAlert,
+		"emailAlertMinSeverity": u.EmailAlertMinSeverity,
+		"created":               u.Created,
+		"updated":               u.Updated,
+	}
+	if u.LastLogin != nil {
+		m["lastLogin"] = *u.LastLogin
+	}
+	if u.Connection != nil {
+		m["connection"] = u.Connection.Name
+	}
+	if len(u.AssignedRoles) > 0 {
+		names := make([]string, 0, len(u.AssignedRoles))
+		for _, r := range u.AssignedRoles {
+			names = append(names, r.Name)
+		}
+		m["assignedRoles"] = strings.Join(names, ", ")
+	}
+	if len(u.AssignedGroups) > 0 {
+		names := make([]string, 0, len(u.AssignedGroups))
+		for _, g := range u.AssignedGroups {
+			names = append(names, g.Name)
+		}
+		m["assignedGroups"] = strings.Join(names, ", ")
+	}
+	return m
 }
 
 func newProtectUsersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

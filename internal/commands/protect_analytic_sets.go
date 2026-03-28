@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -38,9 +39,34 @@ func newProtectAnalyticSetsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, s := range items {
+				rows = append(rows, flattenAnalyticSet(s))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenAnalyticSet converts an AnalyticSet into a clean map for readable
+// table output, reducing nested slices to names/counts.
+func flattenAnalyticSet(s jamfprotect.AnalyticSet) map[string]any {
+	m := map[string]any{
+		"name":           s.Name,
+		"description":    s.Description,
+		"analyticsCount": len(s.Analytics),
+		"managed":        s.Managed,
+		"types":          strings.Join(s.Types, ", "),
+	}
+	if len(s.Plans) > 0 {
+		names := make([]string, 0, len(s.Plans))
+		for _, p := range s.Plans {
+			names = append(names, p.Name)
+		}
+		m["plans"] = strings.Join(names, ", ")
+	}
+	return m
 }
 
 func newProtectAnalyticSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

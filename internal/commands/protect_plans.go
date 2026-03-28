@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -37,9 +38,41 @@ func newProtectPlansListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, plans)
+			rows := make([]map[string]any, 0, len(plans))
+			for _, p := range plans {
+				rows = append(rows, flattenPlan(p))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenPlan converts a Plan into a clean map for readable table output,
+// reducing nested objects to names/counts.
+func flattenPlan(p jamfprotect.Plan) map[string]any {
+	m := map[string]any{
+		"name":        p.Name,
+		"description": p.Description,
+		"logLevel":    p.LogLevel,
+		"autoUpdate":  p.AutoUpdate,
+	}
+
+	if p.ActionConfigs != nil {
+		m["actionConfig"] = p.ActionConfigs.Name
+	}
+
+	if p.TelemetryV2 != nil {
+		m["telemetry"] = p.TelemetryV2.Name
+	} else if p.Telemetry != nil {
+		m["telemetry"] = p.Telemetry.Name
+	}
+
+	if p.USBControlSet != nil {
+		m["usbControlSet"] = p.USBControlSet.Name
+	}
+
+	return m
 }
 
 func newProtectPlansGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -179,10 +212,28 @@ func newProtectPlansDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newProtectPlansConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var (
+		outPath string
+		sign    bool
+		noPPPC              bool
+		noToken             bool
+		noCA                bool
+		noCSR               bool
+		noWebsocket         bool
+		noSystemExtension   bool
+		noServiceManagement bool
+		noXPC               bool
+		noKeychainClientID  bool
+	)
+
+	cmd := &cobra.Command{
 		Use:   "config-profile <name>",
-		Short: "Get the configuration profile for a plan",
-		Args:  cobra.ExactArgs(1),
+		Short: "Download the configuration profile for a plan",
+		Long: `Download the configuration profile (.mobileconfig) for a Jamf Protect plan.
+
+By default, all payload components are included. Use --no-* flags to
+exclude specific payloads. Use --sign to cryptographically sign the profile.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)
@@ -192,14 +243,59 @@ func newProtectPlansConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 
-			profile, err := cliCtx.ProtectClient.GetPlansConfigProfile(ctx, id, nil)
+			opts := &jamfprotect.PlanConfigProfileOptionsInput{
+				Sign:              sign,
+				PPPC:              !noPPPC,
+				Token:             !noToken,
+				CA:                !noCA,
+				CSR:               !noCSR,
+				Websocket:         !noWebsocket,
+				SystemExtension:   !noSystemExtension,
+				ServiceManagement: !noServiceManagement,
+				TokenOptions: jamfprotect.PlanConfigProfileTokenOptionsInput{
+					XPC:              !noXPC,
+					KeychainClientID: !noKeychainClientID,
+				},
+			}
+
+			profile, err := cliCtx.ProtectClient.GetPlansConfigProfile(ctx, id, opts)
 			if err != nil {
 				return err
 			}
-			fmt.Println(profile)
+
+			if profile == "" {
+				return fmt.Errorf("no configuration profile available for plan %q", args[0])
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(profile)
+			if err != nil {
+				return fmt.Errorf("decoding profile: %w", err)
+			}
+
+			if outPath == "" {
+				outPath = fmt.Sprintf("%s.mobileconfig", args[0])
+			}
+			if err := os.WriteFile(outPath, decoded, 0o644); err != nil {
+				return fmt.Errorf("writing profile: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", outPath, len(decoded))
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&outPath, "output", "O", "", "Output file path (default: <plan-name>.mobileconfig)")
+	cmd.Flags().BoolVar(&sign, "sign", false, "Cryptographically sign the profile")
+	cmd.Flags().BoolVar(&noPPPC, "no-pppc", false, "Exclude PPPC (Privacy Preferences) payload")
+	cmd.Flags().BoolVar(&noToken, "no-token", false, "Exclude bootstrap token payload")
+	cmd.Flags().BoolVar(&noCA, "no-ca", false, "Exclude root CA certificate payload")
+	cmd.Flags().BoolVar(&noCSR, "no-csr", false, "Exclude CSR certificate payload")
+	cmd.Flags().BoolVar(&noWebsocket, "no-websocket", false, "Exclude websocket authorizer key payload")
+	cmd.Flags().BoolVar(&noSystemExtension, "no-system-extension", false, "Exclude system extension payload")
+	cmd.Flags().BoolVar(&noServiceManagement, "no-service-management", false, "Exclude service management (login items) payload")
+	cmd.Flags().BoolVar(&noXPC, "no-xpc", false, "Exclude XPC configuration from token")
+	cmd.Flags().BoolVar(&noKeychainClientID, "no-keychain-client-id", false, "Exclude keychain client ID from token")
+
+	return cmd
 }
 
 const planScaffoldJSON = `{

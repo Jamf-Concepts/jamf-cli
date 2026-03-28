@@ -12,6 +12,27 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
+// permissionsSummary returns a compact description of role permissions,
+// e.g. "R: all, W: 3 resources" or "R: 5 resources, W: all".
+func permissionsSummary(p jamfprotect.RolePermissions) string {
+	describe := func(label string, items []string) string {
+		for _, v := range items {
+			if v == "*" {
+				return label + ": all"
+			}
+		}
+		switch len(items) {
+		case 0:
+			return label + ": none"
+		case 1:
+			return label + ": 1 resource"
+		default:
+			return fmt.Sprintf("%s: %d resources", label, len(items))
+		}
+	}
+	return describe("R", p.Read) + ", " + describe("W", p.Write)
+}
+
 func newProtectRolesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "roles",
@@ -36,8 +57,24 @@ func newProtectRolesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, r := range items {
+				rows = append(rows, flattenRole(r))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
+	}
+}
+
+// flattenRole converts a Role into a clean map for readable table output,
+// summarising permissions as a compact string.
+func flattenRole(r jamfprotect.Role) map[string]any {
+	return map[string]any{
+		"name":        r.Name,
+		"permissions": permissionsSummary(r.Permissions),
+		"created":     r.Created,
+		"updated":     r.Updated,
 	}
 }
 

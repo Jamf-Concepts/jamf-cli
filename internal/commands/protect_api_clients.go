@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -36,9 +37,32 @@ func newProtectApiClientsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintList(cliCtx.Output, items)
+			rows := make([]map[string]any, 0, len(items))
+			for _, c := range items {
+				rows = append(rows, flattenApiClient(c))
+			}
+			data, _ := json.Marshal(rows)
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+}
+
+// flattenApiClient converts an ApiClient into a clean map for readable table
+// output. The Password field is intentionally omitted.
+func flattenApiClient(c jamfprotect.ApiClient) map[string]any {
+	m := map[string]any{
+		"name":     c.Name,
+		"clientId": c.ClientID,
+		"created":  c.Created,
+	}
+	if len(c.AssignedRoles) > 0 {
+		names := make([]string, 0, len(c.AssignedRoles))
+		for _, r := range c.AssignedRoles {
+			names = append(names, r.Name)
+		}
+		m["assignedRoles"] = strings.Join(names, ", ")
+	}
+	return m
 }
 
 func newProtectApiClientsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
