@@ -16,6 +16,7 @@ func newProtectCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Core
 	cmd.AddCommand(newProtectSetupCmd())
 	cmd.AddCommand(newProtectOverviewCmd(cliCtx))
+	cmd.AddCommand(newProtectAuthCmd(cliCtx))
 
 	// Security Configuration
 	cmd.AddCommand(newProtectPlansCmd(cliCtx))

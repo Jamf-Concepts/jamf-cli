@@ -318,6 +318,7 @@ var protectGroups = []*cobra.Group{
 var protectGroupMap = map[string]string{
 	"setup":    groupProtectCore,
 	"overview": groupProtectCore,
+	"auth":     groupProtectCore,
 
 	"plans":                          groupProtectSecurity,
 	"analytics":                      groupProtectSecurity,
