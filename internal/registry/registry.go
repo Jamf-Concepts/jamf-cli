@@ -129,6 +129,10 @@ type ProtectClient interface {
 	GetConfigFreeze(ctx context.Context) (jamfprotect.ChangeManagementConfig, error)
 	UpdateOrganizationConfigFreeze(ctx context.Context, configFreeze bool) (jamfprotect.ChangeManagementConfig, error)
 	ListConnections(ctx context.Context) ([]jamfprotect.Connection, error)
+
+	// Client metadata
+	BaseURL() string
+	AccessToken(ctx context.Context) (*jamfprotect.Token, error)
 }
 
 // CLIContext holds the shared client and output formatter for all commands.
