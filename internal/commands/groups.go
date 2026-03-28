@@ -2,6 +2,36 @@ package commands
 
 import "github.com/spf13/cobra"
 
+// ─── Root-level groups ──────────────────────────────────────────────────────
+
+var rootGroups = []*cobra.Group{
+	{ID: "core", Title: "Core Commands:"},
+	{ID: "products", Title: "Products:"},
+}
+
+var rootGroupMap = map[string]string{
+	"version":    "core",
+	"config":     "core",
+	"completion": "core",
+	"commands":   "core",
+	"pro":        "products",
+}
+
+// applyRootGroups registers groups on the root command and assigns each
+// direct child to its group.
+func applyRootGroups(root *cobra.Command) {
+	root.AddGroup(rootGroups...)
+	root.SetHelpCommandGroupID("core")
+
+	for _, cmd := range root.Commands() {
+		if gid, ok := rootGroupMap[cmd.Name()]; ok {
+			cmd.GroupID = gid
+		}
+	}
+}
+
+// ─── Jamf Pro groups (children of the "pro" command) ────────────────────────
+
 // Group ID constants control display order in help output.
 const (
 	groupCore       = "core"
@@ -24,8 +54,8 @@ const (
 	groupClassicPatch     = "classic-patch"
 )
 
-// commandGroups defines the groups in display order for --help output.
-var commandGroups = []*cobra.Group{
+// proGroups defines the groups in display order for `jamf-cli pro --help`.
+var proGroups = []*cobra.Group{
 	{ID: groupCore, Title: "Core Commands:"},
 	{ID: groupPower, Title: "Power Commands:"},
 	{ID: groupComputers, Title: "Computer Management:"},
@@ -46,14 +76,11 @@ var commandGroups = []*cobra.Group{
 	{ID: groupClassicPatch, Title: "Classic - Patch Management:"},
 }
 
-// commandGroupMap maps each command's Use name to its group ID.
-var commandGroupMap = map[string]string{
+// proGroupMap maps each Jamf Pro command's Use name to its group ID.
+var proGroupMap = map[string]string{
 	// Core
-	"version":    groupCore,
-	"config":     groupCore,
-	"completion": groupCore,
-	"commands":   groupCore,
-	"overview":   groupCore,
+	"setup":    groupCore,
+	"overview": groupCore,
 
 	// Power Commands
 	"backup":      groupPower,
@@ -255,15 +282,15 @@ var commandGroupMap = map[string]string{
 	"classic-patch-available-titles": groupClassicPatch,
 }
 
-// applyGroups registers command groups on the root command and assigns each
-// subcommand to its group. Commands not in commandGroupMap are left ungrouped
+// applyProGroups registers command groups on the pro command and assigns each
+// subcommand to its group. Commands not in proGroupMap are left ungrouped
 // and appear under Cobra's "Additional Commands:" heading.
-func applyGroups(root *cobra.Command) {
-	root.AddGroup(commandGroups...)
-	root.SetHelpCommandGroupID(groupCore)
+func applyProGroups(pro *cobra.Command) {
+	pro.AddGroup(proGroups...)
+	pro.SetHelpCommandGroupID(groupCore)
 
-	for _, cmd := range root.Commands() {
-		if gid, ok := commandGroupMap[cmd.Name()]; ok {
+	for _, cmd := range pro.Commands() {
+		if gid, ok := proGroupMap[cmd.Name()]; ok {
 			cmd.GroupID = gid
 		}
 	}

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/exitcode"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {
@@ -61,22 +61,22 @@ func TestCollectCommands(t *testing.T) {
 		t.Error("expected 'version' command in entries")
 	}
 
-	// Verify a generated command like "computers list" is present
+	// Verify a generated command like "pro computers list" is present
 	found = false
 	for _, e := range entries {
-		if e.Command == "computers list" {
+		if e.Command == "pro computers list" {
 			found = true
 			if len(e.Aliases) == 0 {
-				t.Error("expected computers list to have aliases (e.g., 'comp')")
+				t.Error("expected pro computers list to have aliases (e.g., 'comp')")
 			}
 			if len(e.Flags) == 0 {
-				t.Error("expected computers list to have flags")
+				t.Error("expected pro computers list to have flags")
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("expected 'computers list' command in entries")
+		t.Error("expected 'pro computers list' command in entries")
 	}
 
 	// Verify 'commands' and 'help' are excluded
@@ -173,7 +173,7 @@ func TestFormatError_JSON(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
 
-	var envelope map[string]interface{}
+	var envelope map[string]any
 	if jsonErr := json.Unmarshal(buf.Bytes(), &envelope); jsonErr != nil {
 		t.Fatalf("failed to parse JSON output: %v\nraw: %s", jsonErr, buf.String())
 	}
@@ -375,7 +375,7 @@ func TestPersistentPreRunE_MissingURL(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // empty config dir — no profiles
 
 	root := NewRootCmd("test", "abc123", "2024-01-01")
-	root.SetArgs([]string{"computers", "list"})
+	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
 	if err == nil {
@@ -396,7 +396,7 @@ func TestPersistentPreRunE_MissingAuth(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	root := NewRootCmd("test", "abc123", "2024-01-01")
-	root.SetArgs([]string{"computers", "list"})
+	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
 	if err == nil {
@@ -417,7 +417,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	root := NewRootCmd("test", "abc123", "2024-01-01")
-	root.SetArgs([]string{"computers", "list"})
+	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
 	if err == nil {
@@ -438,7 +438,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	root := NewRootCmd("test", "abc123", "2024-01-01")
-	root.SetArgs([]string{"computers", "list"})
+	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
 	if err == nil {
@@ -698,7 +698,7 @@ func setupConfigProfile(t *testing.T, cfgYaml string) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	jDir := filepath.Join(dir, "jamfpro-cli")
+	jDir := filepath.Join(dir, "jamf-cli")
 	_ = os.MkdirAll(jDir, 0o700)
 	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(cfgYaml), 0o600)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"sort"
 	"strings"
@@ -69,7 +70,7 @@ func New(format string, noColor bool, wide bool) *Formatter {
 }
 
 // Print outputs data in the configured format
-func (f *Formatter) Print(data interface{}) error {
+func (f *Formatter) Print(data any) error {
 	switch f.format {
 	case FormatJSON:
 		return f.printJSON(data)
@@ -84,23 +85,23 @@ func (f *Formatter) Print(data interface{}) error {
 	}
 }
 
-func (f *Formatter) printJSON(data interface{}) error {
+func (f *Formatter) printJSON(data any) error {
 	enc := json.NewEncoder(f.writer)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }
 
-func (f *Formatter) printYAML(data interface{}) error {
+func (f *Formatter) printYAML(data any) error {
 	enc := yaml.NewEncoder(f.writer)
 	enc.SetIndent(2)
 	return enc.Encode(data)
 }
 
-func (f *Formatter) printCSV(data interface{}) error {
+func (f *Formatter) printCSV(data any) error {
 	w := csv.NewWriter(f.writer)
 
 	switch v := data.(type) {
-	case []map[string]interface{}:
+	case []map[string]any:
 		if len(v) == 0 {
 			return nil
 		}
@@ -120,10 +121,10 @@ func (f *Formatter) printCSV(data interface{}) error {
 	return w.Error()
 }
 
-func (f *Formatter) printPlain(data interface{}) error {
+func (f *Formatter) printPlain(data any) error {
 	// Tab-separated, no headers
 	switch v := data.(type) {
-	case []map[string]interface{}:
+	case []map[string]any:
 		for _, row := range v {
 			keys := sortedKeys(row)
 			vals := make([]string, len(keys))
@@ -140,8 +141,8 @@ func (f *Formatter) printPlain(data interface{}) error {
 	return nil
 }
 
-func (f *Formatter) printTable(data interface{}) error {
-	rows, ok := data.([]map[string]interface{})
+func (f *Formatter) printTable(data any) error {
+	rows, ok := data.([]map[string]any)
 	if !ok {
 		_, _ = fmt.Fprintf(f.writer, "%v\n", data)
 		return nil
@@ -246,7 +247,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	}
 
 	// For non-JSON formats: parse, normalize, then format
-	var parsed interface{}
+	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
 		_, writeErr := f.writer.Write(data)
@@ -258,13 +259,13 @@ func (f *Formatter) PrintRaw(data []byte) error {
 
 // normalizeJSON converts parsed JSON types into the []map[string]interface{}
 // form that table/csv/plain formatters expect.
-func normalizeJSON(data interface{}) interface{} {
+func normalizeJSON(data any) any {
 	switch v := data.(type) {
-	case []interface{}:
+	case []any:
 		// Convert []interface{} of objects to []map[string]interface{}
-		maps := make([]map[string]interface{}, 0, len(v))
+		maps := make([]map[string]any, 0, len(v))
 		for _, item := range v {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				maps = append(maps, m)
 			} else {
 				// Mixed array — can't normalize to maps, return as-is
@@ -272,9 +273,9 @@ func normalizeJSON(data interface{}) interface{} {
 			}
 		}
 		return maps
-	case map[string]interface{}:
+	case map[string]any:
 		// Wrap single object in a slice
-		return []map[string]interface{}{v}
+		return []map[string]any{v}
 	default:
 		// Scalar values pass through unchanged
 		return data
@@ -282,15 +283,13 @@ func normalizeJSON(data interface{}) interface{} {
 }
 
 // PrintError outputs an error in the appropriate format
-func (f *Formatter) PrintError(err error, code string, details map[string]interface{}) {
+func (f *Formatter) PrintError(err error, code string, details map[string]any) {
 	if f.format == FormatJSON {
-		errObj := map[string]interface{}{
+		errObj := map[string]any{
 			"error":   code,
 			"message": err.Error(),
 		}
-		for k, v := range details {
-			errObj[k] = v
-		}
+		maps.Copy(errObj, details)
 		_ = f.printJSON(errObj)
 	} else {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
@@ -312,7 +311,7 @@ func keyPriority(key string) int {
 
 // sortedKeys returns map keys in deterministic order:
 // "id" first, then "name", then remaining keys alphabetically.
-func sortedKeys(m map[string]interface{}) []string {
+func sortedKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -343,7 +342,7 @@ func defaultColumns(allKeys []string) []string {
 }
 
 // FormatValue converts a value to its string representation for table/csv/plain output.
-func FormatValue(v interface{}) string {
+func FormatValue(v any) string {
 	switch val := v.(type) {
 	case nil:
 		return ""
@@ -360,7 +359,7 @@ func FormatValue(v interface{}) string {
 			return "true"
 		}
 		return "false"
-	case map[string]interface{}, []interface{}:
+	case map[string]any, []any:
 		// Nested objects/arrays become compact JSON
 		b, err := json.Marshal(val)
 		if err != nil {

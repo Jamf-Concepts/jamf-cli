@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## CRITICAL: Generated Code Boundary
 
-**Never edit files in `internal/commands/generated/`** — they are overwritten by `make generate`.
+**Never edit files in `internal/commands/pro/generated/`** — they are overwritten by `make generate`.
 
 To change generated command behavior, edit the **generator templates**:
 - **Modern API commands:** `generator/parser/generator.go` → `resourceTemplate` const
@@ -25,7 +25,9 @@ After modifying a template: `make generate && make test`
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
-| Add a new handwritten command | `internal/commands/` (new file + wire in `root.go`) |
+| Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
+| Add a new cross-product command | `internal/commands/` (new file + wire in `root.go`) |
+| Add a new product namespace | `internal/commands/` (e.g., `protect.go` + `protect_*.go` files) |
 | Modify auth behavior | `internal/auth/` |
 | Change HTTP client / retry / exit codes | `internal/client/` |
 | Add or change output formats | `internal/output/` |
@@ -33,11 +35,12 @@ After modifying a template: `make generate && make test`
 | Add a command group for `--help` output | `internal/commands/groups.go` |
 | Change global flags or root command behavior | `internal/commands/root.go` |
 | Change config file handling | `internal/config/` |
+| Change shared CLI interfaces (CLIContext, etc.) | `internal/registry/` |
 
 ## Build & Dev Commands
 
 ```bash
-make build                  # Build binary to bin/jamfpro-cli
+make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
@@ -50,22 +53,42 @@ go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ### Running the CLI
 
 ```bash
-bin/jamfpro-cli setup                     # Interactive first-time config (creates profile)
-bin/jamfpro-cli --url https://... --token ... computers list  # One-off with flags
+bin/jamf-cli pro setup                    # Interactive first-time config (creates profile)
+bin/jamf-cli --url https://... --token ... pro computers list  # One-off with flags
 ```
 
 ## Architecture
 
-This is a Jamf Pro Server API CLI. Commands are **code-generated** from OpenAPI specs (modern API) and a YAML manifest (Classic API). The handwritten code is thin glue.
+This is a CLI for the Jamf platform. The root command holds shared infrastructure (config, auth, completion). Each Jamf product gets its own namespace — currently `pro` for Jamf Pro, with support for additional products (e.g., Protect) to be added over time.
+
+### Project Structure
+
+```
+internal/
+  registry/              Shared interfaces: CLIContext, HTTPClient, OutputFormatter
+  auth/                  Auth providers (OAuth2, Platform, Token)
+  client/                HTTP client with retry, auth injection, exit-code mapping
+  config/                YAML config, secret resolution, auto-migration
+  commands/
+    root.go              Root command, shared flags, auth resolution
+    config.go            Config subcommands (shared)
+    completion.go        Shell completion (shared)
+    groups.go            Help groups for root + pro
+    aliases.go           Aliases for root + pro
+    pro.go               Bridge: wires all Jamf Pro commands under "pro"
+    pro_*.go             Jamf Pro handwritten commands (overview, audit, etc.)
+    pro/
+      generated/         Pro generated commands from OpenAPI specs + Classic manifest
+```
 
 ### Code Generation Pipeline
 
 ```
-specs/*.yaml ──────────────► generator/parser/   ──► internal/commands/generated/*.go
+specs/*.yaml ──────────────► generator/parser/   ──► internal/commands/pro/generated/*.go
                                ParseSpec()            + registry.go
                                Generator.Generate()
 
-specs/classic/resources.yaml ► generator/classic/ ──► internal/commands/generated/classic_*.go
+specs/classic/resources.yaml ► generator/classic/ ──► internal/commands/pro/generated/classic_*.go
                                ParseManifest()        + classic_registry.go
                                Generator.Generate()
 
@@ -81,19 +104,20 @@ See `generator/README.md` for full template function reference and testing workf
 
 ### Runtime Flow
 
-`cmd/jamfpro-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> generated commands
+`cmd/jamf-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> `pro` subcommand --> generated commands
 
-`PersistentPreRunE` in `root.go` is the critical path: it resolves credentials through a priority chain (flags > env vars > config profile), builds the auth provider, and wires up the HTTP client with optional spinner/dry-run decorators.
+`PersistentPreRunE` in `root.go` is the critical path: it resolves credentials through a priority chain (flags > env vars > config profile), builds the auth provider, and wires up the HTTP client with optional spinner/dry-run decorators. Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
 
 ### Key Packages
 
 | Package | Purpose |
 |---------|---------|
-| `internal/commands/` | Handwritten commands (config, setup, overview, completion, aliases, groups) |
-| `internal/commands/generated/` | **Generated** — all API resource commands + registry |
+| `internal/registry/` | Shared interfaces: `CLIContext`, `HTTPClient`, `OutputFormatter` |
+| `internal/commands/` | Root command, config, completion, product bridges, Pro handwritten commands (`pro_*.go`) |
+| `internal/commands/pro/generated/` | **Generated** — all Jamf Pro API resource commands + registries |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
 | `internal/auth/` | Provider interface with OAuth2, Platform OAuth2, and Token impls |
-| `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes) |
+| `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes), auto-migration from legacy path |
 | `internal/output/` | Multi-format output: table, JSON, CSV, YAML, plain. Table has smart column selection, date formatting, status colorization |
 | `internal/keychain/` | System keychain abstraction (macOS Keychain, Linux secret-service) |
 | `internal/exitcode/` | Structured exit codes (0-6) mapped from HTTP status codes |
@@ -114,7 +138,7 @@ Secret values in config use prefixed references: `env:VAR`, `file:/path`, `keych
 
 ### Generated Command Interfaces
 
-Generated commands depend on two interfaces defined in `registry.go`:
+Generated commands depend on shared interfaces defined in `internal/registry/`:
 - `HTTPClient` — `Do(ctx, method, path, body) (*http.Response, error)`
 - `OutputFormatter` — `PrintResponse(resp)` and `PrintRaw(data)`
 
@@ -124,13 +148,14 @@ Generated commands depend on two interfaces defined in `registry.go`:
 
 ### Config File
 
-`~/.config/jamfpro-cli/config.yaml` (XDG-compliant)
+`~/.config/jamf-cli/config.yaml` (XDG-compliant, auto-migrated from `~/.config/jamfpro-cli/` on first run)
 
 ## Conventions
 
 - Global flags are package-level vars in `root.go` (not struct fields) — accessed by generated commands via the `CLIContext` struct.
-- Command grouping for `--help` output is maintained in `groups.go` — add new commands there.
-- Short aliases (e.g., `comp` for `computers`) are in `aliases.go`.
+- Jamf Pro commands use the `pro_` filename prefix (e.g., `pro_overview.go`, `pro_audit.go`).
+- Command grouping for `--help` output is maintained in `groups.go` — root groups and pro groups are separate.
+- Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root and pro aliases.
 - The `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command.
 - Classic API paths start with `/JSSResource/` and bypass the `/api` prefix that `client.Do()` adds for modern paths. In platform gateway mode, they are rewritten to `/api/proclassic/tenant/{id}/` paths.
 - `NO_COLOR` env var is respected for CI/scripting (https://no-color.org).
@@ -147,12 +172,20 @@ Generated commands depend on two interfaces defined in `registry.go`:
 ### Syncing specs for a new Jamf Pro version
 
 1. `make sync-specs JAMF_SERVER_PATH=/path/to/jss`
-2. Review: `git diff --stat -- internal/commands/generated/`
+2. Review: `git diff --stat -- internal/commands/pro/generated/`
 3. Run: `make test`
 
-### Adding a new handwritten command
+### Adding a new Jamf Pro handwritten command
 
-1. Create new file in `internal/commands/` (e.g., `mycommand.go`)
-2. Wire it into the root command in `root.go`
-3. Add to the appropriate group in `groups.go`
-4. Optionally add a short alias in `aliases.go`
+1. Create new file in `internal/commands/` with `pro_` prefix (e.g., `pro_mycommand.go`)
+2. Wire it into the pro command in `pro.go`
+3. Add to the appropriate group in `groups.go` (`proGroupMap`)
+4. Optionally add a short alias in `aliases.go` (`commandAliases`)
+
+### Adding a new product namespace
+
+1. Create `internal/commands/newproduct.go` as the bridge (like `pro.go`)
+2. Create `internal/commands/newproduct_*.go` for handwritten commands
+3. If the product has generated commands, create `internal/commands/newproduct/generated/`
+4. Wire the bridge into `root.go`
+5. Add root group mapping in `groups.go` (`rootGroupMap`)

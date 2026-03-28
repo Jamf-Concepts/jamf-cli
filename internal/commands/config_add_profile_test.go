@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // failingKeychainStore always returns an error on Set, simulating keychain unavailability.
@@ -31,7 +31,7 @@ func (f *failingKeychainStore) Delete(_, _ string) error {
 func setupTempConfig(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	jDir := filepath.Join(dir, "jamfpro-cli")
+	jDir := filepath.Join(dir, "jamf-cli")
 	if err := os.MkdirAll(jDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}

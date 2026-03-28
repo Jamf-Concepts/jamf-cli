@@ -15,10 +15,10 @@ func newCompletionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completion scripts",
-		Long: `Generate shell completion scripts for jamfpro-cli.
+		Long: `Generate shell completion scripts for jamf-cli.
 
-Use "jamfpro-cli completion [shell]" to output the script.
-Use "jamfpro-cli completion install" to auto-detect and install.`,
+Use "jamf-cli completion [shell]" to output the script.
+Use "jamf-cli completion install" to auto-detect and install.`,
 	}
 
 	// Add subcommands for each shell
@@ -38,13 +38,13 @@ func newCompletionBashCmd() *cobra.Command {
 		Long: `Generate bash completion script.
 
 To load completions in your current shell session:
-  source <(jamfpro-cli completion bash)
+  source <(jamf-cli completion bash)
 
 To install permanently:
   # Linux:
-  jamfpro-cli completion bash > /etc/bash_completion.d/jamfpro-cli
+  jamf-cli completion bash > /etc/bash_completion.d/jamf-cli
   # macOS with Homebrew:
-  jamfpro-cli completion bash > $(brew --prefix)/etc/bash_completion.d/jamfpro-cli
+  jamf-cli completion bash > $(brew --prefix)/etc/bash_completion.d/jamf-cli
 `,
 		DisableFlagsInUseLine: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,10 +60,10 @@ func newCompletionZshCmd() *cobra.Command {
 		Long: `Generate zsh completion script.
 
 To load completions in your current shell session:
-  source <(jamfpro-cli completion zsh)
+  source <(jamf-cli completion zsh)
 
 To install permanently:
-  jamfpro-cli completion zsh > "${fpath[1]}/_jamfpro-cli"
+  jamf-cli completion zsh > "${fpath[1]}/_jamf-cli"
 
 You may need to start a new shell for completions to take effect.
 `,
@@ -81,10 +81,10 @@ func newCompletionFishCmd() *cobra.Command {
 		Long: `Generate fish completion script.
 
 To load completions in your current shell session:
-  jamfpro-cli completion fish | source
+  jamf-cli completion fish | source
 
 To install permanently:
-  jamfpro-cli completion fish > ~/.config/fish/completions/jamfpro-cli.fish
+  jamf-cli completion fish > ~/.config/fish/completions/jamf-cli.fish
 `,
 		DisableFlagsInUseLine: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,7 +100,7 @@ func newCompletionPowershellCmd() *cobra.Command {
 		Long: `Generate PowerShell completion script.
 
 To load completions in your current shell session:
-  jamfpro-cli completion powershell | Out-String | Invoke-Expression
+  jamf-cli completion powershell | Out-String | Invoke-Expression
 
 To install permanently, add the output to your PowerShell profile.
 `,
@@ -144,12 +144,12 @@ Supported shells: bash, zsh, fish
 					// Try Homebrew path first
 					brewPrefix, err := exec.Command("brew", "--prefix").Output()
 					if err == nil {
-						installPath = filepath.Join(strings.TrimSpace(string(brewPrefix)), "etc", "bash_completion.d", "jamfpro-cli")
+						installPath = filepath.Join(strings.TrimSpace(string(brewPrefix)), "etc", "bash_completion.d", "jamf-cli")
 					} else {
-						installPath = filepath.Join(os.Getenv("HOME"), ".bash_completion.d", "jamfpro-cli")
+						installPath = filepath.Join(os.Getenv("HOME"), ".bash_completion.d", "jamf-cli")
 					}
 				} else {
-					installPath = "/etc/bash_completion.d/jamfpro-cli"
+					installPath = "/etc/bash_completion.d/jamf-cli"
 				}
 
 			case "zsh":
@@ -165,13 +165,13 @@ Supported shells: bash, zsh, fish
 				}
 				for _, dir := range candidates {
 					if _, err := os.Stat(dir); err == nil {
-						installPath = filepath.Join(dir, "_jamfpro-cli")
+						installPath = filepath.Join(dir, "_jamf-cli")
 						break
 					}
 				}
 				if installPath == "" {
 					// Create default directory
-					installPath = filepath.Join(home, ".zsh", "completions", "_jamfpro-cli")
+					installPath = filepath.Join(home, ".zsh", "completions", "_jamf-cli")
 				}
 
 			case "fish":
@@ -182,7 +182,7 @@ Supported shells: bash, zsh, fish
 				if configDir == "" {
 					configDir = filepath.Join(os.Getenv("HOME"), ".config")
 				}
-				installPath = filepath.Join(configDir, "fish", "completions", "jamfpro-cli.fish")
+				installPath = filepath.Join(configDir, "fish", "completions", "jamf-cli.fish")
 
 			default:
 				return fmt.Errorf("shell %q not supported for auto-install; use 'completion [bash|zsh|fish]' directly", shell)

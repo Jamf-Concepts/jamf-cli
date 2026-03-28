@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Jamf-Concepts/jamfpro-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 // --- config show tests ---
@@ -72,7 +72,7 @@ func TestConfigPath_PrintsPath(t *testing.T) {
 	cmd.Run(cmd, nil)
 
 	out := strings.TrimSpace(buf.String())
-	want := filepath.Join(dir, "jamfpro-cli", "config.yaml")
+	want := filepath.Join(dir, "jamf-cli", "config.yaml")
 	if out != want {
 		t.Errorf("got %q, want %q", out, want)
 	}
@@ -400,7 +400,7 @@ func TestConfigList_WithStatus(t *testing.T) {
 
 func TestCleanupKeychainRefs_RemovesKeychainItems(t *testing.T) {
 	mock := newMockKeychainStore()
-	mock.items["jamfpro-cli/myprof/token"] = "secret-token"
+	mock.items["jamf-cli/myprof/token"] = "secret-token"
 
 	// Override the keychain.New() by testing cleanupKeychainRefs indirectly
 	// through remove-profile which calls it
@@ -555,7 +555,7 @@ func TestStoreOrRefSecret_BareValue(t *testing.T) {
 		t.Errorf("dest = %q, want keychain: prefix", dest)
 	}
 	// Verify the value is in the mock store
-	key := "jamfpro-cli/myprof/client-secret"
+	key := "jamf-cli/myprof/client-secret"
 	if v, ok := mock.items[key]; !ok || v != "bare-secret-value" {
 		t.Errorf("keychain[%q] = %q, want %q", key, v, "bare-secret-value")
 	}

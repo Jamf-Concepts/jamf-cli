@@ -1,5 +1,7 @@
 package classic
 
+import "slices"
+
 // ClassicResource represents a Classic API resource parsed from the YAML manifest.
 type ClassicResource struct {
 	Name        string // e.g., "policies"
@@ -14,22 +16,12 @@ type ClassicResource struct {
 
 // HasOperation returns true if the resource supports the given operation.
 func (r *ClassicResource) HasOperation(op string) bool {
-	for _, o := range r.Operations {
-		if o == op {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.Operations, op)
 }
 
 // HasLookup returns true if the resource supports the given lookup type.
 func (r *ClassicResource) HasLookup(lookup string) bool {
-	for _, l := range r.Lookups {
-		if l == lookup {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.Lookups, lookup)
 }
 
 // ExtraLookups returns lookups beyond "id" (e.g., name, serialnumber, macaddress, udid).
