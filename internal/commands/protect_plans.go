@@ -197,8 +197,8 @@ func newProtectPlansDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newProtectPlansConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		outPath string
-		sign    bool
+		outPath             string
+		sign                bool
 		noPPPC              bool
 		noToken             bool
 		noCA                bool

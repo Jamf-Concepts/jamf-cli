@@ -169,13 +169,13 @@ func newProtectDownloadsSummaryCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			summary := map[string]any{
-				"installerVersion": version,
-				"installerURL":    buildProtectPackageURL(baseURL, "installer.pkg", downloads.InstallerUUID),
-				"uninstallerURL":  buildProtectPackageURL(baseURL, "uninstaller.pkg", downloads.InstallerUUID),
-				"hasPPPC":         downloads.PPPC != "",
-				"hasRootCA":       downloads.RootCA != "",
-				"hasCSR":          downloads.CSR != "",
-				"hasWebsocketAuth":          downloads.WebsocketAuth != "",
+				"installerVersion":           version,
+				"installerURL":               buildProtectPackageURL(baseURL, "installer.pkg", downloads.InstallerUUID),
+				"uninstallerURL":             buildProtectPackageURL(baseURL, "uninstaller.pkg", downloads.InstallerUUID),
+				"hasPPPC":                    downloads.PPPC != "",
+				"hasRootCA":                  downloads.RootCA != "",
+				"hasCSR":                     downloads.CSR != "",
+				"hasWebsocketAuth":           downloads.WebsocketAuth != "",
 				"hasTamperPreventionProfile": downloads.TamperPreventionProfile != "",
 			}
 			data, _ := json.Marshal(summary)

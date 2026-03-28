@@ -397,4 +397,3 @@ func analyticToYAML(a jamfprotect.Analytic) analyticYAML {
 		Remediation:      a.Remediation,
 	}
 }
-

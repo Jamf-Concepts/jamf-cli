@@ -314,4 +314,3 @@ func ulfToYAML(f jamfprotect.UnifiedLoggingFilter) unifiedLoggingFilterYAML {
 		Enabled:     f.Enabled,
 	}
 }
-
