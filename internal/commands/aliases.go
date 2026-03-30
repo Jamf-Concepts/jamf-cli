@@ -36,3 +36,27 @@ func applyRootAliases(root *cobra.Command) {
 		}
 	}
 }
+
+// protectAliases maps Jamf Protect command names to their short aliases.
+var protectAliases = map[string][]string{
+	"removable-storage-control-sets": {"rscs"},
+	"unified-logging-filters":        {"ulf"},
+	"exception-sets":                 {"es"},
+	"analytic-sets":                  {"as"},
+	"action-configs":                 {"ac"},
+	"custom-prevent-lists":           {"cpl"},
+	"api-clients":                    {"apic"},
+	"config-freeze":                  {"cf"},
+	"computers":                      {"comp"},
+	"data-forwarding":                {"df"},
+	"data-retention":                 {"dr"},
+}
+
+// applyProtectAliases appends aliases to protect subcommands.
+func applyProtectAliases(parent *cobra.Command) {
+	for _, cmd := range parent.Commands() {
+		if aliases, ok := protectAliases[cmd.Name()]; ok {
+			cmd.Aliases = append(cmd.Aliases, aliases...)
+		}
+	}
+}
