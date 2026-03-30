@@ -514,6 +514,52 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 	}
 }
 
+func TestFlattenScope_PolicyUserGroupNoDuplicates(t *testing.T) {
+	// The Classic API mirrors policy user groups in both limit_to_users/user_groups
+	// and limitations/user_groups. flattenScope should emit only the limit_to_users
+	// copy to avoid duplicate rows.
+	scope := &scopeXML{
+		LimitToUsers: &limitToUsersXML{
+			UserGroups: scopeStringSlice{Items: []string{"Staff", "Faculty"}},
+		},
+		Limitations: &limitationsXML{
+			UserGroups: scopeItemSlice{Items: []namedItem{
+				{ID: 1, Name: "Staff"},
+				{ID: 2, Name: "Faculty"},
+			}},
+			NetworkSegments: scopeItemSlice{Items: []namedItem{{Name: "Corporate"}}},
+		},
+	}
+
+	rows := flattenScope(scope, "policy")
+
+	// Count user_group rows — should be exactly 2, not 4.
+	var ugCount int
+	for _, r := range rows {
+		if r["type"] == "user_group" {
+			ugCount++
+		}
+	}
+	if ugCount != 2 {
+		t.Errorf("got %d user_group rows, want 2 (no duplicates): %v", ugCount, rows)
+	}
+
+	expected := []struct{ section, typ, name string }{
+		{"limitation", "user_group", "Staff"},
+		{"limitation", "user_group", "Faculty"},
+		{"limitation", "network_segment", "Corporate"},
+	}
+	if len(rows) != len(expected) {
+		t.Fatalf("got %d rows, want %d: %v", len(rows), len(expected), rows)
+	}
+	for i, want := range expected {
+		got := rows[i]
+		if got["section"] != want.section || got["type"] != want.typ || got["name"] != want.name {
+			t.Errorf("row %d: got %v, want %s/%s/%s", i, got, want.section, want.typ, want.name)
+		}
+	}
+}
+
 func TestFlattenScope_EmptyScope(t *testing.T) {
 	scope := &scopeXML{}
 	if rows := flattenScope(scope, "policy"); len(rows) != 0 {

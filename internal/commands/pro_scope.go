@@ -778,7 +778,11 @@ func flattenScope(scope *scopeXML, singularKey string) []map[string]any {
 
 	if scope.Limitations != nil {
 		appendNamedRows(&rows, "limitation", "network_segment", scope.Limitations.NetworkSegments.Items)
-		appendNamedRows(&rows, "limitation", "user_group", scope.Limitations.UserGroups.Items)
+		// For policies, user groups are already emitted from limit_to_users above;
+		// limitations/user_groups is a server-side mirror, so skip it to avoid duplicates.
+		if singularKey != "policy" {
+			appendNamedRows(&rows, "limitation", "user_group", scope.Limitations.UserGroups.Items)
+		}
 		appendNamedRows(&rows, "limitation", "computer_group", scope.Limitations.ComputerGroups.Items)
 	}
 
