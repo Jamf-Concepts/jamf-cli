@@ -475,12 +475,24 @@ func addToScope(scope *scopeXML, singularKey, section, flagName, name string) bo
 
 // removeFromScope removes a named item from the given scope section. Returns
 // true if removed, false if not found (idempotent no-op).
+//
+// For the policy limitation user_group case, user groups can live in BOTH
+// limit_to_users/user_groups (plain strings) AND limitations/user_groups
+// (named items). Both locations are checked, matching the Classic API's
+// behavior and the Python JamfScopeAdjuster's fallthrough logic.
 func removeFromScope(scope *scopeXML, singularKey, section, flagName, name string) bool {
 	if isPolicyLimitUserGroup(singularKey, section, flagName) {
-		return removePolicyLimitUserGroup(scope, name)
+		a := removePolicyLimitUserGroup(scope, name)
+		b := removeNamedItem(readScopeItems(scope, section, flagName), name)
+		return a || b
 	}
 
-	items := readScopeItems(scope, section, flagName)
+	return removeNamedItem(readScopeItems(scope, section, flagName), name)
+}
+
+// removeNamedItem removes an item by name from a scopeItemSlice. Returns true
+// if found and removed.
+func removeNamedItem(items *scopeItemSlice, name string) bool {
 	if items == nil {
 		return false
 	}

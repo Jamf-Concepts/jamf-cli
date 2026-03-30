@@ -349,6 +349,56 @@ func TestRemoveFromScope_PolicyLimitUserGroup_NotFound(t *testing.T) {
 	}
 }
 
+func TestRemoveFromScope_PolicyLimitUserGroup_InLimitations(t *testing.T) {
+	// User group in limitations/user_groups (named items) but NOT in limit_to_users.
+	// The remove must still find and remove it — matching the Python script's
+	// fallthrough that checks both locations.
+	scope := &scopeXML{
+		LimitToUsers: &limitToUsersXML{
+			UserGroups: scopeStringSlice{Items: []string{}, elemName: "user_group"},
+		},
+		Limitations: &limitationsXML{
+			UserGroups: scopeItemSlice{
+				Items:    []namedItem{{ID: 5, Name: "Staff"}},
+				elemName: "user_group",
+			},
+		},
+	}
+
+	if !removeFromScope(scope, "policy", "limitation", "user-group", "Staff") {
+		t.Fatal("expected true — should find in limitations/user_groups")
+	}
+	if len(scope.Limitations.UserGroups.Items) != 0 {
+		t.Error("should have removed from limitations/user_groups")
+	}
+}
+
+func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
+	// User group appears in both limit_to_users AND limitations/user_groups.
+	// Both should be removed.
+	scope := &scopeXML{
+		LimitToUsers: &limitToUsersXML{
+			UserGroups: scopeStringSlice{Items: []string{"Staff"}, elemName: "user_group"},
+		},
+		Limitations: &limitationsXML{
+			UserGroups: scopeItemSlice{
+				Items:    []namedItem{{Name: "Staff"}},
+				elemName: "user_group",
+			},
+		},
+	}
+
+	if !removeFromScope(scope, "policy", "limitation", "user-group", "Staff") {
+		t.Fatal("expected true")
+	}
+	if len(scope.LimitToUsers.UserGroups.Items) != 0 {
+		t.Error("should have removed from limit_to_users")
+	}
+	if len(scope.Limitations.UserGroups.Items) != 0 {
+		t.Error("should have removed from limitations/user_groups")
+	}
+}
+
 // ─── validateScopeCombination ──────────────────────────────────────────────────
 
 func TestValidateScopeCombination_ValidTargets(t *testing.T) {
