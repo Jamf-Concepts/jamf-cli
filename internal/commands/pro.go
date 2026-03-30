@@ -25,6 +25,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newReportCmd(cliCtx))
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newGroupToolsCmd(cliCtx))
+	cmd.AddCommand(newProScopeCmd(cliCtx))
 
 	// Generated modern API commands
 	generated.RegisterCommands(cmd, cliCtx)

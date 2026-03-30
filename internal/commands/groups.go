@@ -90,6 +90,7 @@ var proGroupMap = map[string]string{
 	"report":      groupPower,
 	"diff":        groupPower,
 	"group-tools": groupPower,
+	"scope":       groupPower,
 
 	// Computer Management
 	"computers":                              groupComputers,
