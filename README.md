@@ -43,6 +43,12 @@ jamf-cli pro comp list --field name
 
 # Export inventory
 jamf-cli pro comp list -o csv --out-file inventory.csv
+
+# View policy scope
+jamf-cli pro scope get policy "Deploy Chrome" -o table
+
+# Add a computer group to a policy's scope
+jamf-cli pro scope add policy "Deploy Chrome" --computer-group "All Managed Clients"
 ```
 
 ### Jamf Protect
@@ -75,6 +81,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
+- **`scope`** — View, add to, and remove from scope on policies, config profiles, restricted software, and apps — no XML editing required
 
 ### Jamf Protect
 
