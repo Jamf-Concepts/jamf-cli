@@ -35,11 +35,25 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Replace broken generated upload with handwritten streaming upload
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
+	// Add upload subcommands to generated resources
+	addSubcommand(cmd, []string{"scripts"}, newScriptsUploadCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-macos-config-profiles"}, newMacOSProfileUploadCmd(cliCtx))
+	addSubcommand(cmd, []string{"classic-mobile-config-profiles"}, newMobileProfileUploadCmd(cliCtx))
+
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
 	applyProGroups(cmd)
 
 	return cmd
+}
+
+// addSubcommand finds a parent command by path and adds a child to it.
+func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Command) {
+	parent, _, err := root.Find(parentPath)
+	if err != nil {
+		return
+	}
+	parent.AddCommand(child)
 }
 
 // replaceSubcommand finds a parent command by path and replaces a named child.
