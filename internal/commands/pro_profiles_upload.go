@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -216,5 +217,6 @@ func cliNameForAPI(apiPath string) string {
 
 // isNotFound checks if an error indicates a 404 response.
 func isNotFound(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found (HTTP 404)")
+	var e *exitcode.Error
+	return errors.As(err, &e) && e.Code == exitcode.NotFound
 }
