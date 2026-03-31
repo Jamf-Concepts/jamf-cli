@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicAdvancedComputerSearchesCmd creates the classic-advanced-computer-searches command group
@@ -53,11 +54,22 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *registry.CLIContext) *cobra.
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"advancedcomputersearches": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["advancedcomputersearches"]; ok {
@@ -88,10 +100,15 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"advanced_computer_search": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicAdvancedComputerSearchesGetByNameCmd(ctx *registry.CLIContext) *c
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["advanced_computer_search"]; ok {
@@ -137,12 +159,9 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobr
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a advanced_computer_search",
-		Long:  "Create a new advanced_computer_search. Reads JSON body from stdin.",
-		Example: `  # Create a advanced_computer_search from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-advanced-computer-searches create
-
-  # Get a advanced_computer_search, modify, and create a copy
-  jamf-cli classic-advanced-computer-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-advanced-computer-searches create`,
+		Long:  "Create a new advanced_computer_search. Reads XML body from stdin.",
+		Example: `  # Create a advanced_computer_search from XML
+  cat advanced_computer_search.xml | jamf-cli classic-advanced-computer-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobr
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/advancedcomputersearches/id/0", body)
@@ -169,12 +188,9 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobr
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a advanced_computer_search",
-		Long:  "Update an existing advanced_computer_search by ID. Reads JSON body from stdin.",
-		Example: `  # Update a advanced_computer_search from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-advanced-computer-searches update 1
-
-  # Get, modify, and update a advanced_computer_search
-  jamf-cli classic-advanced-computer-searches get 1 -o json | jq '.name = "New"' | jamf-cli classic-advanced-computer-searches update 1`,
+		Long:  "Update an existing advanced_computer_search by ID. Reads XML body from stdin.",
+		Example: `  # Update a advanced_computer_search from XML
+  cat advanced_computer_search.xml | jamf-cli classic-advanced-computer-searches update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobr
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(args[0]))

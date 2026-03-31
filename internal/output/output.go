@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // ANSI color codes
@@ -231,8 +233,16 @@ func (f *Formatter) printTable(data any) error {
 	return nil
 }
 
-// PrintRaw outputs raw bytes (usually JSON from the API)
+// PrintRaw outputs raw bytes (usually JSON from the API).
+// XML responses (from Classic API) are converted to JSON before formatting.
 func (f *Formatter) PrintRaw(data []byte) error {
+	// Convert XML to JSON if needed (Classic API responses).
+	if xmlconv.IsXML(data) {
+		if converted, err := xmlconv.ToJSON(data); err == nil {
+			data = converted
+		}
+	}
+
 	if f.format == FormatJSON {
 		// Pretty-print JSON so compact API responses become readable
 		var buf bytes.Buffer

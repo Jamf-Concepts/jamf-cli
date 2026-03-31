@@ -585,7 +585,8 @@ func TestCLIOutputPrintRaw_NonJSON(t *testing.T) {
 	formatter := output.New("json", true, false)
 	o := &cliOutput{formatter}
 
-	err := o.PrintRaw([]byte(`<xml>not json</xml>`))
+	// Use plain text that is neither valid JSON nor valid XML.
+	err := o.PrintRaw([]byte(`this is plain text, not json or xml`))
 	if err == nil {
 		t.Fatal("expected error for non-JSON input")
 	}

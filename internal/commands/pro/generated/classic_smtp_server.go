@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicSmtpServerCmd creates the classic-smtp-server command group
@@ -47,10 +48,15 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"smtp_server": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -67,12 +73,9 @@ func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a smtp_server",
-		Long:  "Update an existing smtp_server by ID. Reads JSON body from stdin.",
-		Example: `  # Update a smtp_server from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-smtp-server update 1
-
-  # Get, modify, and update a smtp_server
-  jamf-cli classic-smtp-server get 1 -o json | jq '.name = "New"' | jamf-cli classic-smtp-server update 1`,
+		Long:  "Update an existing smtp_server by ID. Reads XML body from stdin.",
+		Example: `  # Update a smtp_server from XML
+  cat smtp_server.xml | jamf-cli classic-smtp-server update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -82,7 +85,7 @@ func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/smtpserver/id/%s", url.PathEscape(args[0]))

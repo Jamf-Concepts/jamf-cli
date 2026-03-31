@@ -19,6 +19,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
@@ -68,6 +69,13 @@ func (o *cliOutput) PrintResponse(resp *http.Response) error {
 }
 
 func (o *cliOutput) PrintRaw(data []byte) error {
+	// Convert XML to JSON if needed (Classic API responses).
+	if xmlconv.IsXML(data) {
+		if converted, err := xmlconv.ToJSON(data); err == nil {
+			data = converted
+		}
+	}
+
 	if fieldName == "" {
 		return o.Formatter.PrintRaw(data)
 	}

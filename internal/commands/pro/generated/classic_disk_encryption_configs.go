@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicDiskEncryptionConfigsCmd creates the classic-disk-encryption-configs command group
@@ -53,11 +54,22 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"diskencryptionconfigurations": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["diskencryptionconfigurations"]; ok {
@@ -88,10 +100,15 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"disk_encryption_configuration": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicDiskEncryptionConfigsGetByNameCmd(ctx *registry.CLIContext) *cobr
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["disk_encryption_configuration"]; ok {
@@ -137,12 +159,9 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a disk_encryption_configuration",
-		Long:  "Create a new disk_encryption_configuration. Reads JSON body from stdin.",
-		Example: `  # Create a disk_encryption_configuration from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-disk-encryption-configs create
-
-  # Get a disk_encryption_configuration, modify, and create a copy
-  jamf-cli classic-disk-encryption-configs get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-disk-encryption-configs create`,
+		Long:  "Create a new disk_encryption_configuration. Reads XML body from stdin.",
+		Example: `  # Create a disk_encryption_configuration from XML
+  cat disk_encryption_configuration.xml | jamf-cli classic-disk-encryption-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/diskencryptionconfigurations/id/0", body)
@@ -169,12 +188,9 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a disk_encryption_configuration",
-		Long:  "Update an existing disk_encryption_configuration by ID. Reads JSON body from stdin.",
-		Example: `  # Update a disk_encryption_configuration from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-disk-encryption-configs update 1
-
-  # Get, modify, and update a disk_encryption_configuration
-  jamf-cli classic-disk-encryption-configs get 1 -o json | jq '.name = "New"' | jamf-cli classic-disk-encryption-configs update 1`,
+		Long:  "Update an existing disk_encryption_configuration by ID. Reads XML body from stdin.",
+		Example: `  # Update a disk_encryption_configuration from XML
+  cat disk_encryption_configuration.xml | jamf-cli classic-disk-encryption-configs update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.C
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/diskencryptionconfigurations/id/%s", url.PathEscape(args[0]))

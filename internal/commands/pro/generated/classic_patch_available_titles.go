@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicPatchAvailableTitlesCmd creates the classic-patch-available-titles command group
@@ -44,11 +45,22 @@ func newClassicPatchAvailableTitlesListCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"patchavailabletitles": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["patchavailabletitles"]; ok {
@@ -79,10 +91,15 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"patch_available_title": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
