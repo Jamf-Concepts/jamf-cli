@@ -100,8 +100,9 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
 
+	parts := strings.Split(fieldName, ".")
 	for _, obj := range objects {
-		val, ok := obj[fieldName]
+		val, ok := walkFieldPath(obj, parts)
 		if !ok {
 			continue
 		}
@@ -110,6 +111,23 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// walkFieldPath traverses a dot-separated path through nested maps.
+// "general.id" on {"general": {"id": 42}} returns (42, true).
+func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
+	current := any(obj)
+	for _, part := range parts {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
 }
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
