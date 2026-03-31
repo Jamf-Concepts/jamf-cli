@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
@@ -33,6 +34,11 @@ func NewClassicPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPoliciesUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicPoliciesDeleteCmd(ctx))
+
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "policies",
+		SingularKey: "policy",
+	}))
 
 	return cmd
 }

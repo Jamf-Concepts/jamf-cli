@@ -24,6 +24,7 @@ type manifestResource struct {
 	Description string   `yaml:"description"`
 	Operations  []string `yaml:"operations"`
 	Lookups     []string `yaml:"lookups"`
+	Scope       bool     `yaml:"scope"`
 }
 
 // ParseManifest reads the Classic API YAML manifest and returns a sorted
@@ -100,5 +101,6 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		Description: entry.Description,
 		Operations:  operations,
 		Lookups:     lookups,
+		HasScope:    entry.Scope,
 	}, nil
 }

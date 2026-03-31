@@ -134,6 +134,9 @@ func templateFuncs() template.FuncMap {
 		"needsXMLConv": func(r ClassicResource) bool {
 			return r.HasOperation("list") || r.HasOperation("get") || len(r.ExtraLookups()) > 0
 		},
+		"needsScope": func(r ClassicResource) bool {
+			return r.HasScope
+		},
 	}
 }
 
@@ -183,6 +186,9 @@ import (
 {{- if needsXMLConv . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
+{{- if needsScope . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
+{{- end }}
 )
 
 // New{{ .GoName }}Cmd creates the {{ .CLIName }} command group
@@ -209,6 +215,12 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{ if hasOp .Operations "delete" }}
 	cmd.AddCommand(new{{ .GoName }}DeleteCmd(ctx))
+{{- end }}
+{{ if needsScope . }}
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "{{ .Path }}",
+		SingularKey: "{{ .Singular }}",
+	}))
 {{- end }}
 
 	return cmd

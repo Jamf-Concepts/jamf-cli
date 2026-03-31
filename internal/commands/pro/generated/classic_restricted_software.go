@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
@@ -33,6 +34,11 @@ func NewClassicRestrictedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicRestrictedSoftwareUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicRestrictedSoftwareDeleteCmd(ctx))
+
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "restrictedsoftware",
+		SingularKey: "restricted_software",
+	}))
 
 	return cmd
 }

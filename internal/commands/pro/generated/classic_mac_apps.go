@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
@@ -33,6 +34,11 @@ func NewClassicMacAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicMacAppsUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicMacAppsDeleteCmd(ctx))
+
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "macapplications",
+		SingularKey: "mac_application",
+	}))
 
 	return cmd
 }

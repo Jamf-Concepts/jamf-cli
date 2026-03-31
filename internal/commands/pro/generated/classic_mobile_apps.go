@@ -16,45 +16,45 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
-// NewClassicMacosConfigProfilesCmd creates the classic-macos-config-profiles command group
-func NewClassicMacosConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicMobileAppsCmd creates the classic-mobile-apps command group
+func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-macos-config-profiles",
-		Short: "macOS configuration profiles (Classic API)",
-		Long:  `Manage macos configuration profiles via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-mobile-apps",
+		Short: "Mobile device applications (Classic API)",
+		Long:  `Manage mobile device applications via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicMacosConfigProfilesListCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsListCmd(ctx))
 
-	cmd.AddCommand(newClassicMacosConfigProfilesGetCmd(ctx))
-	cmd.AddCommand(newClassicMacosConfigProfilesGetByNameCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsGetCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsGetByNameCmd(ctx))
 
-	cmd.AddCommand(newClassicMacosConfigProfilesCreateCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsCreateCmd(ctx))
 
-	cmd.AddCommand(newClassicMacosConfigProfilesUpdateCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsUpdateCmd(ctx))
 
-	cmd.AddCommand(newClassicMacosConfigProfilesDeleteCmd(ctx))
+	cmd.AddCommand(newClassicMobileAppsDeleteCmd(ctx))
 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:     "osxconfigurationprofiles",
-		SingularKey: "os_x_configuration_profile",
+		APIPath:     "mobiledeviceapplications",
+		SingularKey: "mobile_device_application",
 	}))
 
 	return cmd
 }
 
-func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List all osxconfigurationprofiles",
-		Example: `  # List all osxconfigurationprofiles
-  jamf-cli classic-macos-config-profiles list
+		Short: "List all mobiledeviceapplications",
+		Example: `  # List all mobiledeviceapplications
+  jamf-cli classic-mobile-apps list
 
-  # List osxconfigurationprofiles and extract IDs
-  jamf-cli classic-macos-config-profiles list --field id`,
+  # List mobiledeviceapplications and extract IDs
+  jamf-cli classic-mobile-apps list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
+			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceapplications", nil)
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["osxconfigurationprofiles"]; ok {
+				if inner, ok := wrapper["mobiledeviceapplications"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -87,19 +87,19 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 }
 
-func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a os_x_configuration_profile by ID",
-		Example: `  # Get a os_x_configuration_profile by ID
-  jamf-cli classic-macos-config-profiles get 1
+		Short: "Get a mobile_device_application by ID",
+		Example: `  # Get a mobile_device_application by ID
+  jamf-cli classic-mobile-apps get 1
 
-  # Get a os_x_configuration_profile and output as YAML
-  jamf-cli classic-macos-config-profiles get 1 -o yaml`,
+  # Get a mobile_device_application and output as YAML
+  jamf-cli classic-mobile-apps get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -118,7 +118,7 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["os_x_configuration_profile"]; ok {
+				if inner, ok := wrapper["mobile_device_application"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -127,14 +127,14 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 }
 
-func newClassicMacosConfigProfilesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a os_x_configuration_profile by name",
+		Short: "Get a mobile_device_application by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/name/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/name/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -152,7 +152,7 @@ func newClassicMacosConfigProfilesGetByNameCmd(ctx *registry.CLIContext) *cobra.
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["os_x_configuration_profile"]; ok {
+				if inner, ok := wrapper["mobile_device_application"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -161,13 +161,13 @@ func newClassicMacosConfigProfilesGetByNameCmd(ctx *registry.CLIContext) *cobra.
 	}
 }
 
-func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
-		Short: "Create a os_x_configuration_profile",
-		Long:  "Create a new os_x_configuration_profile. Reads XML body from stdin.",
-		Example: `  # Create a os_x_configuration_profile from XML
-  cat os_x_configuration_profile.xml | jamf-cli classic-macos-config-profiles create`,
+		Short: "Create a mobile_device_application",
+		Long:  "Create a new mobile_device_application. Reads XML body from stdin.",
+		Example: `  # Create a mobile_device_application from XML
+  cat mobile_device_application.xml | jamf-cli classic-mobile-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,7 +179,7 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceapplications/id/0", body)
 			if err != nil {
 				return err
 			}
@@ -190,13 +190,13 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 }
 
-func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a os_x_configuration_profile",
-		Long:  "Update an existing os_x_configuration_profile by ID. Reads XML body from stdin.",
-		Example: `  # Update a os_x_configuration_profile from XML
-  cat os_x_configuration_profile.xml | jamf-cli classic-macos-config-profiles update 1`,
+		Short: "Update a mobile_device_application",
+		Long:  "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
+		Example: `  # Update a mobile_device_application from XML
+  cat mobile_device_application.xml | jamf-cli classic-mobile-apps update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -209,7 +209,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -221,7 +221,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 }
 
-func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -229,18 +229,18 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a os_x_configuration_profile",
-		Example: `  # Delete a os_x_configuration_profile (with confirmation)
-  jamf-cli classic-macos-config-profiles delete 1
+		Short: "Delete a mobile_device_application",
+		Example: `  # Delete a mobile_device_application (with confirmation)
+  jamf-cli classic-mobile-apps delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-macos-config-profiles delete 1 --yes`,
+  jamf-cli classic-mobile-apps delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete os_x_configuration_profile %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete mobile_device_application %s\n", args[0])
 				return nil
 			}
 			if !flagYes {
@@ -248,7 +248,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete os_x_configuration_profile %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete mobile_device_application %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -256,7 +256,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

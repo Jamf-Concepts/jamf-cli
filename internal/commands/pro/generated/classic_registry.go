@@ -30,6 +30,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicLicensedSoftwareCmd(ctx))
 	root.AddCommand(NewClassicMacAppsCmd(ctx))
 	root.AddCommand(NewClassicMacosConfigProfilesCmd(ctx))
+	root.AddCommand(NewClassicMobileAppsCmd(ctx))
 	root.AddCommand(NewClassicMobileCommandsCmd(ctx))
 	root.AddCommand(NewClassicMobileConfigProfilesCmd(ctx))
 	root.AddCommand(NewClassicMobileHistoryCmd(ctx))
