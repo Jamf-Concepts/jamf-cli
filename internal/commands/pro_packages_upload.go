@@ -87,6 +87,7 @@ them to the package metadata after upload.`,
 				return err
 			}
 
+			var previousHash string // non-empty when replacing an existing package
 			if pkgID != "" {
 				if !flagYes {
 					noInput, _ := cmd.Flags().GetBool("no-input")
@@ -100,6 +101,13 @@ them to the package metadata after upload.`,
 						return fmt.Errorf("aborted")
 					}
 				}
+
+				// Record the existing hash so verification can distinguish
+				// a stale old hash from a genuine mismatch after upload.
+				if data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))); err == nil {
+					previousHash, _ = data["hashValue"].(string)
+				}
+
 				fmt.Fprintf(os.Stderr, "Updating existing package (id %s)\n", pkgID)
 			} else {
 				// 4. Create package metadata
@@ -118,15 +126,11 @@ them to the package metadata after upload.`,
 			}
 			fmt.Fprintf(os.Stderr, "Upload complete\n")
 
-			// 6. Update metadata with hashes
-			fmt.Fprintf(os.Stderr, "Updating package hashes...\n")
-			if err := updatePackageHashes(ctx, client, pkgID, hashes); err != nil {
-				return fmt.Errorf("updating hashes: %w", err)
-			}
-
-			// 7. Verify upload — poll until server hash matches
+			// 6. Verify upload — poll until server-computed hash matches local hash.
+			// Don't PUT hash metadata first — let the server compute from the
+			// uploaded JCDS file independently so we get a true integrity check.
 			fmt.Fprintf(os.Stderr, "Verifying upload...\n")
-			if err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes.sha3); err != nil {
+			if err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes.sha3, previousHash); err != nil {
 				if strings.Contains(err.Error(), "hash mismatch") {
 					return fmt.Errorf("upload verification failed: %w", err)
 				}
@@ -135,6 +139,13 @@ them to the package metadata after upload.`,
 				fmt.Fprintf(os.Stderr, "The file was uploaded and hashes were set. The server may still be processing.\n")
 			} else {
 				fmt.Fprintf(os.Stderr, "Verified: server hash matches local hash\n")
+			}
+
+			// 7. Update metadata with supplementary hashes (sha256, md5)
+			// that the server doesn't compute itself.
+			fmt.Fprintf(os.Stderr, "Updating package hashes...\n")
+			if err := updatePackageHashes(ctx, client, pkgID, hashes); err != nil {
+				return fmt.Errorf("updating hashes: %w", err)
 			}
 
 			// 8. Print result
@@ -338,14 +349,17 @@ func updatePackageHashes(ctx context.Context, client registry.HTTPClient, pkgID 
 // verifyPackageUpload polls the package until the server's computed hash matches
 // the expected value. On each iteration it nudges the JCDS inventory refresh
 // (errors ignored — transient 500s and concurrency failures are expected).
-// Returns nil on match, or an error if the hash mismatches or times out.
-func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3 string) error {
+// previousHash is the hash that was on the package record before upload (empty for
+// new packages). When the server still returns this value, polling continues because
+// the server hasn't recomputed from the new file yet. A different non-matching
+// SHA3_512 hash indicates genuine corruption and fails immediately.
+func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3, previousHash string) error {
 	const (
 		verifyTimeout  = 10 * time.Minute
 		verifyInterval = 10 * time.Second
 	)
 
-	refreshPath := fmt.Sprintf("/v1/cloudDistributionPoint/refresh-inventory?file-name=%s", url.QueryEscape(fileName))
+	refreshPath := fmt.Sprintf("/v1/cloud-distribution-point/refresh-inventory?file-name=%s", url.QueryEscape(fileName))
 	pkgPath := fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))
 
 	deadline := time.Now().Add(verifyTimeout)
@@ -380,11 +394,22 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 			return nil
 		}
 
-		// Server computed a hash but it doesn't match — corrupted upload
-		return fmt.Errorf("hash mismatch: server=%s local=%s", hashValue, expectedSHA3)
+		if hashType == "SHA3_512" && hashValue == previousHash {
+			// Server still has the old file's hash — hasn't recomputed yet
+			fmt.Fprintf(os.Stderr, "  waiting for server to recompute hash...\n")
+			continue
+		}
+
+		if hashType == "SHA3_512" {
+			// Server computed a new SHA3_512 hash that doesn't match — corrupted upload
+			return fmt.Errorf("hash mismatch: server=%s local=%s", hashValue, expectedSHA3)
+		}
+
+		// Hash type hasn't been updated to SHA3_512 yet — keep polling
+		fmt.Fprintf(os.Stderr, "  waiting for hash type update (current: %s)...\n", hashType)
 	}
 
-	return fmt.Errorf("timed out after %v waiting for server to confirm hash", verifyTimeout)
+	return fmt.Errorf("timed out after %v waiting for server hash to match (check package integrity)", verifyTimeout)
 }
 
 // humanSize formats a byte count as a human-readable string.
