@@ -433,7 +433,9 @@ analytics, threat prevention, and configuration).`,
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
 			}
-			var httpClient registry.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			cliCtx.Uploader = proClient // set before wrapping with decorators
+			var httpClient registry.HTTPClient = proClient
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}

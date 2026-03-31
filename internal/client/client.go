@@ -143,6 +143,60 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return resp, nil
 }
 
+// Upload executes a streaming HTTP request with a caller-specified Content-Type
+// and Content-Length. Unlike Do, it does not buffer the body (supporting multi-GB
+// files) and does not retry (the body stream cannot be replayed).
+func (c *Client) Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error) {
+	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
+		path = "/api" + path
+	}
+	if c.tenantID != "" {
+		path = rewritePathForGateway(path, c.tenantID)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("creating upload request: %w", err)
+	}
+
+	token, err := c.auth.GetToken(ctx)
+	if err != nil {
+		return nil, exitcode.Wrap(exitcode.Authentication, fmt.Errorf("getting auth token: %w", err))
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept", "application/json")
+	req.ContentLength = contentLength
+
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", req.URL, contentLength)
+	}
+
+	// Use a dedicated client with no timeout for uploads. The standard client's
+	// 30-second timeout covers the entire request lifecycle including body transfer,
+	// which is too short for multi-GB packages. Context cancellation provides the
+	// safety net instead.
+	uploadClient := &http.Client{Timeout: 0}
+	resp, err := uploadClient.Do(req)
+	if err != nil {
+		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
+	}
+
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+	}
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		_ = resp.Body.Close()
+		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, string(respBody)))
+	}
+
+	return resp, nil
+}
+
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, error) {
 	maxRetries := 3
 	baseDelay := time.Second

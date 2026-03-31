@@ -32,9 +32,27 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Generated Classic API commands
 	generated.RegisterClassicCommands(cmd, cliCtx)
 
+	// Replace broken generated upload with handwritten streaming upload
+	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
+
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
 	applyProGroups(cmd)
 
 	return cmd
+}
+
+// replaceSubcommand finds a parent command by path and replaces a named child.
+func replaceSubcommand(root *cobra.Command, parentPath []string, childName string, replacement *cobra.Command) {
+	parent, _, err := root.Find(parentPath)
+	if err != nil {
+		return
+	}
+	for _, child := range parent.Commands() {
+		if child.Name() == childName {
+			parent.RemoveCommand(child)
+			break
+		}
+	}
+	parent.AddCommand(replacement)
 }

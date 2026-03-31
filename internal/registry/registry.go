@@ -15,6 +15,11 @@ type HTTPClient interface {
 	Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error)
 }
 
+// FileUploader interface for streaming file uploads with custom Content-Type.
+type FileUploader interface {
+	Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error)
+}
+
 // OutputFormatter interface for formatting output.
 type OutputFormatter interface {
 	PrintResponse(resp *http.Response) error
@@ -141,4 +146,5 @@ type CLIContext struct {
 	Client        HTTPClient
 	Output        OutputFormatter
 	ProtectClient ProtectClient
+	Uploader      FileUploader // non-nil for Pro commands; supports streaming uploads
 }
