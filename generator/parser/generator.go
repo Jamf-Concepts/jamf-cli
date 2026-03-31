@@ -127,6 +127,17 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return path
 		},
+		"pathParamName": func(op *Operation) string {
+			// Extract the path parameter name from the URL path itself,
+			// so it works even when the param is defined at the path level
+			// in the OpenAPI spec rather than on the individual operation.
+			start := strings.LastIndex(op.Path, "{")
+			end := strings.LastIndex(op.Path, "}")
+			if start != -1 && end > start {
+				return op.Path[start : end+1]
+			}
+			return "{id}"
+		},
 	}).Parse(resourceTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -719,7 +730,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("{{ .Path }}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

@@ -122,7 +122,7 @@ func newDeviceComplianceInformationsGetByNameCmd(ctx *registry.CLIContext) *cobr
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/conditional-access/device-compliance-information/computer/{deviceId}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v1/conditional-access/device-compliance-information/computer/{deviceId}", "{deviceId}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

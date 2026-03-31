@@ -383,7 +383,7 @@ func newEnrollmentLanguagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{languageId}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

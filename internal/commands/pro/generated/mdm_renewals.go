@@ -213,7 +213,7 @@ func newMdmRenewalsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/mdm-renewal/device-common-details/{clientManagementId}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v1/mdm-renewal/device-common-details/{clientManagementId}", "{clientManagementId}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

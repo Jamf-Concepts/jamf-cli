@@ -224,7 +224,7 @@ func newLocalAdminPasswordV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Comma
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v2/local-admin-password/{clientManagementId}/account/{username}/audit", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/local-admin-password/{clientManagementId}/account/{username}/audit", "{username}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
