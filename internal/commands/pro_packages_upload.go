@@ -79,6 +79,7 @@ them to the package metadata after upload.`,
 			}
 			fmt.Fprintf(os.Stderr, "  SHA3-512: %s...\n", hashes.sha3[:16])
 			fmt.Fprintf(os.Stderr, "  SHA-256:  %s...\n", hashes.sha256[:16])
+			fmt.Fprintf(os.Stderr, "  MD5:      %s...\n", hashes.md5[:16])
 
 			// 3. Check for existing package
 			fmt.Fprintf(os.Stderr, "Checking for existing package...\n")
@@ -144,7 +145,7 @@ them to the package metadata after upload.`,
 			// 7. Update metadata with supplementary hashes (sha256, md5)
 			// that the server doesn't compute itself.
 			fmt.Fprintf(os.Stderr, "Updating package hashes...\n")
-			if err := updatePackageHashes(ctx, client, pkgID, hashes); err != nil {
+			if err := updatePackageHashes(ctx, client, pkgID, hashes, fileSize); err != nil {
 				return fmt.Errorf("updating hashes: %w", err)
 			}
 
@@ -317,20 +318,21 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 	return nil
 }
 
-// updatePackageHashes sets the hash fields on an existing package record.
-func updatePackageHashes(ctx context.Context, client registry.HTTPClient, pkgID string, h fileHashes) error {
+// updatePackageHashes sets the hash and size fields on an existing package record.
+func updatePackageHashes(ctx context.Context, client registry.HTTPClient, pkgID string, h fileHashes, size int64) error {
 	// Fetch current package to preserve existing fields
 	data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
 	if err != nil {
 		return fmt.Errorf("fetching package for hash update: %w", err)
 	}
 
-	// Update hash fields
+	// Update hash and size fields
 	data["hashType"] = "SHA3_512"
 	data["hashValue"] = h.sha3
 	data["sha3512"] = h.sha3
 	data["sha256"] = h.sha256
 	data["md5"] = h.md5
+	data["size"] = fmt.Sprintf("%d", size)
 
 	body, err := json.Marshal(data)
 	if err != nil {
