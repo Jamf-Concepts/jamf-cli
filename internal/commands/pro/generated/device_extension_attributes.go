@@ -30,6 +30,7 @@ func NewDeviceExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceExtensionAttributesHistoryCmd(ctx))
 	cmd.AddCommand(newDeviceExtensionAttributesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx))
+	cmd.AddCommand(newDeviceExtensionAttributesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -174,6 +175,9 @@ func newDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Long:  "Gets specified Mobile Device Extension Attribute object.",
 		Example: `  # Get a device-extension-attribute by ID
   jamf-cli device-extension-attributes get 1
+
+  # Get a device-extension-attribute by name
+  jamf-cli device-extension-attributes get-by-name "Example"
 
   # Get a device-extension-attribute and output as YAML
   jamf-cli device-extension-attributes get 1 -o yaml`,
@@ -540,4 +544,31 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 	}
 
 	return cmd
+}
+
+func newDeviceExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a device-extension-attribute by name",
+		Example: `  # Get a device-extension-attribute by name
+  jamf-cli device-extension-attributes get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli device-extension-attributes get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/mobile-device-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

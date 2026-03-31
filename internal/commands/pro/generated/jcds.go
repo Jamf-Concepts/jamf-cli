@@ -28,6 +28,7 @@ func NewJcdsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newJcdsFilesCmd(ctx))
 	cmd.AddCommand(newJcdsRefreshInventoryCmd(ctx))
 	cmd.AddCommand(newJcdsRenewCredentialsCmd(ctx))
+	cmd.AddCommand(newJcdsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -79,6 +80,9 @@ func newJcdsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.",
 		Example: `  # Get a jcd by ID
   jamf-cli jcds get 1
+
+  # Get a jcd by name
+  jamf-cli jcds get-by-name "Example"
 
   # Get a jcd and output as YAML
   jamf-cli jcds get 1 -o yaml`,
@@ -301,4 +305,31 @@ func newJcdsRenewCredentialsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newJcdsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a jcd by name",
+		Example: `  # Get a jcd by name
+  jamf-cli jcds get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli jcds get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jcds/files", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/jcds/files/{fileName}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

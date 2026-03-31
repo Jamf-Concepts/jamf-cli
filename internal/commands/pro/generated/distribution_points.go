@@ -32,6 +32,7 @@ func NewDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDistributionPointsHistoryCmd(ctx))
 	cmd.AddCommand(newDistributionPointsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newDistributionPointsPatchCmd(ctx))
+	cmd.AddCommand(newDistributionPointsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -176,6 +177,9 @@ func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get specified distribution point",
 		Example: `  # Get a distribution-point by ID
   jamf-cli distribution-points get 1
+
+  # Get a distribution-point by name
+  jamf-cli distribution-points get-by-name "Example"
 
   # Get a distribution-point and output as YAML
   jamf-cli distribution-points get 1 -o yaml`,
@@ -775,4 +779,31 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newDistributionPointsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a distribution-point by name",
+		Example: `  # Get a distribution-point by name
+  jamf-cli distribution-points get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli distribution-points get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/distribution-points/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

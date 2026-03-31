@@ -23,6 +23,7 @@ func NewEbooksCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newEbooksListCmd(ctx))
 	cmd.AddCommand(newEbooksGetCmd(ctx))
+	cmd.AddCommand(newEbooksGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -163,6 +164,9 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a ebook by ID
   jamf-cli ebooks get 1
 
+  # Get a ebook by name
+  jamf-cli ebooks get-by-name "Example"
+
   # Get a ebook and output as YAML
   jamf-cli ebooks get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -191,4 +195,31 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newEbooksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a ebook by name",
+		Example: `  # Get a ebook by name
+  jamf-cli ebooks get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli ebooks get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/ebooks", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/ebooks/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

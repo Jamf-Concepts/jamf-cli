@@ -34,6 +34,7 @@ func NewPackagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPackagesExportCmd(ctx))
 	cmd.AddCommand(newPackagesHistoryExportCmd(ctx))
 	cmd.AddCommand(newPackagesUploadCmd(ctx))
+	cmd.AddCommand(newPackagesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -178,6 +179,9 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified Package object",
 		Example: `  # Get a package by ID
   jamf-cli packages get 1
+
+  # Get a package by name
+  jamf-cli packages get-by-name "Example"
 
   # Get a package and output as YAML
   jamf-cli packages get 1 -o yaml`,
@@ -953,4 +957,31 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newPackagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a package by name",
+		Example: `  # Get a package by name
+  jamf-cli packages get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli packages get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/packages/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

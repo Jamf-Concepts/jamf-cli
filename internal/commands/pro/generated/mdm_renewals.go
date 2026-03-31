@@ -25,6 +25,7 @@ func NewMdmRenewalsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMdmRenewalsGetCmd(ctx))
 	cmd.AddCommand(newMdmRenewalsDeleteCmd(ctx))
 	cmd.AddCommand(newMdmRenewalsPatchCmd(ctx))
+	cmd.AddCommand(newMdmRenewalsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -38,6 +39,9 @@ func newMdmRenewalsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves device common details associated with a specific client management ID",
 		Example: `  # Get a mdm-renewal by ID
   jamf-cli mdm-renewals get 1
+
+  # Get a mdm-renewal by name
+  jamf-cli mdm-renewals get-by-name "Example"
 
   # Get a mdm-renewal and output as YAML
   jamf-cli mdm-renewals get 1 -o yaml`,
@@ -191,4 +195,31 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newMdmRenewalsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mdm-renewal by name",
+		Example: `  # Get a mdm-renewal by name
+  jamf-cli mdm-renewals get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mdm-renewals get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/mdm-renewal/device-common-details/{clientManagementId}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

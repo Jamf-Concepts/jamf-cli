@@ -31,6 +31,7 @@ func NewDeviceEnrollmentInstancesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesUploadTokenCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDisownCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstancesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -170,6 +171,9 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Long:  "Retrieves a Device Enrollment Instance with the supplied id",
 		Example: `  # Get a device-enrollment-instance by ID
   jamf-cli device-enrollment-instances get 1
+
+  # Get a device-enrollment-instance by name
+  jamf-cli device-enrollment-instances get-by-name "Example"
 
   # Get a device-enrollment-instance and output as YAML
   jamf-cli device-enrollment-instances get 1 -o yaml`,
@@ -616,4 +620,31 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newDeviceEnrollmentInstancesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a device-enrollment-instance by name",
+		Example: `  # Get a device-enrollment-instance by name
+  jamf-cli device-enrollment-instances get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli device-enrollment-instances get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }
