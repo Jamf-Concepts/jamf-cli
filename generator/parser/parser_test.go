@@ -395,3 +395,61 @@ components:
 		t.Error("count property should be nullable")
 	}
 }
+
+func TestDetectNameField(t *testing.T) {
+	tests := []struct {
+		name    string
+		schemas map[string]*Schema
+		want    string
+	}{
+		{
+			name:    "empty schemas",
+			schemas: map[string]*Schema{},
+			want:    "name",
+		},
+		{
+			name: "name only",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"name": {}}},
+			},
+			want: "name",
+		},
+		{
+			name: "displayName only",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"displayName": {}}},
+			},
+			want: "displayName",
+		},
+		{
+			name: "mixed schemas - displayName wins",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"displayName": {}}},
+				"Bar": {Properties: map[string]*Property{"name": {}}},
+			},
+			want: "displayName",
+		},
+		{
+			name: "both in same schema - displayName wins",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"name": {}, "displayName": {}}},
+			},
+			want: "displayName",
+		},
+		{
+			name: "no name fields at all",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"id": {}, "description": {}}},
+			},
+			want: "name",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectNameField(tt.schemas)
+			if got != tt.want {
+				t.Errorf("detectNameField() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

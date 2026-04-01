@@ -414,7 +414,7 @@ func newStaticComputerGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", args[0])
 			if err != nil {
 				return err
 			}

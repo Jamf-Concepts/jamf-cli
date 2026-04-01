@@ -392,7 +392,7 @@ func newSelfServiceBrandingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", "name", args[0])
 			if err != nil {
 				return err
 			}

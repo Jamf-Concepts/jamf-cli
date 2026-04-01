@@ -89,7 +89,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Read API Integrations
     put:
@@ -124,13 +124,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified api integration object does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Update API Integrations
     delete:
@@ -154,7 +154,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Delete API Integrations
   /v1/api-integrations/{id}/client-credentials:
@@ -183,48 +183,16 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified api integration object does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
           - Create API Integrations
       x-action: true
-  /v1/oauth/token:
-    post:
-      x-action: true
-      x-authentication-required: false
-      tags:
-        - api-authentication
-      summary: Obtain an access token using an API Client
-      operationId: postOAuthToken
-      description: Obtain an access token using the OAuth2 client credentials flow
-      requestBody:
-        description: Client credential token request
-        required: true
-        content:
-          'application/x-www-form-urlencoded':
-            schema:
-              $ref: '#/components/schemas/OAuthTokenRequest'
-      responses:
-        200:
-          description: OAuth2 token obtained successfully
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/OAuthTokenResponse'
-        400:
-          description: |
-            Bad request. These differ from standard Jamf Pro API error response for better compatability
-            with a wide variety of standard clients. See https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
-            for additional details.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/OAuthTokenEndpointErrorResponse'
 components:
   schemas:
     ApiIntegrationResponse:
@@ -322,71 +290,4 @@ components:
                 minItems: 0
                 items:
                     $ref: '#/components/schemas/ApiIntegrationResponse'
-    OAuthTokenRequest:
-      type: object
-      properties:
-        grant_type:
-          type: string
-          description: OAuth2 grant type. For Jamf Pro API Clients, use `client_credentials`
-          example: client_credentials
-        client_id:
-          type: string
-          description: Client ID from your API Client
-          example: 1979ca82-1337-c0de-1012-82a008a3bf70
-        client_secret:
-          type: string
-          format: password
-          writeOnly: true
-          description: Client secret from your API Client
-          example: -j1o7Ery2fQG9IrBsUoTjN-AdcgFvj9zgXpSN_JdNjR6jYzTrU-K1ngshmzo3RuG
-        scope:
-          type: string
-          description: |
-            Optional. Provide a space-delimited list of roles that are within the configuration for 
-            this API Client. Omitting this field will grant an access token that includes all of this client's 
-            allowed roles. Specifying a subset of them will limit the privileges for this access token to
-            that subset of roles. Specifying a role that is not assigned to this client will result in 
-            an `invalid_scope` error. The format matches what is returned from the OAuth token
-            endpoint response's `scope` field.
-          example: api-role:1 api-role:2
-      required:
-        - grant_type
-        - client_id
-        - client_secret
-    OAuthTokenResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiJ9.RXJpayBTYXRpZSBzYWlkIHlvdSBoYWQgdG8gcGxhbiBWZXhhdGlvbnMgODQwIHRpbWVzIGluIGEgcm93Li4uZG8geW91IHRoaW5rIGhlIHJlYWxseSBtZWFudCBpdD8.bGlF3raOEwNgcbV52yVJClNixVlwrJy2RECVFrH_GQg
-        token_type:
-          type: string
-          example: Bearer
-        scope:
-          type: string
-          description: Space-delimited list of API Roles, formatted and identified by ID like `api-role:{apiRoleId}`.
-          example: "api-role:1 api-role:2"
-        expires_in:
-          type: integer
-          description: Seconds until this access token is expired. This will reflect the `accessTokenLifetimeSeconds` value configured on your API Client.
-          example: 60
-      required:
-        - access_token
-        - token_type
-        - scope
-        - expires_in
-    OAuthTokenEndpointErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          example: invalid_client
-        error_description:
-          type: string
-          example: "OAuth 2.0 Parameter: grant_type"
-        error_uri:
-          type: string
-          example: "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2"
-      required:
-        - error
 

@@ -252,7 +252,7 @@ func newMobileDeviceInventoryDetailsGetByNameCmd(ctx *registry.CLIContext) *cobr
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", args[0])
 			if err != nil {
 				return err
 			}

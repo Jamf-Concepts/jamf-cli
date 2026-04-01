@@ -8,6 +8,7 @@ type Resource struct {
 	Description  string
 	Operations   []*Operation
 	Schemas      map[string]*Schema
+	NameField    string // Filter field for name lookups (default "name", some use "displayName")
 }
 
 // Operation represents an API operation (endpoint)

@@ -261,7 +261,7 @@ func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cob
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", args[0])
 			if err != nil {
 				return err
 			}

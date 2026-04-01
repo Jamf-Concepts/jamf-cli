@@ -9,31 +9,31 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewOAuthApiRolesPrivilegesCmd creates the o-auth-api-roles-privileges command group
-func NewOAuthApiRolesPrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewApiRolesPrivilegesCmd creates the api-roles-privileges command group
+func NewApiRolesPrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "o-auth-api-roles-privileges",
-		Short: "Manage o-auth-api-roles-privileges",
-		Long:  `Manage o-auth-api-roles-privileges in Jamf Pro.`,
+		Use:   "api-roles-privileges",
+		Short: "Manage api-roles-privileges",
+		Long:  `Manage api-roles-privileges in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newOAuthApiRolesPrivilegesListCmd(ctx))
+	cmd.AddCommand(newApiRolesPrivilegesListCmd(ctx))
 
 	return cmd
 }
 
-func newOAuthApiRolesPrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiRolesPrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get the current Jamf API Role Privileges",
 		Long:  "Get role privileges",
-		Example: `  # List all o-auth-api-roles-privileges
-  jamf-cli o-auth-api-roles-privileges list
+		Example: `  # List all api-roles-privileges
+  jamf-cli api-roles-privileges list
 
-  # List o-auth-api-roles-privileges and extract IDs
-  jamf-cli o-auth-api-roles-privileges list --field id`,
+  # List api-roles-privileges and extract IDs
+  jamf-cli api-roles-privileges list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

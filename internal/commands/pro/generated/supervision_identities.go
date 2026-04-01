@@ -460,7 +460,7 @@ func newSupervisionIdentitiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Comma
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/supervision-identities", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/supervision-identities", "displayName", args[0])
 			if err != nil {
 				return err
 			}

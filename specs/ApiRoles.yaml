@@ -6,7 +6,6 @@ info:
 paths:
   /v1/api-roles:
     post:
-      x-action: true
       tags:
         - api-roles
       summary: Create a new API role
@@ -31,7 +30,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Create API Roles
     get:
