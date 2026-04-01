@@ -558,7 +558,7 @@ func newDeviceExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra.C
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", args[0])
 			if err != nil {
 				return err
 			}

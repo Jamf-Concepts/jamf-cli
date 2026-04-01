@@ -156,6 +156,8 @@ var proGroupMap = map[string]string{
 	"ldap-rs":                     groupUsers,
 	"account-preferences":         groupUsers,
 	"change-passwords":            groupUsers,
+	"api-roles":                   groupUsers,
+	"api-integrations":            groupUsers,
 	"o-auth-api-roles-privileges": groupUsers,
 	"oauth-token-sessions":        groupUsers,
 	"oidcs":                       groupUsers,

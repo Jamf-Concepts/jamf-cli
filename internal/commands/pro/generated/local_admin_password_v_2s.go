@@ -220,7 +220,7 @@ func newLocalAdminPasswordV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Comma
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/local-admin-password/{clientManagementId}/account", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/local-admin-password/{clientManagementId}/account", "name", args[0])
 			if err != nil {
 				return err
 			}

@@ -687,7 +687,7 @@ func newComputerExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes/templates", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes/templates", "name", args[0])
 			if err != nil {
 				return err
 			}

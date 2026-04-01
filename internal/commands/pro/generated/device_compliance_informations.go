@@ -118,7 +118,7 @@ func newDeviceComplianceInformationsGetByNameCmd(ctx *registry.CLIContext) *cobr
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", args[0])
 			if err != nil {
 				return err
 			}

@@ -634,7 +634,7 @@ func newDeviceEnrollmentInstancesGetByNameCmd(ctx *registry.CLIContext) *cobra.C
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", args[0])
 			if err != nil {
 				return err
 			}

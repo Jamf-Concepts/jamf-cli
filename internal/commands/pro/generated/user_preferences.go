@@ -200,7 +200,7 @@ func newUserPreferencesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "name", args[0])
 			if err != nil {
 				return err
 			}
