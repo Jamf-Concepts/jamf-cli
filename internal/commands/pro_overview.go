@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
@@ -43,6 +45,11 @@ func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB limit
 	if err != nil {
 		return nil, err
+	}
+
+	// Classic API returns XML — convert to map
+	if xmlconv.IsXML(body) {
+		return xmlconv.ToMap(body)
 	}
 
 	var result map[string]any
@@ -94,8 +101,7 @@ func fetchArrayCount(ctx context.Context, client registry.HTTPClient, path strin
 }
 
 // fetchClassicCount performs a GET on a Classic API list endpoint and returns the
-// count of items. Classic endpoints wrap arrays as {"key": [...]}, so the caller
-// provides the wrapper key (e.g. "policies", "packages").
+// count of items. Classic API returns XML; JSON is handled as a fallback.
 func fetchClassicCount(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) (string, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
@@ -112,6 +118,15 @@ func fetchClassicCount(ctx context.Context, client registry.HTTPClient, path, wr
 		return "", err
 	}
 
+	if xmlconv.IsXML(body) {
+		count, err := xmlconv.CountListItems(body)
+		if err != nil {
+			return "", err
+		}
+		return formatCount(float64(count)), nil
+	}
+
+	// JSON fallback
 	var wrapper map[string]json.RawMessage
 	if err := json.Unmarshal(body, &wrapper); err != nil {
 		return "", err
@@ -127,12 +142,36 @@ func fetchClassicCount(ctx context.Context, client registry.HTTPClient, path, wr
 	return formatCount(float64(len(arr))), nil
 }
 
-// fetchClassicNestedSize performs a GET on a Classic API endpoint that returns
-// a nested structure like {"computer_commands": {"computer_command": [...], "size": N}}.
-// It extracts the "size" field from the inner object.
+// fetchClassicNestedSize performs a GET on a Classic API list endpoint and returns
+// the number of items. For XML responses it counts child elements directly;
+// for JSON it falls back to extracting the "size" field from the nested structure.
 func fetchClassicNestedSize(ctx context.Context, client registry.HTTPClient, path, outerKey string) (string, error) {
-	data, err := fetchJSON(ctx, client, path)
+	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return "", err
+	}
+
+	if xmlconv.IsXML(body) {
+		count, err := xmlconv.CountListItems(body)
+		if err != nil {
+			return "", err
+		}
+		return formatCount(float64(count)), nil
+	}
+
+	// JSON fallback
+	var data map[string]any
+	if err := json.Unmarshal(body, &data); err != nil {
 		return "", err
 	}
 	inner, ok := data[outerKey].(map[string]any)

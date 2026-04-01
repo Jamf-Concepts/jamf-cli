@@ -28,6 +28,7 @@ func NewEnrollmentLanguagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentLanguagesUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesDeleteCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newEnrollmentLanguagesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -79,6 +80,9 @@ func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves the enrollment messaging for a language.",
 		Example: `  # Get a enrollment-language by ID
   jamf-cli enrollment-languages get 1
+
+  # Get a enrollment-language by name
+  jamf-cli enrollment-languages get-by-name "Example"
 
   # Get a enrollment-language and output as YAML
   jamf-cli enrollment-languages get 1 -o yaml`,
@@ -361,4 +365,31 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newEnrollmentLanguagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a enrollment-language by name",
+		Example: `  # Get a enrollment-language by name
+  jamf-cli enrollment-languages get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli enrollment-languages get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{languageId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

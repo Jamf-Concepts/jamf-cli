@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // FetchJSON performs a GET request and returns the parsed JSON object.
@@ -92,7 +93,7 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 }
 
 // FetchClassicList performs a GET on a Classic API list endpoint and returns
-// the unwrapped array. Classic endpoints wrap arrays as {"key": [...]}.
+// the unwrapped array. Classic API returns XML; JSON is handled as a fallback.
 func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) ([]any, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
@@ -109,6 +110,20 @@ func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wra
 		return nil, err
 	}
 
+	if xmlconv.IsXML(body) {
+		items, err := xmlconv.ExtractListItems(body)
+		if err != nil {
+			return nil, err
+		}
+		// Convert []map[string]any to []any for interface compatibility.
+		result := make([]any, len(items))
+		for i, item := range items {
+			result[i] = item
+		}
+		return result, nil
+	}
+
+	// JSON fallback
 	var wrapper map[string]json.RawMessage
 	if err := json.Unmarshal(body, &wrapper); err != nil {
 		return nil, err

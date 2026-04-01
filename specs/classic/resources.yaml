@@ -12,12 +12,14 @@ resources:
     path: policies
     description: Deployment policies
     singular: policy
+    scope: true
 
   - name: osxconfigurationprofiles
     path: osxconfigurationprofiles
     description: macOS configuration profiles
     cli_name: classic-macos-config-profiles
     singular: os_x_configuration_profile
+    scope: true
 
   - name: computercommands
     path: computercommands
@@ -89,6 +91,7 @@ resources:
     description: Mobile device configuration profiles
     cli_name: classic-mobile-config-profiles
     singular: mobile_device_configuration_profile
+    scope: true
 
   - name: mobiledeviceprovisioningprofiles
     path: mobiledeviceprovisioningprofiles
@@ -152,6 +155,7 @@ resources:
     description: Restricted software entries
     cli_name: classic-restricted-software
     singular: restricted_software
+    scope: true
 
   - name: allowedfileextensions
     path: allowedfileextensions
@@ -166,6 +170,14 @@ resources:
     description: Mac App Store applications
     cli_name: classic-mac-apps
     singular: mac_application
+    scope: true
+
+  - name: mobiledeviceapplications
+    path: mobiledeviceapplications
+    description: Mobile device applications
+    cli_name: classic-mobile-apps
+    singular: mobile_device_application
+    scope: true
 
   - name: ibeacons
     path: ibeacons

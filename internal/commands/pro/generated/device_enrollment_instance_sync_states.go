@@ -20,6 +20,7 @@ func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *registry.CLIContext) *cobra.C
 
 	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesListCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -72,6 +73,9 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *registry.CLIContext) *cobr
 		Example: `  # Get a device-enrollment-instance-sync-state by ID
   jamf-cli device-enrollment-instance-sync-states get 1
 
+  # Get a device-enrollment-instance-sync-state by name
+  jamf-cli device-enrollment-instance-sync-states get-by-name "Example"
+
   # Get a device-enrollment-instance-sync-state and output as YAML
   jamf-cli device-enrollment-instance-sync-states get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -100,4 +104,31 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *registry.CLIContext) *cobr
 	}
 
 	return cmd
+}
+
+func newDeviceEnrollmentInstanceSyncStatesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a device-enrollment-instance-sync-state by name",
+		Example: `  # Get a device-enrollment-instance-sync-state by name
+  jamf-cli device-enrollment-instance-sync-states get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli device-enrollment-instance-sync-states get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/device-enrollments/{id}/syncs", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

@@ -27,6 +27,7 @@ func NewManagedSoftwareUpdatesPlansCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansCreateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansUpdateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansAbandonCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -173,6 +174,9 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Long:  "Retrieves Managed Software Update Plans for a Group",
 		Example: `  # Get a managed-software-updates-plan by ID
   jamf-cli managed-software-updates-plans get 1
+
+  # Get a managed-software-updates-plan by name
+  jamf-cli managed-software-updates-plans get-by-name "Example"
 
   # Get a managed-software-updates-plan and output as YAML
   jamf-cli managed-software-updates-plans get 1 -o yaml`,
@@ -360,4 +364,31 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	return cmd
+}
+
+func newManagedSoftwareUpdatesPlansGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a managed-software-updates-plan by name",
+		Example: `  # Get a managed-software-updates-plan by name
+  jamf-cli managed-software-updates-plans get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli managed-software-updates-plans get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans/group", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/managed-software-updates/plans/group/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

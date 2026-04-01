@@ -27,6 +27,7 @@ func NewDigiCertSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDigiCertSettingsDeleteCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsValidateClientCertificateCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsPatchCmd(ctx))
+	cmd.AddCommand(newDigiCertSettingsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -40,6 +41,9 @@ func newDigiCertSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve the current configuration of the DigiCert Trust Lifecycle Manager.",
 		Example: `  # Get a digi-cert-setting by ID
   jamf-cli digi-cert-settings get 1
+
+  # Get a digi-cert-setting by name
+  jamf-cli digi-cert-settings get-by-name "Example"
 
   # Get a digi-cert-setting and output as YAML
   jamf-cli digi-cert-settings get 1 -o yaml`,
@@ -292,4 +296,31 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newDigiCertSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a digi-cert-setting by name",
+		Example: `  # Get a digi-cert-setting by name
+  jamf-cli digi-cert-settings get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli digi-cert-settings get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/pki/digicert/trust-lifecycle-manager/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

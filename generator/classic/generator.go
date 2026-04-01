@@ -103,11 +103,11 @@ func templateFuncs() template.FuncMap {
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					singular, bin, name, singular, bin, name)
 			case "create":
-				return fmt.Sprintf("  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
-					singular, bin, name, singular, bin, name, bin, name)
+				return fmt.Sprintf("  # Create a %s from XML\n  cat %s.xml | %s %s create",
+					singular, singular, bin, name)
 			case "update":
-				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get, modify, and update a %s\n  %s %s get 1 -o json | jq '.name = \"New\"' | %s %s update 1",
-					singular, bin, name, singular, bin, name, bin, name)
+				return fmt.Sprintf("  # Update a %s from XML\n  cat %s.xml | %s %s update 1",
+					singular, singular, bin, name)
 			case "delete":
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					singular, bin, name, bin, name)
@@ -130,6 +130,12 @@ func templateFuncs() template.FuncMap {
 		},
 		"needsOS": func(r ClassicResource) bool {
 			return r.HasOperation("create") || r.HasOperation("update") || r.HasOperation("delete")
+		},
+		"needsXMLConv": func(r ClassicResource) bool {
+			return r.HasOperation("list") || r.HasOperation("get") || len(r.ExtraLookups()) > 0
+		},
+		"needsScope": func(r ClassicResource) bool {
+			return r.HasScope
 		},
 	}
 }
@@ -177,6 +183,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+{{- if needsXMLConv . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+{{- end }}
+{{- if needsScope . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
+{{- end }}
 )
 
 // New{{ .GoName }}Cmd creates the {{ .CLIName }} command group
@@ -204,6 +216,12 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasOp .Operations "delete" }}
 	cmd.AddCommand(new{{ .GoName }}DeleteCmd(ctx))
 {{- end }}
+{{ if needsScope . }}
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "{{ .Path }}",
+		SingularKey: "{{ .Singular }}",
+	}))
+{{- end }}
 
 	return cmd
 }
@@ -221,11 +239,22 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"{{ .Name }}": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["{{ .Name }}"]; ok {
@@ -253,10 +282,15 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"{{ .Singular }}": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -288,6 +322,11 @@ func new{{ $.GoName }}GetBy{{ lookupCamel . }}Cmd(ctx *registry.CLIContext) *cob
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["{{ $.Singular }}"]; ok {
@@ -304,7 +343,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
-		Long:  "Create a new {{ .Singular }}. Reads JSON body from stdin.",
+		Long:  "Create a new {{ .Singular }}. Reads XML body from stdin.",
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -314,7 +353,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/id/0", body)
@@ -333,7 +372,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a {{ .Singular }}",
-		Long:  "Update an existing {{ .Singular }} by ID. Reads JSON body from stdin.",
+		Long:  "Update an existing {{ .Singular }} by ID. Reads XML body from stdin.",
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -344,7 +383,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(args[0]))

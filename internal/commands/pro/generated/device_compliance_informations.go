@@ -20,6 +20,7 @@ func NewDeviceComplianceInformationsCmd(ctx *registry.CLIContext) *cobra.Command
 
 	cmd.AddCommand(newDeviceComplianceInformationsListCmd(ctx))
 	cmd.AddCommand(newDeviceComplianceInformationsGetCmd(ctx))
+	cmd.AddCommand(newDeviceComplianceInformationsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -72,6 +73,9 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Example: `  # Get a device-compliance-information by ID
   jamf-cli device-compliance-informations get 1
 
+  # Get a device-compliance-information by name
+  jamf-cli device-compliance-informations get-by-name "Example"
+
   # Get a device-compliance-information and output as YAML
   jamf-cli device-compliance-informations get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -100,4 +104,31 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	return cmd
+}
+
+func newDeviceComplianceInformationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a device-compliance-information by name",
+		Example: `  # Get a device-compliance-information by name
+  jamf-cli device-compliance-informations get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli device-compliance-informations get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/conditional-access/device-compliance-information/computer/{deviceId}", "{deviceId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

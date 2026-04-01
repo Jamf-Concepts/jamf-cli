@@ -90,7 +90,6 @@ var proGroupMap = map[string]string{
 	"report":      groupPower,
 	"diff":        groupPower,
 	"group-tools": groupPower,
-	"scope":       groupPower,
 
 	// Computer Management
 	"computers":                              groupComputers,
@@ -259,6 +258,7 @@ var proGroupMap = map[string]string{
 	"classic-restricted-software":     groupClassicConfig,
 	"classic-allowed-file-extensions": groupClassicConfig,
 	"classic-mac-apps":                groupClassicConfig,
+	"classic-mobile-apps":             groupClassicMobile,
 	"classic-ibeacons":                groupClassicConfig,
 	"classic-classes":                 groupClassicConfig,
 

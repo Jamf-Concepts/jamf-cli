@@ -2,6 +2,12 @@
 package generated
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/url"
+
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -129,4 +135,60 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewUsersCmd(ctx))
 	root.AddCommand(NewVenafisCmd(ctx))
 	root.AddCommand(NewVppLocationsCmd(ctx))
+}
+
+// resolveNameToID looks up a resource by name using a filtered list call and
+// returns its ID. This enables --name as an alternative to positional ID args
+// on get commands.
+func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, name string) (string, error) {
+	filterPath := fmt.Sprintf("%s?filter=%s&page-size=1",
+		listPath, url.QueryEscape(fmt.Sprintf(`name=="%s"`, name)))
+
+	resp, err := client.Do(ctx, "GET", filterPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("looking up %q: %w", name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("reading lookup response: %w", err)
+	}
+
+	// Paginated response: {"totalCount": N, "results": [{...}]}
+	var data struct {
+		TotalCount int               `json:"totalCount"`
+		Results    []json.RawMessage `json:"results"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		// Some endpoints return plain arrays instead of paginated objects
+		var arr []json.RawMessage
+		if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
+			return "", fmt.Errorf("parsing lookup response: %w", err)
+		}
+		data.Results = arr
+		data.TotalCount = len(arr)
+	}
+
+	if data.TotalCount == 0 || len(data.Results) == 0 {
+		return "", fmt.Errorf("no resource found with name %q", name)
+	}
+
+	var first map[string]any
+	if err := json.Unmarshal(data.Results[0], &first); err != nil {
+		return "", fmt.Errorf("parsing lookup result: %w", err)
+	}
+
+	// Extract ID — could be string or number
+	switch v := first["id"].(type) {
+	case string:
+		if v == "" {
+			return "", fmt.Errorf("resource %q has no ID", name)
+		}
+		return v, nil
+	case float64:
+		return fmt.Sprintf("%d", int(v)), nil
+	default:
+		return "", fmt.Errorf("resource %q has unexpected ID type", name)
+	}
 }

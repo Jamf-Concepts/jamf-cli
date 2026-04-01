@@ -31,6 +31,7 @@ func NewCategoriesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newCategoriesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newCategoriesHistoryCmd(ctx))
 	cmd.AddCommand(newCategoriesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newCategoriesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -175,6 +176,9 @@ func newCategoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified Category object",
 		Example: `  # Get a categorie by ID
   jamf-cli categories get 1
+
+  # Get a categorie by name
+  jamf-cli categories get-by-name "Example"
 
   # Get a categorie and output as YAML
   jamf-cli categories get 1 -o yaml`,
@@ -661,4 +665,31 @@ func newCategoriesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newCategoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a categorie by name",
+		Example: `  # Get a categorie by name
+  jamf-cli categories get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli categories get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/categories", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/categories/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

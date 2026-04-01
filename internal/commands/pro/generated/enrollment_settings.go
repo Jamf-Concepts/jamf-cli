@@ -31,6 +31,7 @@ func NewEnrollmentSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsHistoryExportCmd(ctx))
+	cmd.AddCommand(newEnrollmentSettingsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -175,6 +176,9 @@ func newEnrollmentSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
 		Example: `  # Get a enrollment-setting by ID
   jamf-cli enrollment-settings get 1
+
+  # Get a enrollment-setting by name
+  jamf-cli enrollment-settings get-by-name "Example"
 
   # Get a enrollment-setting and output as YAML
   jamf-cli enrollment-settings get 1 -o yaml`,
@@ -667,4 +671,31 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newEnrollmentSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a enrollment-setting by name",
+		Example: `  # Get a enrollment-setting by name
+  jamf-cli enrollment-settings get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli enrollment-settings get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v3/enrollment/access-groups/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

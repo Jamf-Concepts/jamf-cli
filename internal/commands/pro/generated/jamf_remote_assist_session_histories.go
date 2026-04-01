@@ -20,6 +20,7 @@ func NewJamfRemoteAssistSessionHistoriesCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesListCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -72,6 +73,9 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 		Example: `  # Get a jamf-remote-assist-session-historie by ID
   jamf-cli jamf-remote-assist-session-histories get 1
 
+  # Get a jamf-remote-assist-session-historie by name
+  jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
+
   # Get a jamf-remote-assist-session-historie and output as YAML
   jamf-cli jamf-remote-assist-session-histories get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -100,4 +104,31 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	return cmd
+}
+
+func newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a jamf-remote-assist-session-historie by name",
+		Example: `  # Get a jamf-remote-assist-session-historie by name
+  jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli jamf-remote-assist-session-histories get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jamf-remote-assist/session", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/jamf-remote-assist/session/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

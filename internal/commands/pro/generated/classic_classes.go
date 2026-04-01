@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicClassesCmd creates the classic-classes command group
@@ -53,11 +54,22 @@ func newClassicClassesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"classes": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["classes"]; ok {
@@ -88,10 +100,15 @@ func newClassicClassesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"class": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicClassesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["class"]; ok {
@@ -137,12 +159,9 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a class",
-		Long:  "Create a new class. Reads JSON body from stdin.",
-		Example: `  # Create a class from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-classes create
-
-  # Get a class, modify, and create a copy
-  jamf-cli classic-classes get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-classes create`,
+		Long:  "Create a new class. Reads XML body from stdin.",
+		Example: `  # Create a class from XML
+  cat class.xml | jamf-cli classic-classes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/classes/id/0", body)
@@ -169,12 +188,9 @@ func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a class",
-		Long:  "Update an existing class by ID. Reads JSON body from stdin.",
-		Example: `  # Update a class from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-classes update 1
-
-  # Get, modify, and update a class
-  jamf-cli classic-classes get 1 -o json | jq '.name = "New"' | jamf-cli classic-classes update 1`,
+		Long:  "Update an existing class by ID. Reads XML body from stdin.",
+		Example: `  # Update a class from XML
+  cat class.xml | jamf-cli classic-classes update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/classes/id/%s", url.PathEscape(args[0]))

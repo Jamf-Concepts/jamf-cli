@@ -25,6 +25,7 @@ func NewJamfRemoteAssistSessionHistoryV2SCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoryV2SListCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoryV2SGetCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoryV2SExportCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistSessionHistoryV2SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -170,6 +171,9 @@ func newJamfRemoteAssistSessionHistoryV2SGetCmd(ctx *registry.CLIContext) *cobra
 		Example: `  # Get a jamf-remote-assist-session-history-v-2 by ID
   jamf-cli jamf-remote-assist-session-history-v-2s get 1
 
+  # Get a jamf-remote-assist-session-history-v-2 by name
+  jamf-cli jamf-remote-assist-session-history-v-2s get-by-name "Example"
+
   # Get a jamf-remote-assist-session-history-v-2 and output as YAML
   jamf-cli jamf-remote-assist-session-history-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -256,4 +260,31 @@ func newJamfRemoteAssistSessionHistoryV2SExportCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newJamfRemoteAssistSessionHistoryV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a jamf-remote-assist-session-history-v-2 by name",
+		Example: `  # Get a jamf-remote-assist-session-history-v-2 by name
+  jamf-cli jamf-remote-assist-session-history-v-2s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli jamf-remote-assist-session-history-v-2s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/jamf-remote-assist/session/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

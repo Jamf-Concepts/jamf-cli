@@ -25,6 +25,7 @@ func NewUserPreferencesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newUserPreferencesGetCmd(ctx))
 	cmd.AddCommand(newUserPreferencesUpdateCmd(ctx))
 	cmd.AddCommand(newUserPreferencesDeleteCmd(ctx))
+	cmd.AddCommand(newUserPreferencesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -38,6 +39,9 @@ func newUserPreferencesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets the user preferences for the authenticated user and key.",
 		Example: `  # Get a user-preference by ID
   jamf-cli user-preferences get 1
+
+  # Get a user-preference by name
+  jamf-cli user-preferences get-by-name "Example"
 
   # Get a user-preference and output as YAML
   jamf-cli user-preferences get 1 -o yaml`,
@@ -182,4 +186,31 @@ func newUserPreferencesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newUserPreferencesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a user-preference by name",
+		Example: `  # Get a user-preference by name
+  jamf-cli user-preferences get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli user-preferences get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/user/preferences/settings/{keyId}", "{keyId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

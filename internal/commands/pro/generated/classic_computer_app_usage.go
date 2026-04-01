@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicComputerAppUsageCmd creates the classic-computer-app-usage command group
@@ -44,10 +45,15 @@ func newClassicComputerAppUsageGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"computer_application_usage": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {

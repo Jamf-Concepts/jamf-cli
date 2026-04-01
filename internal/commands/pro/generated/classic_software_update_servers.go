@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicSoftwareUpdateServersCmd creates the classic-software-update-servers command group
@@ -53,11 +54,22 @@ func newClassicSoftwareUpdateServersListCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"softwareupdateservers": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["softwareupdateservers"]; ok {
@@ -88,10 +100,15 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"software_update_server": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicSoftwareUpdateServersGetByNameCmd(ctx *registry.CLIContext) *cobr
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["software_update_server"]; ok {
@@ -137,12 +159,9 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a software_update_server",
-		Long:  "Create a new software_update_server. Reads JSON body from stdin.",
-		Example: `  # Create a software_update_server from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-software-update-servers create
-
-  # Get a software_update_server, modify, and create a copy
-  jamf-cli classic-software-update-servers get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-software-update-servers create`,
+		Long:  "Create a new software_update_server. Reads XML body from stdin.",
+		Example: `  # Create a software_update_server from XML
+  cat software_update_server.xml | jamf-cli classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/softwareupdateservers/id/0", body)
@@ -169,12 +188,9 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a software_update_server",
-		Long:  "Update an existing software_update_server by ID. Reads JSON body from stdin.",
-		Example: `  # Update a software_update_server from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-software-update-servers update 1
-
-  # Get, modify, and update a software_update_server
-  jamf-cli classic-software-update-servers get 1 -o json | jq '.name = "New"' | jamf-cli classic-software-update-servers update 1`,
+		Long:  "Update an existing software_update_server by ID. Reads XML body from stdin.",
+		Example: `  # Update a software_update_server from XML
+  cat software_update_server.xml | jamf-cli classic-software-update-servers update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/softwareupdateservers/id/%s", url.PathEscape(args[0]))

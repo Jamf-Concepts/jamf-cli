@@ -29,6 +29,7 @@ func NewMobileDeviceGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDeviceGroupsDeleteCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsPatchCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsEraseCmd(ctx))
+	cmd.AddCommand(newMobileDeviceGroupsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -85,6 +86,9 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Smart Group Membership by Id",
 		Example: `  # Get a mobile-device-group by ID
   jamf-cli mobile-device-groups get 1
+
+  # Get a mobile-device-group by name
+  jamf-cli mobile-device-groups get-by-name "Example"
 
   # Get a mobile-device-group and output as YAML
   jamf-cli mobile-device-groups get 1 -o yaml`,
@@ -460,4 +464,31 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newMobileDeviceGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mobile-device-group by name",
+		Example: `  # Get a mobile-device-group by name
+  jamf-cli mobile-device-groups get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mobile-device-groups get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-group-membership", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/mobile-device-groups/smart-group-membership/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

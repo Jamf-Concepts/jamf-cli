@@ -27,6 +27,7 @@ func NewPatchPolicyV2SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPatchPolicyV2SGetCmd(ctx))
 	cmd.AddCommand(newPatchPolicyV2SDeleteCmd(ctx))
 	cmd.AddCommand(newPatchPolicyV2SDashboardCmd(ctx))
+	cmd.AddCommand(newPatchPolicyV2SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -172,6 +173,9 @@ func newPatchPolicyV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a patch-policy-v-2 by ID
   jamf-cli patch-policy-v-2s get 1
 
+  # Get a patch-policy-v-2 by name
+  jamf-cli patch-policy-v-2s get-by-name "Example"
+
   # Get a patch-policy-v-2 and output as YAML
   jamf-cli patch-policy-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -310,4 +314,31 @@ func newPatchPolicyV2SDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newPatchPolicyV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a patch-policy-v-2 by name",
+		Example: `  # Get a patch-policy-v-2 by name
+  jamf-cli patch-policy-v-2s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli patch-policy-v-2s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/patch-policies/{id}/dashboard", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

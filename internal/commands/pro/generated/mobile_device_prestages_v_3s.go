@@ -31,6 +31,7 @@ func NewMobileDevicePrestagesV3SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicePrestagesV3SDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesV3SHistoryCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesV3SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -170,6 +171,9 @@ func newMobileDevicePrestagesV3SGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
 		Example: `  # Get a mobile-device-prestages-v-3 by ID
   jamf-cli mobile-device-prestages-v-3s get 1
+
+  # Get a mobile-device-prestages-v-3 by name
+  jamf-cli mobile-device-prestages-v-3s get-by-name "Example"
 
   # Get a mobile-device-prestages-v-3 and output as YAML
   jamf-cli mobile-device-prestages-v-3s get 1 -o yaml`,
@@ -629,4 +633,31 @@ func newMobileDevicePrestagesV3SAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newMobileDevicePrestagesV3SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mobile-device-prestages-v-3 by name",
+		Example: `  # Get a mobile-device-prestages-v-3 by name
+  jamf-cli mobile-device-prestages-v-3s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mobile-device-prestages-v-3s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

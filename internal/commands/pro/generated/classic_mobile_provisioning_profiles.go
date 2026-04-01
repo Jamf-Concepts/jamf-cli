@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicMobileProvisioningProfilesCmd creates the classic-mobile-provisioning-profiles command group
@@ -53,11 +54,22 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *registry.CLIContext) *cobr
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"mobiledeviceprovisioningprofiles": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["mobiledeviceprovisioningprofiles"]; ok {
@@ -88,10 +100,15 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"mobile_device_provisioning_profile": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicMobileProvisioningProfilesGetByNameCmd(ctx *registry.CLIContext) 
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["mobile_device_provisioning_profile"]; ok {
@@ -137,12 +159,9 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_provisioning_profile",
-		Long:  "Create a new mobile_device_provisioning_profile. Reads JSON body from stdin.",
-		Example: `  # Create a mobile_device_provisioning_profile from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-mobile-provisioning-profiles create
-
-  # Get a mobile_device_provisioning_profile, modify, and create a copy
-  jamf-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-mobile-provisioning-profiles create`,
+		Long:  "Create a new mobile_device_provisioning_profile. Reads XML body from stdin.",
+		Example: `  # Create a mobile_device_provisioning_profile from XML
+  cat mobile_device_provisioning_profile.xml | jamf-cli classic-mobile-provisioning-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceprovisioningprofiles/id/0", body)
@@ -169,12 +188,9 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *co
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a mobile_device_provisioning_profile",
-		Long:  "Update an existing mobile_device_provisioning_profile by ID. Reads JSON body from stdin.",
-		Example: `  # Update a mobile_device_provisioning_profile from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-mobile-provisioning-profiles update 1
-
-  # Get, modify, and update a mobile_device_provisioning_profile
-  jamf-cli classic-mobile-provisioning-profiles get 1 -o json | jq '.name = "New"' | jamf-cli classic-mobile-provisioning-profiles update 1`,
+		Long:  "Update an existing mobile_device_provisioning_profile by ID. Reads XML body from stdin.",
+		Example: `  # Update a mobile_device_provisioning_profile from XML
+  cat mobile_device_provisioning_profile.xml | jamf-cli classic-mobile-provisioning-profiles update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *co
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(args[0]))

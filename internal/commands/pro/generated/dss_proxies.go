@@ -19,6 +19,7 @@ func NewDssProxiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newDssProxiesGetCmd(ctx))
+	cmd.AddCommand(newDssProxiesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -32,6 +33,9 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves a stored declaration based on the provided declaration id",
 		Example: `  # Get a dss-proxie by ID
   jamf-cli dss-proxies get 1
+
+  # Get a dss-proxie by name
+  jamf-cli dss-proxies get-by-name "Example"
 
   # Get a dss-proxie and output as YAML
   jamf-cli dss-proxies get 1 -o yaml`,
@@ -61,4 +65,31 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newDssProxiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a dss-proxie by name",
+		Example: `  # Get a dss-proxie by name
+  jamf-cli dss-proxies get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli dss-proxies get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/dss-declarations", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/dss-declarations/{declarationId}", "{declarationId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

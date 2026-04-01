@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicJwtConfigsCmd creates the classic-jwt-configs command group
@@ -52,11 +53,22 @@ func newClassicJwtConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"jsonwebtokenconfigurations": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["jsonwebtokenconfigurations"]; ok {
@@ -87,10 +99,15 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"json_web_token_configuration": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -107,12 +124,9 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a json_web_token_configuration",
-		Long:  "Create a new json_web_token_configuration. Reads JSON body from stdin.",
-		Example: `  # Create a json_web_token_configuration from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-jwt-configs create
-
-  # Get a json_web_token_configuration, modify, and create a copy
-  jamf-cli classic-jwt-configs get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-jwt-configs create`,
+		Long:  "Create a new json_web_token_configuration. Reads XML body from stdin.",
+		Example: `  # Create a json_web_token_configuration from XML
+  cat json_web_token_configuration.xml | jamf-cli classic-jwt-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -121,7 +135,7 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/jsonwebtokenconfigurations/id/0", body)
@@ -139,12 +153,9 @@ func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a json_web_token_configuration",
-		Long:  "Update an existing json_web_token_configuration by ID. Reads JSON body from stdin.",
-		Example: `  # Update a json_web_token_configuration from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-jwt-configs update 1
-
-  # Get, modify, and update a json_web_token_configuration
-  jamf-cli classic-jwt-configs get 1 -o json | jq '.name = "New"' | jamf-cli classic-jwt-configs update 1`,
+		Long:  "Update an existing json_web_token_configuration by ID. Reads XML body from stdin.",
+		Example: `  # Update a json_web_token_configuration from XML
+  cat json_web_token_configuration.xml | jamf-cli classic-jwt-configs update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -154,7 +165,7 @@ func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
