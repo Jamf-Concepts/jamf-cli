@@ -328,12 +328,14 @@ func hasPaginationParams(op *openapi3.Operation) bool {
 // detectNameField inspects schemas to determine the correct field for name-based
 // filtering. Returns "displayName" if any schema has it without "name", otherwise "name".
 func detectNameField(schemas map[string]*Schema) string {
+	hasDisplayName := false
 	for _, s := range schemas {
-		_, hasDisplayName := s.Properties["displayName"]
-		_, hasName := s.Properties["name"]
-		if hasDisplayName && !hasName {
-			return "displayName"
+		if _, ok := s.Properties["displayName"]; ok {
+			hasDisplayName = true
 		}
+	}
+	if hasDisplayName {
+		return "displayName"
 	}
 	return "name"
 }
