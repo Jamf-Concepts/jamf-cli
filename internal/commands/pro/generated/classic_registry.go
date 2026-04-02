@@ -2,9 +2,17 @@
 package generated
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // RegisterClassicCommands registers all Classic API resource commands.
@@ -53,4 +61,119 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicVppAssignmentsCmd(ctx))
 	root.AddCommand(NewClassicVppInvitationsCmd(ctx))
 	root.AddCommand(NewClassicWebhooksCmd(ctx))
+}
+
+// Classic apply/delete-by-name helpers. These share the generated package with
+// registry.go and depend on readApplyInput and extractIDString defined there.
+
+// extractClassicName extracts the resource name from XML input.
+// It tries direct-child "name" first, then checks under common sub-elements
+// like "general". The singularKey is the XML wrapper element (e.g., "policy").
+func extractClassicName(data []byte, singularKey string) (string, error) {
+	m, err := xmlconv.ToMap(data)
+	if err != nil {
+		return "", fmt.Errorf("parsing XML: %w", err)
+	}
+
+	// Unwrap the root element if it matches the singular key
+	inner, ok := m[singularKey]
+	if !ok {
+		// Try without wrapper (user may omit it)
+		inner = m
+	}
+
+	obj, ok := inner.(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("unexpected XML structure")
+	}
+
+	// Direct name field
+	if name, ok := obj["name"].(string); ok && name != "" {
+		return name, nil
+	}
+
+	// Check under "general" sub-element (policies, profiles, etc.)
+	if general, ok := obj["general"].(map[string]any); ok {
+		if name, ok := general["name"].(string); ok && name != "" {
+			return name, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find 'name' field in XML input")
+}
+
+// resolveClassicNameToIDForApply looks up a classic resource by name using
+// the list endpoint. Returns all matching IDs for collision detection.
+// Returns ("", nil) when no resource is found (caller should create).
+// Returns (id, nil) when exactly one match is found.
+// Returns ("", error) when multiple matches or lookup fails.
+func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name string, noInput bool) (string, error) {
+	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("listing resources: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading list response: %w", err)
+	}
+
+	var items []map[string]any
+	if xmlconv.IsXML(body) {
+		items, err = xmlconv.ExtractListItems(body)
+		if err != nil {
+			return "", fmt.Errorf("parsing XML list: %w", err)
+		}
+	} else {
+		// JSON fallback
+		var wrapper map[string]json.RawMessage
+		if err := json.Unmarshal(body, &wrapper); err == nil {
+			if inner, ok := wrapper[wrapperKey]; ok {
+				_ = json.Unmarshal(inner, &items)
+			}
+		}
+	}
+
+	// Filter by exact name match
+	type classicMatch struct {
+		id string
+	}
+	var matches []classicMatch
+	for _, item := range items {
+		itemName, _ := item["name"].(string)
+		if itemName == name {
+			if id := extractIDString(item); id != "" {
+				matches = append(matches, classicMatch{id: id})
+			}
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", nil
+	}
+	if len(matches) == 1 {
+		return matches[0].id, nil
+	}
+
+	// Collision: multiple resources with the same name
+	if noInput {
+		ids := make([]string, len(matches))
+		for i, m := range matches {
+			ids[i] = m.id
+		}
+		return "", fmt.Errorf("multiple resources found with name %q (IDs: %s); resolve duplicates or use update with a specific ID", name, strings.Join(ids, ", "))
+	}
+
+	// Interactive: prompt user to pick
+	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
+	for i, m := range matches {
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
+	}
+	fmt.Fprintf(os.Stderr, "Enter number to replace (or 0 to cancel): ")
+	var choice int
+	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(matches) {
+		return "", fmt.Errorf("aborted")
+	}
+	return matches[choice-1].id, nil
 }

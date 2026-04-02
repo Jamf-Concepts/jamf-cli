@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,10 @@ func NewClassicPatchTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPatchTitlesUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicPatchTitlesDeleteCmd(ctx))
+
+	cmd.AddCommand(newClassicPatchTitlesApplyCmd(ctx))
+
+	cmd.AddCommand(newClassicPatchTitlesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -259,6 +264,168 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicPatchTitlesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a patch_software_title by name",
+		Long: `Create or replace a patch_software_title. Reads XML from --from-file or stdin.
+
+The name field in the input XML is used to check if the resource already
+exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a patch_software_title from an XML file
+  jamf-cli classic-patch-titles apply --from-file patch_software_title.xml
+
+  # Apply from stdin
+  cat patch_software_title.xml | jamf-cli classic-patch-titles apply
+
+  # Apply without replacement confirmation
+  jamf-cli classic-patch-titles apply --from-file patch_software_title.xml --yes`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from XML input
+			name, err := extractClassicName(data, "patch_software_title")
+			if err != nil {
+				return err
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchsoftwaretitles", "patchsoftwaretitles", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create patch_software_title %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/patchsoftwaretitles/id/0", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created patch_software_title %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace patch_software_title %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("patch_software_title %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "patch_software_title %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced patch_software_title %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicPatchTitlesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a patch_software_title by name",
+		Example: `  # Delete a patch_software_title by name (with confirmation)
+  jamf-cli classic-patch-titles delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli classic-patch-titles delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchsoftwaretitles", "patchsoftwaretitles", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no patch_software_title found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch_software_title %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete patch_software_title %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := fmt.Sprintf("/JSSResource/patchsoftwaretitles/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				fmt.Fprintf(os.Stderr, "Deleted patch_software_title %q (id: %s)\n", name, id)
 				return nil
 			}
 

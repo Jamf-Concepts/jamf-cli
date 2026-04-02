@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +35,8 @@ func NewInventoryPreloadV2SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadV2SCsvValidateCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SDeleteAllCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SGetByNameCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadV2SApplyCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadV2SDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -714,4 +717,168 @@ func newInventoryPreloadV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newInventoryPreloadV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a inventory-preload-v-2 by name",
+		Example: `  # Delete a inventory-preload-v-2 by name (with confirmation)
+  jamf-cli inventory-preload-v-2s delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli inventory-preload-v-2s delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no inventory-preload-v-2 found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete inventory-preload-v-2 %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete inventory-preload-v-2 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted inventory-preload-v-2 %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newInventoryPreloadV2SApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a inventory-preload-v-2 by name",
+		Long: `Create or replace a inventory-preload-v-2. Reads JSON from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a inventory-preload-v-2 from a file
+  jamf-cli inventory-preload-v-2s apply --from-file inventory-preload-v-2.json
+
+  # Apply from stdin
+  cat inventory-preload-v-2.json | jamf-cli inventory-preload-v-2s apply
+
+  # Apply without replacement confirmation
+  jamf-cli inventory-preload-v-2s apply --from-file inventory-preload-v-2.json --yes
+
+  # Preview what would happen
+  jamf-cli inventory-preload-v-2s apply --from-file inventory-preload-v-2.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create inventory-preload-v-2 %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/inventory-preload/csv", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created inventory-preload-v-2 %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace inventory-preload-v-2 %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("inventory-preload-v-2 %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "inventory-preload-v-2 %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced inventory-preload-v-2 %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }

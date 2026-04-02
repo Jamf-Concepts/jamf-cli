@@ -26,6 +26,7 @@ func NewMdmRenewalsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMdmRenewalsDeleteCmd(ctx))
 	cmd.AddCommand(newMdmRenewalsPatchCmd(ctx))
 	cmd.AddCommand(newMdmRenewalsGetByNameCmd(ctx))
+	cmd.AddCommand(newMdmRenewalsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -222,4 +223,70 @@ func newMdmRenewalsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newMdmRenewalsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a mdm-renewal by name",
+		Example: `  # Delete a mdm-renewal by name (with confirmation)
+  jamf-cli mdm-renewals delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli mdm-renewals delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no mdm-renewal found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mdm-renewal %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete mdm-renewal %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("/v1/mdm-renewal/renewal-strategies/{clientManagementId}", "{clientManagementId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted mdm-renewal %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }

@@ -156,6 +156,34 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 
 `cliOutput.PrintRaw` has a `--field` override: when `fieldName` is set, it parses JSON and extracts the named field from each object instead of delegating to the formatter. Generated `create`/`update` commands include a `--scaffold` flag that prints a JSON template (produced by `scaffoldJSON()` in the generator).
 
+### Generated Apply (Upsert) Commands
+
+Resources with both `create` (POST) and `update` (PUT) operations automatically get an `apply` subcommand. Classic API resources additionally require `name` in their lookups. Apply performs a name-based upsert:
+
+1. Reads input from `--from-file` or stdin (JSON for modern API, XML for classic API)
+2. Extracts the name field from input (uses `NameField` — either `name` or `displayName` for modern; searches `<name>` or `<general><name>` for classic XML)
+3. Checks if a resource with that name already exists
+4. **0 matches** → creates the resource (POST)
+5. **1 match** → confirms replacement (`--yes` skips), then updates (PUT with matched ID)
+6. **2+ matches** → collision: prompts user to pick which ID to replace interactively; errors if `--no-input` is set
+
+Flags: `--from-file`, `--yes` (skip replacement confirmation only — not collision resolution), `--dry-run` (resolves existence then prints what would happen).
+
+### Generated Delete-by-Name Commands
+
+Resources with a `delete` operation and name resolution capability (modern: `get` with path param; classic: `name` in lookups) automatically get a `delete-by-name` subcommand. It resolves name to ID using the same collision-aware lookup as apply, confirms the deletion, then deletes by ID.
+
+Flags: `--yes` (skip confirmation), `--dry-run` (resolve and preview without deleting).
+
+### Name Resolution Helpers (Generated)
+
+Helper functions in generated code (shared by `apply`, `delete-by-name`, and `get-by-name`):
+- `readApplyInput(fromFile)` — reads from file or stdin (in `registry.go`)
+- `extractJSONField(data, field)` — extracts name from JSON (in `registry.go`)
+- `resolveNameToIDForApply(ctx, client, listPath, nameField, name, noInput)` — collision-aware RSQL filter lookup (in `registry.go`)
+- `extractClassicName(data, singularKey)` — extracts name from XML via `xmlconv.ToMap` (in `classic_registry.go`)
+- `resolveClassicNameToIDForApply(ctx, client, apiPath, wrapperKey, name, noInput)` — fetches list, filters client-side (in `classic_registry.go`)
+
 ### Jamf Protect Integration
 
 Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles its own OAuth2 auth, retry, and pagination. Key differences from Pro:

@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,10 @@ func NewClassicMobileProvisioningProfilesCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.AddCommand(newClassicMobileProvisioningProfilesUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileProvisioningProfilesDeleteCmd(ctx))
+
+	cmd.AddCommand(newClassicMobileProvisioningProfilesApplyCmd(ctx))
+
+	cmd.AddCommand(newClassicMobileProvisioningProfilesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -259,6 +264,168 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicMobileProvisioningProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a mobile_device_provisioning_profile by name",
+		Long: `Create or replace a mobile_device_provisioning_profile. Reads XML from --from-file or stdin.
+
+The name field in the input XML is used to check if the resource already
+exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a mobile_device_provisioning_profile from an XML file
+  jamf-cli classic-mobile-provisioning-profiles apply --from-file mobile_device_provisioning_profile.xml
+
+  # Apply from stdin
+  cat mobile_device_provisioning_profile.xml | jamf-cli classic-mobile-provisioning-profiles apply
+
+  # Apply without replacement confirmation
+  jamf-cli classic-mobile-provisioning-profiles apply --from-file mobile_device_provisioning_profile.xml --yes`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from XML input
+			name, err := extractClassicName(data, "mobile_device_provisioning_profile")
+			if err != nil {
+				return err
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile_device_provisioning_profile %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceprovisioningprofiles/id/0", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created mobile_device_provisioning_profile %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile_device_provisioning_profile %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("mobile_device_provisioning_profile %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "mobile_device_provisioning_profile %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced mobile_device_provisioning_profile %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicMobileProvisioningProfilesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a mobile_device_provisioning_profile by name",
+		Example: `  # Delete a mobile_device_provisioning_profile by name (with confirmation)
+  jamf-cli classic-mobile-provisioning-profiles delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli classic-mobile-provisioning-profiles delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceprovisioningprofiles", "mobiledeviceprovisioningprofiles", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no mobile_device_provisioning_profile found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device_provisioning_profile %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete mobile_device_provisioning_profile %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := fmt.Sprintf("/JSSResource/mobiledeviceprovisioningprofiles/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				fmt.Fprintf(os.Stderr, "Deleted mobile_device_provisioning_profile %q (id: %s)\n", name, id)
 				return nil
 			}
 

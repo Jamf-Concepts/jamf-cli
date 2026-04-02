@@ -44,33 +44,17 @@ jamf-cli pro comp list --field name
 # Export inventory
 jamf-cli pro comp list -o csv --out-file inventory.csv
 
-# View policy scope
-jamf-cli pro scope get policy "Deploy Chrome" -o table
+# Show the JSON template for creating a building
+jamf-cli pro buildings create --scaffold
 
-# Add a computer group to a policy's scope
-jamf-cli pro scope add policy "Deploy Chrome" --computer-group "All Managed Clients"
-```
+# Create or update a building by name (upsert)
+echo '{"name":"HQ","streetAddress1":"1 Apple Park Way"}' | jamf-cli pro buildings apply
 
-### Jamf Protect
+# Apply from a file without confirmation
+jamf-cli pro buildings apply --from-file building.json --yes
 
-```bash
-# One-time setup: configure OAuth2 client credentials
-jamf-cli protect setup
-
-# Instance health dashboard
-jamf-cli protect overview
-
-# List plans
-jamf-cli protect plans list -o table
-
-# Export an analytic to YAML
-jamf-cli protect analytics export "Suspicious File Download" -o yaml
-
-# Import community analytics from the jamf/jamfprotect repo
-jamf-cli protect analytics import --dir jamfprotect/custom_analytic_detections/
-
-# Download the installer package
-jamf-cli protect downloads installer
+# Delete a building by name
+jamf-cli pro buildings delete-by-name "HQ" --yes
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -96,6 +80,9 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 ### Cross-product
 
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
+- **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
+- **`delete-by-name`** — Delete a resource by name instead of ID (with collision detection)
+- **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
