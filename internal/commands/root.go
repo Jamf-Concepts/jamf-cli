@@ -384,8 +384,9 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
-		Use:   "jamf-cli",
-		Short: "CLI for the Jamf platform",
+		Use:     "jamf-cli",
+		Short:   "CLI for the Jamf platform",
+		Version: version,
 		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
 Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
@@ -480,6 +481,9 @@ analytics, threat prevention, and configuration).`,
 			return nil
 		},
 	}
+
+	// Custom version template so --version matches the `version` subcommand output
+	cmd.SetVersionTemplate(fmt.Sprintf("jamf-cli %s\n  commit: %s\n  built:  %s\n", version, commit, date))
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
