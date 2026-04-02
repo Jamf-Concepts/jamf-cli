@@ -417,6 +417,14 @@ analytics, threat prevention, and configuration).`,
 				}
 			}
 
+			// Warn when secrets are passed as bare flags (visible in ps and shell history)
+			if cmd.Flags().Changed("client-secret") {
+				fmt.Fprintln(os.Stderr, "WARNING: --client-secret is visible in process listings and shell history; prefer JAMF_CLIENT_SECRET env var or a config profile with keychain storage")
+			}
+			if cmd.Flags().Changed("token") {
+				fmt.Fprintln(os.Stderr, "WARNING: --token is visible in process listings and shell history; prefer JAMF_TOKEN env var or a config profile with keychain storage")
+			}
+
 			// Load config and resolve auth
 			cfg, err := config.Load()
 			if err != nil {
