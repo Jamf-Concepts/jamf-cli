@@ -25,6 +25,7 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
+	cmd.AddCommand(newMobileDevicesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -165,6 +166,9 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a mobile-device by ID
   jamf-cli mobile-devices get 1
 
+  # Get a mobile-device by name
+  jamf-cli mobile-devices get-by-name "Example"
+
   # Get a mobile-device and output as YAML
   jamf-cli mobile-devices get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -253,4 +257,31 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newMobileDevicesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mobile-device by name",
+		Example: `  # Get a mobile-device by name
+  jamf-cli mobile-devices get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mobile-devices get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/mobile-devices/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

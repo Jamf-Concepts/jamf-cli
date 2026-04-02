@@ -27,6 +27,7 @@ func NewAppRequestsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAppRequestsCreateCmd(ctx))
 	cmd.AddCommand(newAppRequestsUpdateCmd(ctx))
 	cmd.AddCommand(newAppRequestsDeleteCmd(ctx))
+	cmd.AddCommand(newAppRequestsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,6 +79,9 @@ func newAppRequestsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified form input field object",
 		Example: `  # Get a app-request by ID
   jamf-cli app-requests get 1
+
+  # Get a app-request by name
+  jamf-cli app-requests get-by-name "Example"
 
   # Get a app-request and output as YAML
   jamf-cli app-requests get 1 -o yaml`,
@@ -280,4 +284,31 @@ func newAppRequestsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newAppRequestsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a app-request by name",
+		Example: `  # Get a app-request by name
+  jamf-cli app-requests get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli app-requests get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-request/form-input-fields", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/app-request/form-input-fields/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

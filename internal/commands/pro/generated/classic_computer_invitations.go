@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicComputerInvitationsCmd creates the classic-computer-invitations command group
@@ -50,11 +51,22 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"computerinvitations": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["computerinvitations"]; ok {
@@ -85,10 +97,15 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"computer_invitation": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -105,12 +122,9 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_invitation",
-		Long:  "Create a new computer_invitation. Reads JSON body from stdin.",
-		Example: `  # Create a computer_invitation from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-computer-invitations create
-
-  # Get a computer_invitation, modify, and create a copy
-  jamf-cli classic-computer-invitations get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-computer-invitations create`,
+		Long:  "Create a new computer_invitation. Reads XML body from stdin.",
+		Example: `  # Create a computer_invitation from XML
+  cat computer_invitation.xml | jamf-cli classic-computer-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -119,7 +133,7 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerinvitations/id/0", body)

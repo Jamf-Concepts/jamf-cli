@@ -31,6 +31,7 @@ func NewAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAdcsSettingsValidateCertificateCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsValidateClientCertificateCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsPatchCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -44,6 +45,9 @@ func newAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get AD CS Settings configuration for the ID value including public key information, but not including any password information.",
 		Example: `  # Get a adcs-setting by ID
   jamf-cli adcs-settings get 1
+
+  # Get a adcs-setting by name
+  jamf-cli adcs-settings get-by-name "Example"
 
   # Get a adcs-setting and output as YAML
   jamf-cli adcs-settings get 1 -o yaml`,
@@ -536,4 +540,31 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newAdcsSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a adcs-setting by name",
+		Example: `  # Get a adcs-setting by name
+  jamf-cli adcs-settings get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli adcs-settings get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/adcs-settings", "displayName", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/pki/adcs-settings/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

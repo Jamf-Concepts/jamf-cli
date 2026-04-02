@@ -27,6 +27,7 @@ func NewMobileDevicePrestageScopeV2SCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newMobileDevicePrestageScopeV2SUpdateCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopeV2SScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopeV2SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,6 +79,9 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Long:  "Get device scope for a specific mobile device prestage",
 		Example: `  # Get a mobile-device-prestage-scope-v-2 by ID
   jamf-cli mobile-device-prestage-scope-v-2s get 1
+
+  # Get a mobile-device-prestage-scope-v-2 by name
+  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example"
 
   # Get a mobile-device-prestage-scope-v-2 and output as YAML
   jamf-cli mobile-device-prestage-scope-v-2s get 1 -o yaml`,
@@ -318,4 +322,31 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newMobileDevicePrestageScopeV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mobile-device-prestage-scope-v-2 by name",
+		Example: `  # Get a mobile-device-prestage-scope-v-2 by name
+  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/mobile-device-prestages/{id}/scope", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

@@ -26,6 +26,7 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newEnrollmentCustomizationPanelsCreateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -39,6 +40,9 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 		Long:  "Get all panels for single enrollment customization",
 		Example: `  # Get a enrollment-customization-panel by ID
   jamf-cli enrollment-customization-panels get 1
+
+  # Get a enrollment-customization-panel by name
+  jamf-cli enrollment-customization-panels get-by-name "Example"
 
   # Get a enrollment-customization-panel and output as YAML
   jamf-cli enrollment-customization-panels get 1 -o yaml`,
@@ -243,4 +247,31 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a enrollment-customization-panel by name",
+		Example: `  # Get a enrollment-customization-panel by name
+  jamf-cli enrollment-customization-panels get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli enrollment-customization-panels get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/enrollment-customization/{id}/all", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

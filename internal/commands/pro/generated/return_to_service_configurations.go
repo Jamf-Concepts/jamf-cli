@@ -27,6 +27,7 @@ func NewReturnToServiceConfigurationsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newReturnToServiceConfigurationsCreateCmd(ctx))
 	cmd.AddCommand(newReturnToServiceConfigurationsUpdateCmd(ctx))
 	cmd.AddCommand(newReturnToServiceConfigurationsDeleteCmd(ctx))
+	cmd.AddCommand(newReturnToServiceConfigurationsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,6 +79,9 @@ func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Com
 		Long:  "Retrieves a Return to Service Configuration with the supplied id",
 		Example: `  # Get a return-to-service-configuration by ID
   jamf-cli return-to-service-configurations get 1
+
+  # Get a return-to-service-configuration by name
+  jamf-cli return-to-service-configurations get-by-name "Example"
 
   # Get a return-to-service-configuration and output as YAML
   jamf-cli return-to-service-configurations get 1 -o yaml`,
@@ -293,4 +297,31 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newReturnToServiceConfigurationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a return-to-service-configuration by name",
+		Example: `  # Get a return-to-service-configuration by name
+  jamf-cli return-to-service-configurations get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli return-to-service-configurations get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/return-to-service/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

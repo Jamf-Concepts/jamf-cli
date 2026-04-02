@@ -1,4 +1,4 @@
-package commands
+package scope
 
 import (
 	"encoding/xml"
@@ -93,19 +93,19 @@ func TestScopeXML_UnmarshalPolicy(t *testing.T) {
 }
 
 func TestScopeXML_MarshalRoundTrip(t *testing.T) {
-	scope := scopeXML{
+	s := ScopeXML{
 		AllComputers: true,
-		ComputerGroups: scopeItemSlice{
-			Items:    []namedItem{{ID: 1, Name: "Group A"}, {Name: "Group B"}},
-			elemName: "computer_group",
+		ComputerGroups: ScopeItemSlice{
+			Items:    []NamedItem{{ID: 1, Name: "Group A"}, {Name: "Group B"}},
+			ElemName: "computer_group",
 		},
-		Buildings: scopeItemSlice{
-			Items:    []namedItem{{Name: "HQ"}},
-			elemName: "building",
+		Buildings: ScopeItemSlice{
+			Items:    []NamedItem{{Name: "HQ"}},
+			ElemName: "building",
 		},
 	}
 
-	data, err := xml.MarshalIndent(scope, "", "  ")
+	data, err := xml.MarshalIndent(s, "", "  ")
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestScopeXML_MarshalRoundTrip(t *testing.T) {
 	}
 
 	// Unmarshal back and verify
-	var parsed scopeXML
+	var parsed ScopeXML
 	if err := xml.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("unmarshal round-trip: %v", err)
 	}
@@ -132,15 +132,15 @@ func TestScopeXML_MarshalRoundTrip(t *testing.T) {
 }
 
 func TestScopeUpdateXML_Marshal(t *testing.T) {
-	scope := scopeXML{
-		ComputerGroups: scopeItemSlice{
-			Items:    []namedItem{{Name: "Test"}},
-			elemName: "computer_group",
+	s := ScopeXML{
+		ComputerGroups: ScopeItemSlice{
+			Items:    []NamedItem{{Name: "Test"}},
+			ElemName: "computer_group",
 		},
 	}
 	envelope := scopeUpdateXML{
 		XMLName: xml.Name{Local: "policy"},
-		Scope:   scope,
+		Scope:   s,
 	}
 
 	data, err := xml.Marshal(envelope)
@@ -157,254 +157,249 @@ func TestScopeUpdateXML_Marshal(t *testing.T) {
 	}
 }
 
-// ─── addToScope ────────────────────────────────────────────────────────────────
+// ─── AddToScope ────────────────────────────────────────────────────────────────
 
 func TestAddToScope_TargetComputerGroup(t *testing.T) {
-	scope := &scopeXML{
-		ComputerGroups: scopeItemSlice{
-			Items:    []namedItem{{ID: 1, Name: "Existing"}},
-			elemName: "computer_group",
+	s := &ScopeXML{
+		ComputerGroups: ScopeItemSlice{
+			Items:    []NamedItem{{ID: 1, Name: "Existing"}},
+			ElemName: "computer_group",
 		},
 	}
 
-	if !addToScope(scope, "policy", "target", "computer-group", "New Group") {
+	if !AddToScope(s, "policy", "target", "computer-group", "New Group") {
 		t.Fatal("expected true")
 	}
-	if len(scope.ComputerGroups.Items) != 2 {
-		t.Fatalf("got %d, want 2", len(scope.ComputerGroups.Items))
+	if len(s.ComputerGroups.Items) != 2 {
+		t.Fatalf("got %d, want 2", len(s.ComputerGroups.Items))
 	}
-	if scope.ComputerGroups.Items[1].Name != "New Group" {
-		t.Errorf("name = %q", scope.ComputerGroups.Items[1].Name)
+	if s.ComputerGroups.Items[1].Name != "New Group" {
+		t.Errorf("name = %q", s.ComputerGroups.Items[1].Name)
 	}
 }
 
 func TestAddToScope_Idempotent(t *testing.T) {
-	scope := &scopeXML{
-		ComputerGroups: scopeItemSlice{
-			Items:    []namedItem{{Name: "Existing"}},
-			elemName: "computer_group",
+	s := &ScopeXML{
+		ComputerGroups: ScopeItemSlice{
+			Items:    []NamedItem{{Name: "Existing"}},
+			ElemName: "computer_group",
 		},
 	}
 
-	if addToScope(scope, "policy", "target", "computer-group", "existing") {
+	if AddToScope(s, "policy", "target", "computer-group", "existing") {
 		t.Fatal("expected false for case-insensitive duplicate")
 	}
-	if len(scope.ComputerGroups.Items) != 1 {
+	if len(s.ComputerGroups.Items) != 1 {
 		t.Fatal("scope should be unchanged")
 	}
 }
 
 func TestAddToScope_CreatesSection(t *testing.T) {
-	scope := &scopeXML{}
+	s := &ScopeXML{}
 
-	if !addToScope(scope, "policy", "exclusion", "computer-group", "Test") {
+	if !AddToScope(s, "policy", "exclusion", "computer-group", "Test") {
 		t.Fatal("expected true")
 	}
-	if scope.Exclusions == nil {
+	if s.Exclusions == nil {
 		t.Fatal("exclusions should be created")
 	}
-	if len(scope.Exclusions.ComputerGroups.Items) != 1 {
+	if len(s.Exclusions.ComputerGroups.Items) != 1 {
 		t.Fatal("should have 1 item")
 	}
-	if scope.Exclusions.ComputerGroups.elemName != "computer_group" {
-		t.Errorf("elemName = %q, want %q", scope.Exclusions.ComputerGroups.elemName, "computer_group")
+	if s.Exclusions.ComputerGroups.ElemName != "computer_group" {
+		t.Errorf("ElemName = %q, want %q", s.Exclusions.ComputerGroups.ElemName, "computer_group")
 	}
 }
 
 func TestAddToScope_Limitation(t *testing.T) {
-	scope := &scopeXML{
-		Limitations: &limitationsXML{},
+	s := &ScopeXML{
+		Limitations: &LimitationsXML{},
 	}
 
-	if !addToScope(scope, "policy", "limitation", "network-segment", "Guest") {
+	if !AddToScope(s, "policy", "limitation", "network-segment", "Guest") {
 		t.Fatal("expected true")
 	}
-	if len(scope.Limitations.NetworkSegments.Items) != 1 {
+	if len(s.Limitations.NetworkSegments.Items) != 1 {
 		t.Fatal("should have 1 item")
 	}
 }
 
-// ─── addToScope: policy limitation user_group special case ─────────────────────
+// ─── AddToScope: policy limitation user_group special case ───────────────────
 
 func TestAddToScope_PolicyLimitUserGroup(t *testing.T) {
-	scope := &scopeXML{}
+	s := &ScopeXML{}
 
-	if !addToScope(scope, "policy", "limitation", "user-group", "Staff") {
+	if !AddToScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
 	}
 
-	if scope.LimitToUsers == nil {
+	if s.LimitToUsers == nil {
 		t.Fatal("limit_to_users should be created")
 	}
-	groups := scope.LimitToUsers.UserGroups.Items
+	groups := s.LimitToUsers.UserGroups.Items
 	if len(groups) != 1 || groups[0] != "Staff" {
 		t.Errorf("got %v, want [Staff]", groups)
 	}
 }
 
 func TestAddToScope_PolicyLimitUserGroup_Idempotent(t *testing.T) {
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff"}, elemName: "user_group"},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff"}, ElemName: "user_group"},
 		},
 	}
 
-	if addToScope(scope, "policy", "limitation", "user-group", "staff") {
+	if AddToScope(s, "policy", "limitation", "user-group", "staff") {
 		t.Fatal("expected false for case-insensitive duplicate")
 	}
 }
 
 func TestAddToScope_NonPolicyLimitUserGroup(t *testing.T) {
-	scope := &scopeXML{}
+	s := &ScopeXML{}
 
-	if !addToScope(scope, "os_x_configuration_profile", "limitation", "user-group", "Staff") {
+	if !AddToScope(s, "os_x_configuration_profile", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
 	}
 
 	// Should go to limitations.user_groups, NOT limit_to_users
-	if scope.LimitToUsers != nil {
+	if s.LimitToUsers != nil {
 		t.Error("non-policy should not use limit_to_users")
 	}
-	if scope.Limitations == nil || len(scope.Limitations.UserGroups.Items) != 1 {
+	if s.Limitations == nil || len(s.Limitations.UserGroups.Items) != 1 {
 		t.Error("should be in limitations.user_groups")
 	}
 }
 
-// ─── removeFromScope ───────────────────────────────────────────────────────────
+// ─── RemoveFromScope ──────────────────────────────────────────────────────────
 
 func TestRemoveFromScope_TargetComputerGroup(t *testing.T) {
-	scope := &scopeXML{
-		ComputerGroups: scopeItemSlice{
-			Items:    []namedItem{{ID: 1, Name: "Keep"}, {ID: 2, Name: "Remove"}},
-			elemName: "computer_group",
+	s := &ScopeXML{
+		ComputerGroups: ScopeItemSlice{
+			Items:    []NamedItem{{ID: 1, Name: "Keep"}, {ID: 2, Name: "Remove"}},
+			ElemName: "computer_group",
 		},
 	}
 
-	if !removeFromScope(scope, "policy", "target", "computer-group", "Remove") {
+	if !RemoveFromScope(s, "policy", "target", "computer-group", "Remove") {
 		t.Fatal("expected true")
 	}
-	if len(scope.ComputerGroups.Items) != 1 {
-		t.Fatalf("got %d, want 1", len(scope.ComputerGroups.Items))
+	if len(s.ComputerGroups.Items) != 1 {
+		t.Fatalf("got %d, want 1", len(s.ComputerGroups.Items))
 	}
-	if scope.ComputerGroups.Items[0].Name != "Keep" {
-		t.Errorf("remaining = %q", scope.ComputerGroups.Items[0].Name)
+	if s.ComputerGroups.Items[0].Name != "Keep" {
+		t.Errorf("remaining = %q", s.ComputerGroups.Items[0].Name)
 	}
 }
 
 func TestRemoveFromScope_NotFound(t *testing.T) {
-	scope := &scopeXML{
-		ComputerGroups: scopeItemSlice{Items: []namedItem{{Name: "Keep"}}},
+	s := &ScopeXML{
+		ComputerGroups: ScopeItemSlice{Items: []NamedItem{{Name: "Keep"}}},
 	}
 
-	if removeFromScope(scope, "policy", "target", "computer-group", "Nonexistent") {
+	if RemoveFromScope(s, "policy", "target", "computer-group", "Nonexistent") {
 		t.Fatal("expected false")
 	}
 }
 
 func TestRemoveFromScope_CaseInsensitive(t *testing.T) {
-	scope := &scopeXML{
-		ComputerGroups: scopeItemSlice{Items: []namedItem{{Name: "Test Group"}}},
+	s := &ScopeXML{
+		ComputerGroups: ScopeItemSlice{Items: []NamedItem{{Name: "Test Group"}}},
 	}
 
-	if !removeFromScope(scope, "policy", "target", "computer-group", "test group") {
+	if !RemoveFromScope(s, "policy", "target", "computer-group", "test group") {
 		t.Fatal("expected case-insensitive match")
 	}
 }
 
 func TestRemoveFromScope_MissingSection(t *testing.T) {
-	scope := &scopeXML{} // no exclusions
+	s := &ScopeXML{} // no exclusions
 
-	if removeFromScope(scope, "policy", "exclusion", "computer-group", "Test") {
+	if RemoveFromScope(s, "policy", "exclusion", "computer-group", "Test") {
 		t.Fatal("expected false when section missing")
 	}
 }
 
 func TestRemoveFromScope_PolicyLimitUserGroup(t *testing.T) {
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff", "Admins"}, elemName: "user_group"},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff", "Admins"}, ElemName: "user_group"},
 		},
 	}
 
-	if !removeFromScope(scope, "policy", "limitation", "user-group", "staff") {
+	if !RemoveFromScope(s, "policy", "limitation", "user-group", "staff") {
 		t.Fatal("expected true (case-insensitive)")
 	}
-	if len(scope.LimitToUsers.UserGroups.Items) != 1 {
-		t.Fatalf("got %d, want 1", len(scope.LimitToUsers.UserGroups.Items))
+	if len(s.LimitToUsers.UserGroups.Items) != 1 {
+		t.Fatalf("got %d, want 1", len(s.LimitToUsers.UserGroups.Items))
 	}
-	if scope.LimitToUsers.UserGroups.Items[0] != "Admins" {
-		t.Errorf("remaining = %q", scope.LimitToUsers.UserGroups.Items[0])
+	if s.LimitToUsers.UserGroups.Items[0] != "Admins" {
+		t.Errorf("remaining = %q", s.LimitToUsers.UserGroups.Items[0])
 	}
 }
 
 func TestRemoveFromScope_PolicyLimitUserGroup_NotFound(t *testing.T) {
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff"}},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff"}},
 		},
 	}
 
-	if removeFromScope(scope, "policy", "limitation", "user-group", "Nonexistent") {
+	if RemoveFromScope(s, "policy", "limitation", "user-group", "Nonexistent") {
 		t.Fatal("expected false")
 	}
 }
 
 func TestRemoveFromScope_PolicyLimitUserGroup_InLimitations(t *testing.T) {
-	// User group in limitations/user_groups (named items) but NOT in limit_to_users.
-	// The remove must still find and remove it — matching the Python script's
-	// fallthrough that checks both locations.
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{}, elemName: "user_group"},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{}, ElemName: "user_group"},
 		},
-		Limitations: &limitationsXML{
-			UserGroups: scopeItemSlice{
-				Items:    []namedItem{{ID: 5, Name: "Staff"}},
-				elemName: "user_group",
+		Limitations: &LimitationsXML{
+			UserGroups: ScopeItemSlice{
+				Items:    []NamedItem{{ID: 5, Name: "Staff"}},
+				ElemName: "user_group",
 			},
 		},
 	}
 
-	if !removeFromScope(scope, "policy", "limitation", "user-group", "Staff") {
+	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true — should find in limitations/user_groups")
 	}
-	if len(scope.Limitations.UserGroups.Items) != 0 {
+	if len(s.Limitations.UserGroups.Items) != 0 {
 		t.Error("should have removed from limitations/user_groups")
 	}
 }
 
 func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
-	// User group appears in both limit_to_users AND limitations/user_groups.
-	// Both should be removed.
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff"}, elemName: "user_group"},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff"}, ElemName: "user_group"},
 		},
-		Limitations: &limitationsXML{
-			UserGroups: scopeItemSlice{
-				Items:    []namedItem{{Name: "Staff"}},
-				elemName: "user_group",
+		Limitations: &LimitationsXML{
+			UserGroups: ScopeItemSlice{
+				Items:    []NamedItem{{Name: "Staff"}},
+				ElemName: "user_group",
 			},
 		},
 	}
 
-	if !removeFromScope(scope, "policy", "limitation", "user-group", "Staff") {
+	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
 	}
-	if len(scope.LimitToUsers.UserGroups.Items) != 0 {
+	if len(s.LimitToUsers.UserGroups.Items) != 0 {
 		t.Error("should have removed from limit_to_users")
 	}
-	if len(scope.Limitations.UserGroups.Items) != 0 {
+	if len(s.Limitations.UserGroups.Items) != 0 {
 		t.Error("should have removed from limitations/user_groups")
 	}
 }
 
-// ─── validateScopeCombination ──────────────────────────────────────────────────
+// ─── ValidateScopeCombination ────────────────────────────────────────────────
 
 func TestValidateScopeCombination_ValidTargets(t *testing.T) {
 	for _, flag := range []string{"computer-group", "mobile-device-group", "building", "department"} {
 		for _, sk := range []string{"policy", "restricted_software", "os_x_configuration_profile"} {
-			if err := validateScopeCombination(sk, "target", flag); err != nil {
+			if err := ValidateScopeCombination(sk, "target", flag); err != nil {
 				t.Errorf("target/%s/%s: %v", sk, flag, err)
 			}
 		}
@@ -412,14 +407,14 @@ func TestValidateScopeCombination_ValidTargets(t *testing.T) {
 }
 
 func TestValidateScopeCombination_InvalidTarget(t *testing.T) {
-	if err := validateScopeCombination("policy", "target", "network-segment"); err == nil {
+	if err := ValidateScopeCombination("policy", "target", "network-segment"); err == nil {
 		t.Error("expected error for network-segment as target")
 	}
 }
 
 func TestValidateScopeCombination_ValidLimitations(t *testing.T) {
 	for _, flag := range []string{"network-segment", "user-group", "computer-group"} {
-		if err := validateScopeCombination("policy", "limitation", flag); err != nil {
+		if err := ValidateScopeCombination("policy", "limitation", flag); err != nil {
 			t.Errorf("limitation/%s: %v", flag, err)
 		}
 	}
@@ -427,7 +422,7 @@ func TestValidateScopeCombination_ValidLimitations(t *testing.T) {
 
 func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) {
 	for _, flag := range []string{"network-segment", "user-group", "computer-group"} {
-		err := validateScopeCombination("restricted_software", "limitation", flag)
+		err := ValidateScopeCombination("restricted_software", "limitation", flag)
 		if err == nil {
 			t.Errorf("expected error: restricted software + limitation + %s", flag)
 		}
@@ -439,7 +434,7 @@ func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) 
 
 func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 	for _, flag := range []string{"computer-group", "mobile-device-group", "user-group", "network-segment", "building", "department"} {
-		if err := validateScopeCombination("policy", "exclusion", flag); err != nil {
+		if err := ValidateScopeCombination("policy", "exclusion", flag); err != nil {
 			t.Errorf("exclusion/%s: %v", flag, err)
 		}
 	}
@@ -447,52 +442,52 @@ func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 
 func TestValidateScopeCombination_RestrictedSoftwareExclusions(t *testing.T) {
 	for _, flag := range []string{"computer-group", "building", "department"} {
-		if err := validateScopeCombination("restricted_software", "exclusion", flag); err != nil {
+		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err != nil {
 			t.Errorf("restricted exclusion/%s: %v", flag, err)
 		}
 	}
 	for _, flag := range []string{"mobile-device-group", "user-group", "network-segment"} {
-		if err := validateScopeCombination("restricted_software", "exclusion", flag); err == nil {
+		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err == nil {
 			t.Errorf("expected error: restricted software exclusion + %s", flag)
 		}
 	}
 }
 
 func TestValidateScopeCombination_InvalidSection(t *testing.T) {
-	if err := validateScopeCombination("policy", "bogus", "computer-group"); err == nil {
+	if err := ValidateScopeCombination("policy", "bogus", "computer-group"); err == nil {
 		t.Error("expected error for invalid section")
 	}
 }
 
 func TestValidateScopeCombination_InvalidLimitationFlag(t *testing.T) {
-	if err := validateScopeCombination("policy", "limitation", "building"); err == nil {
+	if err := ValidateScopeCombination("policy", "limitation", "building"); err == nil {
 		t.Error("expected error: building is not a valid limitation")
 	}
 }
 
-// ─── flattenScope ──────────────────────────────────────────────────────────────
+// ─── FlattenScope ────────────────────────────────────────────────────────────
 
 func TestFlattenScope_BasicPolicy(t *testing.T) {
-	scope := &scopeXML{
+	s := &ScopeXML{
 		AllComputers: true,
-		ComputerGroups: scopeItemSlice{
-			Items: []namedItem{{ID: 1, Name: "Group A"}},
+		ComputerGroups: ScopeItemSlice{
+			Items: []NamedItem{{ID: 1, Name: "Group A"}},
 		},
-		Buildings: scopeItemSlice{
-			Items: []namedItem{{Name: "HQ"}},
+		Buildings: ScopeItemSlice{
+			Items: []NamedItem{{Name: "HQ"}},
 		},
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff"}},
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff"}},
 		},
-		Limitations: &limitationsXML{
-			NetworkSegments: scopeItemSlice{Items: []namedItem{{Name: "Corporate"}}},
+		Limitations: &LimitationsXML{
+			NetworkSegments: ScopeItemSlice{Items: []NamedItem{{Name: "Corporate"}}},
 		},
-		Exclusions: &exclusionsXML{
-			ComputerGroups: scopeItemSlice{Items: []namedItem{{Name: "Test Machines"}}},
+		Exclusions: &ExclusionsXML{
+			ComputerGroups: ScopeItemSlice{Items: []NamedItem{{Name: "Test Machines"}}},
 		},
 	}
 
-	rows := flattenScope(scope, "policy")
+	rows := FlattenScope(s, "policy")
 
 	expected := []struct{ section, typ, name string }{
 		{"target", "all_computers", "true"},
@@ -515,25 +510,21 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 }
 
 func TestFlattenScope_PolicyUserGroupNoDuplicates(t *testing.T) {
-	// The Classic API mirrors policy user groups in both limit_to_users/user_groups
-	// and limitations/user_groups. flattenScope should emit only the limit_to_users
-	// copy to avoid duplicate rows.
-	scope := &scopeXML{
-		LimitToUsers: &limitToUsersXML{
-			UserGroups: scopeStringSlice{Items: []string{"Staff", "Faculty"}},
+	s := &ScopeXML{
+		LimitToUsers: &LimitToUsersXML{
+			UserGroups: ScopeStringSlice{Items: []string{"Staff", "Faculty"}},
 		},
-		Limitations: &limitationsXML{
-			UserGroups: scopeItemSlice{Items: []namedItem{
+		Limitations: &LimitationsXML{
+			UserGroups: ScopeItemSlice{Items: []NamedItem{
 				{ID: 1, Name: "Staff"},
 				{ID: 2, Name: "Faculty"},
 			}},
-			NetworkSegments: scopeItemSlice{Items: []namedItem{{Name: "Corporate"}}},
+			NetworkSegments: ScopeItemSlice{Items: []NamedItem{{Name: "Corporate"}}},
 		},
 	}
 
-	rows := flattenScope(scope, "policy")
+	rows := FlattenScope(s, "policy")
 
-	// Count user_group rows — should be exactly 2, not 4.
 	var ugCount int
 	for _, r := range rows {
 		if r["type"] == "user_group" {
@@ -561,13 +552,13 @@ func TestFlattenScope_PolicyUserGroupNoDuplicates(t *testing.T) {
 }
 
 func TestFlattenScope_EmptyScope(t *testing.T) {
-	scope := &scopeXML{}
-	if rows := flattenScope(scope, "policy"); len(rows) != 0 {
+	s := &ScopeXML{}
+	if rows := FlattenScope(s, "policy"); len(rows) != 0 {
 		t.Errorf("got %d rows, want 0", len(rows))
 	}
 }
 
-// ─── isPolicyLimitUserGroup ────────────────────────────────────────────────────
+// ─── isPolicyLimitUserGroup ──────────────────────────────────────────────────
 
 func TestIsPolicyLimitUserGroup(t *testing.T) {
 	tests := []struct {
@@ -584,39 +575,5 @@ func TestIsPolicyLimitUserGroup(t *testing.T) {
 			t.Errorf("isPolicyLimitUserGroup(%q,%q,%q) = %v, want %v",
 				tt.singularKey, tt.section, tt.flagName, got, tt.want)
 		}
-	}
-}
-
-// ─── Resource lookup ───────────────────────────────────────────────────────────
-
-func TestScopeResourceNames_Sorted(t *testing.T) {
-	names := scopeResourceNames()
-	if len(names) != len(scopeResources) {
-		t.Errorf("got %d names, want %d", len(names), len(scopeResources))
-	}
-	for i := 1; i < len(names); i++ {
-		if names[i] < names[i-1] {
-			t.Errorf("not sorted: %q before %q", names[i-1], names[i])
-		}
-	}
-}
-
-func TestLookupScopeResource_Valid(t *testing.T) {
-	res, err := lookupScopeResource("policy")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.apiPath != "policies" {
-		t.Errorf("apiPath = %q", res.apiPath)
-	}
-}
-
-func TestLookupScopeResource_Invalid(t *testing.T) {
-	_, err := lookupScopeResource("bogus")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "unsupported resource type") {
-		t.Errorf("unexpected error: %v", err)
 	}
 }

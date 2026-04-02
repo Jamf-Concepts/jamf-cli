@@ -19,6 +19,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
@@ -68,6 +69,13 @@ func (o *cliOutput) PrintResponse(resp *http.Response) error {
 }
 
 func (o *cliOutput) PrintRaw(data []byte) error {
+	// Convert XML to JSON if needed (Classic API responses).
+	if xmlconv.IsXML(data) {
+		if converted, err := xmlconv.ToJSON(data); err == nil {
+			data = converted
+		}
+	}
+
 	if fieldName == "" {
 		return o.Formatter.PrintRaw(data)
 	}
@@ -92,8 +100,9 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
 
+	parts := strings.Split(fieldName, ".")
 	for _, obj := range objects {
-		val, ok := obj[fieldName]
+		val, ok := walkFieldPath(obj, parts)
 		if !ok {
 			continue
 		}
@@ -102,6 +111,23 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// walkFieldPath traverses a dot-separated path through nested maps.
+// "general.id" on {"general": {"id": 42}} returns (42, true).
+func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
+	current := any(obj)
+	for _, part := range parts {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
 }
 
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
@@ -170,55 +196,62 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	tid := params.TenantID
 	isPlatform := false
 
-	// Config profile: fill remaining gaps
+	// Config profile: fill remaining gaps.
+	// Skip profile credential resolution when a token was explicitly provided
+	// via flags/env — the explicit token should take priority over profile
+	// credentials to support ad-hoc bearer token usage (e.g., basic auth
+	// bootstrap scripts).
+	explicitToken := tok != ""
 	if len(cfg.Profiles) > 0 {
 		p, _, err := config.GetProfile(cfg, profileName)
 		if err == nil {
 			if url == "" {
 				url = p.URL
 			}
-			switch p.AuthMethod {
-			case "platform":
-				isPlatform = true
-				if cid == "" && p.ClientID != "" {
-					resolved, err := config.ResolveSecret(p.ClientID)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+			if !explicitToken {
+				switch p.AuthMethod {
+				case "platform":
+					isPlatform = true
+					if cid == "" && p.ClientID != "" {
+						resolved, err := config.ResolveSecret(p.ClientID)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+						}
+						cid = resolved
 					}
-					cid = resolved
-				}
-				if csecret == "" && p.ClientSecret != "" {
-					resolved, err := config.ResolveSecret(p.ClientSecret)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+					if csecret == "" && p.ClientSecret != "" {
+						resolved, err := config.ResolveSecret(p.ClientSecret)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+						}
+						csecret = resolved
 					}
-					csecret = resolved
-				}
-				if tid == "" && p.TenantID != "" {
-					tid = p.TenantID
-				}
-			case "oauth2":
-				if cid == "" && p.ClientID != "" {
-					resolved, err := config.ResolveSecret(p.ClientID)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+					if tid == "" && p.TenantID != "" {
+						tid = p.TenantID
 					}
-					cid = resolved
-				}
-				if csecret == "" && p.ClientSecret != "" {
-					resolved, err := config.ResolveSecret(p.ClientSecret)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+				case "oauth2":
+					if cid == "" && p.ClientID != "" {
+						resolved, err := config.ResolveSecret(p.ClientID)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+						}
+						cid = resolved
 					}
-					csecret = resolved
-				}
-			default: // "token" or empty
-				if tok == "" && p.Token != "" {
-					resolved, err := config.ResolveSecret(p.Token)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+					if csecret == "" && p.ClientSecret != "" {
+						resolved, err := config.ResolveSecret(p.ClientSecret)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+						}
+						csecret = resolved
 					}
-					tok = resolved
+				default: // "token" or empty
+					if tok == "" && p.Token != "" {
+						resolved, err := config.ResolveSecret(p.Token)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+						}
+						tok = resolved
+					}
 				}
 			}
 		}
@@ -425,7 +458,9 @@ analytics, threat prevention, and configuration).`,
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
 			}
-			var httpClient registry.HTTPClient = &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
+			cliCtx.Uploader = proClient // set before wrapping with decorators
+			var httpClient registry.HTTPClient = proClient
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}

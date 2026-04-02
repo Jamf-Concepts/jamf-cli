@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicPatchPoliciesCmd creates the classic-patch-policies command group
@@ -52,11 +53,22 @@ func newClassicPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"patchpolicies": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["patchpolicies"]; ok {
@@ -87,10 +99,15 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"patch_policy": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -107,12 +124,9 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_policy",
-		Long:  "Create a new patch_policy. Reads JSON body from stdin.",
-		Example: `  # Create a patch_policy from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-patch-policies create
-
-  # Get a patch_policy, modify, and create a copy
-  jamf-cli classic-patch-policies get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-patch-policies create`,
+		Long:  "Create a new patch_policy. Reads XML body from stdin.",
+		Example: `  # Create a patch_policy from XML
+  cat patch_policy.xml | jamf-cli classic-patch-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -121,7 +135,7 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/patchpolicies/id/0", body)
@@ -139,12 +153,9 @@ func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_policy",
-		Long:  "Update an existing patch_policy by ID. Reads JSON body from stdin.",
-		Example: `  # Update a patch_policy from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-patch-policies update 1
-
-  # Get, modify, and update a patch_policy
-  jamf-cli classic-patch-policies get 1 -o json | jq '.name = "New"' | jamf-cli classic-patch-policies update 1`,
+		Long:  "Update an existing patch_policy by ID. Reads XML body from stdin.",
+		Example: `  # Update a patch_policy from XML
+  cat patch_policy.xml | jamf-cli classic-patch-policies update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -154,7 +165,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))

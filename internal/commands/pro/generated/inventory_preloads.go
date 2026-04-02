@@ -31,6 +31,7 @@ func NewInventoryPreloadsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadsHistoryCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsValidateCsvCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -173,6 +174,9 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves an Inventory Preload record.",
 		Example: `  # Get a inventory-preload by ID
   jamf-cli inventory-preloads get 1
+
+  # Get a inventory-preload by name
+  jamf-cli inventory-preloads get-by-name "Example"
 
   # Get a inventory-preload and output as YAML
   jamf-cli inventory-preloads get 1 -o yaml`,
@@ -650,4 +654,31 @@ func newInventoryPreloadsValidateCsvCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	return cmd
+}
+
+func newInventoryPreloadsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a inventory-preload by name",
+		Example: `  # Get a inventory-preload by name
+  jamf-cli inventory-preloads get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli inventory-preloads get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/inventory-preload", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/inventory-preload/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

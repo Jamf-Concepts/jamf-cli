@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicPatchExternalSourcesCmd creates the classic-patch-external-sources command group
@@ -53,11 +54,22 @@ func newClassicPatchExternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"patchexternalsources": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["patchexternalsources"]; ok {
@@ -88,10 +100,15 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"patch_external_source": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicPatchExternalSourcesGetByNameCmd(ctx *registry.CLIContext) *cobra
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["patch_external_source"]; ok {
@@ -137,12 +159,9 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_external_source",
-		Long:  "Create a new patch_external_source. Reads JSON body from stdin.",
-		Example: `  # Create a patch_external_source from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-patch-external-sources create
-
-  # Get a patch_external_source, modify, and create a copy
-  jamf-cli classic-patch-external-sources get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-patch-external-sources create`,
+		Long:  "Create a new patch_external_source. Reads XML body from stdin.",
+		Example: `  # Create a patch_external_source from XML
+  cat patch_external_source.xml | jamf-cli classic-patch-external-sources create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/patchexternalsources/id/0", body)
@@ -169,12 +188,9 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_external_source",
-		Long:  "Update an existing patch_external_source by ID. Reads JSON body from stdin.",
-		Example: `  # Update a patch_external_source from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-patch-external-sources update 1
-
-  # Get, modify, and update a patch_external_source
-  jamf-cli classic-patch-external-sources get 1 -o json | jq '.name = "New"' | jamf-cli classic-patch-external-sources update 1`,
+		Long:  "Update an existing patch_external_source by ID. Reads XML body from stdin.",
+		Example: `  # Update a patch_external_source from XML
+  cat patch_external_source.xml | jamf-cli classic-patch-external-sources update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/patchexternalsources/id/%s", url.PathEscape(args[0]))

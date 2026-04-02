@@ -31,6 +31,7 @@ func NewDepartmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDepartmentsDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newDepartmentsHistoryCmd(ctx))
 	cmd.AddCommand(newDepartmentsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newDepartmentsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -175,6 +176,9 @@ func newDepartmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified Department object",
 		Example: `  # Get a department by ID
   jamf-cli departments get 1
+
+  # Get a department by name
+  jamf-cli departments get-by-name "Example"
 
   # Get a department and output as YAML
   jamf-cli departments get 1 -o yaml`,
@@ -659,4 +663,31 @@ func newDepartmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
+}
+
+func newDepartmentsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a department by name",
+		Example: `  # Get a department by name
+  jamf-cli departments get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli departments get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/departments", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/departments/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

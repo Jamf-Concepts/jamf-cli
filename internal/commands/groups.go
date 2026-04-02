@@ -90,7 +90,6 @@ var proGroupMap = map[string]string{
 	"report":      groupPower,
 	"diff":        groupPower,
 	"group-tools": groupPower,
-	"scope":       groupPower,
 
 	// Computer Management
 	"computers":                              groupComputers,
@@ -148,18 +147,20 @@ var proGroupMap = map[string]string{
 	"sites":       groupOrg,
 
 	// Users & Security
-	"users":                       groupUsers,
-	"user-preferences":            groupUsers,
-	"user-smart-groups":           groupUsers,
-	"static-user-groups":          groupUsers,
-	"authentications":             groupUsers,
-	"access-managements":          groupUsers,
-	"ldap-rs":                     groupUsers,
-	"account-preferences":         groupUsers,
-	"change-passwords":            groupUsers,
-	"o-auth-api-roles-privileges": groupUsers,
-	"oauth-token-sessions":        groupUsers,
-	"oidcs":                       groupUsers,
+	"users":                groupUsers,
+	"user-preferences":     groupUsers,
+	"user-smart-groups":    groupUsers,
+	"static-user-groups":   groupUsers,
+	"authentications":      groupUsers,
+	"access-managements":   groupUsers,
+	"ldap-rs":              groupUsers,
+	"account-preferences":  groupUsers,
+	"change-passwords":     groupUsers,
+	"api-roles":            groupUsers,
+	"api-integrations":     groupUsers,
+	"api-roles-privileges": groupUsers,
+	"oauth-token-sessions": groupUsers,
+	"oidcs":                groupUsers,
 
 	// Content & Configuration
 	"scripts":                          groupContent,
@@ -259,6 +260,7 @@ var proGroupMap = map[string]string{
 	"classic-restricted-software":     groupClassicConfig,
 	"classic-allowed-file-extensions": groupClassicConfig,
 	"classic-mac-apps":                groupClassicConfig,
+	"classic-mobile-apps":             groupClassicMobile,
 	"classic-ibeacons":                groupClassicConfig,
 	"classic-classes":                 groupClassicConfig,
 

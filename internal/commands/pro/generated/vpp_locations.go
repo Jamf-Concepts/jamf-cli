@@ -32,6 +32,7 @@ func NewVppLocationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVppLocationsPatchCmd(ctx))
 	cmd.AddCommand(newVppLocationsReclaimCmd(ctx))
 	cmd.AddCommand(newVppLocationsRevokeLicensesCmd(ctx))
+	cmd.AddCommand(newVppLocationsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -176,6 +177,9 @@ func newVppLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves a Volume Purchasing Location with the supplied id",
 		Example: `  # Get a vpp-location by ID
   jamf-cli vpp-locations get 1
+
+  # Get a vpp-location by name
+  jamf-cli vpp-locations get-by-name "Example"
 
   # Get a vpp-location and output as YAML
   jamf-cli vpp-locations get 1 -o yaml`,
@@ -643,4 +647,31 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func newVppLocationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a vpp-location by name",
+		Example: `  # Get a vpp-location by name
+  jamf-cli vpp-locations get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli vpp-locations get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/volume-purchasing-locations/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

@@ -25,6 +25,7 @@ func NewLocalAdminPasswordV2SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newLocalAdminPasswordV2SGetCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordV2SUpdateCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordV2SHistoryCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordV2SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -76,6 +77,9 @@ func newLocalAdminPasswordV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
 		Example: `  # Get a local-admin-password-v-2 by ID
   jamf-cli local-admin-password-v-2s get 1
+
+  # Get a local-admin-password-v-2 by name
+  jamf-cli local-admin-password-v-2s get-by-name "Example"
 
   # Get a local-admin-password-v-2 and output as YAML
   jamf-cli local-admin-password-v-2s get 1 -o yaml`,
@@ -202,4 +206,31 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	return cmd
+}
+
+func newLocalAdminPasswordV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a local-admin-password-v-2 by name",
+		Example: `  # Get a local-admin-password-v-2 by name
+  jamf-cli local-admin-password-v-2s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli local-admin-password-v-2s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/local-admin-password/{clientManagementId}/account", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/local-admin-password/{clientManagementId}/account/{username}/audit", "{username}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

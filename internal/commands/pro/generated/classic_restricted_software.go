@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicRestrictedSoftwareCmd creates the classic-restricted-software command group
@@ -33,6 +35,11 @@ func NewClassicRestrictedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicRestrictedSoftwareDeleteCmd(ctx))
 
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "restrictedsoftware",
+		SingularKey: "restricted_software",
+	}))
+
 	return cmd
 }
 
@@ -53,11 +60,22 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"restrictedsoftware": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["restrictedsoftware"]; ok {
@@ -88,10 +106,15 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"restricted_software": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +145,11 @@ func newClassicRestrictedSoftwareGetByNameCmd(ctx *registry.CLIContext) *cobra.C
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["restricted_software"]; ok {
@@ -137,12 +165,9 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a restricted_software",
-		Long:  "Create a new restricted_software. Reads JSON body from stdin.",
-		Example: `  # Create a restricted_software from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-restricted-software create
-
-  # Get a restricted_software, modify, and create a copy
-  jamf-cli classic-restricted-software get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-restricted-software create`,
+		Long:  "Create a new restricted_software. Reads XML body from stdin.",
+		Example: `  # Create a restricted_software from XML
+  cat restricted_software.xml | jamf-cli classic-restricted-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +176,7 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/restrictedsoftware/id/0", body)
@@ -169,12 +194,9 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a restricted_software",
-		Long:  "Update an existing restricted_software by ID. Reads JSON body from stdin.",
-		Example: `  # Update a restricted_software from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-restricted-software update 1
-
-  # Get, modify, and update a restricted_software
-  jamf-cli classic-restricted-software get 1 -o json | jq '.name = "New"' | jamf-cli classic-restricted-software update 1`,
+		Long:  "Update an existing restricted_software by ID. Reads XML body from stdin.",
+		Example: `  # Update a restricted_software from XML
+  cat restricted_software.xml | jamf-cli classic-restricted-software update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +206,7 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(args[0]))

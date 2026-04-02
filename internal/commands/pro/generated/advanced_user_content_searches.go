@@ -27,6 +27,7 @@ func NewAdvancedUserContentSearchesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newAdvancedUserContentSearchesCreateCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesUpdateCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesDeleteCmd(ctx))
+	cmd.AddCommand(newAdvancedUserContentSearchesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,6 +79,9 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Long:  "Gets Specified Advanced User Content Search Object",
 		Example: `  # Get a advanced-user-content-searche by ID
   jamf-cli advanced-user-content-searches get 1
+
+  # Get a advanced-user-content-searche by name
+  jamf-cli advanced-user-content-searches get-by-name "Example"
 
   # Get a advanced-user-content-searche and output as YAML
   jamf-cli advanced-user-content-searches get 1 -o yaml`,
@@ -303,4 +307,31 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newAdvancedUserContentSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a advanced-user-content-searche by name",
+		Example: `  # Get a advanced-user-content-searche by name
+  jamf-cli advanced-user-content-searches get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli advanced-user-content-searches get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/advanced-user-content-searches/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

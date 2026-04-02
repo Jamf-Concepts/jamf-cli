@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
@@ -585,7 +586,8 @@ func TestCLIOutputPrintRaw_NonJSON(t *testing.T) {
 	formatter := output.New("json", true, false)
 	o := &cliOutput{formatter}
 
-	err := o.PrintRaw([]byte(`<xml>not json</xml>`))
+	// Use plain text that is neither valid JSON nor valid XML.
+	err := o.PrintRaw([]byte(`this is plain text, not json or xml`))
 	if err == nil {
 		t.Fatal("expected error for non-JSON input")
 	}
@@ -756,6 +758,39 @@ profiles:
 	}
 	if provider == nil {
 		t.Fatal("expected non-nil oauth2 provider")
+	}
+}
+
+func TestResolveAuth_ExplicitTokenSkipsProfileCredentials(t *testing.T) {
+	t.Setenv("TEST_OAUTH_ID", "from-env-id")
+	t.Setenv("TEST_OAUTH_SECRET", "from-env-secret")
+	setupConfigProfile(t, `default-profile: oauthprofile
+profiles:
+  oauthprofile:
+    url: https://oauth.jamfcloud.com
+    auth-method: oauth2
+    client-id: "env:TEST_OAUTH_ID"
+    client-secret: "env:TEST_OAUTH_SECRET"
+`)
+	// Explicit token should override the oauth2 profile credentials
+	token = "explicit-bearer-token"
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	url, provider, err := resolveAuth(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Profile URL should still be used (url resolution is outside the explicitToken guard)
+	if url != "https://oauth.jamfcloud.com" {
+		t.Errorf("url = %q, want profile URL", url)
+	}
+	// Provider should be token, NOT oauth2
+	if _, ok := provider.(*auth.TokenProvider); !ok {
+		t.Errorf("expected *auth.TokenProvider, got %T", provider)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicDockItemsCmd creates the classic-dock-items command group
@@ -53,11 +54,22 @@ func newClassicDockItemsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps list responses: {"dockitems": [...]}
+			// Classic API returns XML list responses.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				items, err := xmlconv.ExtractListItems(body)
+				if err == nil {
+					jsonItems, err := json.Marshal(items)
+					if err == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+				return ctx.Output.PrintRaw(body)
+			}
+			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["dockitems"]; ok {
@@ -88,10 +100,15 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API wraps single-object responses: {"dock_item": {...}}
+			// Classic API returns XML; convert to JSON for output.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
@@ -122,6 +139,11 @@ func newClassicDockItemsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["dock_item"]; ok {
@@ -137,12 +159,9 @@ func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a dock_item",
-		Long:  "Create a new dock_item. Reads JSON body from stdin.",
-		Example: `  # Create a dock_item from JSON
-  echo '{"name":"Example"}' | jamf-cli classic-dock-items create
-
-  # Get a dock_item, modify, and create a copy
-  jamf-cli classic-dock-items get 1 -o json | jq '.name = "Copy"' | jamf-cli classic-dock-items create`,
+		Long:  "Create a new dock_item. Reads XML body from stdin.",
+		Example: `  # Create a dock_item from XML
+  cat dock_item.xml | jamf-cli classic-dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +170,7 @@ func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/dockitems/id/0", body)
@@ -169,12 +188,9 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a dock_item",
-		Long:  "Update an existing dock_item by ID. Reads JSON body from stdin.",
-		Example: `  # Update a dock_item from JSON
-  echo '{"name":"Updated"}' | jamf-cli classic-dock-items update 1
-
-  # Get, modify, and update a dock_item
-  jamf-cli classic-dock-items get 1 -o json | jq '.name = "New"' | jamf-cli classic-dock-items update 1`,
+		Long:  "Update an existing dock_item by ID. Reads XML body from stdin.",
+		Example: `  # Update a dock_item from XML
+  cat dock_item.xml | jamf-cli classic-dock-items update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -184,7 +200,7 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				body = os.Stdin
 			} else {
-				return fmt.Errorf("request body required on stdin (pipe JSON input)")
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
 			path := fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))

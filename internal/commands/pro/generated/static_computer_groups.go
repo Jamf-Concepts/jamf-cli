@@ -28,6 +28,7 @@ func NewStaticComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newStaticComputerGroupsCreateCmd(ctx))
 	cmd.AddCommand(newStaticComputerGroupsUpdateCmd(ctx))
 	cmd.AddCommand(newStaticComputerGroupsDeleteCmd(ctx))
+	cmd.AddCommand(newStaticComputerGroupsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -172,6 +173,9 @@ func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Static Computer Group by Id",
 		Example: `  # Get a static-computer-group by ID
   jamf-cli static-computer-groups get 1
+
+  # Get a static-computer-group by name
+  jamf-cli static-computer-groups get-by-name "Example"
 
   # Get a static-computer-group and output as YAML
   jamf-cli static-computer-groups get 1 -o yaml`,
@@ -396,4 +400,31 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newStaticComputerGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a static-computer-group by name",
+		Example: `  # Get a static-computer-group by name
+  jamf-cli static-computer-groups get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli static-computer-groups get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/computer-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

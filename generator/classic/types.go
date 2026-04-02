@@ -12,6 +12,7 @@ type ClassicResource struct {
 	Description string
 	Operations  []string // ["list", "get", "create", "update", "delete"]
 	Lookups     []string // ["id", "name", "serialnumber", "macaddress", "udid"]
+	HasScope    bool     // true if the resource supports scope operations
 }
 
 // HasOperation returns true if the resource supports the given operation.

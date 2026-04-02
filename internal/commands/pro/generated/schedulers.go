@@ -21,6 +21,7 @@ func NewSchedulersCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newSchedulersListCmd(ctx))
 	cmd.AddCommand(newSchedulersGetCmd(ctx))
+	cmd.AddCommand(newSchedulersGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,6 +79,9 @@ func newSchedulersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a scheduler by ID
   jamf-cli schedulers get 1
 
+  # Get a scheduler by name
+  jamf-cli schedulers get-by-name "Example"
+
   # Get a scheduler and output as YAML
   jamf-cli schedulers get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -125,4 +129,31 @@ func newSchedulersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter the Jamf Pro Scheduler triggers collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: triggerKey, previousFireTime, nextFireTime.")
 
 	return cmd
+}
+
+func newSchedulersGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a scheduler by name",
+		Example: `  # Get a scheduler by name
+  jamf-cli schedulers get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli schedulers get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scheduler/jobs", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v1/scheduler/jobs/{jobKey}/triggers", "{jobKey}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

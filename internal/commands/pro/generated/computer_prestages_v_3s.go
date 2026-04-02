@@ -28,6 +28,7 @@ func NewComputerPrestagesV3SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputerPrestagesV3SCreateCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesV3SUpdateCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesV3SDeleteCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesV3SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -167,6 +168,9 @@ func newComputerPrestagesV3SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieves a Computer Prestage with the supplied id",
 		Example: `  # Get a computer-prestages-v-3 by ID
   jamf-cli computer-prestages-v-3s get 1
+
+  # Get a computer-prestages-v-3 by name
+  jamf-cli computer-prestages-v-3s get-by-name "Example"
 
   # Get a computer-prestages-v-3 and output as YAML
   jamf-cli computer-prestages-v-3s get 1 -o yaml`,
@@ -358,4 +362,31 @@ func newComputerPrestagesV3SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
+}
+
+func newComputerPrestagesV3SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a computer-prestages-v-3 by name",
+		Example: `  # Get a computer-prestages-v-3 by name
+  jamf-cli computer-prestages-v-3s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli computer-prestages-v-3s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v3/computer-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }

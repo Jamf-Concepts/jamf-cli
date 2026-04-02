@@ -223,9 +223,9 @@ func TestGenerate_ClassicExamples(t *testing.T) {
 	if !strings.Contains(code, "--yes") {
 		t.Error("expected delete example to show --yes usage")
 	}
-	// Create example should show jq pipe
-	if !strings.Contains(code, "jq") {
-		t.Error("expected create example to show jq pipe pattern")
+	// Create example should show XML input
+	if !strings.Contains(code, "cat policy.xml") {
+		t.Error("expected create example to show XML input pattern")
 	}
 }
 

@@ -58,7 +58,7 @@ Functions available in `resourceTemplate`:
 
 ### Classic API (`classic/types.go`)
 
-- **`ClassicResource`** — `Name`, `Path`, `CLIName`, `GoName`, `Singular`, `Description`, `Operations` (string slice), `Lookups`
+- **`ClassicResource`** — `Name`, `Path`, `CLIName`, `GoName`, `Singular`, `Description`, `Operations` (string slice), `Lookups`, `HasScope`
 
 ## Testing
 

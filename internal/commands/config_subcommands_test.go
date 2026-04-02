@@ -446,18 +446,24 @@ func TestAddProfile_ValidationErrors(t *testing.T) {
 		{
 			name:    "oauth2 missing client-id",
 			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-secret", "secret"},
-			wantErr: "--client-id is required",
+			wantErr: "--client-id is required when --no-input is set",
 		},
 		{
 			name:    "oauth2 missing client-secret",
 			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-id", "my-id"},
-			wantErr: "--client-secret is required",
+			wantErr: "--client-secret is required when --no-input is set",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setupTempConfig(t)
+
+			// Simulate non-interactive mode so missing secrets
+			// produce errors instead of prompting for input.
+			oldNoInput := noInput
+			noInput = true
+			defer func() { noInput = oldNoInput }()
 
 			cmd := newConfigAddProfileCmd()
 			buf := &bytes.Buffer{}

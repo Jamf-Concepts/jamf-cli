@@ -20,6 +20,7 @@ func NewMobileDevicePrestageSyncStateV2SCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SListCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SGetCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -72,6 +73,9 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *registry.CLIContext) *cobra.
 		Example: `  # Get a mobile-device-prestage-sync-state-v-2 by ID
   jamf-cli mobile-device-prestage-sync-state-v-2s get 1
 
+  # Get a mobile-device-prestage-sync-state-v-2 by name
+  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example"
+
   # Get a mobile-device-prestage-sync-state-v-2 and output as YAML
   jamf-cli mobile-device-prestage-sync-state-v-2s get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
@@ -100,4 +104,31 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	return cmd
+}
+
+func newMobileDevicePrestageSyncStateV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a mobile-device-prestage-sync-state-v-2 by name",
+		Example: `  # Get a mobile-device-prestage-sync-state-v-2 by name
+  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v2/mobile-device-prestages/{id}/syncs", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 }
