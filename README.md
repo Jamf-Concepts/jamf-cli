@@ -1,6 +1,6 @@
 # jamf-cli
 
-CLI for the Jamf platform — automate across Jamf Pro, with more products coming.
+Unified CLI for the Jamf platform. Supports Jamf Pro and Jamf Protect.
 
 **[Documentation Wiki](https://github.com/Jamf-Concepts/jamf-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
@@ -26,24 +26,11 @@ go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 
 ## Quick Start
 
+### Jamf Pro
+
 ```bash
 # One-time setup: create OAuth2 credentials from an admin account
 jamf-cli pro setup --url https://jamf.company.com
-
-# Or configure manually with existing credentials
-jamf-cli config add-profile prod \
-  --url https://jamf.company.com \
-  --auth-method oauth2 \
-  --client-id abc123 \
-  --client-secret "env:JAMF_CLIENT_SECRET"
-
-# Or use Jamf Platform Gateway auth
-jamf-cli config add-profile gateway \
-  --url https://us.apigw.jamf.com \
-  --auth-method platform \
-  --client-id abc123 \
-  --client-secret "env:PLATFORM_SECRET" \
-  --tenant-id e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 
 # Instance health dashboard
 jamf-cli pro overview
@@ -78,6 +65,17 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
+- **`scope`** — View, add to, and remove from scope on policies, config profiles, restricted software, and apps — no XML editing required
+
+### Jamf Protect
+
+- **Full SDK coverage** — Plans, analytics, analytic sets, exception sets, USB control, telemetry, prevent lists, unified logging filters, roles, users, groups, API clients, and org settings
+- **`overview`** — Instance dashboard with 14 parallel API calls: endpoints, security config, data forwarding, access
+- **`apply`** — Idempotent upsert: creates or replaces resources by name, with confirmation
+- **`export` / `import`** — Round-trip configuration as JSON or YAML. Plans and analytic sets use names (not IDs) for portability across tenants
+- **Community analytics** — Import YAML analytics from the [jamf/jamfprotect](https://github.com/jamf/jamfprotect) repository
+- **Downloads** — Installer packages, configuration profiles (.mobileconfig), and certificates
+- **Granular mutations** — Add/remove rules on USB control sets, analytics on sets, exceptions on sets
 
 ### Cross-product
 
@@ -88,9 +86,9 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
-- **Destructive safeguards** — Delete/erase/wipe require `--yes` confirmation
+- **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
-- **Jamf Platform Gateway** — Route through regional gateways with `--tenant-id`
+- **Jamf Platform Gateway** — Route Jamf Pro through regional gateways with `--tenant-id`
 
 ## Configuration
 
@@ -107,7 +105,14 @@ profiles:
     client-id: abc123
     client-secret: env:JAMF_PROD_SECRET
 
-  # Platform Gateway auth (routes through regional gateway)
+  protect:
+    product: protect
+    url: https://tenant.protect.jamfcloud.com
+    auth-method: oauth2
+    client-id: keychain:jamf-cli/protect/client-id
+    client-secret: keychain:jamf-cli/protect/client-secret
+
+  # Platform Gateway auth (routes Jamf Pro through regional gateway)
   platform-prod:
     url: https://us.apigw.jamf.com
     auth-method: platform
@@ -116,21 +121,38 @@ profiles:
     tenant-id: e5b39e85-5ecd-4d40-9d13-02c7cf21c762
 ```
 
-Three auth methods: `oauth2` (client credentials), `token` (static bearer), and `platform` (Jamf Platform Gateway). Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
+Jamf Pro supports three auth methods: `oauth2`, `token`, and `platform`. Jamf Protect uses `oauth2` only. Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamf-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamf-cli/wiki/Secrets-&-Keychain)
 
-## Command Aliases
+## Command Structure
 
-| Command | Alias |
-|---------|-------|
-| `computers` | `comp` |
-| `mobile-devices` | `md` |
-| `scripts` | `scr` |
-| `buildings` | `bld` |
-| `categories` | `cat` |
-| `departments` | `dept` |
-| `config` | `cfg` |
+Each product has its own namespace:
+
+```bash
+jamf-cli pro <command> [subcommand] [flags]       # Jamf Pro
+jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
+```
+
+### Aliases
+
+| Product | Command | Alias |
+|---------|---------|-------|
+| Pro | `computers` | `comp` |
+| Pro | `mobile-devices` | `md` |
+| Pro | `scripts` | `scr` |
+| Pro | `buildings` | `bld` |
+| Pro | `categories` | `cat` |
+| Pro | `departments` | `dept` |
+| Protect | `removable-storage-control-sets` | `rscs` |
+| Protect | `unified-logging-filters` | `ulf` |
+| Protect | `exception-sets` | `es` |
+| Protect | `analytic-sets` | `as` |
+| Protect | `action-configs` | `ac` |
+| Protect | `custom-prevent-lists` | `cpl` |
+| Protect | `api-clients` | `apic` |
+| Protect | `config-freeze` | `cf` |
+| Root | `config` | `cfg` |
 
 Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamf-cli/wiki/Command-Reference) · [Output Formats](https://github.com/Jamf-Concepts/jamf-cli/wiki/Output-Formats) · [Common Workflows](https://github.com/Jamf-Concepts/jamf-cli/wiki/Common-Workflows)
 
