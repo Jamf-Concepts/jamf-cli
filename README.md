@@ -26,10 +26,12 @@ go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 
 ## Quick Start
 
+For interactive use, `jamf-cli pro setup` prompts for credentials so nothing is leaked to shell history, and stores them in the system keychain. Environment variables (`JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, etc.) are intended for automation workflows only — avoid setting them in interactive shells.
+
 ### Jamf Pro
 
 ```bash
-# One-time setup: create OAuth2 credentials from an admin account
+# One-time setup: prompts for credentials and stores them in the system keychain
 jamf-cli pro setup --url https://jamf.company.com
 
 # Instance health dashboard
@@ -122,6 +124,8 @@ profiles:
 ```
 
 Jamf Pro supports three auth methods: `oauth2`, `token`, and `platform`. Jamf Protect uses `oauth2` only. Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
+
+> **Least privilege:** When creating API roles for use with jamf-cli, grant only the privileges required for the endpoints you need to access. Jamf Pro maps each API endpoint to a specific privilege — consult the [Privileges and Deprecations](https://developer.jamf.com/jamf-pro/docs/privileges-and-deprecations) reference to determine the minimum set of permissions for your workflow.
 
 See the wiki for full details: [Configuration & Profiles](https://github.com/Jamf-Concepts/jamf-cli/wiki/Configuration-&-Profiles) · [Secrets & Keychain](https://github.com/Jamf-Concepts/jamf-cli/wiki/Secrets-&-Keychain)
 
