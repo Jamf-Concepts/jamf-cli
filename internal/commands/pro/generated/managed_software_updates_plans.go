@@ -378,7 +378,7 @@ func newManagedSoftwareUpdatesPlansGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans/group", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans/group", "name", args[0])
 			if err != nil {
 				return err
 			}

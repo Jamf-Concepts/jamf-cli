@@ -321,7 +321,7 @@ func newAdvancedUserContentSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", args[0])
 			if err != nil {
 				return err
 			}

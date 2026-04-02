@@ -336,7 +336,7 @@ func newMobileDevicePrestageScopeV2SGetByNameCmd(ctx *registry.CLIContext) *cobr
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
 			if err != nil {
 				return err
 			}

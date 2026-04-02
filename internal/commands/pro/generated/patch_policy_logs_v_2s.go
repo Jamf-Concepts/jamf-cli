@@ -204,7 +204,7 @@ func newPatchPolicyLogsV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command 
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", args[0])
 			if err != nil {
 				return err
 			}

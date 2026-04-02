@@ -84,6 +84,10 @@ func ParseSpec(specPath string) (*Resource, error) {
 		}
 	}
 
+	// Detect the name field for filter lookups by inspecting request schemas.
+	// Most resources use "name", but some (e.g., API Roles, API Integrations) use "displayName".
+	resource.NameField = detectNameField(resource.Schemas)
+
 	return resource, nil
 }
 
@@ -319,6 +323,21 @@ func hasPaginationParams(op *openapi3.Operation) bool {
 		}
 	}
 	return false
+}
+
+// detectNameField inspects schemas to determine the correct field for name-based
+// filtering. Returns "displayName" if any schema has it without "name", otherwise "name".
+func detectNameField(schemas map[string]*Schema) string {
+	hasDisplayName := false
+	for _, s := range schemas {
+		if _, ok := s.Properties["displayName"]; ok {
+			hasDisplayName = true
+		}
+	}
+	if hasDisplayName {
+		return "displayName"
+	}
+	return "name"
 }
 
 // isDestructiveAction returns true for operations that modify/delete data

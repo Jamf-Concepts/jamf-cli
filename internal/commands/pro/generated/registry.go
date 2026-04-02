@@ -22,6 +22,9 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewAdcsSettingsCmd(ctx))
 	root.AddCommand(NewAdvancedMobileDeviceSearchesCmd(ctx))
 	root.AddCommand(NewAdvancedUserContentSearchesCmd(ctx))
+	root.AddCommand(NewApiIntegrationsCmd(ctx))
+	root.AddCommand(NewApiRolesCmd(ctx))
+	root.AddCommand(NewApiRolesPrivilegesCmd(ctx))
 	root.AddCommand(NewApnsClientPushStatussCmd(ctx))
 	root.AddCommand(NewAppRequestsCmd(ctx))
 	root.AddCommand(NewAuthenticationsCmd(ctx))
@@ -96,7 +99,6 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewMobileDeviceSmartGroupsCmd(ctx))
 	root.AddCommand(NewMobileDevicesCmd(ctx))
 	root.AddCommand(NewNotificationsCmd(ctx))
-	root.AddCommand(NewOAuthApiRolesPrivilegesCmd(ctx))
 	root.AddCommand(NewOauthTokenSessionsCmd(ctx))
 	root.AddCommand(NewOidcsCmd(ctx))
 	root.AddCommand(NewOnboardingConfigurationsCmd(ctx))
@@ -139,10 +141,11 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 
 // resolveNameToID looks up a resource by name using a filtered list call and
 // returns its ID. This enables --name as an alternative to positional ID args
-// on get commands.
-func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, name string) (string, error) {
+// on get commands. The nameField parameter specifies the filter field
+// (usually "name", but some resources use "displayName").
+func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string) (string, error) {
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=1",
-		listPath, url.QueryEscape(fmt.Sprintf(`name=="%s"`, name)))
+		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, name)))
 
 	resp, err := client.Do(ctx, "GET", filterPath, nil)
 	if err != nil {

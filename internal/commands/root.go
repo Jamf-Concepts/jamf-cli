@@ -196,55 +196,62 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	tid := params.TenantID
 	isPlatform := false
 
-	// Config profile: fill remaining gaps
+	// Config profile: fill remaining gaps.
+	// Skip profile credential resolution when a token was explicitly provided
+	// via flags/env — the explicit token should take priority over profile
+	// credentials to support ad-hoc bearer token usage (e.g., basic auth
+	// bootstrap scripts).
+	explicitToken := tok != ""
 	if len(cfg.Profiles) > 0 {
 		p, _, err := config.GetProfile(cfg, profileName)
 		if err == nil {
 			if url == "" {
 				url = p.URL
 			}
-			switch p.AuthMethod {
-			case "platform":
-				isPlatform = true
-				if cid == "" && p.ClientID != "" {
-					resolved, err := config.ResolveSecret(p.ClientID)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+			if !explicitToken {
+				switch p.AuthMethod {
+				case "platform":
+					isPlatform = true
+					if cid == "" && p.ClientID != "" {
+						resolved, err := config.ResolveSecret(p.ClientID)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+						}
+						cid = resolved
 					}
-					cid = resolved
-				}
-				if csecret == "" && p.ClientSecret != "" {
-					resolved, err := config.ResolveSecret(p.ClientSecret)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+					if csecret == "" && p.ClientSecret != "" {
+						resolved, err := config.ResolveSecret(p.ClientSecret)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+						}
+						csecret = resolved
 					}
-					csecret = resolved
-				}
-				if tid == "" && p.TenantID != "" {
-					tid = p.TenantID
-				}
-			case "oauth2":
-				if cid == "" && p.ClientID != "" {
-					resolved, err := config.ResolveSecret(p.ClientID)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+					if tid == "" && p.TenantID != "" {
+						tid = p.TenantID
 					}
-					cid = resolved
-				}
-				if csecret == "" && p.ClientSecret != "" {
-					resolved, err := config.ResolveSecret(p.ClientSecret)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+				case "oauth2":
+					if cid == "" && p.ClientID != "" {
+						resolved, err := config.ResolveSecret(p.ClientID)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-id from profile: %w", err)
+						}
+						cid = resolved
 					}
-					csecret = resolved
-				}
-			default: // "token" or empty
-				if tok == "" && p.Token != "" {
-					resolved, err := config.ResolveSecret(p.Token)
-					if err != nil {
-						return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+					if csecret == "" && p.ClientSecret != "" {
+						resolved, err := config.ResolveSecret(p.ClientSecret)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
+						}
+						csecret = resolved
 					}
-					tok = resolved
+				default: // "token" or empty
+					if tok == "" && p.Token != "" {
+						resolved, err := config.ResolveSecret(p.Token)
+						if err != nil {
+							return "", nil, fmt.Errorf("resolving token from profile: %w", err)
+						}
+						tok = resolved
+					}
 				}
 			}
 		}
