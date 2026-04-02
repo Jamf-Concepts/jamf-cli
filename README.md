@@ -193,6 +193,53 @@ make generate    # Generate commands from OpenAPI specs
 
 See [Architecture & Development](https://github.com/Jamf-Concepts/jamf-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
 
+
+## Troubleshooting
+
+### Debug output
+
+Add `--verbose` (or `-v`) to any command to print HTTP request and response details to stderr:
+
+```bash
+jamf-cli pro comp list --verbose
+```
+
+To capture debug output to a file:
+
+```bash
+jamf-cli pro comp list --verbose 2>debug.log
+```
+
+### Authentication errors (exit code 3)
+
+- Run `jamf-cli pro setup` (or `jamf-cli protect setup`) to reconfigure credentials.
+- Verify the active profile with `jamf-cli config list`.
+- Check that env vars (`JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, `JAMF_URL`) are not overriding your config profile unintentionally.
+- For OAuth2, confirm the API client is enabled in Jamf Pro and has the required privileges.
+
+### Not found / permission errors (exit codes 4–5)
+
+- Confirm the resource exists: try a `list` command first.
+- Check that the API role has the minimum privileges for the endpoint. See [Privileges and Deprecations](https://developer.jamf.com/jamf-pro/docs/privileges-and-deprecations).
+
+### Rate limiting (exit code 6)
+
+jamf-cli retries automatically with exponential backoff when rate-limited. If you're consistently hitting limits, add `--limit` to reduce page sizes or introduce delays between commands in scripts.
+
+### Previewing changes safely
+
+Use `--dry-run` (`-n`) to see what a write command would do without executing it:
+
+```bash
+jamf-cli pro buildings apply --from-file building.json --dry-run
+```
+
+
+### Bugs and feature requests
+
+Please file an issue in [GitHub Issues](https://github.com/Jamf-Concepts/jamf-cli/issues).
+
+
 ## License
 
 Copyright (c) 2026 Jamf Software LLC.
