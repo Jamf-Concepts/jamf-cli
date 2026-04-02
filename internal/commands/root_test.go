@@ -426,8 +426,8 @@ func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for partial OAuth2 credentials")
 	}
-	if !strings.Contains(err.Error(), "--client-secret is required") {
-		t.Errorf("error = %q, want to contain '--client-secret is required'", err.Error())
+	if !strings.Contains(err.Error(), "client secret is required") {
+		t.Errorf("error = %q, want to contain 'client secret is required'", err.Error())
 	}
 }
 
@@ -447,8 +447,8 @@ func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for partial OAuth2 credentials")
 	}
-	if !strings.Contains(err.Error(), "--client-id is required") {
-		t.Errorf("error = %q, want to contain '--client-id is required'", err.Error())
+	if !strings.Contains(err.Error(), "client ID is required") {
+		t.Errorf("error = %q, want to contain 'client ID is required'", err.Error())
 	}
 }
 
