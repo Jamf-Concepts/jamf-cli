@@ -58,8 +58,8 @@ go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```bash
 bin/jamf-cli pro setup                    # Interactive first-time config (creates Jamf Pro profile)
 bin/jamf-cli protect setup                # Interactive first-time config (creates Jamf Protect profile)
-bin/jamf-cli --url https://... --token ... pro computers list  # One-off with flags
-bin/jamf-cli -p my-protect-profile protect overview            # Use a named protect profile
+JAMF_URL=https://... JAMF_TOKEN=... bin/jamf-cli pro computers list  # One-off with env vars
+bin/jamf-cli -p my-protect-profile protect overview                 # Use a named protect profile
 ```
 
 ## Architecture
@@ -135,9 +135,8 @@ See `generator/README.md` for full template function reference and testing workf
 
 ### Auth Resolution Order
 
-1. CLI flags (`--token`, `--client-id`/`--client-secret`, `--tenant-id`)
-2. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, `JAMF_TENANT_ID`)
-3. Config profile (resolved via `--profile`, `JAMF_PROFILE`, or `default-profile` in config)
+1. Environment variables (`JAMF_TOKEN`, `JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, `JAMF_TENANT_ID`)
+2. Config profile (resolved via `--profile`, `JAMF_PROFILE`, or `default-profile` in config)
 
 Three auth methods are supported:
 - **token** — Pre-existing bearer token, passed directly in Authorization header

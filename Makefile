@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs release install lint verify-generated smoke smoke-seed smoke-cleanup release-check
+.PHONY: build test clean generate sync-specs install lint verify-generated smoke smoke-seed smoke-cleanup release-check
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -75,14 +75,6 @@ generate:
 	@echo "Generated commands:"
 	@ls internal/commands/pro/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
 	@ls internal/commands/pro/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"
-
-# Release (requires goreleaser)
-release:
-	goreleaser release --clean
-
-# Release snapshot (for testing)
-release-snapshot:
-	goreleaser release --snapshot --clean
 
 # Development helpers
 dev: build

@@ -33,7 +33,7 @@ func NewTokenProvider(token string) *TokenProvider {
 
 func (p *TokenProvider) GetToken(ctx context.Context) (string, error) {
 	if p.token == "" {
-		return "", fmt.Errorf("no token configured: provide one via --token, JAMF_TOKEN env var, or a config profile")
+		return "", fmt.Errorf("no token configured: provide one via JAMF_TOKEN env var or a config profile")
 	}
 	return p.token, nil
 }

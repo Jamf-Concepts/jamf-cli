@@ -280,15 +280,15 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	}
 	if (cid != "") != (csecret != "") {
 		if cid != "" {
-			return "", nil, exitcode.New(exitcode.Usage, "--client-secret is required when --client-id is provided")
+			return "", nil, exitcode.New(exitcode.Usage, "client secret is required when client ID is provided: set JAMF_CLIENT_SECRET env var or use a config profile")
 		}
-		return "", nil, exitcode.New(exitcode.Usage, "--client-id is required when --client-secret is provided")
+		return "", nil, exitcode.New(exitcode.Usage, "client ID is required when client secret is provided: set JAMF_CLIENT_ID env var or use a config profile")
 	}
 
 	// Platform gateway auth: requires client credentials + tenant ID
 	if isPlatform || tid != "" {
 		if cid == "" || csecret == "" {
-			return "", nil, exitcode.New(exitcode.Usage, "--client-id and --client-secret are required for platform gateway auth")
+			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
 		if tid == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "--tenant-id is required for platform gateway auth")
@@ -303,7 +303,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	case tok != "":
 		return url, auth.NewTokenProvider(tok), nil
 	default:
-		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use --client-id/--client-secret, --token, JAMF_TOKEN/JAMF_CLIENT_ID env vars, or jamf-cli config add-profile")
+		return "", nil, exitcode.New(exitcode.Usage, "authentication required: use JAMF_TOKEN/JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars, or jamf-cli config add-profile")
 	}
 }
 
@@ -384,8 +384,9 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	var outFileHandle *os.File
 
 	cmd := &cobra.Command{
-		Use:   "jamf-cli",
-		Short: "CLI for the Jamf platform",
+		Use:     "jamf-cli",
+		Short:   "CLI for the Jamf platform",
+		Version: version,
 		Long: `jamf-cli is a command-line interface for the Jamf platform.
 
 Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
@@ -481,6 +482,9 @@ analytics, threat prevention, and configuration).`,
 		},
 	}
 
+	// Custom version template so --version matches the `version` subcommand output
+	cmd.SetVersionTemplate(fmt.Sprintf("jamf-cli %s\n  commit: %s\n  built:  %s\n", version, commit, date))
+
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain")
@@ -495,11 +499,8 @@ analytics, threat prevention, and configuration).`,
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
-	cmd.PersistentFlags().StringVar(&token, "token", "", "API token (visible in ps; prefer JAMF_TOKEN env or --token-stdin)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
-	cmd.PersistentFlags().StringVar(&clientID, "client-id", "", "OAuth2 client ID (visible in ps; prefer JAMF_CLIENT_ID env)")
-	cmd.PersistentFlags().StringVar(&clientSecret, "client-secret", "", "OAuth2 client secret (visible in ps; prefer JAMF_CLIENT_SECRET env or --client-secret-stdin)")
 	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 
@@ -736,7 +737,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 		return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMFPROTECT_URL env var, or configure a protect profile")
 	}
 	if cid == "" || csecret == "" {
-		return exitcode.New(exitcode.Usage, "client-id and client-secret are required for Jamf Protect: use --client-id/--client-secret, JAMFPROTECT_CLIENT_ID/JAMFPROTECT_CLIENT_SECRET env vars, or configure a protect profile")
+		return exitcode.New(exitcode.Usage, "client-id and client-secret are required for Jamf Protect: use JAMFPROTECT_CLIENT_ID/JAMFPROTECT_CLIENT_SECRET env vars, or configure a protect profile")
 	}
 
 	sdkClient := jamfprotect.NewClient(url, cid, csecret,
