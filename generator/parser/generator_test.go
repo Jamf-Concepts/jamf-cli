@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package parser
 
 import (
@@ -1324,10 +1326,18 @@ func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
 			continue
 		}
 
-		firstLine := strings.SplitN(string(content), "\n", 2)[0]
-		if firstLine != modernHeader && firstLine != classicHeader {
+		lines := strings.SplitN(string(content), "\n", 3)
+		hasCopyright := lines[0] == "// Copyright 2026, Jamf Software LLC"
+		headerLine := lines[0]
+		if hasCopyright && len(lines) > 1 {
+			headerLine = lines[1]
+		}
+		if headerLine != modernHeader && headerLine != classicHeader {
 			t.Errorf("%s: missing code generation header\n  got:  %q\n  want: %q or %q",
-				entry.Name(), firstLine, modernHeader, classicHeader)
+				entry.Name(), headerLine, modernHeader, classicHeader)
+		}
+		if !hasCopyright {
+			t.Errorf("%s: missing copyright header on first line", entry.Name())
 		}
 		checked++
 	}

@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package commands
 
 // ResourceDef describes an API resource for backup/diff operations.

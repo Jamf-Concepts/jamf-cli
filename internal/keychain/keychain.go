@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package keychain
 
 import (
