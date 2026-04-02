@@ -36,6 +36,7 @@ func NewInventoryPreloadV2SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadV2SDeleteAllCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SGetByNameCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadV2SApplyCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadV2SDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -716,6 +717,72 @@ func newInventoryPreloadV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newInventoryPreloadV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a inventory-preload-v-2 by name",
+		Example: `  # Delete a inventory-preload-v-2 by name (with confirmation)
+  jamf-cli inventory-preload-v-2s delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli inventory-preload-v-2s delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no inventory-preload-v-2 found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete inventory-preload-v-2 %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete inventory-preload-v-2 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted inventory-preload-v-2 %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }
 
 func newInventoryPreloadV2SApplyCmd(ctx *registry.CLIContext) *cobra.Command {

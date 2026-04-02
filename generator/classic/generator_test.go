@@ -576,6 +576,81 @@ func TestGenerateRegistry_WithApplyHelpers(t *testing.T) {
 	}
 }
 
+func TestGenerate_DeleteByNameCommand(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "printers",
+		Path:        "printers",
+		CLIName:     "classic-printers",
+		GoName:      "ClassicPrinters",
+		Singular:    "printer",
+		Description: "Printers",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id", "name"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	checks := []string{
+		"newClassicPrintersDeleteByNameCmd",
+		`"delete-by-name <name>"`,
+		"Delete a printer by name",
+		"resolveClassicNameToIDForApply",
+		`Deleted printer`,
+		`[dry-run] Would delete printer`,
+		`"yes"`,
+		"dry-run",
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated classic delete-by-name code missing %q", check)
+		}
+	}
+}
+
+func TestGenerate_NoDeleteByName_WithoutNameLookup(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "vppaccounts",
+		Path:        "vppaccounts",
+		CLIName:     "classic-vpp-accounts",
+		GoName:      "ClassicVppAccounts",
+		Singular:    "vpp_account",
+		Description: "VPP accounts",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id"}, // No name lookup
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "DeleteByNameCmd") {
+		t.Error("unexpected delete-by-name for resource without name lookup")
+	}
+}
+
 func TestGenerateRegistry_NoApplyHelpers_WhenNotNeeded(t *testing.T) {
 	dir := t.TempDir()
 	gen := NewGenerator(dir)

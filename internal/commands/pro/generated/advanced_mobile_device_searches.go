@@ -32,6 +32,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesGetByNameCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesApplyCmd(ctx))
+	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -426,6 +427,72 @@ func newAdvancedMobileDeviceSearchesGetByNameCmd(ctx *registry.CLIContext) *cobr
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a advanced-mobile-device-searche by name",
+		Example: `  # Delete a advanced-mobile-device-searche by name (with confirmation)
+  jamf-cli advanced-mobile-device-searches delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli advanced-mobile-device-searches delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no advanced-mobile-device-searche found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced-mobile-device-searche %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete advanced-mobile-device-searche %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("/v1/advanced-mobile-device-searches/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted advanced-mobile-device-searche %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }
 
 func newAdvancedMobileDeviceSearchesApplyCmd(ctx *registry.CLIContext) *cobra.Command {

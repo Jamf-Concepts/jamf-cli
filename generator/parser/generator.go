@@ -77,10 +77,43 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return ""
 			}
 		},
-		"hasPostOrPut":   hasPostOrPut,
-		"hasDelete":      hasDelete,
-		"hasDestructive": hasDestructive,
-		"hasApply":       func(ops []*Operation) bool { return hasApply(ops) },
+		"hasPostOrPut":    hasPostOrPut,
+		"hasDelete":       hasDelete,
+		"hasDestructive":  hasDestructive,
+		"hasApply":        func(ops []*Operation) bool { return hasApply(ops) },
+		"hasDeleteByName": func(ops []*Operation) bool { return hasDeleteByName(ops) },
+		"deletePath": func(ops []*Operation) string {
+			for _, op := range ops {
+				if op.Name == "delete" && op.Method == "DELETE" {
+					return op.Path
+				}
+			}
+			return ""
+		},
+		"deletePathParam": func(ops []*Operation) string {
+			for _, op := range ops {
+				if op.Name == "delete" && op.Method == "DELETE" {
+					start := strings.LastIndex(op.Path, "{")
+					end := strings.LastIndex(op.Path, "}")
+					if start != -1 && end > start {
+						return op.Path[start : end+1]
+					}
+				}
+			}
+			return "{id}"
+		},
+		"listPathFromOps": func(ops []*Operation) string {
+			// Derive the list endpoint from the get path: /v1/buildings/{id} → /v1/buildings
+			for _, op := range ops {
+				if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+					path := op.Path
+					if idx := strings.LastIndex(path, "/{"); idx != -1 {
+						return path[:idx]
+					}
+				}
+			}
+			return ""
+		},
 		"createPath": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "create" && op.Method == "POST" {
@@ -413,6 +446,22 @@ func scaffoldJSON(s *Schema) string {
 	return string(data)
 }
 
+// hasDeleteByName returns true if the resource has a delete operation and a
+// get operation with a path parameter (needed for name-to-ID resolution).
+func hasDeleteByName(ops []*Operation) bool {
+	hasDeleteOp := false
+	hasGetWithParam := false
+	for _, op := range ops {
+		if op.Method == "DELETE" && op.Name == "delete" {
+			hasDeleteOp = true
+		}
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			hasGetWithParam = true
+		}
+	}
+	return hasDeleteOp && hasGetWithParam
+}
+
 // hasApply returns true if the resource has both create and update operations.
 func hasApply(ops []*Operation) bool {
 	hasCreate := false
@@ -520,6 +569,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}{{ end }}
 {{- if hasApply .Operations }}
 	cmd.AddCommand(new{{ .GoName }}ApplyCmd(ctx))
+{{- end }}
+{{- if hasDeleteByName .Operations }}
+	cmd.AddCommand(new{{ .GoName }}DeleteByNameCmd(ctx))
 {{- end }}
 
 	return cmd
@@ -794,6 +846,73 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 {{ end }}{{ end }}
+{{ if hasDeleteByName .Operations }}
+func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a {{ .NameSingular }} by name",
+		Example: ` + "`" + `  # Delete a {{ .NameSingular }} by name (with confirmation)
+  jamf-cli {{ .Name }} delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli {{ .Name }} delete-by-name "Example" --yes` + "`" + `,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no {{ .NameSingular }} found with {{ .NameField }} %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .NameSingular }} %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete {{ .NameSingular }} %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("{{ deletePath .Operations }}", "{{ deletePathParam .Operations }}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted {{ .NameSingular }} %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+{{ end }}
 {{ if hasApply .Operations }}
 func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (

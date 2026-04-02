@@ -947,6 +947,143 @@ func TestGenerate_Filename(t *testing.T) {
 	}
 }
 
+// --- hasDeleteByName tests ---
+
+func TestHasDeleteByName(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			"delete and get with path param",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
+			},
+			true,
+		},
+		{
+			"delete only, no get",
+			[]*Operation{
+				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
+			},
+			false,
+		},
+		{
+			"get only, no delete",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			},
+			false,
+		},
+		{
+			"get without path param",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/things"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
+			},
+			false,
+		},
+		{"empty", []*Operation{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasDeleteByName(tt.ops); got != tt.want {
+				t.Errorf("hasDeleteByName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerate_DeleteByNameCommand(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "buildings",
+		NameSingular: "building",
+		GoName:       "Buildings",
+		NameField:    "name",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/buildings", Summary: "List", IsList: true},
+			{
+				Name: "get", Method: "GET", Path: "/v1/buildings/{id}", Summary: "Get",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+			{
+				Name: "delete", Method: "DELETE", Path: "/v1/buildings/{id}", Summary: "Delete",
+				IsDestructive: true, Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	checks := []string{
+		"newBuildingsDeleteByNameCmd",
+		`"delete-by-name <name>"`,
+		"Delete a building by name",
+		"resolveNameToIDForApply",
+		`"name"`,
+		"/v1/buildings/{id}",
+		`Deleted building`,
+		`[dry-run] Would delete building`,
+		`"yes"`,
+		"dry-run",
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated delete-by-name code missing %q", check)
+		}
+	}
+}
+
+func TestGenerate_NoDeleteByName_WithoutDelete(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "reports",
+		NameSingular: "report",
+		GoName:       "Reports",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/reports", Summary: "List"},
+			{
+				Name: "get", Method: "GET", Path: "/v1/reports/{id}", Summary: "Get",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "DeleteByNameCmd") {
+		t.Error("unexpected delete-by-name for resource without delete operation")
+	}
+}
+
 // --- hasApply tests ---
 
 func TestHasApply(t *testing.T) {

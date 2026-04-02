@@ -31,6 +31,7 @@ func NewComputerPrestagesV3SCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputerPrestagesV3SDeleteCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesV3SGetByNameCmd(ctx))
 	cmd.AddCommand(newComputerPrestagesV3SApplyCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesV3SDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -391,6 +392,72 @@ func newComputerPrestagesV3SGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a computer-prestages-v-3 by name",
+		Example: `  # Delete a computer-prestages-v-3 by name (with confirmation)
+  jamf-cli computer-prestages-v-3s delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli computer-prestages-v-3s delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no computer-prestages-v-3 found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-prestages-v-3 %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete computer-prestages-v-3 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := strings.Replace("/v3/computer-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				fmt.Fprintf(os.Stderr, "Deleted computer-prestages-v-3 %q (id: %s)\n", name, id)
+				return nil
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }
 
 func newComputerPrestagesV3SApplyCmd(ctx *registry.CLIContext) *cobra.Command {
