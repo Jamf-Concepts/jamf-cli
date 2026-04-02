@@ -199,6 +199,7 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 }
 
 // extractIDString extracts the "id" field from a JSON object as a string.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
 func extractIDString(obj map[string]any) string {
 	switch v := obj["id"].(type) {
 	case string:
@@ -211,6 +212,7 @@ func extractIDString(obj map[string]any) string {
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
 func readApplyInput(fromFile string) ([]byte, error) {
 	if fromFile != "" {
 		data, err := os.ReadFile(fromFile)
@@ -257,8 +259,10 @@ func extractJSONField(data []byte, field string) (string, error) {
 // Returns (id, nil) when exactly one match is found.
 // Returns ("", error) when multiple matches or lookup fails.
 func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string, noInput bool) (string, error) {
+	// Escape double quotes in name to prevent RSQL injection
+	escapedName := strings.ReplaceAll(name, `"`, `\"`)
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
-		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, name)))
+		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, escapedName)))
 
 	resp, err := client.Do(ctx, "GET", filterPath, nil)
 	if err != nil {

@@ -676,7 +676,10 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
 }
-{{ if anyHasApply . }}
+{{ if anyNeedsClassicNameResolve . }}
+// Classic apply/delete-by-name helpers. These share the generated package with
+// registry.go and depend on readApplyInput and extractIDString defined there.
+
 // extractClassicName extracts the resource name from XML input.
 // It tries direct-child "name" first, then checks under common sub-elements
 // like "general". The singularKey is the XML wrapper element (e.g., "policy").
