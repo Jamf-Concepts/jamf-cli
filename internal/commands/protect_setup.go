@@ -132,7 +132,7 @@ Settings > API Clients before running this command.`,
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Protect URL")
 	cmd.Flags().StringVar(&setupCID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&setupSecret, "client-secret", "", "OAuth2 client secret (visible in ps; omit to be prompted securely)")
+	cmd.Flags().StringVar(&setupSecret, "client-secret", "", "OAuth2 client secret (omit to be prompted with hidden input)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"protect\")")
 
 	return cmd
