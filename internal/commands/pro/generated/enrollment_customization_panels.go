@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,6 +28,7 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newEnrollmentCustomizationPanelsUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsGetByNameCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsApplyCmd(ctx))
 
 	return cmd
 }
@@ -274,4 +276,102 @@ func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cob
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newEnrollmentCustomizationPanelsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a enrollment-customization-panel by name",
+		Long: `Create or replace a enrollment-customization-panel. Reads JSON from --from-file or stdin.
+
+The displayName field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a enrollment-customization-panel from a file
+  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json
+
+  # Apply from stdin
+  cat enrollment-customization-panel.json | jamf-cli enrollment-customization-panels apply
+
+  # Apply without replacement confirmation
+  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json --yes
+
+  # Preview what would happen
+  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "displayName")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/enrollment-customization/parse-markdown", "displayName", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create enrollment-customization-panel %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/enrollment-customization/parse-markdown", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created enrollment-customization-panel %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace enrollment-customization-panel %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("enrollment-customization-panel %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "enrollment-customization-panel %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/enrollment-customization/{id}/ldap/{panel-id}", "{panel-id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced enrollment-customization-panel %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }

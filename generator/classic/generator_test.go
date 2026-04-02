@@ -50,6 +50,7 @@ func TestGenerate_ProducesFile(t *testing.T) {
 		"newClassicPoliciesCreateCmd",
 		"newClassicPoliciesUpdateCmd",
 		"newClassicPoliciesDeleteCmd",
+		"newClassicPoliciesApplyCmd",
 		"/JSSResource/policies",
 		`wrapper["policy"]`,
 	}
@@ -373,6 +374,238 @@ func TestGenerate_FilenameDedup(t *testing.T) {
 	expectedFile := filepath.Join(dir, "classic_policies.go")
 	if outPath != expectedFile {
 		t.Errorf("output path = %q, want %q (no classic_classic_ prefix)", outPath, expectedFile)
+	}
+}
+
+// --- Apply command tests ---
+
+func TestGenerate_ApplyCommand(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "policies",
+		Path:        "policies",
+		CLIName:     "classic-policies",
+		GoName:      "ClassicPolicies",
+		Singular:    "policy",
+		Description: "Deployment policies",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id", "name"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	checks := []string{
+		"newClassicPoliciesApplyCmd",
+		`"apply"`,
+		"Create or replace a policy by name",
+		"--from-file",
+		`"yes"`,
+		"dry-run",
+		"readApplyInput",
+		"extractClassicName",
+		"resolveClassicNameToIDForApply",
+		`"policy"`,                    // singular key
+		`/JSSResource/policies/id/0`,  // create path
+		`/JSSResource/policies/id/%s`, // update path
+		"bytes.NewReader",
+		`Created policy`,
+		`Replaced policy`,
+		`[dry-run] Would create policy`,
+		`[dry-run] Would replace policy`,
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated classic apply code missing %q", check)
+		}
+	}
+
+	// Imports should include "bytes"
+	if !strings.Contains(code, `"bytes"`) {
+		t.Error("expected bytes import for apply command")
+	}
+}
+
+func TestGenerate_NoApply_WithoutName(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "vppaccounts",
+		Path:        "vppaccounts",
+		CLIName:     "classic-vpp-accounts",
+		GoName:      "ClassicVppAccounts",
+		Singular:    "vpp_account",
+		Description: "VPP accounts",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id"}, // No name lookup
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "ApplyCmd") {
+		t.Error("unexpected apply command for resource without name lookup")
+	}
+}
+
+func TestGenerate_NoApply_WithoutCreateUpdate(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "accounts",
+		Path:        "accounts",
+		CLIName:     "classic-accounts",
+		GoName:      "ClassicAccounts",
+		Singular:    "account",
+		Description: "Accounts",
+		Operations:  []string{"list", "get"}, // No create/update
+		Lookups:     []string{"id", "name"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "ApplyCmd") {
+		t.Error("unexpected apply command for read-only resource")
+	}
+}
+
+func TestGenerate_ApplyExample(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "printers",
+		Path:        "printers",
+		CLIName:     "classic-printers",
+		GoName:      "ClassicPrinters",
+		Singular:    "printer",
+		Description: "Printers",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id", "name"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Apply example should reference XML files and --yes
+	if !strings.Contains(code, "printer.xml") {
+		t.Error("expected apply example to reference printer.xml")
+	}
+	if !strings.Contains(code, "classic-printers apply") {
+		t.Error("expected apply example to use correct command name")
+	}
+}
+
+func TestGenerateRegistry_WithApplyHelpers(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resources := []ClassicResource{
+		{
+			CLIName:    "classic-policies",
+			GoName:     "ClassicPolicies",
+			Operations: []string{"list", "get", "create", "update", "delete"},
+			Lookups:    []string{"id", "name"},
+		},
+	}
+
+	outPath, err := gen.GenerateRegistry(resources)
+	if err != nil {
+		t.Fatalf("GenerateRegistry() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Registry should contain apply helper functions
+	checks := []string{
+		"extractClassicName",
+		"resolveClassicNameToIDForApply",
+		"xmlconv.ToMap",
+		"xmlconv.ExtractListItems",
+		`"general"`,       // checks under general sub-element
+		`"name"`,          // name field extraction
+		"extractIDString", // shared helper from modern registry
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("classic registry missing apply helper %q", check)
+		}
+	}
+}
+
+func TestGenerateRegistry_NoApplyHelpers_WhenNotNeeded(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resources := []ClassicResource{
+		{
+			CLIName:    "classic-accounts",
+			GoName:     "ClassicAccounts",
+			Operations: []string{"list", "get"},
+			Lookups:    []string{"id"},
+		},
+	}
+
+	outPath, err := gen.GenerateRegistry(resources)
+	if err != nil {
+		t.Fatalf("GenerateRegistry() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Registry should NOT contain apply helpers when no resource needs apply
+	if strings.Contains(code, "extractClassicName") {
+		t.Error("unexpected apply helpers in registry when no resource has apply")
+	}
+	if strings.Contains(code, "resolveClassicNameToIDForApply") {
+		t.Error("unexpected apply helpers in registry when no resource has apply")
 	}
 }
 

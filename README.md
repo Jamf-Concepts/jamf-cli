@@ -59,6 +59,12 @@ jamf-cli pro comp list -o csv --out-file inventory.csv
 
 # Show the JSON template for creating a building
 jamf-cli pro buildings create --scaffold
+
+# Create or update a building by name (upsert)
+echo '{"name":"HQ","streetAddress1":"1 Apple Park Way"}' | jamf-cli pro buildings apply
+
+# Apply from a file without confirmation
+jamf-cli pro buildings apply --from-file building.json --yes
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -73,6 +79,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 ### Cross-product
 
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
+- **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results

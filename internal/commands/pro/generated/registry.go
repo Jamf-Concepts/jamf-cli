@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -194,4 +196,139 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 	default:
 		return "", fmt.Errorf("resource %q has unexpected ID type", name)
 	}
+}
+
+// extractIDString extracts the "id" field from a JSON object as a string.
+func extractIDString(obj map[string]any) string {
+	switch v := obj["id"].(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%d", int(v))
+	default:
+		return ""
+	}
+}
+
+// readApplyInput reads input from --from-file or stdin for apply commands.
+func readApplyInput(fromFile string) ([]byte, error) {
+	if fromFile != "" {
+		data, err := os.ReadFile(fromFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading input file: %w", err)
+		}
+		return data, nil
+	}
+
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		data, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+		if err != nil {
+			return nil, fmt.Errorf("reading stdin: %w", err)
+		}
+		if len(data) > 0 {
+			return data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// extractJSONField extracts a string field from a JSON object.
+func extractJSONField(data []byte, field string) (string, error) {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return "", fmt.Errorf("parsing JSON: %w", err)
+	}
+	val, ok := obj[field]
+	if !ok {
+		return "", fmt.Errorf("field %q not found", field)
+	}
+	s, ok := val.(string)
+	if !ok || s == "" {
+		return "", fmt.Errorf("field %q must be a non-empty string", field)
+	}
+	return s, nil
+}
+
+// resolveNameToIDForApply looks up a resource by name and returns its ID.
+// Unlike resolveNameToID, it fetches enough results to detect collisions.
+// Returns ("", nil) when no resource is found (caller should create).
+// Returns (id, nil) when exactly one match is found.
+// Returns ("", error) when multiple matches or lookup fails.
+func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string, noInput bool) (string, error) {
+	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
+		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, name)))
+
+	resp, err := client.Do(ctx, "GET", filterPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("looking up %q: %w", name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("reading lookup response: %w", err)
+	}
+
+	var data struct {
+		TotalCount int               `json:"totalCount"`
+		Results    []json.RawMessage `json:"results"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		var arr []json.RawMessage
+		if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
+			return "", fmt.Errorf("parsing lookup response: %w", err)
+		}
+		data.Results = arr
+		data.TotalCount = len(arr)
+	}
+
+	if data.TotalCount == 0 || len(data.Results) == 0 {
+		return "", nil // Not found — caller should create
+	}
+
+	// Parse results to extract IDs
+	type applyMatch struct {
+		id string
+	}
+	var matches []applyMatch
+	for _, raw := range data.Results {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		if id := extractIDString(obj); id != "" {
+			matches = append(matches, applyMatch{id: id})
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", nil
+	}
+
+	if len(matches) == 1 {
+		return matches[0].id, nil
+	}
+
+	// Collision: multiple resources with the same name
+	if noInput {
+		ids := make([]string, len(matches))
+		for i, m := range matches {
+			ids[i] = m.id
+		}
+		return "", fmt.Errorf("multiple resources found with name %q (IDs: %s); resolve duplicates or use update with a specific ID", name, strings.Join(ids, ", "))
+	}
+
+	// Interactive: prompt user to pick
+	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
+	for i, m := range matches {
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
+	}
+	fmt.Fprintf(os.Stderr, "Enter number to replace (or 0 to cancel): ")
+	var choice int
+	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(matches) {
+		return "", fmt.Errorf("aborted")
+	}
+	return matches[choice-1].id, nil
 }

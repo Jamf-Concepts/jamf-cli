@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,8 @@ func NewClassicPatchExternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newClassicPatchExternalSourcesUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicPatchExternalSourcesDeleteCmd(ctx))
+
+	cmd.AddCommand(newClassicPatchExternalSourcesApplyCmd(ctx))
 
 	return cmd
 }
@@ -267,6 +270,101 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicPatchExternalSourcesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a patch_external_source by name",
+		Long: `Create or replace a patch_external_source. Reads XML from --from-file or stdin.
+
+The name field in the input XML is used to check if the resource already
+exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a patch_external_source from an XML file
+  jamf-cli classic-patch-external-sources apply --from-file patch_external_source.xml
+
+  # Apply from stdin
+  cat patch_external_source.xml | jamf-cli classic-patch-external-sources apply
+
+  # Apply without replacement confirmation
+  jamf-cli classic-patch-external-sources apply --from-file patch_external_source.xml --yes`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from XML input
+			name, err := extractClassicName(data, "patch_external_source")
+			if err != nil {
+				return err
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "patchexternalsources", "patchexternalsources", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create patch_external_source %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/patchexternalsources/id/0", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created patch_external_source %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace patch_external_source %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("patch_external_source %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "patch_external_source %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := fmt.Sprintf("/JSSResource/patchexternalsources/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced patch_external_source %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

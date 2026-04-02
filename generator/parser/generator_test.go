@@ -947,6 +947,222 @@ func TestGenerate_Filename(t *testing.T) {
 	}
 }
 
+// --- hasApply tests ---
+
+func TestHasApply(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			"create and update",
+			[]*Operation{
+				{Name: "create", Method: "POST"},
+				{Name: "update", Method: "PUT"},
+			},
+			true,
+		},
+		{
+			"create only",
+			[]*Operation{
+				{Name: "create", Method: "POST"},
+			},
+			false,
+		},
+		{
+			"update only",
+			[]*Operation{
+				{Name: "update", Method: "PUT"},
+			},
+			false,
+		},
+		{
+			"list and get only",
+			[]*Operation{
+				{Name: "list", Method: "GET"},
+				{Name: "get", Method: "GET"},
+			},
+			false,
+		},
+		{
+			"create POST but update is PATCH not PUT",
+			[]*Operation{
+				{Name: "create", Method: "POST"},
+				{Name: "update", Method: "PATCH"},
+			},
+			false,
+		},
+		{"empty", []*Operation{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasApply(tt.ops); got != tt.want {
+				t.Errorf("hasApply() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerate_ApplyCommand(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "buildings",
+		NameSingular: "building",
+		GoName:       "Buildings",
+		NameField:    "name",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/buildings", Summary: "List buildings", IsList: true},
+			{
+				Name: "get", Method: "GET", Path: "/v1/buildings/{id}", Summary: "Get building",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+			{
+				Name: "create", Method: "POST", Path: "/v1/buildings", Summary: "Create building",
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+			},
+			{
+				Name: "update", Method: "PUT", Path: "/v1/buildings/{id}", Summary: "Update building",
+				Parameters:  []*Parameter{{Name: "id", In: "path", Type: "string"}},
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Apply command should be present
+	checks := []string{
+		"newBuildingsApplyCmd",
+		`"apply"`,
+		"Create or replace a building by name",
+		"--from-file",
+		`"yes"`,
+		"dry-run",
+		"readApplyInput",
+		"extractJSONField",
+		"resolveNameToIDForApply",
+		`"name"`,             // nameField
+		"/v1/buildings",      // createPath
+		"/v1/buildings/{id}", // updatePath
+		"bytes.NewReader",
+		`Created building`,
+		`Replaced building`,
+		`[dry-run] Would create building`,
+		`[dry-run] Would replace building`,
+	}
+
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated apply code missing %q", check)
+		}
+	}
+
+	// Imports should include "bytes"
+	if !strings.Contains(code, `"bytes"`) {
+		t.Error("expected bytes import for apply command")
+	}
+}
+
+func TestGenerate_ApplyWithDisplayName(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "api-roles",
+		NameSingular: "API role",
+		GoName:       "ApiRoles",
+		NameField:    "displayName",
+		Operations: []*Operation{
+			{Name: "create", Method: "POST", Path: "/v1/api-roles", Summary: "Create"},
+			{
+				Name: "update", Method: "PUT", Path: "/v1/api-roles/{id}", Summary: "Update",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Should use displayName instead of name
+	if !strings.Contains(code, `"displayName"`) {
+		t.Error("expected displayName as the name field in apply command")
+	}
+}
+
+func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "reports",
+		NameSingular: "report",
+		GoName:       "Reports",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/reports", Summary: "List"},
+			{Name: "create", Method: "POST", Path: "/v1/reports", Summary: "Create"},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "ApplyCmd") {
+		t.Error("unexpected apply command for resource without update operation")
+	}
+}
+
+func TestNeedsFmt_WithApply(t *testing.T) {
+	ops := []*Operation{
+		{Name: "create", Method: "POST"},
+		{Name: "update", Method: "PUT"},
+	}
+	if !needsFmt(ops) {
+		t.Error("needsFmt should return true when hasApply is true")
+	}
+}
+
+func TestNeedsURL_WithApply(t *testing.T) {
+	ops := []*Operation{
+		{Name: "create", Method: "POST"},
+		{Name: "update", Method: "PUT"},
+	}
+	if !needsURL(ops) {
+		t.Error("needsURL should return true when hasApply is true")
+	}
+}
+
 func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
 	generatedDir := filepath.Join("..", "..", "internal", "commands", "pro", "generated")
 

@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,8 @@ func NewClassicIbeaconsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicIbeaconsUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicIbeaconsDeleteCmd(ctx))
+
+	cmd.AddCommand(newClassicIbeaconsApplyCmd(ctx))
 
 	return cmd
 }
@@ -267,6 +270,101 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicIbeaconsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a ibeacon by name",
+		Long: `Create or replace a ibeacon. Reads XML from --from-file or stdin.
+
+The name field in the input XML is used to check if the resource already
+exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a ibeacon from an XML file
+  jamf-cli classic-ibeacons apply --from-file ibeacon.xml
+
+  # Apply from stdin
+  cat ibeacon.xml | jamf-cli classic-ibeacons apply
+
+  # Apply without replacement confirmation
+  jamf-cli classic-ibeacons apply --from-file ibeacon.xml --yes`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from XML input
+			name, err := extractClassicName(data, "ibeacon")
+			if err != nil {
+				return err
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "ibeacons", "ibeacons", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create ibeacon %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/ibeacons/id/0", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created ibeacon %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace ibeacon %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("ibeacon %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "ibeacon %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := fmt.Sprintf("/JSSResource/ibeacons/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced ibeacon %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

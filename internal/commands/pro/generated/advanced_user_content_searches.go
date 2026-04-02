@@ -2,6 +2,7 @@
 package generated
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,7 @@ func NewAdvancedUserContentSearchesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newAdvancedUserContentSearchesUpdateCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesDeleteCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesGetByNameCmd(ctx))
+	cmd.AddCommand(newAdvancedUserContentSearchesApplyCmd(ctx))
 
 	return cmd
 }
@@ -334,4 +336,102 @@ func newAdvancedUserContentSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+}
+
+func newAdvancedUserContentSearchesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a advanced-user-content-searche by name",
+		Long: `Create or replace a advanced-user-content-searche. Reads JSON from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a advanced-user-content-searche from a file
+  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json
+
+  # Apply from stdin
+  cat advanced-user-content-searche.json | jamf-cli advanced-user-content-searches apply
+
+  # Apply without replacement confirmation
+  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json --yes
+
+  # Preview what would happen
+  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+
+			// Read input
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create advanced-user-content-searche %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/advanced-user-content-searches", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created advanced-user-content-searche %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace advanced-user-content-searche %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("advanced-user-content-searche %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "advanced-user-content-searche %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/advanced-user-content-searches/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced advanced-user-content-searche %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
 }

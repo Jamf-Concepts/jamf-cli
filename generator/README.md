@@ -41,6 +41,8 @@ Functions available in `resourceTemplate`:
 | `dedupeOps(ops)` | Remove duplicate operations by name |
 | `escapeQuotes(s)` | Escape for Go string literals |
 | `hasPostOrPut`, `hasDelete`, `hasDestructive`, `hasList` | Conditional import/feature guards |
+| `hasApply(ops)` | True if resource has both `create` (POST) and `update` (PUT) |
+| `createPath(ops)`, `updatePath(ops)`, `updatePathParam(ops)` | Extract paths from create/update operations for apply |
 | `needsFmt(ops)` | Whether generated code needs `fmt` import |
 | `hasScaffold`, `opHasScaffold`, `scaffoldJSON`, `opScaffoldJSON` | JSON scaffold template generation |
 | `exampleText(resource, singular, op)` | CLI example text per operation type |
@@ -72,8 +74,20 @@ make generate && make test
 
 ## How Registry Files Work
 
-`registry.go` defines the `HTTPClient` and `OutputFormatter` interfaces that all generated commands depend on, plus `RegisterCommands()` which wires every modern resource into cobra.
+`registry.go` defines the `HTTPClient` and `OutputFormatter` interfaces that all generated commands depend on, plus `RegisterCommands()` which wires every modern resource into cobra. It also contains shared apply helpers: `readApplyInput`, `extractJSONField`, `resolveNameToIDForApply`, and `extractIDString`.
 
-`classic_registry.go` has the parallel `RegisterClassicCommands()` for classic resources.
+`classic_registry.go` has the parallel `RegisterClassicCommands()` for classic resources, plus classic-specific apply helpers: `extractClassicName` and `resolveClassicNameToIDForApply`.
 
 Both are called from `internal/commands/root.go`.
+
+## Apply (Upsert) Commands
+
+Resources with both `create` and `update` operations automatically get an `apply` subcommand (classic resources also require `name` in their lookups). Apply performs a name-based upsert:
+
+1. Read input from `--from-file` or stdin (JSON for modern, XML for classic)
+2. Extract the name/displayName from the input
+3. Check if a resource with that name exists
+4. Create if not found; replace (with confirmation) if found
+5. Handle collisions (multiple resources with the same name) interactively
+
+Flags: `--from-file`, `--yes` (skip confirmation), `--dry-run` (preview)
