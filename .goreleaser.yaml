@@ -1,3 +1,5 @@
+# Copyright 2026, Jamf Software LLC
+
 version: 2
 
 project_name: jamf-cli
@@ -69,7 +71,7 @@ brews:
     directory: Formula
     homepage: "https://github.com/Jamf-Concepts/jamf-cli"
     description: "CLI for the Jamf platform"
-    license: "MIT"
+    license: "Proprietary"
     skip_upload: auto
     test: |
       system "#{bin}/jamf-cli", "version"
@@ -86,7 +88,7 @@ nfpms:
     homepage: "https://github.com/Jamf-Concepts/jamf-cli"
     maintainer: "jamf"
     description: "CLI for the Jamf platform"
-    license: MIT
+    license: Proprietary
     formats:
       - deb
       - rpm

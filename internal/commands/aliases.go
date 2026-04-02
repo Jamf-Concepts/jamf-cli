@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package commands
 
 import "github.com/spf13/cobra"

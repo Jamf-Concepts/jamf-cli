@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 // Package registry defines the shared interfaces and types used by all
 // product command packages (pro, protect, etc.) and the root command.
 package registry

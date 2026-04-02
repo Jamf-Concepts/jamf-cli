@@ -1,3 +1,5 @@
+# Copyright 2026, Jamf Software LLC
+
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:

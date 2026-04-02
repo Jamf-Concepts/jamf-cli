@@ -191,6 +191,6 @@ See [Architecture & Development](https://github.com/Jamf-Concepts/jamf-cli/wiki/
 
 ## License
 
-Copyright (c) 2025 Jamf. All rights reserved.
+Copyright (c) 2026 Jamf Software LLC. All rights reserved.
 
-This project is distributed under the [Jamf Concepts Use Agreement](LICENSE). See the LICENSE file for details.
+This project is distributed under the [Jamf Source Available License](LICENSE). See the LICENSE file for details.

@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package parser
 
 // Resource represents a parsed API resource (e.g., buildings, computers)

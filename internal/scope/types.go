@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 // Package scope provides scope manipulation for Jamf Classic API resources.
 // It handles reading, modifying, and writing scope sections (targets, limitations,
 // exclusions) on policies, configuration profiles, and other scopeable resources.
