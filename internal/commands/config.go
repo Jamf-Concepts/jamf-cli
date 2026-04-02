@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
@@ -210,24 +212,72 @@ func newConfigAddProfileCmd() *cobra.Command {
 				return fmt.Errorf("invalid --auth-method %q: must be token, oauth2, or platform", authMethod)
 			}
 
-			// Validate auth-method-specific requirements
-			switch authMethod {
-			case "oauth2":
+			w := cmd.OutOrStdout()
+			reader := bufio.NewReader(os.Stdin)
+
+			// oauth2 and platform both require client-id + client-secret
+			if authMethod == "oauth2" || authMethod == "platform" {
 				if profileClientID == "" {
-					return fmt.Errorf("--client-id is required when --auth-method is oauth2")
+					if noInput {
+						return fmt.Errorf("--client-id is required when --no-input is set")
+					}
+					_, _ = fmt.Fprint(w, "Client ID: ")
+					line, err := reader.ReadString('\n')
+					if err != nil {
+						return fmt.Errorf("reading client ID: %w", err)
+					}
+					profileClientID = strings.TrimSpace(line)
+					if profileClientID == "" {
+						return fmt.Errorf("client ID is required")
+					}
 				}
 				if profileClientSec == "" {
-					return fmt.Errorf("--client-secret is required when --auth-method is oauth2")
+					if noInput {
+						return fmt.Errorf("--client-secret is required when --no-input is set")
+					}
+					_, _ = fmt.Fprint(w, "Client Secret: ")
+					secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+					if err != nil {
+						return fmt.Errorf("reading client secret: %w", err)
+					}
+					_, _ = fmt.Fprintln(w)
+					profileClientSec = string(secretBytes)
+					if profileClientSec == "" {
+						return fmt.Errorf("client secret is required")
+					}
 				}
-			case "platform":
-				if profileClientID == "" {
-					return fmt.Errorf("--client-id is required when --auth-method is platform")
+			}
+
+			// platform additionally requires tenant-id
+			if authMethod == "platform" && profileTenantID == "" {
+				if noInput {
+					return fmt.Errorf("--tenant-id is required when --no-input is set")
 				}
-				if profileClientSec == "" {
-					return fmt.Errorf("--client-secret is required when --auth-method is platform")
+				_, _ = fmt.Fprint(w, "Tenant ID: ")
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					return fmt.Errorf("reading tenant ID: %w", err)
 				}
+				profileTenantID = strings.TrimSpace(line)
 				if profileTenantID == "" {
-					return fmt.Errorf("--tenant-id is required when --auth-method is platform")
+					return fmt.Errorf("tenant ID is required")
+				}
+			}
+
+			// token auth requires a bearer token
+			if authMethod == "token" && profileTok == "" {
+				if noInput {
+					return fmt.Errorf("--token is required when --no-input is set")
+				}
+				_, _ = fmt.Fprint(w, "API Token: ")
+				tokenBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+				if err != nil {
+					return fmt.Errorf("reading token: %w", err)
+				}
+				_, _ = fmt.Fprintln(w)
+				profileTok = string(tokenBytes)
+				if profileTok == "" {
+					return fmt.Errorf("token is required")
 				}
 			}
 
@@ -276,9 +326,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
-	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or stored in keychain)")
+	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or omit to be prompted securely)")
 	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or stored in keychain)")
+	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or omit to be prompted securely)")
 	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
 	_ = cmd.MarkFlagRequired("url")
 
