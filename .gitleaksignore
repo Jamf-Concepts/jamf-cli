@@ -1,0 +1,39 @@
+# generic-api-key in vpp_locations.go scaffold template — example JSON value, not a real token
+
+ee0424f9c95cef26bbd391ea3debfcb39d7fdf8f:internal/commands/pro/generated/vpp_locations.go:234
+
+# generic-api-key in adcs_settings.go scaffold template — UUID placeholder, not a real key
+
+ee0424f9c95cef26bbd391ea3debfcb39d7fdf8f:internal/commands/pro/generated/adcs_settings.go:99
+
+# jwt in OauthTokenSession.yaml — OpenAPI spec example field
+
+ee0424f9c95cef26bbd391ea3debfcb39d7fdf8f:specs/OauthTokenSession.yaml:32
+
+# generic-api-key in AdcsSettings.yaml — OpenAPI spec example field, same UUID as scaffold
+
+ee0424f9c95cef26bbd391ea3debfcb39d7fdf8f:specs/AdcsSettings.yaml:113
+
+# generic-api-key in device_enrollment_instances.go — scaffold value that decodes to a joke string
+
+7f118806724c95d0207c269473e867172b59a336:internal/commands/pro/generated/device_enrollment_instances.go:535
+
+# generic-api-key in venafis.go scaffold template — synthetic refreshToken placeholder
+
+7f118806724c95d0207c269473e867172b59a336:internal/commands/pro/generated/venafis.go:103
+
+# generic-api-key in venafis.go scaffold template — same placeholder, second location
+
+7f118806724c95d0207c269473e867172b59a336:internal/commands/pro/generated/venafis.go:414
+
+# curl-auth-user in planning doc — admin:jamf123456 is a standard curl example, file deleted from tree
+
+544daffa6d3e84f913f0f444e2b569b174275e07:docs/plans/2026-02-05-config-setup.md:555
+
+# jwt in Authentication.yaml — OpenAPI spec example field
+
+544daffa6d3e84f913f0f444e2b569b174275e07:specs/Authentication.yaml:168
+
+# jwt in Authentication.yaml — duplicate example line
+
+544daffa6d3e84f913f0f444e2b569b174275e07:specs/Authentication.yaml:178
