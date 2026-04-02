@@ -169,7 +169,15 @@ Resources with both `create` (POST) and `update` (PUT) operations automatically 
 
 Flags: `--from-file`, `--yes` (skip replacement confirmation only — not collision resolution), `--dry-run` (resolves existence then prints what would happen).
 
-Helper functions in generated code:
+### Generated Delete-by-Name Commands
+
+Resources with a `delete` operation and name resolution capability (modern: `get` with path param; classic: `name` in lookups) automatically get a `delete-by-name` subcommand. It resolves name to ID using the same collision-aware lookup as apply, confirms the deletion, then deletes by ID.
+
+Flags: `--yes` (skip confirmation), `--dry-run` (resolve and preview without deleting).
+
+### Name Resolution Helpers (Generated)
+
+Helper functions in generated code (shared by `apply`, `delete-by-name`, and `get-by-name`):
 - `readApplyInput(fromFile)` — reads from file or stdin (in `registry.go`)
 - `extractJSONField(data, field)` — extracts name from JSON (in `registry.go`)
 - `resolveNameToIDForApply(ctx, client, listPath, nameField, name, noInput)` — collision-aware RSQL filter lookup (in `registry.go`)

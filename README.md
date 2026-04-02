@@ -65,6 +65,9 @@ echo '{"name":"HQ","streetAddress1":"1 Apple Park Way"}' | jamf-cli pro building
 
 # Apply from a file without confirmation
 jamf-cli pro buildings apply --from-file building.json --yes
+
+# Delete a building by name
+jamf-cli pro buildings delete-by-name "HQ" --yes
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -80,6 +83,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
+- **`delete-by-name`** — Delete a resource by name instead of ID (with collision detection)
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
