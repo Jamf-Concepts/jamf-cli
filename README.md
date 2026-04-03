@@ -34,6 +34,9 @@ For interactive use, `jamf-cli pro setup` prompts for credentials so nothing is 
 # One-time setup: prompts for credentials and stores them in the system keychain
 jamf-cli pro setup --url https://jamf.company.com
 
+# Multi-instance setup (MSPs): bootstrap credentials for many instances at once
+jamf-cli pro setup --from-file instances.txt --scope standard
+
 # Instance health dashboard
 jamf-cli pro overview
 
@@ -66,6 +69,9 @@ jamf-cli pro comp erase --serial C02X1234 --yes
 # Device actions targeting a group
 jamf-cli pro comp blank-push --group "All Macs" --yes
 jamf-cli pro md unmanage --group "Retired iPads" --yes --confirm-destructive
+
+# Run a command against multiple instances
+jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -98,7 +104,9 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
+- **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
+- **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
 - **Jamf Platform Gateway** — Route Jamf Pro through regional gateways with `--tenant-id`
 
@@ -203,8 +211,55 @@ make generate    # Generate commands from OpenAPI specs
 
 See [Architecture & Development](https://github.com/Jamf-Concepts/jamf-cli/wiki/Architecture-&-Development) for project structure and contributing guidelines.
 
+
+## Troubleshooting
+
+### Debug output
+
+Add `--verbose` (or `-v`) to any command to print HTTP request and response details to stderr:
+
+```bash
+jamf-cli pro comp list --verbose
+```
+
+To capture debug output to a file:
+
+```bash
+jamf-cli pro comp list --verbose 2>debug.log
+```
+
+### Authentication errors (exit code 3)
+
+- Run `jamf-cli pro setup` (or `jamf-cli protect setup`) to reconfigure credentials.
+- Verify the active profile with `jamf-cli config list`.
+- Check that env vars (`JAMF_CLIENT_ID`, `JAMF_CLIENT_SECRET`, `JAMF_URL`) are not overriding your config profile unintentionally.
+- For OAuth2, confirm the API client is enabled in Jamf Pro and has the required privileges.
+
+### Not found / permission errors (exit codes 4–5)
+
+- Confirm the resource exists: try a `list` command first.
+- Check that the API role has the minimum privileges for the endpoint. See [Privileges and Deprecations](https://developer.jamf.com/jamf-pro/docs/privileges-and-deprecations).
+
+### Rate limiting (exit code 6)
+
+jamf-cli retries automatically with exponential backoff when rate-limited. If you're consistently hitting limits, add `--limit` to reduce page sizes or introduce delays between commands in scripts.
+
+### Previewing changes safely
+
+Use `--dry-run` (`-n`) to see what a write command would do without executing it:
+
+```bash
+jamf-cli pro buildings apply --from-file building.json --dry-run
+```
+
+
+### Bugs and feature requests
+
+Please file an issue in [GitHub Issues](https://github.com/Jamf-Concepts/jamf-cli/issues).
+
+
 ## License
 
-Copyright (c) 2026 Jamf Software LLC. All rights reserved.
+Copyright (c) 2026 Jamf Software LLC.
 
-This project is distributed under the [Jamf Source Available License](LICENSE). See the LICENSE file for details.
+This project is distributed under the [MIT License](LICENSE).
