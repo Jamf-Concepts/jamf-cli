@@ -84,14 +84,17 @@ var proGroupMap = map[string]string{
 	// Core
 	"setup":    groupCore,
 	"overview": groupCore,
+	"device":   groupCore,
 
 	// Power Commands
-	"backup":      groupPower,
-	"audit":       groupPower,
-	"bulk":        groupPower,
-	"report":      groupPower,
-	"diff":        groupPower,
-	"group-tools": groupPower,
+	"backup":         groupPower,
+	"audit":          groupPower,
+	"bulk":           groupPower,
+	"report":         groupPower,
+	"diff":           groupPower,
+	"group-tools":    groupPower,
+	"mdm":            groupPower,
+	"policy-execute": groupPower,
 
 	// Computer Management
 	"computers":                              groupComputers,
