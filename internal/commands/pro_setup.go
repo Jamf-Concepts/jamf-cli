@@ -119,9 +119,10 @@ func (c *setupClient) createAPIRole(ctx context.Context, displayName string, pri
 // Returns the integration ID.
 func (c *setupClient) createAPIIntegration(ctx context.Context, displayName string, scopes []string) (int, error) {
 	payload := map[string]any{
-		"displayName":         displayName,
-		"authorizationScopes": scopes,
-		"enabled":             true,
+		"displayName":                displayName,
+		"authorizationScopes":        scopes,
+		"enabled":                    true,
+		"accessTokenLifetimeSeconds": 300,
 	}
 
 	body, status, err := c.do(ctx, "POST", "/api/v1/api-integrations", payload)
@@ -168,10 +169,15 @@ func (c *setupClient) generateClientCredentials(ctx context.Context, integration
 	return result.ClientID, result.ClientSecret, nil
 }
 
+// escapeRSQL escapes double quotes in a value for safe embedding in RSQL filters.
+func escapeRSQL(s string) string {
+	return strings.ReplaceAll(s, `"`, `\"`)
+}
+
 // findAPIRoleByName searches for an API role by display name.
 // Returns ("", nil) if not found, (id, nil) if exactly one match.
 func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string) (string, error) {
-	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, displayName))
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, escapeRSQL(displayName)))
 	path := "/api/v1/api-roles?page-size=2&filter=" + filter
 
 	body, status, err := c.do(ctx, "GET", path, nil)
@@ -225,7 +231,7 @@ func (c *setupClient) updateAPIRole(ctx context.Context, roleID, displayName str
 // findAPIIntegrationByName searches for an API integration by display name.
 // Returns (0, nil) if not found, (id, nil) if exactly one match.
 func (c *setupClient) findAPIIntegrationByName(ctx context.Context, displayName string) (int, error) {
-	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, displayName))
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, escapeRSQL(displayName)))
 	path := "/api/v1/api-integrations?page-size=2&filter=" + filter
 
 	body, status, err := c.do(ctx, "GET", path, nil)
@@ -344,11 +350,12 @@ func readURLsFromFile(path string) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if seen[line] {
+		normalized := normalizeURL(line)
+		if seen[normalized] {
 			continue
 		}
-		seen[line] = true
-		urls = append(urls, line)
+		seen[normalized] = true
+		urls = append(urls, normalized)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading URL file: %w", err)
@@ -362,7 +369,7 @@ func readURLsFromFile(path string) ([]string, error) {
 // setupInstance runs the full setup flow for a single Jamf Pro instance:
 // authenticate, create/update role + integration, generate credentials,
 // store secrets in keychain, and add the profile to cfg (caller saves).
-func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanceURL, username, password, scope, profileName string) error {
+func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanceURL, username, password, scope, profileName string, rotateCreds bool) error {
 	// Authenticate
 	_, _ = fmt.Fprintf(w, "  Authenticating... ")
 	bearerToken, err := basicAuthExchange(ctx, instanceURL, username, password)
@@ -430,22 +437,32 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 	}
 	_, _ = fmt.Fprintln(w, "✓")
 
-	// Generate client credentials
-	_, _ = fmt.Fprint(w, "  Generating client credentials... ")
-	clientID, clientSecret, err := client.generateClientCredentials(ctx, integrationID)
-	if err != nil {
-		_, _ = fmt.Fprintln(w, "✗")
-		return err
-	}
-	_, _ = fmt.Fprintln(w, "✓")
-
-	// Store secrets in keychain
+	// Generate client credentials (skip if integration already existed and --rotate-credentials not set)
 	store := config.GetKeychainStore()
-	if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
-		return fmt.Errorf("failed to store client ID in keychain: %w", err)
-	}
-	if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
-		return fmt.Errorf("failed to store client secret in keychain: %w", err)
+	var clientID string
+
+	if existingIntID != 0 && !rotateCreds {
+		_, _ = fmt.Fprintln(w, "  Credentials unchanged (use --rotate-credentials to regenerate)")
+		// Retrieve existing client ID for the status message
+		if cid, err := store.Get(keychain.DefaultService, profileName+"/client-id"); err == nil {
+			clientID = cid
+		}
+	} else {
+		_, _ = fmt.Fprint(w, "  Generating client credentials... ")
+		var clientSecret string
+		clientID, clientSecret, err = client.generateClientCredentials(ctx, integrationID)
+		if err != nil {
+			_, _ = fmt.Fprintln(w, "✗")
+			return err
+		}
+		_, _ = fmt.Fprintln(w, "✓")
+
+		if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
+			return fmt.Errorf("failed to store client ID in keychain: %w", err)
+		}
+		if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
+			return fmt.Errorf("failed to store client secret in keychain: %w", err)
+		}
 	}
 
 	// Add profile to config (caller is responsible for saving)
@@ -456,7 +473,11 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
 	}
 
-	_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
+	if clientID != "" {
+		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
+	} else {
+		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready\n", profileName)
+	}
 	return nil
 }
 
@@ -468,6 +489,7 @@ func newConfigSetupCmd() *cobra.Command {
 		setupScope   string
 		setupProfile string
 		fromFile     string
+		rotateCreds  bool
 	)
 
 	cmd := &cobra.Command{
@@ -584,7 +606,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				}
 
 				_, _ = fmt.Fprintf(w, "\n── %s ──\n", urls[0])
-				if err := setupInstance(ctx, w, cfg, urls[0], setupUser, setupPass, setupScope, setupProfile); err != nil {
+				if err := setupInstance(ctx, w, cfg, urls[0], setupUser, setupPass, setupScope, setupProfile, rotateCreds); err != nil {
 					return err
 				}
 
@@ -606,7 +628,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				profileName := "pro-" + extractSubdomain(instanceURL)
 				_, _ = fmt.Fprintf(w, "\n── %s → profile %q ──\n", instanceURL, profileName)
 
-				if err := setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName); err != nil {
+				if err := setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName, rotateCreds); err != nil {
 					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
 					failures = append(failures, fmt.Sprintf("%s: %v", instanceURL, err))
 					failed++
@@ -643,6 +665,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (visible in ps; omit to be prompted securely)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
+	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations")
 	cmd.MarkFlagsMutuallyExclusive("url", "from-file")
 
 	return cmd

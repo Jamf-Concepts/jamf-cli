@@ -121,6 +121,11 @@ func TestSetupClient_CreateAPIIntegration(t *testing.T) {
 		if r.Method != "POST" || r.URL.Path != "/api/v1/api-integrations" {
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["accessTokenLifetimeSeconds"] != 300.0 {
+			t.Errorf("accessTokenLifetimeSeconds = %v, want 300", body["accessTokenLifetimeSeconds"])
+		}
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]int{"id": 7})
 	}))
@@ -583,8 +588,8 @@ func TestReadURLsFromFile(t *testing.T) {
 	if urls[0] != "https://school1.jamfcloud.com" {
 		t.Errorf("urls[0] = %q, want %q", urls[0], "https://school1.jamfcloud.com")
 	}
-	if urls[2] != "school3.jamfcloud.com" {
-		t.Errorf("urls[2] = %q, want %q (should be trimmed)", urls[2], "school3.jamfcloud.com")
+	if urls[2] != "https://school3.jamfcloud.com" {
+		t.Errorf("urls[2] = %q, want %q (should be normalized)", urls[2], "https://school3.jamfcloud.com")
 	}
 }
 
@@ -607,6 +612,32 @@ func TestReadURLsFromFile_Duplicates(t *testing.T) {
 	}
 	if len(urls) != 2 {
 		t.Fatalf("got %d URLs, want 2 (duplicates should be removed)", len(urls))
+	}
+}
+
+func TestReadURLsFromFile_DuplicatesAcrossFormats(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-dup-fmt-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com/\n")
+	_, _ = f.WriteString("school2.jamfcloud.com\n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("got %d URLs, want 2 (equivalent URLs should be deduped)", len(urls))
+	}
+	// URLs should be normalized
+	if urls[0] != "https://school1.jamfcloud.com" {
+		t.Errorf("urls[0] = %q, want %q", urls[0], "https://school1.jamfcloud.com")
 	}
 }
 
@@ -633,6 +664,27 @@ func TestReadURLsFromFile_NotFound(t *testing.T) {
 	_, err := readURLsFromFile("/tmp/nonexistent-url-file-12345.txt")
 	if err == nil {
 		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestEscapeRSQL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"alice", "alice"},
+		{`o"brien`, `o\"brien`},
+		{`a"b"c`, `a\"b\"c`},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := escapeRSQL(tt.input)
+			if got != tt.want {
+				t.Errorf("escapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 
