@@ -62,32 +62,28 @@ Settings > API Clients before running this command.`,
 			}
 			setupURL = normalizeURL(setupURL)
 
-			// Client ID
-			if setupCID == "" {
-				if noInput {
-					return fmt.Errorf("--client-id is required when --no-input is set")
-				}
-				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Client ID: ")
-				line, _ := reader.ReadString('\n')
-				setupCID = strings.TrimSpace(line)
+			// Credentials are always collected interactively to prevent
+			// exposure in shell history and process listings.
+			if noInput {
+				return fmt.Errorf("setup requires interactive input for credentials; cannot use --no-input")
 			}
+
+			// Client ID
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), "Client ID: ")
+			line, _ := reader.ReadString('\n')
+			setupCID = strings.TrimSpace(line)
 			if setupCID == "" {
 				return fmt.Errorf("client ID is required")
 			}
 
 			// Client Secret (secure input)
-			if setupSecret == "" {
-				if noInput {
-					return fmt.Errorf("--client-secret is required when --no-input is set")
-				}
-				_, _ = fmt.Fprint(cmd.OutOrStdout(), "Client Secret: ")
-				secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-				if err != nil {
-					return fmt.Errorf("reading client secret: %w", err)
-				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout()) // newline after hidden input
-				setupSecret = string(secretBytes)
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), "Client Secret: ")
+			secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				return fmt.Errorf("reading client secret: %w", err)
 			}
+			_, _ = fmt.Fprintln(cmd.OutOrStdout()) // newline after hidden input
+			setupSecret = string(secretBytes)
 			if setupSecret == "" {
 				return fmt.Errorf("client secret is required")
 			}
@@ -131,8 +127,6 @@ Settings > API Clients before running this command.`,
 	}
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Protect URL")
-	cmd.Flags().StringVar(&setupCID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&setupSecret, "client-secret", "", "OAuth2 client secret (omit to be prompted with hidden input)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"protect\")")
 
 	return cmd

@@ -480,8 +480,8 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 func newConfigSetupCmd() *cobra.Command {
 	var (
 		setupURL     string
-		setupUser    string
-		setupPass    string
+		setupUser    string // populated by interactive prompt only
+		setupPass    string // populated by interactive prompt only
 		setupScope   string
 		setupProfile string
 		fromFile     string
@@ -528,28 +528,23 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				urls[i] = normalizeURL(u)
 			}
 
-			// Gather credentials — once for all instances
-			if setupUser == "" {
-				if noInput {
-					return fmt.Errorf("--username is required when --no-input is set")
-				}
-				_, _ = fmt.Fprint(w, "Username: ")
-				line, _ := reader.ReadString('\n')
-				setupUser = strings.TrimSpace(line)
+			// Gather credentials interactively — once for all instances.
+			// Username and password are never accepted via flags or env vars
+			// to prevent exposure in shell history and process listings.
+			if noInput {
+				return fmt.Errorf("setup requires interactive input for credentials; cannot use --no-input")
 			}
+			_, _ = fmt.Fprint(w, "Username: ")
+			line, _ := reader.ReadString('\n')
+			setupUser = strings.TrimSpace(line)
 
-			if setupPass == "" {
-				if noInput {
-					return fmt.Errorf("--password is required when --no-input is set")
-				}
-				_, _ = fmt.Fprint(w, "Password: ")
-				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-				if err != nil {
-					return fmt.Errorf("reading password: %w", err)
-				}
-				_, _ = fmt.Fprintln(w) // newline after hidden input
-				setupPass = string(passBytes)
+			_, _ = fmt.Fprint(w, "Password: ")
+			passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				return fmt.Errorf("reading password: %w", err)
 			}
+			_, _ = fmt.Fprintln(w) // newline after hidden input
+			setupPass = string(passBytes)
 
 			// Choose scope — once for all instances
 			if setupScope == "" {
@@ -657,8 +652,6 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one Jamf Pro URL per line (for multi-instance setup)")
-	cmd.Flags().StringVar(&setupUser, "username", "", "admin username")
-	cmd.Flags().StringVar(&setupPass, "password", "", "admin password (visible in ps; omit to be prompted securely)")
 	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
 	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations")
