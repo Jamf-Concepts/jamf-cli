@@ -85,9 +85,12 @@ func runDeviceDeepDive(ctx context.Context, client registry.HTTPClient, identifi
 
 	wg.Add(2)
 
+	// The MDM commands API filters on managementId (a UUID), not the numeric Jamf ID.
+	managementID := strVal(general, "managementId")
+
 	go func() {
 		defer wg.Done()
-		s := fetchMDMHistory(ctx, client, deviceID)
+		s := fetchMDMHistory(ctx, client, managementID)
 		mu.Lock()
 		mdmSection = s
 		mu.Unlock()
@@ -204,8 +207,11 @@ func buildUserLocationSection(ul map[string]any) overviewSection {
 
 // fetchMDMHistory fetches recent MDM commands for a device.
 // Returns nil on error (logs warning to stderr).
-func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, deviceID string) *overviewSection {
-	filter := fmt.Sprintf("clientManagementId==%s", deviceID)
+func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, managementID string) *overviewSection {
+	if managementID == "" {
+		return nil
+	}
+	filter := fmt.Sprintf("clientManagementId==%s", managementID)
 	path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter) + "&page-size=10&sort=completedDateTime%3Adesc"
 
 	data, err := fetchJSON(ctx, client, path)
