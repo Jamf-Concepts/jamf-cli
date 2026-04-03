@@ -34,6 +34,9 @@ For interactive use, `jamf-cli pro setup` prompts for credentials so nothing is 
 # One-time setup: prompts for credentials and stores them in the system keychain
 jamf-cli pro setup --url https://jamf.company.com
 
+# Multi-instance setup (MSPs): bootstrap credentials for many instances at once
+jamf-cli pro setup --from-file instances.txt --scope standard
+
 # Instance health dashboard
 jamf-cli pro overview
 
@@ -93,6 +96,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Dry-run mode** — `--dry-run` previews writes without executing
 - **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
+- **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
 - **Jamf Platform Gateway** — Route Jamf Pro through regional gateways with `--tenant-id`
 
