@@ -64,6 +64,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 	wantComputer := []string{
 		"erase", "remove-mdm", "redeploy-framework",
 		"blank-push", "ddm-sync", "renew-mdm",
+		"lock", "enable-remote-desktop", "disable-remote-desktop",
 	}
 	for _, name := range wantComputer {
 		t.Run("computers/"+name, func(t *testing.T) {
@@ -79,7 +80,7 @@ func TestMobileActionSubcommands_Exist(t *testing.T) {
 	resetGlobals()
 	root := NewRootCmd("test", "abc", "2024-01-01")
 
-	wantMobile := []string{"erase", "unmanage"}
+	wantMobile := []string{"erase", "unmanage", "restart", "shutdown", "update-inventory"}
 	for _, name := range wantMobile {
 		t.Run("mobile-devices/"+name, func(t *testing.T) {
 			root.SetArgs([]string{"pro", "mobile-devices", name, "--help"})
@@ -271,5 +272,42 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Errorf("error should mention --yes, got: %v", err)
+	}
+}
+
+func TestSendMobileMDMCommand_Success(t *testing.T) {
+	client := &deviceResolveMockClient{
+		handler: func(method, path string) (int, string, error) {
+			if method == "POST" && path == "/JSSResource/mobiledevicecommands/command/RestartDevice/id/7" {
+				return 201, `<mobile_device_command/>`, nil
+			}
+			t.Fatalf("unexpected request: %s %s", method, path)
+			return 0, "", nil
+		},
+	}
+
+	err := sendMobileMDMCommand(t.Context(), client, "7", "RestartDevice")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSendMobileMDMCommand_HTTPError(t *testing.T) {
+	client := &deviceResolveMockClient{
+		handler: func(method, path string) (int, string, error) {
+			if method == "POST" {
+				return 400, `<error>Device not eligible</error>`, nil
+			}
+			t.Fatalf("unexpected request: %s %s", method, path)
+			return 0, "", nil
+		},
+	}
+
+	err := sendMobileMDMCommand(t.Context(), client, "7", "RestartDevice")
+	if err == nil {
+		t.Fatal("expected error for 400 response, got nil")
+	}
+	if !strings.Contains(err.Error(), "400") {
+		t.Errorf("error = %q, want it to contain status code", err.Error())
 	}
 }

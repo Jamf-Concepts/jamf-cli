@@ -29,6 +29,7 @@ Available subcommands:
 	cmd.AddCommand(newReportInventorySummaryCmd(cliCtx))
 	cmd.AddCommand(newReportSoftwareInstallsCmd(cliCtx))
 	cmd.AddCommand(newReportEAResultsCmd(cliCtx))
+	cmd.AddCommand(newReportSecurityCmd(cliCtx))
 
 	return cmd
 }

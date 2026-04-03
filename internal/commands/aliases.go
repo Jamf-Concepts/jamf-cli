@@ -16,6 +16,8 @@ var commandAliases = map[string][]string{
 	"group-tools":      {"gt"},
 	"api-roles":        {"ar"},
 	"api-integrations": {"ai"},
+	"device":           {"dev"},
+	"policy-execute":   {"pe"},
 }
 
 // rootAliases maps root-level command names to short aliases.

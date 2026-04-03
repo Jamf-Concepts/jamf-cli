@@ -694,3 +694,149 @@ func TestRunReportEAResults_EAFetchError(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// security
+// ---------------------------------------------------------------------------
+
+func TestRunReportSecurity_Basic(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computers-inventory": {200, `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"general": {"name": "Mac-A"},
+						"hardware": {"serialNumber": "C02A"},
+						"operatingSystem": {"version": "15.3"},
+						"security": {
+							"fileVault2Status": "ALL_ENCRYPTED",
+							"gatekeeperStatus": "ENABLED",
+							"sipStatus": "ENABLED",
+							"firewallEnabled": true
+						}
+					},
+					{
+						"id": "2",
+						"general": {"name": "Mac-B"},
+						"hardware": {"serialNumber": "C02B"},
+						"operatingSystem": {"version": "14.1"},
+						"security": {
+							"fileVault2Status": "NOT_STARTED",
+							"gatekeeperStatus": "DISABLED",
+							"sipStatus": "ENABLED",
+							"firewallEnabled": false
+						}
+					},
+					{
+						"id": "3",
+						"general": {"name": "Mac-C"},
+						"hardware": {"serialNumber": "C02C"},
+						"operatingSystem": {"version": "15.3"},
+						"security": {
+							"fileVault2Status": "ALL_ENCRYPTED",
+							"gatekeeperStatus": "ENABLED",
+							"sipStatus": "DISABLED",
+							"firewallEnabled": true
+						}
+					}
+				]
+			}`},
+		},
+	}
+
+	result, err := runReportSecurity(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have both summary and per-device rows
+	if result.Summary == nil {
+		t.Fatal("expected summary section")
+	}
+	if len(result.Devices) != 3 {
+		t.Fatalf("got %d device rows, want 3", len(result.Devices))
+	}
+
+	// Check summary
+	if result.Summary["filevault_encrypted_pct"] != "66.7%" {
+		t.Errorf("filevault pct = %q, want 66.7%%", result.Summary["filevault_encrypted_pct"])
+	}
+	if result.Summary["gatekeeper_enabled_pct"] != "66.7%" {
+		t.Errorf("gatekeeper pct = %q, want 66.7%%", result.Summary["gatekeeper_enabled_pct"])
+	}
+	if result.Summary["sip_enabled_pct"] != "66.7%" {
+		t.Errorf("sip pct = %q, want 66.7%%", result.Summary["sip_enabled_pct"])
+	}
+	if result.Summary["firewall_enabled_pct"] != "66.7%" {
+		t.Errorf("firewall pct = %q, want 66.7%%", result.Summary["firewall_enabled_pct"])
+	}
+
+	// Check that Mac-B is flagged
+	var macB map[string]any
+	for _, d := range result.Devices {
+		if d["name"] == "Mac-B" {
+			macB = d
+			break
+		}
+	}
+	if macB == nil {
+		t.Fatal("missing Mac-B row")
+	}
+	if macB["filevault"] != "NOT_STARTED" {
+		t.Errorf("Mac-B filevault = %q, want NOT_STARTED", macB["filevault"])
+	}
+}
+
+func TestRunReportSecurity_Empty(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+		},
+	}
+
+	result, err := runReportSecurity(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Devices) != 0 {
+		t.Errorf("got %d rows, want 0", len(result.Devices))
+	}
+}
+
+func TestRunReportSecurity_FetchError(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computers-inventory": {500, `{}`},
+		},
+	}
+
+	_, err := runReportSecurity(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRunReportSecurity_OSDistribution(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/computers-inventory": {200, `{
+				"totalCount": 3,
+				"results": [
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
+					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}}
+				]
+			}`},
+		},
+	}
+
+	result, err := runReportSecurity(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.OSVersions) != 2 {
+		t.Fatalf("got %d OS versions, want 2", len(result.OSVersions))
+	}
+}
