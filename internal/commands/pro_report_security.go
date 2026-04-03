@@ -13,6 +13,16 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
+// Security status constants used across multiple commands.
+const (
+	statusFVAllEncrypted  = "ALL_ENCRYPTED"
+	statusFVBootEncrypted = "BOOT_ENCRYPTED"
+	statusGKDisabled      = "DISABLED"
+	statusGKDisabledAlt   = "Disabled" // Some API versions use mixed case
+	statusSIPEnabled      = "ENABLED"
+	statusSIPEnabledAlt   = "Enabled"
+)
+
 // securityReport holds all sections of the security posture report.
 type securityReport struct {
 	Summary    map[string]any

@@ -9,24 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-)
-
-// escapeRSQL escapes characters that have special meaning in RSQL filter values.
-func escapeRSQL(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
-}
-
-// Security status constants used across multiple commands.
-const (
-	statusFVAllEncrypted  = "ALL_ENCRYPTED"
-	statusFVBootEncrypted = "BOOT_ENCRYPTED"
-	statusGKDisabled      = "DISABLED"
-	statusGKDisabledAlt   = "Disabled" // Some API versions use mixed case
-	statusSIPEnabled      = "ENABLED"
-	statusSIPEnabledAlt   = "Enabled"
 )
 
 // resolveDeviceByIdentifier takes a free-form identifier (Jamf ID, serial

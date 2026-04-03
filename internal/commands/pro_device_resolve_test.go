@@ -125,23 +125,6 @@ func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 	}
 }
 
-func TestEscapeRSQL(t *testing.T) {
-	tests := []struct {
-		input, want string
-	}{
-		{"simple", "simple"},
-		{`has"quote`, `has\"quote`},
-		{"User's MacBook", "User's MacBook"},
-		{`a"b"c`, `a\"b\"c`},
-	}
-	for _, tt := range tests {
-		got := escapeRSQL(tt.input)
-		if got != tt.want {
-			t.Errorf("escapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestResolveDeviceByIdentifier_NameWithApostrophe(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {

@@ -207,7 +207,7 @@ func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, management
 	if managementID == "" {
 		return nil
 	}
-	filter := fmt.Sprintf("clientManagementId==%s", managementID)
+	filter := fmt.Sprintf(`clientManagementId=="%s"`, managementID)
 	path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter) + "&page-size=10&sort=dateCompleted%3Adesc"
 
 	data, err := fetchJSON(ctx, client, path)
