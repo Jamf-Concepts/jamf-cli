@@ -9,9 +9,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// escapeRSQL escapes characters that have special meaning in RSQL filter values.
+func escapeRSQL(s string) string {
+	return strings.ReplaceAll(s, `"`, `\"`)
+}
 
 // Security status constants used across multiple commands.
 const (
@@ -40,7 +46,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	}
 
 	// 2. Try as serial number.
-	filter := fmt.Sprintf("hardware.serialNumber==%q", identifier)
+	filter := fmt.Sprintf(`hardware.serialNumber=="%s"`, escapeRSQL(identifier))
 	serialPath := "/v1/computers-inventory?section=GENERAL&page-size=2&filter=" + url.QueryEscape(filter)
 	count, id, name, err := searchInventoryForDevice(ctx, client, serialPath)
 	if err != nil {
@@ -54,7 +60,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	}
 
 	// 3. Try as name.
-	filter = fmt.Sprintf("general.name==%q", identifier)
+	filter = fmt.Sprintf(`general.name=="%s"`, escapeRSQL(identifier))
 	namePath := "/v1/computers-inventory?section=GENERAL&page-size=5&filter=" + url.QueryEscape(filter)
 	count, id, name, err = searchInventoryForDevice(ctx, client, namePath)
 	if err != nil {

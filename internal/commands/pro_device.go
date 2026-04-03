@@ -163,11 +163,7 @@ func buildSecuritySection(sec map[string]any) overviewSection {
 	btAllowed := boolVal(sec, "bootstrapTokenAllowed")
 	btEscrow := strVal(sec, "bootstrapTokenEscrowedStatus")
 
-	// FileVault: look for diskEncryptionStatus or fall back to common field names.
-	fvStatus := strVal(sec, "fileVaultStatus")
-	if fvStatus == "" {
-		fvStatus = strVal(sec, "diskEncryptionStatus")
-	}
+	fvStatus := strVal(sec, "fileVault2Status")
 
 	var fvColor string
 	if fvStatus != "" && fvStatus != statusFVAllEncrypted && fvStatus != statusFVBootEncrypted {
@@ -212,7 +208,7 @@ func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, management
 		return nil
 	}
 	filter := fmt.Sprintf("clientManagementId==%s", managementID)
-	path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter) + "&page-size=10&sort=completedDateTime%3Adesc"
+	path := "/v2/mdm/commands?filter=" + url.QueryEscape(filter) + "&page-size=10&sort=dateCompleted%3Adesc"
 
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {

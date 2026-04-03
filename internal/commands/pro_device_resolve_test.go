@@ -125,6 +125,55 @@ func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 	}
 }
 
+func TestEscapeRSQL(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		{"simple", "simple"},
+		{`has"quote`, `has\"quote`},
+		{"User's MacBook", "User's MacBook"},
+		{`a"b"c`, `a\"b\"c`},
+	}
+	for _, tt := range tests {
+		got := escapeRSQL(tt.input)
+		if got != tt.want {
+			t.Errorf("escapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestResolveDeviceByIdentifier_NameWithApostrophe(t *testing.T) {
+	client := &deviceResolveMockClient{
+		handler: func(_, path string) (int, string, error) {
+			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+				return 404, `{"errors":[]}`, nil
+			}
+			if strings.Contains(path, "hardware.serialNumber") {
+				return 200, `{"totalCount":0,"results":[]}`, nil
+			}
+			if strings.Contains(path, "general.name") {
+				// Verify the filter doesn't use Go %q escaping
+				if strings.Contains(path, "%5C%27") || strings.Contains(path, "\\u0027") {
+					return 0, "", fmt.Errorf("filter uses Go-style escaping instead of RSQL: %s", path)
+				}
+				return 200, `{"totalCount":1,"results":[{"id":"5","general":{"name":"User's MacBook"}}]}`, nil
+			}
+			return 0, "", fmt.Errorf("unexpected path: %s", path)
+		},
+	}
+
+	id, name, err := resolveDeviceByIdentifier(context.Background(), client, "User's MacBook")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "5" {
+		t.Errorf("id = %q, want %q", id, "5")
+	}
+	if name != "User's MacBook" {
+		t.Errorf("name = %q, want %q", name, "User's MacBook")
+	}
+}
+
 func TestResolveDeviceByIdentifier_MultipleMatches(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
