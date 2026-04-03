@@ -20,6 +20,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // setupClient wraps a bearer token for making authenticated API calls during setup.
@@ -169,15 +170,10 @@ func (c *setupClient) generateClientCredentials(ctx context.Context, integration
 	return result.ClientID, result.ClientSecret, nil
 }
 
-// escapeRSQL escapes double quotes in a value for safe embedding in RSQL filters.
-func escapeRSQL(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
-}
-
 // findAPIRoleByName searches for an API role by display name.
 // Returns ("", nil) if not found, (id, nil) if exactly one match.
 func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string) (string, error) {
-	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, escapeRSQL(displayName)))
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, resolve.EscapeRSQL(displayName)))
 	path := "/api/v1/api-roles?page-size=2&filter=" + filter
 
 	body, status, err := c.do(ctx, "GET", path, nil)
@@ -231,7 +227,7 @@ func (c *setupClient) updateAPIRole(ctx context.Context, roleID, displayName str
 // findAPIIntegrationByName searches for an API integration by display name.
 // Returns (0, nil) if not found, (id, nil) if exactly one match.
 func (c *setupClient) findAPIIntegrationByName(ctx context.Context, displayName string) (int, error) {
-	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, escapeRSQL(displayName)))
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, resolve.EscapeRSQL(displayName)))
 	path := "/api/v1/api-integrations?page-size=2&filter=" + filter
 
 	body, status, err := c.do(ctx, "GET", path, nil)

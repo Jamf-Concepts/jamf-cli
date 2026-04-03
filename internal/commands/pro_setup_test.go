@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 func TestFilterPrivileges(t *testing.T) {
@@ -680,9 +682,9 @@ func TestEscapeRSQL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := escapeRSQL(tt.input)
+			got := resolve.EscapeRSQL(tt.input)
 			if got != tt.want {
-				t.Errorf("escapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("EscapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
