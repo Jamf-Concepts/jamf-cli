@@ -27,7 +27,6 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newReportCmd(cliCtx))
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newGroupToolsCmd(cliCtx))
-	cmd.AddCommand(newMdmCmd(cliCtx))
 	cmd.AddCommand(newDeviceCmd(cliCtx))
 	cmd.AddCommand(newPolicyExecuteCmd(cliCtx))
 
@@ -54,6 +53,14 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"computers"}, newComputerRenewMDMCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
+
+	// Classic API MDM commands (no modern API equivalent)
+	addSubcommand(cmd, []string{"computers"}, newComputerLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerUpdateInventoryCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerEnableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerDisableRemoteDesktopCmd(cliCtx))
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)

@@ -94,7 +94,6 @@ var proGroupMap = map[string]string{
 	"report":         groupPower,
 	"diff":           groupPower,
 	"group-tools":    groupPower,
-	"mdm":            groupPower,
 	"policy-execute": groupPower,
 
 	// Computer Management

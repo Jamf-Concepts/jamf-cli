@@ -560,3 +560,97 @@ func readActionBody(bodyFile string) (io.Reader, error) {
 	}
 	return nil, nil
 }
+
+// --- Classic API MDM commands (no modern API equivalent) ---
+
+// newClassicMDMCmd creates a computer subcommand that sends a Classic API MDM
+// command. This is the shared factory for lock, restart, shutdown, etc.
+func newClassicMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long, example string, destructive bool) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+	)
+
+	cmd := &cobra.Command{
+		Use:     name,
+		Short:   short,
+		Long:    long,
+		Example: example,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDeviceAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  name,
+				deviceType:  "computer",
+				destructive: destructive,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMDMCommand(cmd.Context(), cliCtx.Client, d.ID, apiCommand)
+				},
+			})
+		},
+	}
+
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	if destructive {
+		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	}
+	return cmd
+}
+
+func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "lock", "DeviceLock",
+		"Lock a computer",
+		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
+		`  jamf-cli pro comp lock --serial C02X1234 --yes --confirm-destructive
+  jamf-cli pro comp lock --group "Lost Devices" --yes --confirm-destructive`,
+		true,
+	)
+}
+
+func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "restart", "RestartDevice",
+		"Restart a computer",
+		"Restart a computer by serial number, name, or ID.",
+		`  jamf-cli pro comp restart --serial C02X1234 --yes
+  jamf-cli pro comp restart --group "Lab Macs" --yes`,
+		false,
+	)
+}
+
+func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "shutdown", "ShutDownDevice",
+		"Shut down a computer",
+		"Shut down a computer by serial number, name, or ID.",
+		`  jamf-cli pro comp shutdown --serial C02X1234 --yes
+  jamf-cli pro comp shutdown --group "Lab Macs" --yes`,
+		false,
+	)
+}
+
+func newComputerUpdateInventoryCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "update-inventory", "UpdateInventory",
+		"Request an inventory update from a computer",
+		"Request a computer to submit an updated inventory report.",
+		`  jamf-cli pro comp update-inventory --serial C02X1234 --yes
+  jamf-cli pro comp update-inventory --group "All Macs" --yes`,
+		false,
+	)
+}
+
+func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "enable-remote-desktop", "EnableRemoteDesktop",
+		"Enable Remote Desktop on a computer",
+		"Enable the Remote Desktop agent on a computer.",
+		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234 --yes`,
+		false,
+	)
+}
+
+func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMDMCmd(cliCtx, "disable-remote-desktop", "DisableRemoteDesktop",
+		"Disable Remote Desktop on a computer",
+		"Disable the Remote Desktop agent on a computer.",
+		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234 --yes`,
+		false,
+	)
+}
