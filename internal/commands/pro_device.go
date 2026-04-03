@@ -35,7 +35,7 @@ as warnings on stderr and do not prevent the rest of the report.`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printOverviewTable(cmd.OutOrStdout(), sections, !noColor, "DEVICE DETAIL")
 				return nil
 			}
 

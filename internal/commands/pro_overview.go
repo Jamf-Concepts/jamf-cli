@@ -1094,7 +1094,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 }
 
 // printOverviewTable renders a grouped overview table with ANSI colors.
-func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) {
+// The title parameter sets the header line (e.g., "INSTANCE OVERVIEW", "DEVICE DETAIL").
+func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool, title ...string) {
 	colorize := func(text, code string) string {
 		if !useColor {
 			return text
@@ -1112,8 +1113,12 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool) 
 	const totalWidth = 72
 
 	// Title
+	heading := "INSTANCE OVERVIEW"
+	if len(title) > 0 && title[0] != "" {
+		heading = title[0]
+	}
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, colorize("  INSTANCE OVERVIEW", bold))
+	_, _ = fmt.Fprintln(w, colorize("  "+heading, bold))
 	_, _ = fmt.Fprintln(w, colorize("  "+strings.Repeat("━", totalWidth), dim))
 
 	for _, section := range sections {
