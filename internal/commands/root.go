@@ -410,6 +410,7 @@ analytics, threat prevention, and configuration).`,
 				"commands":   true,
 				"diff":       true,
 				"setup":      true,
+				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if skipCommands[c.Name()] {
@@ -523,6 +524,9 @@ analytics, threat prevention, and configuration).`,
 
 	// Commands discovery subcommand
 	cmd.AddCommand(newCommandsCmd(cmd))
+
+	// Multi-profile command runner
+	cmd.AddCommand(newMultiCmd())
 
 	// Jamf Pro product namespace
 	cmd.AddCommand(newProCmd(cliCtx))
