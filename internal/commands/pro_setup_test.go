@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -530,6 +531,86 @@ func TestSetupClient_UpdateAPIIntegration_Forbidden(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "lacks permission") {
 		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
+	}
+}
+
+func TestExtractSubdomain(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"https://nmartin.jamfcloud.com", "nmartin"},
+		{"https://datajar-school1.jamfcloud.com", "datajar-school1"},
+		{"nmartin.jamfcloud.com", "nmartin"},
+		{"https://nmartin.jamfcloud.com/", "nmartin"},
+		{"https://localhost:8080", "localhost"},
+		{"https://10.0.1.1:8443", "10"},
+		{"singlehost", "singlehost"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := extractSubdomain(tt.input)
+			if got != tt.want {
+				t.Errorf("extractSubdomain(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadURLsFromFile(t *testing.T) {
+	// Create a temp file with URLs
+	f, err := os.CreateTemp("", "urls-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("# this is a comment\n")
+	_, _ = f.WriteString("\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_, _ = f.WriteString("  school3.jamfcloud.com  \n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 3 {
+		t.Fatalf("got %d URLs, want 3", len(urls))
+	}
+	if urls[0] != "https://school1.jamfcloud.com" {
+		t.Errorf("urls[0] = %q, want %q", urls[0], "https://school1.jamfcloud.com")
+	}
+	if urls[2] != "school3.jamfcloud.com" {
+		t.Errorf("urls[2] = %q, want %q (should be trimmed)", urls[2], "school3.jamfcloud.com")
+	}
+}
+
+func TestReadURLsFromFile_Empty(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-empty-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("# only comments\n\n")
+	_ = f.Close()
+
+	_, err = readURLsFromFile(f.Name())
+	if err == nil {
+		t.Fatal("expected error for empty file")
+	}
+	if !strings.Contains(err.Error(), "no URLs found") {
+		t.Errorf("error = %q, want it to contain 'no URLs found'", err.Error())
+	}
+}
+
+func TestReadURLsFromFile_NotFound(t *testing.T) {
+	_, err := readURLsFromFile("/tmp/nonexistent-url-file-12345.txt")
+	if err == nil {
+		t.Fatal("expected error for missing file")
 	}
 }
 
