@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -119,6 +120,11 @@ func TestSetupClient_CreateAPIIntegration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" || r.URL.Path != "/api/v1/api-integrations" {
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["accessTokenLifetimeSeconds"] != 300.0 {
+			t.Errorf("accessTokenLifetimeSeconds = %v, want 300", body["accessTokenLifetimeSeconds"])
 		}
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]int{"id": 7})
@@ -295,6 +301,390 @@ func TestSetupClient_Do_NilBody(t *testing.T) {
 	}
 	if string(body) != `{}` {
 		t.Errorf("body = %q, want %q", string(body), "{}")
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_Found(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || !strings.HasPrefix(r.URL.Path, "/api/v1/api-roles") {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		if !strings.Contains(r.URL.RawQuery, "filter=") {
+			t.Error("expected filter query parameter")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 1,
+			"results":    []map[string]any{{"id": "role-42", "displayName": "jamf-cli-standard"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "role-42" {
+		t.Errorf("id = %q, want %q", id, "role-42")
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 0,
+			"results":    []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "" {
+		t.Errorf("id = %q, want empty string", id)
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_Multiple(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 3,
+			"results":    []map[string]any{{"id": "1"}, {"id": "2"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err == nil {
+		t.Fatal("expected error for multiple matches")
+	}
+	if !strings.Contains(err.Error(), "multiple") {
+		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("forbidden"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err == nil {
+		t.Fatal("expected error for HTTP error")
+	}
+	if !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("error = %q, want it to contain 'HTTP 403'", err.Error())
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_Found(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || !strings.HasPrefix(r.URL.Path, "/api/v1/api-integrations") {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 1,
+			"results":    []map[string]any{{"id": 7, "displayName": "jamf-cli"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 7 {
+		t.Errorf("id = %d, want 7", id)
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 0,
+			"results":    []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 0 {
+		t.Errorf("id = %d, want 0", id)
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_Multiple(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 2,
+			"results":    []map[string]any{{"id": 1}, {"id": 2}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err == nil {
+		t.Fatal("expected error for multiple matches")
+	}
+	if !strings.Contains(err.Error(), "multiple") {
+		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
+	}
+}
+
+func TestSetupClient_UpdateAPIRole_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" || r.URL.Path != "/api/v1/api-roles/role-42" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["displayName"] != "jamf-cli-standard" {
+			t.Errorf("displayName = %v, want jamf-cli-standard", body["displayName"])
+		}
+		if privs, ok := body["privileges"].([]any); !ok || len(privs) != 1 {
+			t.Errorf("privileges = %v, want 1 element", body["privileges"])
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "role-42"})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIRole(context.Background(), "role-42", "jamf-cli-standard", []string{"Read Computers"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSetupClient_UpdateAPIRole_Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIRole(context.Background(), "role-42", "jamf-cli-standard", nil)
+	if err == nil {
+		t.Fatal("expected error for forbidden")
+	}
+	if !strings.Contains(err.Error(), "lacks permission") {
+		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
+	}
+}
+
+func TestSetupClient_UpdateAPIIntegration_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" || r.URL.Path != "/api/v1/api-integrations/7" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["displayName"] != "jamf-cli" {
+			t.Errorf("displayName = %v, want jamf-cli", body["displayName"])
+		}
+		if body["enabled"] != true {
+			t.Errorf("enabled = %v, want true", body["enabled"])
+		}
+		if body["accessTokenLifetimeSeconds"] != 300.0 {
+			t.Errorf("accessTokenLifetimeSeconds = %v, want 300", body["accessTokenLifetimeSeconds"])
+		}
+		scopes, ok := body["authorizationScopes"].([]any)
+		if !ok || len(scopes) != 1 || scopes[0] != "jamf-cli-standard" {
+			t.Errorf("authorizationScopes = %v, want [jamf-cli-standard]", body["authorizationScopes"])
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 7})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIIntegration(context.Background(), 7, "jamf-cli", []string{"jamf-cli-standard"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSetupClient_UpdateAPIIntegration_Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIIntegration(context.Background(), 7, "jamf-cli", nil)
+	if err == nil {
+		t.Fatal("expected error for forbidden")
+	}
+	if !strings.Contains(err.Error(), "lacks permission") {
+		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
+	}
+}
+
+func TestExtractSubdomain(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"https://nmartin.jamfcloud.com", "nmartin"},
+		{"https://datajar-school1.jamfcloud.com", "datajar-school1"},
+		{"nmartin.jamfcloud.com", "nmartin"},
+		{"https://nmartin.jamfcloud.com/", "nmartin"},
+		{"https://localhost:8080", "localhost"},
+		{"https://10.0.1.1:8443", "10"},
+		{"singlehost", "singlehost"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := extractSubdomain(tt.input)
+			if got != tt.want {
+				t.Errorf("extractSubdomain(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadURLsFromFile(t *testing.T) {
+	// Create a temp file with URLs
+	f, err := os.CreateTemp("", "urls-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("# this is a comment\n")
+	_, _ = f.WriteString("\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_, _ = f.WriteString("  school3.jamfcloud.com  \n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 3 {
+		t.Fatalf("got %d URLs, want 3", len(urls))
+	}
+	if urls[0] != "https://school1.jamfcloud.com" {
+		t.Errorf("urls[0] = %q, want %q", urls[0], "https://school1.jamfcloud.com")
+	}
+	if urls[2] != "https://school3.jamfcloud.com" {
+		t.Errorf("urls[2] = %q, want %q (should be normalized)", urls[2], "https://school3.jamfcloud.com")
+	}
+}
+
+func TestReadURLsFromFile_Duplicates(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-dup-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("got %d URLs, want 2 (duplicates should be removed)", len(urls))
+	}
+}
+
+func TestReadURLsFromFile_DuplicatesAcrossFormats(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-dup-fmt-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com/\n")
+	_, _ = f.WriteString("school2.jamfcloud.com\n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("got %d URLs, want 2 (equivalent URLs should be deduped)", len(urls))
+	}
+	// URLs should be normalized
+	if urls[0] != "https://school1.jamfcloud.com" {
+		t.Errorf("urls[0] = %q, want %q", urls[0], "https://school1.jamfcloud.com")
+	}
+}
+
+func TestReadURLsFromFile_Empty(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-empty-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("# only comments\n\n")
+	_ = f.Close()
+
+	_, err = readURLsFromFile(f.Name())
+	if err == nil {
+		t.Fatal("expected error for empty file")
+	}
+	if !strings.Contains(err.Error(), "no URLs found") {
+		t.Errorf("error = %q, want it to contain 'no URLs found'", err.Error())
+	}
+}
+
+func TestReadURLsFromFile_NotFound(t *testing.T) {
+	_, err := readURLsFromFile("/tmp/nonexistent-url-file-12345.txt")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestEscapeRSQL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"alice", "alice"},
+		{`o"brien`, `o\"brien`},
+		{`a"b"c`, `a\"b\"c`},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := escapeRSQL(tt.input)
+			if got != tt.want {
+				t.Errorf("escapeRSQL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 
