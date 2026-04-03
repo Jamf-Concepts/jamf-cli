@@ -70,6 +70,19 @@ jamf-cli pro comp erase --serial C02X1234 --yes
 jamf-cli pro comp blank-push --group "All Macs" --yes
 jamf-cli pro md unmanage --group "Retired iPads" --yes --confirm-destructive
 
+# Classic API MDM commands
+jamf-cli pro comp lock --serial C02X1234 --yes --confirm-destructive
+jamf-cli pro md update-inventory --id 42 --yes
+
+# Device deep-dive
+jamf-cli pro device C02X1234
+
+# Fleet security report
+jamf-cli pro report security -o table
+
+# Trigger a policy on specific devices
+jamf-cli pro policy-execute "Update Inventory" --target C02X1234 --yes
+
 # Run a command against multiple instances
 jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
@@ -83,7 +96,10 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
 - **`scope`** — View, add to, and remove from scope on policies, config profiles, restricted software, and apps — no XML editing required
-- **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM — target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
+- **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM, lock, enable/disable Remote Desktop (computers); erase, unmanage, restart, shutdown, update inventory (mobile devices). Target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
+- **`device`** — Aggregated device deep-dive: identity, hardware, OS, security posture, user info, MDM command history, policy logs
+- **`report security`** — Fleet security posture: FileVault, Gatekeeper, SIP, firewall rates, OS version distribution, flagged devices
+- **`policy-execute`** — Trigger a Jamf Pro policy on specific devices or a computer group by name or ID
 
 ### Jamf Protect
 
@@ -166,6 +182,8 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Pro | `buildings` | `bld` |
 | Pro | `categories` | `cat` |
 | Pro | `departments` | `dept` |
+| Pro | `device` | `dev` |
+| Pro | `policy-execute` | `pe` |
 | Protect | `removable-storage-control-sets` | `rscs` |
 | Protect | `unified-logging-filters` | `ulf` |
 | Protect | `exception-sets` | `es` |
