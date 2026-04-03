@@ -298,6 +298,241 @@ func TestSetupClient_Do_NilBody(t *testing.T) {
 	}
 }
 
+func TestSetupClient_FindAPIRoleByName_Found(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || !strings.HasPrefix(r.URL.Path, "/api/v1/api-roles") {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		if !strings.Contains(r.URL.RawQuery, "filter=") {
+			t.Error("expected filter query parameter")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 1,
+			"results":    []map[string]any{{"id": "role-42", "displayName": "jamf-cli-standard"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "role-42" {
+		t.Errorf("id = %q, want %q", id, "role-42")
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 0,
+			"results":    []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "" {
+		t.Errorf("id = %q, want empty string", id)
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_Multiple(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 3,
+			"results":    []map[string]any{{"id": "1"}, {"id": "2"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err == nil {
+		t.Fatal("expected error for multiple matches")
+	}
+	if !strings.Contains(err.Error(), "multiple") {
+		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
+	}
+}
+
+func TestSetupClient_FindAPIRoleByName_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("forbidden"))
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
+	if err == nil {
+		t.Fatal("expected error for HTTP error")
+	}
+	if !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("error = %q, want it to contain 'HTTP 403'", err.Error())
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_Found(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || !strings.HasPrefix(r.URL.Path, "/api/v1/api-integrations") {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 1,
+			"results":    []map[string]any{{"id": 7, "displayName": "jamf-cli"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 7 {
+		t.Errorf("id = %d, want 7", id)
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 0,
+			"results":    []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	id, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 0 {
+		t.Errorf("id = %d, want 0", id)
+	}
+}
+
+func TestSetupClient_FindAPIIntegrationByName_Multiple(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"totalCount": 2,
+			"results":    []map[string]any{{"id": 1}, {"id": 2}},
+		})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	_, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
+	if err == nil {
+		t.Fatal("expected error for multiple matches")
+	}
+	if !strings.Contains(err.Error(), "multiple") {
+		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
+	}
+}
+
+func TestSetupClient_UpdateAPIRole_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" || r.URL.Path != "/api/v1/api-roles/role-42" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["displayName"] != "jamf-cli-standard" {
+			t.Errorf("displayName = %v, want jamf-cli-standard", body["displayName"])
+		}
+		if privs, ok := body["privileges"].([]any); !ok || len(privs) != 1 {
+			t.Errorf("privileges = %v, want 1 element", body["privileges"])
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "role-42"})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIRole(context.Background(), "role-42", "jamf-cli-standard", []string{"Read Computers"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSetupClient_UpdateAPIRole_Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIRole(context.Background(), "role-42", "jamf-cli-standard", nil)
+	if err == nil {
+		t.Fatal("expected error for forbidden")
+	}
+	if !strings.Contains(err.Error(), "lacks permission") {
+		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
+	}
+}
+
+func TestSetupClient_UpdateAPIIntegration_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" || r.URL.Path != "/api/v1/api-integrations/7" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["displayName"] != "jamf-cli" {
+			t.Errorf("displayName = %v, want jamf-cli", body["displayName"])
+		}
+		if body["enabled"] != true {
+			t.Errorf("enabled = %v, want true", body["enabled"])
+		}
+		if body["accessTokenLifetimeSeconds"] != 300.0 {
+			t.Errorf("accessTokenLifetimeSeconds = %v, want 300", body["accessTokenLifetimeSeconds"])
+		}
+		scopes, ok := body["authorizationScopes"].([]any)
+		if !ok || len(scopes) != 1 || scopes[0] != "jamf-cli-standard" {
+			t.Errorf("authorizationScopes = %v, want [jamf-cli-standard]", body["authorizationScopes"])
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 7})
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIIntegration(context.Background(), 7, "jamf-cli", []string{"jamf-cli-standard"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSetupClient_UpdateAPIIntegration_Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newSetupClient(server.URL, "test-token")
+	err := client.updateAPIIntegration(context.Background(), 7, "jamf-cli", nil)
+	if err == nil {
+		t.Fatal("expected error for forbidden")
+	}
+	if !strings.Contains(err.Error(), "lacks permission") {
+		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
+	}
+}
+
 func TestNormalizeURL(t *testing.T) {
 	tests := []struct {
 		input string

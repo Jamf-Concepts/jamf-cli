@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -167,6 +168,116 @@ func (c *setupClient) generateClientCredentials(ctx context.Context, integration
 	return result.ClientID, result.ClientSecret, nil
 }
 
+// findAPIRoleByName searches for an API role by display name.
+// Returns ("", nil) if not found, (id, nil) if exactly one match.
+func (c *setupClient) findAPIRoleByName(ctx context.Context, displayName string) (string, error) {
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, displayName))
+	path := "/api/v1/api-roles?page-size=2&filter=" + filter
+
+	body, status, err := c.do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", err
+	}
+	if status != http.StatusOK {
+		return "", fmt.Errorf("searching for API role %q failed (HTTP %d): %s", displayName, status, string(body))
+	}
+
+	var result struct {
+		TotalCount int `json:"totalCount"`
+		Results    []struct {
+			ID string `json:"id"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("parsing role search response: %w", err)
+	}
+
+	switch result.TotalCount {
+	case 0:
+		return "", nil
+	case 1:
+		return result.Results[0].ID, nil
+	default:
+		return "", fmt.Errorf("multiple API roles named %q found (%d); remove duplicates before running setup", displayName, result.TotalCount)
+	}
+}
+
+// updateAPIRole updates an existing API role's privileges.
+func (c *setupClient) updateAPIRole(ctx context.Context, roleID, displayName string, privileges []string) error {
+	payload := map[string]any{
+		"displayName": displayName,
+		"privileges":  privileges,
+	}
+
+	body, status, err := c.do(ctx, "PUT", "/api/v1/api-roles/"+roleID, payload)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK {
+		return nil
+	}
+	if status == http.StatusForbidden {
+		return fmt.Errorf("your account lacks permission to update API roles")
+	}
+	return fmt.Errorf("updating API role failed (HTTP %d): %s", status, string(body))
+}
+
+// findAPIIntegrationByName searches for an API integration by display name.
+// Returns (0, nil) if not found, (id, nil) if exactly one match.
+func (c *setupClient) findAPIIntegrationByName(ctx context.Context, displayName string) (int, error) {
+	filter := url.QueryEscape(fmt.Sprintf(`displayName=="%s"`, displayName))
+	path := "/api/v1/api-integrations?page-size=2&filter=" + filter
+
+	body, status, err := c.do(ctx, "GET", path, nil)
+	if err != nil {
+		return 0, err
+	}
+	if status != http.StatusOK {
+		return 0, fmt.Errorf("searching for API integration %q failed (HTTP %d): %s", displayName, status, string(body))
+	}
+
+	var result struct {
+		TotalCount int `json:"totalCount"`
+		Results    []struct {
+			ID int `json:"id"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return 0, fmt.Errorf("parsing integration search response: %w", err)
+	}
+
+	switch result.TotalCount {
+	case 0:
+		return 0, nil
+	case 1:
+		return result.Results[0].ID, nil
+	default:
+		return 0, fmt.Errorf("multiple API integrations named %q found (%d); remove duplicates before running setup", displayName, result.TotalCount)
+	}
+}
+
+// updateAPIIntegration updates an existing API integration's authorization scopes.
+func (c *setupClient) updateAPIIntegration(ctx context.Context, integrationID int, displayName string, scopes []string) error {
+	payload := map[string]any{
+		"displayName":                displayName,
+		"authorizationScopes":        scopes,
+		"enabled":                    true,
+		"accessTokenLifetimeSeconds": 300,
+	}
+
+	body, status, err := c.do(ctx, "PUT", fmt.Sprintf("/api/v1/api-integrations/%d", integrationID), payload)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK {
+		return nil
+	}
+	if status == http.StatusForbidden {
+		return fmt.Errorf("your account lacks permission to update API integrations")
+	}
+	return fmt.Errorf("updating API integration failed (HTTP %d): %s", status, string(body))
+}
+
 // filterPrivileges returns privileges matching any of the given prefixes.
 func filterPrivileges(all []string, prefixes []string) []string {
 	var result []string
@@ -303,19 +414,41 @@ config profile. The username and password are not stored.`,
 
 			roleName := "jamf-cli-" + setupScope
 
-			// Step 4: Create API role
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API role %q... ", roleName)
-			_, err = client.createAPIRole(ctx, roleName, rolePrivileges)
+			// Step 4: Ensure API role exists (create or update)
+			existingRoleID, err := client.findAPIRoleByName(ctx, roleName)
+			if err != nil {
+				return err
+			}
+
+			if existingRoleID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updating existing API role %q... ", roleName)
+				err = client.updateAPIRole(ctx, existingRoleID, roleName, rolePrivileges)
+			} else {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API role %q... ", roleName)
+				_, err = client.createAPIRole(ctx, roleName, rolePrivileges)
+			}
 			if err != nil {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
 			}
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
-			// Step 5: Create API integration
+			// Step 5: Ensure API integration exists (create or update)
 			integrationName := "jamf-cli"
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API integration %q... ", integrationName)
-			integrationID, err := client.createAPIIntegration(ctx, integrationName, []string{roleName})
+			existingIntID, err := client.findAPIIntegrationByName(ctx, integrationName)
+			if err != nil {
+				return err
+			}
+
+			var integrationID int
+			if existingIntID != 0 {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updating existing API integration %q... ", integrationName)
+				err = client.updateAPIIntegration(ctx, existingIntID, integrationName, []string{roleName})
+				integrationID = existingIntID
+			} else {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Creating API integration %q... ", integrationName)
+				integrationID, err = client.createAPIIntegration(ctx, integrationName, []string{roleName})
+			}
 			if err != nil {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✗")
 				return err
