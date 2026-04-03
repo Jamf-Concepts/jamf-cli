@@ -60,6 +60,9 @@ jamf-cli pro buildings apply --from-file building.json --yes
 
 # Delete a building by name
 jamf-cli pro buildings delete-by-name "HQ" --yes
+
+# Run a command against multiple instances
+jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
 
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
@@ -91,6 +94,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
+- **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
 - **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
 - **System keychain** — Secrets stored via macOS Keychain or Linux secret-service
