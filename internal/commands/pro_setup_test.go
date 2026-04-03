@@ -588,6 +588,28 @@ func TestReadURLsFromFile(t *testing.T) {
 	}
 }
 
+func TestReadURLsFromFile_Duplicates(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-dup-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("https://school2.jamfcloud.com\n")
+	_ = f.Close()
+
+	urls, err := readURLsFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("got %d URLs, want 2 (duplicates should be removed)", len(urls))
+	}
+}
+
 func TestReadURLsFromFile_Empty(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-empty-*.txt")
 	if err != nil {

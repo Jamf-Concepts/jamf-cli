@@ -328,7 +328,7 @@ func extractSubdomain(rawURL string) string {
 }
 
 // readURLsFromFile reads Jamf Pro URLs from a file, one per line.
-// Blank lines and lines starting with # are ignored.
+// Blank lines and lines starting with # are ignored. Duplicate URLs are removed.
 func readURLsFromFile(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -336,6 +336,7 @@ func readURLsFromFile(path string) ([]string, error) {
 	}
 	defer func() { _ = f.Close() }()
 
+	seen := make(map[string]bool)
 	var urls []string
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -343,6 +344,10 @@ func readURLsFromFile(path string) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+		if seen[line] {
+			continue
+		}
+		seen[line] = true
 		urls = append(urls, line)
 	}
 	if err := scanner.Err(); err != nil {
@@ -355,8 +360,9 @@ func readURLsFromFile(path string) ([]string, error) {
 }
 
 // setupInstance runs the full setup flow for a single Jamf Pro instance:
-// authenticate, create/update role + integration, generate credentials, save profile.
-func setupInstance(ctx context.Context, w io.Writer, instanceURL, username, password, scope string, profileName string) error {
+// authenticate, create/update role + integration, generate credentials,
+// store secrets in keychain, and add the profile to cfg (caller saves).
+func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanceURL, username, password, scope, profileName string) error {
 	// Authenticate
 	_, _ = fmt.Fprintf(w, "  Authenticating... ")
 	bearerToken, err := basicAuthExchange(ctx, instanceURL, username, password)
@@ -433,7 +439,7 @@ func setupInstance(ctx context.Context, w io.Writer, instanceURL, username, pass
 	}
 	_, _ = fmt.Fprintln(w, "✓")
 
-	// Save profile
+	// Store secrets in keychain
 	store := config.GetKeychainStore()
 	if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
 		return fmt.Errorf("failed to store client ID in keychain: %w", err)
@@ -442,11 +448,7 @@ func setupInstance(ctx context.Context, w io.Writer, instanceURL, username, pass
 		return fmt.Errorf("failed to store client secret in keychain: %w", err)
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
+	// Add profile to config (caller is responsible for saving)
 	cfg.Profiles[profileName] = config.Profile{
 		URL:          instanceURL,
 		AuthMethod:   "oauth2",
@@ -454,11 +456,7 @@ func setupInstance(ctx context.Context, w io.Writer, instanceURL, username, pass
 		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
 	}
 
-	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("saving config: %w", err)
-	}
-
-	_, _ = fmt.Fprintf(w, "  ✓ Profile %q saved (client ID: %s)\n", profileName, clientID)
+	_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
 	return nil
 }
 
@@ -562,6 +560,12 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				return fmt.Errorf("invalid --scope %q: must be read-only, standard, or full-admin", setupScope)
 			}
 
+			// Load config once for all instances
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
 			multiInstance := len(urls) > 1 || fromFile != ""
 
 			// Single-instance mode: prompt for profile name, set as default
@@ -580,15 +584,10 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				}
 
 				_, _ = fmt.Fprintf(w, "\n── %s ──\n", urls[0])
-				if err := setupInstance(ctx, w, urls[0], setupUser, setupPass, setupScope, setupProfile); err != nil {
+				if err := setupInstance(ctx, w, cfg, urls[0], setupUser, setupPass, setupScope, setupProfile); err != nil {
 					return err
 				}
 
-				// Set as default profile
-				cfg, err := config.Load()
-				if err != nil {
-					return err
-				}
 				cfg.DefaultProfile = setupProfile
 				if err := config.Save(cfg); err != nil {
 					return fmt.Errorf("saving config: %w", err)
@@ -607,12 +606,19 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				profileName := "pro-" + extractSubdomain(instanceURL)
 				_, _ = fmt.Fprintf(w, "\n── %s → profile %q ──\n", instanceURL, profileName)
 
-				if err := setupInstance(ctx, w, instanceURL, setupUser, setupPass, setupScope, profileName); err != nil {
+				if err := setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName); err != nil {
 					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
 					failures = append(failures, fmt.Sprintf("%s: %v", instanceURL, err))
 					failed++
 				} else {
 					succeeded++
+				}
+			}
+
+			// Save config once after all instances
+			if succeeded > 0 {
+				if err := config.Save(cfg); err != nil {
+					return fmt.Errorf("saving config: %w", err)
 				}
 			}
 
