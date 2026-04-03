@@ -45,6 +45,16 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"classic-macos-config-profiles"}, newMacOSProfileUploadCmd(cliCtx))
 	addSubcommand(cmd, []string{"classic-mobile-config-profiles"}, newMobileProfileUploadCmd(cliCtx))
 
+	// Add device action subcommands to generated resource parents
+	addSubcommand(cmd, []string{"computers"}, newComputerEraseCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerRemoveMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerRedeployFrameworkCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerBlankPushCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerDDMSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerRenewMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
+
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
 	applyProGroups(cmd)

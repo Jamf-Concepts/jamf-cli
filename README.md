@@ -61,6 +61,15 @@ jamf-cli pro buildings apply --from-file building.json --yes
 # Delete a building by name
 jamf-cli pro buildings delete-by-name "HQ" --yes
 
+# Device actions by serial number
+jamf-cli pro comp blank-push --serial C02X1234
+jamf-cli pro comp redeploy-framework --serial C02X1234
+jamf-cli pro comp erase --serial C02X1234 --yes
+
+# Device actions targeting a group
+jamf-cli pro comp blank-push --group "All Macs" --yes
+jamf-cli pro md unmanage --group "Retired iPads" --yes --confirm-destructive
+
 # Run a command against multiple instances
 jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
@@ -74,6 +83,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Full API coverage** — Modern API (OpenAPI-generated) and Classic API (`/JSSResource/`) commands
 - **`overview`** — Instance dashboard with 37 parallel API calls: inventory, enrollment, MDM, alerts
 - **`scope`** — View, add to, and remove from scope on policies, config profiles, restricted software, and apps — no XML editing required
+- **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM — target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
 
 ### Jamf Protect
 
