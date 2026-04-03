@@ -11,6 +11,7 @@ import (
 	"net/url"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // resolveDeviceByIdentifier takes a free-form identifier (Jamf ID, serial
@@ -30,7 +31,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	}
 
 	// 2. Try as serial number.
-	filter := fmt.Sprintf(`hardware.serialNumber=="%s"`, escapeRSQL(identifier))
+	filter := fmt.Sprintf(`hardware.serialNumber=="%s"`, resolve.EscapeRSQL(identifier))
 	serialPath := "/v1/computers-inventory?section=GENERAL&page-size=2&filter=" + url.QueryEscape(filter)
 	count, id, name, err := searchInventoryForDevice(ctx, client, serialPath)
 	if err != nil {
@@ -44,7 +45,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 	}
 
 	// 3. Try as name.
-	filter = fmt.Sprintf(`general.name=="%s"`, escapeRSQL(identifier))
+	filter = fmt.Sprintf(`general.name=="%s"`, resolve.EscapeRSQL(identifier))
 	namePath := "/v1/computers-inventory?section=GENERAL&page-size=5&filter=" + url.QueryEscape(filter)
 	count, id, name, err = searchInventoryForDevice(ctx, client, namePath)
 	if err != nil {

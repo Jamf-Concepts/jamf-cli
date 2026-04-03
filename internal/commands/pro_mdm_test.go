@@ -60,7 +60,7 @@ func TestRunMDMCommand_DestructiveWithoutConfirm(t *testing.T) {
 		},
 	}
 
-	err := runMDMCommand(context.Background(), client, "42", "EraseDevice", true, false)
+	err := runMDMCommand(context.Background(), client, "42", "DeviceLock", true, false)
 	if err == nil {
 		t.Fatal("expected error for destructive command without --confirm-destructive, got nil")
 	}
@@ -86,7 +86,7 @@ func TestRunMDMCommand_DryRun(t *testing.T) {
 		},
 	}
 
-	err := runMDMCommand(context.Background(), client, "42", "BlankPush", false, false)
+	err := runMDMCommand(context.Background(), client, "42", "RestartDevice", false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestRunMDMCommand_DeviceNotFound(t *testing.T) {
 		},
 	}
 
-	err := runMDMCommand(context.Background(), client, "ghost-machine", "BlankPush", true, false)
+	err := runMDMCommand(context.Background(), client, "ghost-machine", "RestartDevice", true, false)
 	if err == nil {
 		t.Fatal("expected error for device not found, got nil")
 	}
@@ -137,8 +137,6 @@ func TestSingleMDMCommandsMap(t *testing.T) {
 		"lock":                   "DeviceLock",
 		"restart":                "RestartDevice",
 		"shutdown":               "ShutDownDevice",
-		"erase":                  "EraseDevice",
-		"blank-push":             "BlankPush",
 		"update-inventory":       "UpdateInventory",
 		"enable-remote-desktop":  "EnableRemoteDesktop",
 		"disable-remote-desktop": "DisableRemoteDesktop",
@@ -160,13 +158,10 @@ func TestSingleMDMCommandsMap(t *testing.T) {
 }
 
 func TestSingleDestructiveMDMCommands(t *testing.T) {
-	if !singleDestructiveMDMCommands["EraseDevice"] {
-		t.Error("expected EraseDevice to be destructive")
-	}
 	if !singleDestructiveMDMCommands["DeviceLock"] {
 		t.Error("expected DeviceLock to be destructive")
 	}
-	if len(singleDestructiveMDMCommands) != 2 {
-		t.Errorf("singleDestructiveMDMCommands has %d entries, want 2", len(singleDestructiveMDMCommands))
+	if len(singleDestructiveMDMCommands) != 1 {
+		t.Errorf("singleDestructiveMDMCommands has %d entries, want 1", len(singleDestructiveMDMCommands))
 	}
 }

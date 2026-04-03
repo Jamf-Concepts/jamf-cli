@@ -14,12 +14,12 @@ import (
 )
 
 // singleMDMCommands maps CLI subcommand names to their Classic API MDM command names.
+// Classic-only MDM commands. "erase" and "blank-push" are intentionally
+// omitted — modern API equivalents exist under "pro computers".
 var singleMDMCommands = map[string]string{
 	"lock":                   "DeviceLock",
 	"restart":                "RestartDevice",
 	"shutdown":               "ShutDownDevice",
-	"erase":                  "EraseDevice",
-	"blank-push":             "BlankPush",
 	"update-inventory":       "UpdateInventory",
 	"enable-remote-desktop":  "EnableRemoteDesktop",
 	"disable-remote-desktop": "DisableRemoteDesktop",
@@ -29,8 +29,7 @@ var singleMDMCommands = map[string]string{
 // singleDestructiveMDMCommands is the set of API command names that require
 // --confirm-destructive in addition to --yes.
 var singleDestructiveMDMCommands = map[string]bool{
-	"EraseDevice": true,
-	"DeviceLock":  true,
+	"DeviceLock": true,
 }
 
 // validSingleMDMCommands is the set of API command names accepted by
