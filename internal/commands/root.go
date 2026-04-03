@@ -418,6 +418,11 @@ analytics, threat prevention, and configuration).`,
 				}
 			}
 
+			// --scaffold just prints a JSON template — no auth needed
+			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
+				return nil
+			}
+
 			// Load config and resolve auth
 			cfg, err := config.Load()
 			if err != nil {
