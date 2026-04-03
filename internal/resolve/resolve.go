@@ -38,11 +38,11 @@ func ResolveComputer(ctx context.Context, client registry.HTTPClient, serial, na
 	switch {
 	case serial != "":
 		return resolveComputerByFilter(ctx, client,
-			fmt.Sprintf(`hardware.serialNumber=="%s"`, escapeRSQL(serial)),
+			fmt.Sprintf(`hardware.serialNumber=="%s"`, EscapeRSQL(serial)),
 			fmt.Sprintf("serial number %q", serial))
 	case name != "":
 		return resolveComputerByFilter(ctx, client,
-			fmt.Sprintf(`general.name=="%s"`, escapeRSQL(name)),
+			fmt.Sprintf(`general.name=="%s"`, EscapeRSQL(name)),
 			fmt.Sprintf("name %q", name))
 	case id != "":
 		return resolveComputerByID(ctx, client, id)
@@ -57,11 +57,11 @@ func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial
 	switch {
 	case serial != "":
 		return resolveMobileByFilter(ctx, client,
-			fmt.Sprintf(`serialNumber=="%s"`, escapeRSQL(serial)),
+			fmt.Sprintf(`serialNumber=="%s"`, EscapeRSQL(serial)),
 			fmt.Sprintf("serial number %q", serial))
 	case name != "":
 		return resolveMobileByFilter(ctx, client,
-			fmt.Sprintf(`displayName=="%s"`, escapeRSQL(name)),
+			fmt.Sprintf(`displayName=="%s"`, EscapeRSQL(name)),
 			fmt.Sprintf("name %q", name))
 	case id != "":
 		return resolveMobileByID(ctx, client, id)
@@ -352,7 +352,7 @@ func fetchSmartMobileGroupMemberIDs(ctx context.Context, client registry.HTTPCli
 // resolveGroupIDByName uses RSQL filtering on a group list endpoint to find
 // a group by name and return its ID.
 func resolveGroupIDByName(ctx context.Context, client registry.HTTPClient, listPath, nameField, groupName string) (string, error) {
-	filter := fmt.Sprintf(`%s=="%s"`, nameField, escapeRSQL(groupName))
+	filter := fmt.Sprintf(`%s=="%s"`, nameField, EscapeRSQL(groupName))
 	path := fmt.Sprintf("%s?page-size=2&filter=%s", listPath, url.QueryEscape(filter))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
@@ -456,8 +456,7 @@ func batchResolveComputers(ctx context.Context, client registry.HTTPClient, ids 
 	for _, id := range ids {
 		d, err := resolveComputerByID(ctx, client, id)
 		if err != nil {
-			// Non-fatal: include a partial entry so the caller can log it.
-			results = append(results, &DeviceIdentifiers{ID: id, Name: id})
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve computer ID %s: %v\n", id, err)
 			continue
 		}
 		results = append(results, d)
@@ -470,7 +469,7 @@ func batchResolveMobileDevices(ctx context.Context, client registry.HTTPClient, 
 	for _, id := range ids {
 		d, err := resolveMobileByID(ctx, client, id)
 		if err != nil {
-			results = append(results, &DeviceIdentifiers{ID: id, Name: id})
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve mobile device ID %s: %v\n", id, err)
 			continue
 		}
 		results = append(results, d)
@@ -563,8 +562,8 @@ func jsonString(m map[string]any, key string) string {
 	}
 }
 
-// escapeRSQL escapes double quotes in a value for use in RSQL filter expressions.
-func escapeRSQL(s string) string {
+// EscapeRSQL escapes double quotes in a value for use in RSQL filter expressions.
+func EscapeRSQL(s string) string {
 	return strings.ReplaceAll(s, `"`, `\"`)
 }
 

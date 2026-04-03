@@ -303,10 +303,10 @@ func TestFormatDeviceDesc_NoSerial(t *testing.T) {
 }
 
 func TestEscapeRSQL(t *testing.T) {
-	got := escapeRSQL(`Neil's "MacBook"`)
+	got := EscapeRSQL(`Neil's "MacBook"`)
 	want := `Neil's \"MacBook\"`
 	if got != want {
-		t.Errorf("escapeRSQL = %q, want %q", got, want)
+		t.Errorf("EscapeRSQL = %q, want %q", got, want)
 	}
 }
 
