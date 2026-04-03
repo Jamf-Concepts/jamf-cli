@@ -125,8 +125,8 @@ func buildIdentitySection(id, name string, general map[string]any) overviewSecti
 			{Resource: "Jamf ID", Value: id},
 			{Resource: "Platform", Value: strVal(general, "platform")},
 			{Resource: "Last IP", Value: strVal(general, "lastIpAddress")},
-			{Resource: "Managed", Value: managedStr(general)},
-			{Resource: "MDM Capable", Value: mdmCapableStr(general)},
+			{Resource: "Managed", Value: nestedBoolStr(general, "remoteManagement", "managed")},
+			{Resource: "MDM Capable", Value: nestedBoolStr(general, "mdmCapable", "capable")},
 			{Resource: "Supervised", Value: boolDisplay(boolVal(general, "supervised"))},
 			{Resource: "DEP Enrolled", Value: boolDisplay(boolVal(general, "enrolledViaAutomatedDeviceEnrollment"))},
 			{Resource: "Last Contact", Value: strVal(general, "lastContactTime")},
@@ -170,12 +170,12 @@ func buildSecuritySection(sec map[string]any) overviewSection {
 	}
 
 	var fvColor string
-	if fvStatus != "" && fvStatus != "ALL_ENCRYPTED" && fvStatus != "BOOT_ENCRYPTED" {
+	if fvStatus != "" && fvStatus != statusFVAllEncrypted && fvStatus != statusFVBootEncrypted {
 		fvColor = "red"
 	}
 
 	var gkColor string
-	if gkStatus == "DISABLED" || gkStatus == "Disabled" {
+	if gkStatus == statusGKDisabled || gkStatus == statusGKDisabledAlt {
 		gkColor = "red"
 	}
 
@@ -320,9 +320,6 @@ func fetchPolicyHistory(ctx context.Context, client registry.HTTPClient, deviceI
 	}
 }
 
-// --- Small helpers ---
-// strVal and boolVal are defined in pro_report_security.go.
-
 // numStr extracts a numeric value as a string. Handles both float64 (JSON default) and string.
 func numStr(m map[string]any, key string) string {
 	if m == nil {
@@ -338,36 +335,21 @@ func numStr(m map[string]any, key string) string {
 	}
 }
 
-// managedStr extracts the remoteManagement.managed nested bool.
-func managedStr(general map[string]any) string {
-	if general == nil {
+// nestedBoolStr extracts a bool from a nested map (e.g., general["remoteManagement"]["managed"])
+// and returns "Yes"/"No"/"Unknown".
+func nestedBoolStr(m map[string]any, outerKey, innerKey string) string {
+	if m == nil {
 		return "Unknown"
 	}
-	rm, ok := general["remoteManagement"].(map[string]any)
+	outer, ok := m[outerKey].(map[string]any)
 	if !ok {
 		return "Unknown"
 	}
-	managed, ok := rm["managed"].(bool)
+	v, ok := outer[innerKey].(bool)
 	if !ok {
 		return "Unknown"
 	}
-	return boolDisplay(managed)
-}
-
-// mdmCapableStr extracts the mdmCapable.capable nested bool.
-func mdmCapableStr(general map[string]any) string {
-	if general == nil {
-		return "Unknown"
-	}
-	mc, ok := general["mdmCapable"].(map[string]any)
-	if !ok {
-		return "Unknown"
-	}
-	capable, ok := mc["capable"].(bool)
-	if !ok {
-		return "Unknown"
-	}
-	return boolDisplay(capable)
+	return boolDisplay(v)
 }
 
 // boolDisplay converts a bool to a human-friendly "Yes"/"No".

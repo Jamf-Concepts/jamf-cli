@@ -13,6 +13,16 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
+// Security status constants used across multiple commands.
+const (
+	statusFVAllEncrypted  = "ALL_ENCRYPTED"
+	statusFVBootEncrypted = "BOOT_ENCRYPTED"
+	statusGKDisabled      = "DISABLED"
+	statusGKDisabledAlt   = "Disabled" // Some API versions use mixed case
+	statusSIPEnabled      = "ENABLED"
+	statusSIPEnabledAlt   = "Enabled"
+)
+
 // resolveDeviceByIdentifier takes a free-form identifier (Jamf ID, serial
 // number, or computer name) and returns the device's Jamf ID and display name.
 //
@@ -63,33 +73,11 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 // tryDeviceByID attempts to fetch a device directly by its Jamf ID.
 // Returns id, name, error. A non-200 response is treated as a miss (returns error).
 func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (string, string, error) {
-	path := "/v1/computers-inventory-detail/" + id
-
-	resp, err := client.Do(ctx, "GET", path, nil)
+	obj, err := fetchJSON(ctx, client, "/v1/computers-inventory-detail/"+id)
 	if err != nil {
 		return "", "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		// Drain body so connection can be reused.
-		_, _ = io.Copy(io.Discard, resp.Body)
-		return "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
-	if err != nil {
-		return "", "", err
-	}
-
-	var obj map[string]any
-	if err := json.Unmarshal(body, &obj); err != nil {
-		return "", "", err
-	}
-
-	resolvedID := extractField(obj, "id")
-	resolvedName := extractDeviceName(obj)
-	return resolvedID, resolvedName, nil
+	return extractField(obj, "id"), extractDeviceName(obj), nil
 }
 
 // searchInventoryForDevice executes a GET against the given inventory path

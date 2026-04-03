@@ -55,7 +55,7 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		total       int
 		fvEncrypted int
 		gkEnabled   int
-		sipEnabled  int
+		sipCount    int
 		fwEnabled   int
 		osVersions  = make(map[string]int)
 		devices     []map[string]any
@@ -81,14 +81,14 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		sipStatus := strVal(security, "sipStatus")
 		firewall := boolVal(security, "firewallEnabled")
 
-		if fvStatus == "ALL_ENCRYPTED" || fvStatus == "BOOT_ENCRYPTED" {
+		if fvStatus == statusFVAllEncrypted || fvStatus == statusFVBootEncrypted {
 			fvEncrypted++
 		}
-		if gkStatus != "DISABLED" && gkStatus != "Disabled" && gkStatus != "" {
+		if gkStatus != statusGKDisabled && gkStatus != statusGKDisabledAlt && gkStatus != "" {
 			gkEnabled++
 		}
-		if sipStatus == "ENABLED" || sipStatus == "Enabled" {
-			sipEnabled++
+		if sipStatus == statusSIPEnabled || sipStatus == statusSIPEnabledAlt {
+			sipCount++
 		}
 		if firewall {
 			fwEnabled++
@@ -115,8 +115,8 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		"filevault_encrypted_pct": pctStr(fvEncrypted, total),
 		"gatekeeper_enabled":      gkEnabled,
 		"gatekeeper_enabled_pct":  pctStr(gkEnabled, total),
-		"sip_enabled":             sipEnabled,
-		"sip_enabled_pct":         pctStr(sipEnabled, total),
+		"sip_enabled":             sipCount,
+		"sip_enabled_pct":         pctStr(sipCount, total),
 		"firewall_enabled":        fwEnabled,
 		"firewall_enabled_pct":    pctStr(fwEnabled, total),
 	}
@@ -174,9 +174,9 @@ func printSecurityReport(report *securityReport) error {
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if (fv != "ALL_ENCRYPTED" && fv != "BOOT_ENCRYPTED" && fv != "") ||
-			gk == "DISABLED" || gk == "Disabled" ||
-			(sip != "ENABLED" && sip != "Enabled" && sip != "") ||
+		if (fv != statusFVAllEncrypted && fv != statusFVBootEncrypted && fv != "") ||
+			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
+			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {
 			flagged = append(flagged, d)
 		}

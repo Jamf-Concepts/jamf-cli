@@ -143,11 +143,10 @@ func runPolicyExecute(
 //  1. Try as Jamf ID via Classic API detail endpoint.
 //  2. If that fails, list all policies and do a case-insensitive name match.
 func resolvePolicyByNameOrID(ctx context.Context, client registry.HTTPClient, ref string) (string, string, error) {
-	// 1. Try as ID.
-	detail, err := fetchJSON(ctx, client, fmt.Sprintf("/JSSResource/policies/id/%s", ref))
+	// 1. Try as ID using the existing Classic detail helper.
+	detail, err := fetchClassicPolicyDetail(ctx, client, ref)
 	if err == nil {
-		inner := unwrapClassicDetail(detail)
-		general, _ := inner["general"].(map[string]any)
+		general, _ := detail["general"].(map[string]any)
 		if general != nil {
 			id := extractID(general)
 			name, _ := general["name"].(string)
@@ -156,8 +155,8 @@ func resolvePolicyByNameOrID(ctx context.Context, client registry.HTTPClient, re
 			}
 		}
 		// Fallback: top-level fields (some Classic responses have flat structure).
-		id := extractID(inner)
-		name, _ := inner["name"].(string)
+		id := extractID(detail)
+		name, _ := detail["name"].(string)
 		if id != "" {
 			return id, name, nil
 		}

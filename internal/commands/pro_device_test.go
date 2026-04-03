@@ -273,39 +273,27 @@ func TestNumStr(t *testing.T) {
 	}
 }
 
-func TestManagedStr(t *testing.T) {
+func TestNestedBoolStr(t *testing.T) {
 	managed := map[string]any{
 		"remoteManagement": map[string]any{"managed": true},
 	}
-	if got := managedStr(managed); got != "Yes" {
-		t.Errorf("managedStr(managed=true) = %q, want %q", got, "Yes")
+	if got := nestedBoolStr(managed, "remoteManagement", "managed"); got != "Yes" {
+		t.Errorf("nestedBoolStr(managed=true) = %q, want %q", got, "Yes")
 	}
 
 	unmanaged := map[string]any{
 		"remoteManagement": map[string]any{"managed": false},
 	}
-	if got := managedStr(unmanaged); got != "No" {
-		t.Errorf("managedStr(managed=false) = %q, want %q", got, "No")
+	if got := nestedBoolStr(unmanaged, "remoteManagement", "managed"); got != "No" {
+		t.Errorf("nestedBoolStr(managed=false) = %q, want %q", got, "No")
 	}
 
 	missing := map[string]any{}
-	if got := managedStr(missing); got != "Unknown" {
-		t.Errorf("managedStr(missing) = %q, want %q", got, "Unknown")
-	}
-}
-
-func TestMdmCapableStr(t *testing.T) {
-	capable := map[string]any{
-		"mdmCapable": map[string]any{"capable": true},
-	}
-	if got := mdmCapableStr(capable); got != "Yes" {
-		t.Errorf("mdmCapableStr(capable=true) = %q, want %q", got, "Yes")
+	if got := nestedBoolStr(missing, "remoteManagement", "managed"); got != "Unknown" {
+		t.Errorf("nestedBoolStr(missing) = %q, want %q", got, "Unknown")
 	}
 
-	notCapable := map[string]any{
-		"mdmCapable": map[string]any{"capable": false},
-	}
-	if got := mdmCapableStr(notCapable); got != "No" {
-		t.Errorf("mdmCapableStr(capable=false) = %q, want %q", got, "No")
+	if got := nestedBoolStr(nil, "any", "key"); got != "Unknown" {
+		t.Errorf("nestedBoolStr(nil) = %q, want %q", got, "Unknown")
 	}
 }
