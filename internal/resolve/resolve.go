@@ -549,7 +549,7 @@ func fetchInventoryPage(ctx context.Context, client registry.HTTPClient, path st
 // numeric ID values (the Jamf API sometimes returns IDs as numbers).
 func jsonString(m map[string]any, key string) string {
 	v, ok := m[key]
-	if !ok {
+	if !ok || v == nil {
 		return ""
 	}
 	switch val := v.(type) {

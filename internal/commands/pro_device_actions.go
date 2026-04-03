@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -607,36 +608,6 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 }
 
-func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "restart", "RestartDevice",
-		"Restart a computer",
-		"Restart a computer by serial number, name, or ID.",
-		`  jamf-cli pro comp restart --serial C02X1234 --yes
-  jamf-cli pro comp restart --group "Lab Macs" --yes`,
-		false,
-	)
-}
-
-func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "shutdown", "ShutDownDevice",
-		"Shut down a computer",
-		"Shut down a computer by serial number, name, or ID.",
-		`  jamf-cli pro comp shutdown --serial C02X1234 --yes
-  jamf-cli pro comp shutdown --group "Lab Macs" --yes`,
-		false,
-	)
-}
-
-func newComputerUpdateInventoryCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "update-inventory", "UpdateInventory",
-		"Request an inventory update from a computer",
-		"Request a computer to submit an updated inventory report.",
-		`  jamf-cli pro comp update-inventory --serial C02X1234 --yes
-  jamf-cli pro comp update-inventory --group "All Macs" --yes`,
-		false,
-	)
-}
-
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return newClassicMDMCmd(cliCtx, "enable-remote-desktop", "EnableRemoteDesktop",
 		"Enable Remote Desktop on a computer",
@@ -651,6 +622,82 @@ func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234 --yes`,
+		false,
+	)
+}
+
+// --- Classic API mobile device MDM commands ---
+
+// sendMobileMDMCommand posts a Classic API MDM command to a single mobile device.
+func sendMobileMDMCommand(ctx context.Context, client registry.HTTPClient, deviceID, command string) error {
+	path := fmt.Sprintf("/JSSResource/mobiledevicecommands/command/%s/id/%s", command, deviceID)
+	resp, err := client.Do(ctx, "POST", path, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return nil
+}
+
+// newClassicMobileMDMCmd creates a mobile-device subcommand that sends a
+// Classic API MDM command via /JSSResource/mobiledevicecommands/.
+func newClassicMobileMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long, example string, destructive bool) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+	)
+
+	cmd := &cobra.Command{
+		Use:     name,
+		Short:   short,
+		Long:    long,
+		Example: example,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  name,
+				deviceType:  "mobile device",
+				destructive: destructive,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileMDMCommand(cmd.Context(), cliCtx.Client, d.ID, apiCommand)
+				},
+			})
+		},
+	}
+
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	if destructive {
+		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	}
+	return cmd
+}
+
+func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMobileMDMCmd(cliCtx, "restart", "RestartDevice",
+		"Restart a mobile device",
+		"Restart a mobile device by serial number, name, or ID.",
+		`  jamf-cli pro md restart --serial F4GH5678 --yes
+  jamf-cli pro md restart --group "Lab iPads" --yes`,
+		false,
+	)
+}
+
+func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMobileMDMCmd(cliCtx, "shutdown", "ShutDownDevice",
+		"Shut down a mobile device",
+		"Shut down a mobile device by serial number, name, or ID.",
+		`  jamf-cli pro md shutdown --serial F4GH5678 --yes`,
+		false,
+	)
+}
+
+func newMobileUpdateInventoryCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newClassicMobileMDMCmd(cliCtx, "update-inventory", "UpdateInventory",
+		"Request an inventory update from a mobile device",
+		"Request a mobile device to submit an updated inventory report.",
+		`  jamf-cli pro md update-inventory --serial F4GH5678 --yes
+  jamf-cli pro md update-inventory --group "All iPads" --yes`,
 		false,
 	)
 }

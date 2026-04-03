@@ -54,13 +54,15 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
 
-	// Classic API MDM commands (no modern API equivalent)
+	// Classic API computer MDM commands (no modern API equivalent)
 	addSubcommand(cmd, []string{"computers"}, newComputerLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerRestartCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerUpdateInventoryCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerEnableRemoteDesktopCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerDisableRemoteDesktopCmd(cliCtx))
+
+	// Classic API mobile device MDM commands (no modern API equivalent)
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUpdateInventoryCmd(cliCtx))
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
