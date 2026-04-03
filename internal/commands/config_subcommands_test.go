@@ -539,3 +539,55 @@ func TestStoreOrRefSecret_KeychainFailure(t *testing.T) {
 		t.Errorf("expected keychain error, got: %v", err)
 	}
 }
+
+func TestConfigAutoDefault_FirstProfile(t *testing.T) {
+	setupTempConfig(t)
+
+	cfg := &config.Config{
+		Profiles: map[string]config.Profile{},
+	}
+
+	// Add a single profile — should become default
+	cfg.Profiles["first"] = config.Profile{
+		URL:        "https://example.com",
+		AuthMethod: "oauth2",
+		ClientID:   "keychain:jamf-cli/first/client-id",
+	}
+	if len(cfg.Profiles) == 1 {
+		cfg.DefaultProfile = "first"
+	}
+
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if loaded.DefaultProfile != "first" {
+		t.Errorf("DefaultProfile = %q, want %q", loaded.DefaultProfile, "first")
+	}
+
+	// Add a second profile — default should not change
+	loaded.Profiles["second"] = config.Profile{
+		URL:        "https://other.com",
+		AuthMethod: "token",
+		Token:      "keychain:jamf-cli/second/token",
+	}
+	if len(loaded.Profiles) == 1 {
+		loaded.DefaultProfile = "second"
+	}
+
+	if err := config.Save(loaded); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	reloaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if reloaded.DefaultProfile != "first" {
+		t.Errorf("DefaultProfile = %q, want %q (should not change when adding second profile)", reloaded.DefaultProfile, "first")
+	}
+}
