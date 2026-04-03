@@ -352,7 +352,6 @@ func resetGlobals() {
 	serverURL = ""
 	token = ""
 	tokenFile = ""
-	tokenStdin = false
 	clientID = ""
 	clientSecret = ""
 }

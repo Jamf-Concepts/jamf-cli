@@ -27,25 +27,23 @@ import (
 
 // Global flags
 var (
-	profile           string
-	outputFmt         string
-	quiet             bool
-	verbose           bool
-	noInput           bool
-	noColor           bool
-	dryRun            bool
-	wide              bool
-	outFile           string
-	fieldName         string
-	serverURL         string
-	token             string
-	tokenFile         string
-	tokenStdin        bool
-	clientID          string
-	clientSecret      string
-	clientSecretStdin bool
-	tenantID          string
-	cliVersion        string // set by NewRootCmd for use by power commands
+	profile      string
+	outputFmt    string
+	quiet        bool
+	verbose      bool
+	noInput      bool
+	noColor      bool
+	dryRun       bool
+	wide         bool
+	outFile      string
+	fieldName    string
+	serverURL    string
+	token        string
+	tokenFile    string
+	clientID     string
+	clientSecret string
+	tenantID     string
+	cliVersion   string // set by NewRootCmd for use by power commands
 )
 
 // cliClient wraps our client to implement registry.HTTPClient
@@ -332,31 +330,13 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 		tenantID = os.Getenv("JAMF_TENANT_ID")
 	}
 
-	// Token from file or stdin (before delegating to ResolveAuthForProfile
-	// which does not handle stdin)
+	// Token from file
 	if token == "" && tokenFile != "" {
 		data, err := os.ReadFile(tokenFile)
 		if err != nil {
 			return "", nil, fmt.Errorf("reading token file %s: %w", tokenFile, err)
 		}
 		token = strings.TrimSpace(string(data))
-	}
-	if tokenStdin && clientSecretStdin {
-		return "", nil, exitcode.New(exitcode.Usage, "--token-stdin and --client-secret-stdin are mutually exclusive (both read from stdin)")
-	}
-	if token == "" && tokenStdin {
-		data, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
-		if err != nil {
-			return "", nil, fmt.Errorf("reading token from stdin: %w", err)
-		}
-		token = strings.TrimSpace(string(data))
-	}
-	if clientSecret == "" && clientSecretStdin {
-		data, err := io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
-		if err != nil {
-			return "", nil, fmt.Errorf("reading client secret from stdin: %w", err)
-		}
-		clientSecret = strings.TrimSpace(string(data))
 	}
 
 	url, provider, err := ResolveAuthForProfile(cfg, AuthParams{
@@ -506,8 +486,6 @@ analytics, threat prevention, and configuration).`,
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
-	cmd.PersistentFlags().BoolVar(&tokenStdin, "token-stdin", false, "read API token from stdin")
-	cmd.PersistentFlags().BoolVar(&clientSecretStdin, "client-secret-stdin", false, "read OAuth2 client secret from stdin")
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 
 	// Version command

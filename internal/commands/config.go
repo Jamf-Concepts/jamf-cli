@@ -217,44 +217,38 @@ func newConfigAddProfileCmd() *cobra.Command {
 			w := cmd.OutOrStdout()
 			reader := bufio.NewReader(os.Stdin)
 
+			// Credentials are always collected interactively to prevent
+			// exposure in shell history and process listings.
+			if noInput {
+				return fmt.Errorf("add-profile requires interactive input for credentials; cannot use --no-input")
+			}
+
 			// oauth2 and platform both require client-id + client-secret
 			if authMethod == "oauth2" || authMethod == "platform" {
-				if profileClientID == "" {
-					if noInput {
-						return fmt.Errorf("--client-id is required when --no-input is set")
-					}
-					_, _ = fmt.Fprint(w, "Client ID: ")
-					line, err := reader.ReadString('\n')
-					if err != nil {
-						return fmt.Errorf("reading client ID: %w", err)
-					}
-					profileClientID = strings.TrimSpace(line)
-					if profileClientID == "" {
-						return fmt.Errorf("client ID is required")
-					}
+				_, _ = fmt.Fprint(w, "Client ID: ")
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					return fmt.Errorf("reading client ID: %w", err)
 				}
+				profileClientID = strings.TrimSpace(line)
+				if profileClientID == "" {
+					return fmt.Errorf("client ID is required")
+				}
+
+				_, _ = fmt.Fprint(w, "Client Secret: ")
+				secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+				if err != nil {
+					return fmt.Errorf("reading client secret: %w", err)
+				}
+				_, _ = fmt.Fprintln(w)
+				profileClientSec = string(secretBytes)
 				if profileClientSec == "" {
-					if noInput {
-						return fmt.Errorf("--client-secret is required when --no-input is set")
-					}
-					_, _ = fmt.Fprint(w, "Client Secret: ")
-					secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-					if err != nil {
-						return fmt.Errorf("reading client secret: %w", err)
-					}
-					_, _ = fmt.Fprintln(w)
-					profileClientSec = string(secretBytes)
-					if profileClientSec == "" {
-						return fmt.Errorf("client secret is required")
-					}
+					return fmt.Errorf("client secret is required")
 				}
 			}
 
 			// platform additionally requires tenant-id
 			if authMethod == "platform" && profileTenantID == "" {
-				if noInput {
-					return fmt.Errorf("--tenant-id is required when --no-input is set")
-				}
 				_, _ = fmt.Fprint(w, "Tenant ID: ")
 				line, err := reader.ReadString('\n')
 				if err != nil {
@@ -267,10 +261,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			// token auth requires a bearer token
-			if authMethod == "token" && profileTok == "" {
-				if noInput {
-					return fmt.Errorf("--token is required when --no-input is set")
-				}
+			if authMethod == "token" {
 				_, _ = fmt.Fprint(w, "API Token: ")
 				tokenBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 				if err != nil {
@@ -328,9 +319,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
-	cmd.Flags().StringVar(&profileTok, "token", "", "API token (env:VAR, file:/path, or omit to be prompted securely)")
-	cmd.Flags().StringVar(&profileClientID, "client-id", "", "OAuth2 client ID")
-	cmd.Flags().StringVar(&profileClientSec, "client-secret", "", "OAuth2 client secret (env:VAR, file:/path, or omit to be prompted securely)")
 	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
 	_ = cmd.MarkFlagRequired("url")
 

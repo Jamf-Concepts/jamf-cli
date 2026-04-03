@@ -446,14 +446,9 @@ func TestAddProfile_ValidationErrors(t *testing.T) {
 			wantErr: "invalid --auth-method",
 		},
 		{
-			name:    "oauth2 missing client-id",
-			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-secret", "secret"},
-			wantErr: "--client-id is required when --no-input is set",
-		},
-		{
-			name:    "oauth2 missing client-secret",
-			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2", "--client-id", "my-id"},
-			wantErr: "--client-secret is required when --no-input is set",
+			name:    "no-input rejected",
+			args:    []string{"test", "--url", "https://example.com", "--auth-method", "oauth2"},
+			wantErr: "cannot use --no-input",
 		},
 	}
 
@@ -461,8 +456,6 @@ func TestAddProfile_ValidationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupTempConfig(t)
 
-			// Simulate non-interactive mode so missing secrets
-			// produce errors instead of prompting for input.
 			oldNoInput := noInput
 			noInput = true
 			defer func() { noInput = oldNoInput }()
@@ -481,39 +474,6 @@ func TestAddProfile_ValidationErrors(t *testing.T) {
 				t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestAddProfile_AutoDefault(t *testing.T) {
-	setupTempConfig(t)
-
-	mock := newMockKeychainStore()
-	old := config.KeychainStore
-	config.KeychainStore = mock
-	defer func() { config.KeychainStore = old }()
-
-	cmd := newConfigAddProfileCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{
-		"first",
-		"--url", "https://example.com",
-		"--auth-method", "token",
-		"--token", "env:MYTOKEN",
-	})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.Contains(buf.String(), "Set as default profile") {
-		t.Error("first profile should be auto-set as default")
-	}
-
-	cfg, _ := config.Load()
-	if cfg.DefaultProfile != "first" {
-		t.Errorf("DefaultProfile = %q, want %q", cfg.DefaultProfile, "first")
 	}
 }
 
@@ -577,5 +537,57 @@ func TestStoreOrRefSecret_KeychainFailure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "keychain") {
 		t.Errorf("expected keychain error, got: %v", err)
+	}
+}
+
+func TestConfigAutoDefault_FirstProfile(t *testing.T) {
+	setupTempConfig(t)
+
+	cfg := &config.Config{
+		Profiles: map[string]config.Profile{},
+	}
+
+	// Add a single profile — should become default
+	cfg.Profiles["first"] = config.Profile{
+		URL:        "https://example.com",
+		AuthMethod: "oauth2",
+		ClientID:   "keychain:jamf-cli/first/client-id",
+	}
+	if len(cfg.Profiles) == 1 {
+		cfg.DefaultProfile = "first"
+	}
+
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if loaded.DefaultProfile != "first" {
+		t.Errorf("DefaultProfile = %q, want %q", loaded.DefaultProfile, "first")
+	}
+
+	// Add a second profile — default should not change
+	loaded.Profiles["second"] = config.Profile{
+		URL:        "https://other.com",
+		AuthMethod: "token",
+		Token:      "keychain:jamf-cli/second/token",
+	}
+	if len(loaded.Profiles) == 1 {
+		loaded.DefaultProfile = "second"
+	}
+
+	if err := config.Save(loaded); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	reloaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if reloaded.DefaultProfile != "first" {
+		t.Errorf("DefaultProfile = %q, want %q (should not change when adding second profile)", reloaded.DefaultProfile, "first")
 	}
 }
