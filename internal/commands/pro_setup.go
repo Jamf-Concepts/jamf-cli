@@ -434,7 +434,7 @@ config profile. The username and password are not stored.`,
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "✓")
 
 			// Step 5: Ensure API integration exists (create or update)
-			integrationName := "jamf-cli"
+			integrationName := fmt.Sprintf("jamf-cli [%s]", setupUser)
 			existingIntID, err := client.findAPIIntegrationByName(ctx, integrationName)
 			if err != nil {
 				return err
