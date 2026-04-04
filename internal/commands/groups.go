@@ -367,15 +367,17 @@ func applyProtectGroups(protect *cobra.Command) {
 	}
 }
 
-// groupTitle resolves a cobra group ID to its display title (without trailing colon).
-// It searches rootGroups, proGroups, and protectGroups.
+// groupTitleMap is a cached lookup from group ID to display title, built once on first use.
+var groupTitleMap map[string]string
+
 func groupTitle(id string) string {
-	for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups} {
-		for _, g := range groups {
-			if g.ID == id {
-				return strings.TrimSuffix(g.Title, ":")
+	if groupTitleMap == nil {
+		groupTitleMap = make(map[string]string)
+		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups} {
+			for _, g := range groups {
+				groupTitleMap[g.ID] = strings.TrimSuffix(g.Title, ":")
 			}
 		}
 	}
-	return ""
+	return groupTitleMap[id]
 }

@@ -403,6 +403,13 @@
     return { row: row, detail: detail };
   }
 
+  function createDetailHeading(text) {
+    var el = document.createElement('div');
+    el.className = 'detail-heading';
+    el.textContent = text;
+    return el;
+  }
+
   function buildDetailContent(cmd) {
     var frag = document.createDocumentFragment();
 
@@ -413,18 +420,8 @@
       frag.appendChild(desc);
     }
 
-    // All flags
     if (cmd.flags && cmd.flags.length > 0) {
-      var flagsHeading = document.createElement('div');
-      flagsHeading.style.fontSize = '0.75rem';
-      flagsHeading.style.fontWeight = '600';
-      flagsHeading.style.textTransform = 'uppercase';
-      flagsHeading.style.letterSpacing = '0.05em';
-      flagsHeading.style.color = 'var(--text-secondary)';
-      flagsHeading.style.marginBottom = '0.35rem';
-      flagsHeading.textContent = 'Flags';
-      frag.appendChild(flagsHeading);
-
+      frag.appendChild(createDetailHeading('Flags'));
       var flagsWrap = document.createElement('div');
       flagsWrap.style.marginBottom = '0.5rem';
       for (var f = 0; f < cmd.flags.length; f++) {
@@ -436,18 +433,8 @@
       frag.appendChild(flagsWrap);
     }
 
-    // Aliases
     if (cmd.aliases && cmd.aliases.length > 0) {
-      var aliasHeading = document.createElement('div');
-      aliasHeading.style.fontSize = '0.75rem';
-      aliasHeading.style.fontWeight = '600';
-      aliasHeading.style.textTransform = 'uppercase';
-      aliasHeading.style.letterSpacing = '0.05em';
-      aliasHeading.style.color = 'var(--text-secondary)';
-      aliasHeading.style.marginBottom = '0.35rem';
-      aliasHeading.textContent = 'Aliases';
-      frag.appendChild(aliasHeading);
-
+      frag.appendChild(createDetailHeading('Aliases'));
       var aliasWrap = document.createElement('div');
       aliasWrap.style.marginBottom = '0.5rem';
       for (var a = 0; a < cmd.aliases.length; a++) {
@@ -493,9 +480,13 @@
     var search = document.getElementById('search');
     if (!search) return;
 
+    var debounceTimer;
     search.addEventListener('input', function () {
-      var query = search.value.trim();
-      renderCatalog(allCommands, query, activeProduct);
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        var query = search.value.trim();
+        renderCatalog(allCommands, query, activeProduct);
+      }, 200);
     });
   }
 
@@ -558,12 +549,7 @@
   // ===== Copy Buttons =====
 
   function setupCopyButtons() {
-    // Delegate copy handling for any .copy-btn, including dynamically added ones.
-    // Static copy buttons in index.html already have their own listeners,
-    // so we use event delegation on #catalog for catalog-scoped buttons only.
-    var catalog = document.getElementById('catalog');
-    if (!catalog) return;
-    catalog.addEventListener('click', function (e) {
+    document.addEventListener('click', function (e) {
       var btn = e.target.closest('.copy-btn');
       if (!btn) return;
       e.stopPropagation();

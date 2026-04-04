@@ -754,6 +754,15 @@ a.stat-card:hover {
   display: block;
 }
 
+.detail-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
 .command-expanded pre {
   background: var(--terminal-bg);
   color: var(--terminal-text);

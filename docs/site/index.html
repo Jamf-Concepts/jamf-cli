@@ -340,16 +340,6 @@
       }
     });
 
-    // Copy buttons
-    document.querySelectorAll('.copy-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var text = this.getAttribute('data-copy');
-        navigator.clipboard.writeText(text).then(function () {
-          btn.classList.add('copied');
-          setTimeout(function () { btn.classList.remove('copied'); }, 1500);
-        });
-      });
-    });
   </script>
   <script src="terminal.js"></script>
   <script src="catalog.js"></script>
