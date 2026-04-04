@@ -136,6 +136,22 @@ func TestAnalyzePolicies_PayloadWithRecon(t *testing.T) {
 	}
 }
 
+func TestAnalyzePolicies_PayloadWithDiskEncryption(t *testing.T) {
+	policies := []policyInfo{{
+		ID: "1", Name: "FileVault",
+		Data: map[string]any{
+			"general":         map[string]any{"enabled": true, "trigger_checkin": true, "category": map[string]any{"id": "5", "name": "Security"}},
+			"scope":           map[string]any{"all_computers": true},
+			"disk_encryption": map[string]any{"action": "apply"},
+		},
+	}}
+
+	findings := analyzePolicies(policies)
+	if hasCheck(findings, "no_payload") {
+		t.Error("should NOT have no_payload finding when disk_encryption is configured")
+	}
+}
+
 func TestAnalyzePolicies_NoTrigger(t *testing.T) {
 	policies := []policyInfo{{
 		ID: "1", Name: "Dead",
@@ -516,6 +532,79 @@ func TestFetchAllPolicyLogs_WrappedMapSingleEntry(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Fatalf("got %d entries, want 1", len(entries))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// aggregateComputerFailures
+// ---------------------------------------------------------------------------
+
+func TestAggregateComputerFailures_AboveThreshold(t *testing.T) {
+	results := []computerHistoryResult{
+		{ComputerID: "1", Entries: []policyLogEntry{
+			{Status: "Failed"}, {Status: "Completed"}, {Status: "Failed"},
+		}},
+	}
+	// 2 of 3 failed = 66.7% > 50%
+	lookup := map[string]computerMeta{"1": {name: "Mac-A", serial: "S1"}}
+	summaries := aggregateComputerFailures(results, lookup)
+	if len(summaries) != 1 {
+		t.Fatalf("got %d, want 1", len(summaries))
+	}
+	if summaries[0].ComputerName != "Mac-A" {
+		t.Errorf("name = %q, want Mac-A", summaries[0].ComputerName)
+	}
+}
+
+func TestAggregateComputerFailures_ExactlyFiftyPercent(t *testing.T) {
+	results := []computerHistoryResult{
+		{ComputerID: "1", Entries: []policyLogEntry{
+			{Status: "Failed"}, {Status: "Completed"},
+		}},
+	}
+	// 1 of 2 = 50% — included (threshold is >= 50%, i.e. failRate < 50 excluded)
+	summaries := aggregateComputerFailures(results, nil)
+	if len(summaries) != 1 {
+		t.Errorf("got %d, want 1 (50%% should be included)", len(summaries))
+	}
+}
+
+func TestAggregateComputerFailures_NoFailures(t *testing.T) {
+	results := []computerHistoryResult{
+		{ComputerID: "1", Entries: []policyLogEntry{
+			{Status: "Completed"}, {Status: "Completed"},
+		}},
+	}
+	summaries := aggregateComputerFailures(results, nil)
+	if len(summaries) != 0 {
+		t.Errorf("got %d, want 0", len(summaries))
+	}
+}
+
+func TestAggregateComputerFailures_EmptyEntries(t *testing.T) {
+	results := []computerHistoryResult{
+		{ComputerID: "1", Entries: nil},
+	}
+	summaries := aggregateComputerFailures(results, nil)
+	if len(summaries) != 0 {
+		t.Errorf("got %d, want 0", len(summaries))
+	}
+}
+
+func TestAggregateComputerFailures_MissingLookup(t *testing.T) {
+	results := []computerHistoryResult{
+		{ComputerID: "999", Entries: []policyLogEntry{
+			{Status: "Failed"}, {Status: "Failed"}, {Status: "Completed"},
+		}},
+	}
+	// Lookup doesn't have this computer — should degrade gracefully
+	lookup := map[string]computerMeta{}
+	summaries := aggregateComputerFailures(results, lookup)
+	if len(summaries) != 1 {
+		t.Fatalf("got %d, want 1", len(summaries))
+	}
+	if summaries[0].ComputerName != "" {
+		t.Errorf("name = %q, want empty (missing lookup)", summaries[0].ComputerName)
 	}
 }
 

@@ -496,6 +496,12 @@ func countArrayEntries(m map[string]any, key string) int {
 }
 
 func policyHasPayload(data map[string]any) bool {
+	// Disk encryption (FileVault)
+	if de, ok := data["disk_encryption"].(map[string]any); ok {
+		if action, _ := de["action"].(string); action != "" && action != "none" {
+			return true
+		}
+	}
 	// Packages
 	if pkgConf, ok := data["package_configuration"].(map[string]any); ok {
 		if scopeFieldHasEntries(pkgConf["packages"]) {
