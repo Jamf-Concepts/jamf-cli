@@ -172,13 +172,13 @@ func newPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Return whether or not the requested patch policy is on the dashboard",
 		Long:  "Returns whether or not the requested patch policy is on the dashboard",
-		Example: `  # Get a patch-policie by ID
+		Example: `  # Get a patch-policy by ID
   jamf-cli patch-policies get 1
 
-  # Get a patch-policie by name
+  # Get a patch-policy by name
   jamf-cli patch-policies get-by-name "Example"
 
-  # Get a patch-policie and output as YAML
+  # Get a patch-policy and output as YAML
   jamf-cli patch-policies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -218,7 +218,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove a patch policy from the dashboard",
 		Long:  "Removes a patch policy from the dashboard.",
-		Example: `  # Delete a patch-policie (with confirmation)
+		Example: `  # Delete a patch-policy (with confirmation)
   jamf-cli patch-policies delete 1
 
   # Delete without confirmation prompt
@@ -321,8 +321,8 @@ func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 func newPatchPoliciesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a patch-policie by name",
-		Example: `  # Get a patch-policie by name
+		Short: "Get a patch-policy by name",
+		Example: `  # Get a patch-policy by name
   jamf-cli patch-policies get-by-name "Example"
 
   # Get by name and output as YAML
@@ -353,8 +353,8 @@ func newPatchPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a patch-policie by name",
-		Example: `  # Delete a patch-policie by name (with confirmation)
+		Short: "Delete a patch-policy by name",
+		Example: `  # Delete a patch-policy by name (with confirmation)
   jamf-cli patch-policies delete-by-name "Example"
 
   # Delete without confirmation prompt
@@ -371,18 +371,18 @@ func newPatchPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no patch-policie found with name %q", name)
+				return fmt.Errorf("no patch-policy found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete patch-policie %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete patch-policy %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -398,7 +398,7 @@ func newPatchPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted patch-policie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted patch-policy %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)

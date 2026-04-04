@@ -13,6 +13,19 @@ import (
 )
 
 // ParseSpec parses an OpenAPI spec file and returns a Resource
+// singularize converts a plural resource name to singular.
+// Handles: -ies → -y (policies → policy), -sses → -ss (statuses → status),
+// -s → "" (buildings → building).
+func singularize(name string) string {
+	if strings.HasSuffix(name, "ies") {
+		return strings.TrimSuffix(name, "ies") + "y"
+	}
+	if strings.HasSuffix(name, "sses") {
+		return strings.TrimSuffix(name, "es")
+	}
+	return strings.TrimSuffix(name, "s")
+}
+
 func ParseSpec(specPath string) (*Resource, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
@@ -38,7 +51,7 @@ func ParseSpec(specPath string) (*Resource, error) {
 
 	resource := &Resource{
 		Name:         resourceName,
-		NameSingular: strings.TrimSuffix(resourceName, "s"),
+		NameSingular: singularize(resourceName),
 		GoName:       strcase.ToCamel(resourceName),
 		Description:  doc.Info.Description,
 		Operations:   make([]*Operation, 0),

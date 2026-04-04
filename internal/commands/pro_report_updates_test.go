@@ -179,6 +179,32 @@ func TestRunReportUpdateStatus_BothFetchesFail(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// extractLastEventType
+// ---------------------------------------------------------------------------
+
+func TestExtractLastEventType_Valid(t *testing.T) {
+	eventsJSON := `{"events": [{"type": ".PlanCreatedEvent"}, {"type": ".PlanAcceptedEvent"}, {"type": ".PlanRejectedEvent"}]}`
+	got := extractLastEventType(eventsJSON)
+	if got != "PlanRejectedEvent" {
+		t.Errorf("got %q, want PlanRejectedEvent", got)
+	}
+}
+
+func TestExtractLastEventType_Empty(t *testing.T) {
+	got := extractLastEventType(`{"events": []}`)
+	if got != "" {
+		t.Errorf("got %q, want empty", got)
+	}
+}
+
+func TestExtractLastEventType_BadJSON(t *testing.T) {
+	got := extractLastEventType(`not json`)
+	if got != "" {
+		t.Errorf("got %q, want empty", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // fetchUpdateDeviceLookup
 // ---------------------------------------------------------------------------
 

@@ -139,10 +139,11 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		}
 	}
 
-	// Enrich error devices with inventory data if there are any
+	// Enrich error devices with inventory data (lookup fetched lazily below)
+	var lookup map[string]updateDeviceMeta
 	var errorRows []map[string]any
 	if len(errors) > 0 {
-		lookup := fetchUpdateDeviceLookup(ctx, client)
+		lookup = fetchUpdateDeviceLookup(ctx, client)
 		for _, e := range errors {
 			meta := lookup[e.deviceID]
 			dt := meta.deviceType
@@ -251,30 +252,39 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		planStateMaps[i] = map[string]any{"state": r.state, "count": r.count}
 	}
 
-	// Fetch last event for each failed plan to add context
-	lastEvents := make(map[string]string) // planUUID -> last event type
+	// Fetch last event for each failed plan in parallel
+	type eventResult struct {
+		planUUID  string
+		lastEvent string
+	}
+	var planUUIDs []string
 	for _, fp := range failedPlans {
-		if fp.planUUID == "" {
-			continue
+		if fp.planUUID != "" {
+			planUUIDs = append(planUUIDs, fp.planUUID)
 		}
-		eventsData, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/managed-software-updates/plans/%s/events", fp.planUUID))
-		if err != nil {
-			continue
-		}
-		eventsJSON, _ := eventsData["events"].(string)
-		if eventsJSON == "" {
-			continue
-		}
-		lastEvent := extractLastEventType(eventsJSON)
-		if lastEvent != "" {
-			lastEvents[fp.planUUID] = lastEvent
+	}
+	eventResults, _ := BoundedParallelFetch(ctx, planUUIDs, 3,
+		func(ctx context.Context, uuid string) (eventResult, error) {
+			eventsData, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/managed-software-updates/plans/%s/events", uuid))
+			if err != nil {
+				return eventResult{planUUID: uuid}, nil
+			}
+			eventsJSON, _ := eventsData["events"].(string)
+			return eventResult{planUUID: uuid, lastEvent: extractLastEventType(eventsJSON)}, nil
+		})
+	lastEvents := make(map[string]string)
+	for _, r := range eventResults {
+		if r.lastEvent != "" {
+			lastEvents[r.planUUID] = r.lastEvent
 		}
 	}
 
 	// Enrich failed plans with device details
 	var failedPlanRows []map[string]any
 	if len(failedPlans) > 0 {
-		lookup := fetchUpdateDeviceLookup(ctx, client)
+		if lookup == nil {
+			lookup = fetchUpdateDeviceLookup(ctx, client)
+		}
 		for _, fp := range failedPlans {
 			meta := lookup[fp.deviceID]
 			dt := meta.deviceType
