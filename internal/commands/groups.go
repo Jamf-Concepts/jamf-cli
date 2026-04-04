@@ -184,9 +184,9 @@ var proGroupMap = map[string]string{
 	"self-service-pluss":               groupContent,
 	"parent-apps":                      groupContent,
 	"login-customizations":             groupContent,
-	"patch-v-2s":                       groupContent,
-	"patch-policy-v-2s":                groupContent,
-	"patch-policy-logs-v-2s":           groupContent,
+	"patch-titles":                     groupContent,
+	"patch-policies":                   groupContent,
+	"patch-policy-logs":                groupContent,
 
 	// MDM & Certificates
 	"mdm-renewals":                            groupMDM,

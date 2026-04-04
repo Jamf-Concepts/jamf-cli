@@ -16,25 +16,25 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewPatchPolicyV2SCmd creates the patch-policy-v-2s command group
-func NewPatchPolicyV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewPatchPoliciesCmd creates the patch-policies command group
+func NewPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-policy-v-2s",
-		Short: "Manage patch-policy-v-2s",
-		Long:  `Manage patch-policy-v-2s in Jamf Pro.`,
+		Use:   "patch-policies",
+		Short: "Manage patch-policies",
+		Long:  `Manage patch-policies in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newPatchPolicyV2SListCmd(ctx))
-	cmd.AddCommand(newPatchPolicyV2SGetCmd(ctx))
-	cmd.AddCommand(newPatchPolicyV2SDeleteCmd(ctx))
-	cmd.AddCommand(newPatchPolicyV2SDashboardCmd(ctx))
-	cmd.AddCommand(newPatchPolicyV2SGetByNameCmd(ctx))
-	cmd.AddCommand(newPatchPolicyV2SDeleteByNameCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesListCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesGetCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDeleteCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDashboardCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesGetByNameCmd(ctx))
+	cmd.AddCommand(newPatchPoliciesDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
-func newPatchPolicyV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -48,11 +48,11 @@ func newPatchPolicyV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Retrieve Patch Policies",
 		Long:  "Retrieves a list of patch policies.",
-		Example: `  # List all patch-policy-v-2s
-  jamf-cli patch-policy-v-2s list
+		Example: `  # List all patch-policies
+  jamf-cli patch-policies list
 
-  # List patch-policy-v-2s and extract IDs
-  jamf-cli patch-policy-v-2s list --field id`,
+  # List patch-policies and extract IDs
+  jamf-cli patch-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -165,21 +165,21 @@ func newPatchPolicyV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Return whether or not the requested patch policy is on the dashboard",
 		Long:  "Returns whether or not the requested patch policy is on the dashboard",
-		Example: `  # Get a patch-policy-v-2 by ID
-  jamf-cli patch-policy-v-2s get 1
+		Example: `  # Get a patch-policie by ID
+  jamf-cli patch-policies get 1
 
-  # Get a patch-policy-v-2 by name
-  jamf-cli patch-policy-v-2s get-by-name "Example"
+  # Get a patch-policie by name
+  jamf-cli patch-policies get-by-name "Example"
 
-  # Get a patch-policy-v-2 and output as YAML
-  jamf-cli patch-policy-v-2s get 1 -o yaml`,
+  # Get a patch-policie and output as YAML
+  jamf-cli patch-policies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -208,7 +208,7 @@ func newPatchPolicyV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -218,11 +218,11 @@ func newPatchPolicyV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove a patch policy from the dashboard",
 		Long:  "Removes a patch policy from the dashboard.",
-		Example: `  # Delete a patch-policy-v-2 (with confirmation)
-  jamf-cli patch-policy-v-2s delete 1
+		Example: `  # Delete a patch-policie (with confirmation)
+  jamf-cli patch-policies delete 1
 
   # Delete without confirmation prompt
-  jamf-cli patch-policy-v-2s delete 1 --yes`,
+  jamf-cli patch-policies delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -277,7 +277,7 @@ func newPatchPolicyV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyV2SDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -318,15 +318,15 @@ func newPatchPolicyV2SDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a patch-policy-v-2 by name",
-		Example: `  # Get a patch-policy-v-2 by name
-  jamf-cli patch-policy-v-2s get-by-name "Example"
+		Short: "Get a patch-policie by name",
+		Example: `  # Get a patch-policie by name
+  jamf-cli patch-policies get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli patch-policy-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli patch-policies get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -345,7 +345,7 @@ func newPatchPolicyV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newPatchPolicyV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -353,12 +353,12 @@ func newPatchPolicyV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a patch-policy-v-2 by name",
-		Example: `  # Delete a patch-policy-v-2 by name (with confirmation)
-  jamf-cli patch-policy-v-2s delete-by-name "Example"
+		Short: "Delete a patch-policie by name",
+		Example: `  # Delete a patch-policie by name (with confirmation)
+  jamf-cli patch-policies delete-by-name "Example"
 
   # Delete without confirmation prompt
-  jamf-cli patch-policy-v-2s delete-by-name "Example" --yes`,
+  jamf-cli patch-policies delete-by-name "Example" --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -371,18 +371,18 @@ func newPatchPolicyV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no patch-policy-v-2 found with name %q", name)
+				return fmt.Errorf("no patch-policie found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy-v-2 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policie %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete patch-policy-v-2 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete patch-policie %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -398,7 +398,7 @@ func newPatchPolicyV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted patch-policy-v-2 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted patch-policie %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
