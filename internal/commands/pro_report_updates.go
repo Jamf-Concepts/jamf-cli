@@ -203,24 +203,31 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 				deviceID = strVal(device, "deviceId")
 				deviceType = strVal(device, "objectType")
 			}
-			var errReasons string
+			var errParts []string
 			if status != nil {
 				if reasons, ok := status["errorReasons"].([]any); ok {
-					var parts []string
 					for _, r := range reasons {
 						if s, ok := r.(string); ok {
-							parts = append(parts, s)
+							errParts = append(errParts, s)
 						}
 					}
-					errReasons = strings.Join(parts, ", ")
 				}
 			}
+
+			// NO_UPDATES_AVAILABLE means the device is already up to date —
+			// not a real failure. Skip it and count as completed instead.
+			if len(errParts) == 1 && errParts[0] == "NO_UPDATES_AVAILABLE" {
+				planStateCounts[state]--
+				planStateCounts["UpToDate"]++
+				continue
+			}
+
 			failedPlans = append(failedPlans, failedPlan{
 				planUUID:   strVal(p, "planUuid"),
 				deviceID:   deviceID,
 				deviceType: deviceType,
 				state:      state,
-				errors:     errReasons,
+				errors:     strings.Join(errParts, ", "),
 				action:     strVal(p, "updateAction"),
 				version:    strVal(p, "versionType"),
 			})
