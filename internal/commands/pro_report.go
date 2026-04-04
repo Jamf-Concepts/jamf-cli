@@ -24,7 +24,8 @@ Available subcommands:
   ea-results         Extension attribute results across devices
   policy-status      Policy execution status and health checks
   profile-status     Configuration profile deployment failures
-  app-status         Managed app deployment failures`,
+  app-status         Managed app deployment failures
+  update-status      Managed software update deployment status`,
 	}
 
 	cmd.AddCommand(newReportPatchStatusCmd(cliCtx))
@@ -36,6 +37,7 @@ Available subcommands:
 	cmd.AddCommand(newReportPolicyStatusCmd(cliCtx))
 	cmd.AddCommand(newReportProfileStatusCmd(cliCtx))
 	cmd.AddCommand(newReportAppStatusCmd(cliCtx))
+	cmd.AddCommand(newReportUpdateStatusCmd(cliCtx))
 
 	return cmd
 }

@@ -178,13 +178,13 @@ func newCategoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get specified Category object",
 		Long:  "Gets specified Category object",
-		Example: `  # Get a categorie by ID
+		Example: `  # Get a category by ID
   jamf-cli categories get 1
 
-  # Get a categorie by name
+  # Get a category by name
   jamf-cli categories get-by-name "Example"
 
-  # Get a categorie and output as YAML
+  # Get a category and output as YAML
   jamf-cli categories get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -223,13 +223,13 @@ func newCategoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create Category record",
 		Long:  "Create category record",
-		Example: `  # Show the JSON template for creating a categorie
+		Example: `  # Show the JSON template for creating a category
   jamf-cli categories create --scaffold
 
-  # Create a categorie from JSON
+  # Create a category from JSON
   echo '{"name":"Example"}' | jamf-cli categories create
 
-  # Get a categorie, modify it, and create a copy
+  # Get a category, modify it, and create a copy
   jamf-cli categories get 1 -o json | jq '.name = "Copy"' | jamf-cli categories create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -282,10 +282,10 @@ func newCategoriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update specified Category object",
 		Long:  "Update specified category object",
-		Example: `  # Update a categorie from JSON
+		Example: `  # Update a category from JSON
   echo '{"name":"Updated"}' | jamf-cli categories update 1
 
-  # Get a categorie, modify, and update
+  # Get a category, modify, and update
   jamf-cli categories get 1 -o json | jq '.name = "New Name"' | jamf-cli categories update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -341,7 +341,7 @@ func newCategoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified Category record",
 		Long:  "Removes specified category record",
-		Example: `  # Delete a categorie (with confirmation)
+		Example: `  # Delete a category (with confirmation)
   jamf-cli categories delete 1
 
   # Delete without confirmation prompt
@@ -502,7 +502,7 @@ func newCategoriesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history <id>",
 		Short: "Get specified Category history object",
 		Long:  "Gets specified Category history object",
-		Example: `  # Get history for a categorie
+		Example: `  # Get history for a category
   jamf-cli categories history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -674,8 +674,8 @@ func newCategoriesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 func newCategoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a categorie by name",
-		Example: `  # Get a categorie by name
+		Short: "Get a category by name",
+		Example: `  # Get a category by name
   jamf-cli categories get-by-name "Example"
 
   # Get by name and output as YAML
@@ -706,8 +706,8 @@ func newCategoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a categorie by name",
-		Example: `  # Delete a categorie by name (with confirmation)
+		Short: "Delete a category by name",
+		Example: `  # Delete a category by name (with confirmation)
   jamf-cli categories delete-by-name "Example"
 
   # Delete without confirmation prompt
@@ -724,18 +724,18 @@ func newCategoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no categorie found with name %q", name)
+				return fmt.Errorf("no category found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete categorie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete category %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete categorie %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete category %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -751,7 +751,7 @@ func newCategoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted categorie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted category %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
@@ -773,23 +773,23 @@ func newCategoriesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a categorie by name",
-		Long: `Create or replace a categorie. Reads JSON from --from-file or stdin.
+		Short: "Create or replace a category by name",
+		Long: `Create or replace a category. Reads JSON from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a categorie from a file
-  jamf-cli categories apply --from-file categorie.json
+		Example: `  # Apply a category from a file
+  jamf-cli categories apply --from-file category.json
 
   # Apply from stdin
-  cat categorie.json | jamf-cli categories apply
+  cat category.json | jamf-cli categories apply
 
   # Apply without replacement confirmation
-  jamf-cli categories apply --from-file categorie.json --yes
+  jamf-cli categories apply --from-file category.json --yes
 
   # Preview what would happen
-  jamf-cli categories apply --from-file categorie.json --dry-run`,
+  jamf-cli categories apply --from-file category.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -815,7 +815,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create categorie %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create category %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/categories", bytes.NewReader(data))
@@ -823,20 +823,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created categorie %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created category %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace categorie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace category %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("categorie %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("category %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "categorie %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "category %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -850,7 +850,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced categorie %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced category %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

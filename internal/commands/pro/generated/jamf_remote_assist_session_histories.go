@@ -71,13 +71,13 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 		Use:   "get <id>",
 		Short: "Gets single session history item.",
 		Long:  "Returns tenants session history for specific session.",
-		Example: `  # Get a jamf-remote-assist-session-historie by ID
+		Example: `  # Get a jamf-remote-assist-session-history by ID
   jamf-cli jamf-remote-assist-session-histories get 1
 
-  # Get a jamf-remote-assist-session-historie by name
+  # Get a jamf-remote-assist-session-history by name
   jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
 
-  # Get a jamf-remote-assist-session-historie and output as YAML
+  # Get a jamf-remote-assist-session-history and output as YAML
   jamf-cli jamf-remote-assist-session-histories get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -110,8 +110,8 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 func newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a jamf-remote-assist-session-historie by name",
-		Example: `  # Get a jamf-remote-assist-session-historie by name
+		Short: "Get a jamf-remote-assist-session-history by name",
+		Example: `  # Get a jamf-remote-assist-session-history by name
   jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
 
   # Get by name and output as YAML

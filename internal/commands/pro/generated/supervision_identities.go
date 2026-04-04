@@ -179,13 +179,13 @@ func newSupervisionIdentitiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Retrieve a Supervision Identity with the supplied id",
 		Long:  "Retrieves a Supervision Identity with the supplied id",
-		Example: `  # Get a supervision-identitie by ID
+		Example: `  # Get a supervision-identity by ID
   jamf-cli supervision-identities get 1
 
-  # Get a supervision-identitie by name
+  # Get a supervision-identity by name
   jamf-cli supervision-identities get-by-name "Example"
 
-  # Get a supervision-identitie and output as YAML
+  # Get a supervision-identity and output as YAML
   jamf-cli supervision-identities get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -224,13 +224,13 @@ func newSupervisionIdentitiesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "create",
 		Short: "Create a Supervision Identity for the supplied information",
 		Long:  "Creates a Supervision Identity for the supplied information",
-		Example: `  # Show the JSON template for creating a supervision-identitie
+		Example: `  # Show the JSON template for creating a supervision-identity
   jamf-cli supervision-identities create --scaffold
 
-  # Create a supervision-identitie from JSON
+  # Create a supervision-identity from JSON
   echo '{"name":"Example"}' | jamf-cli supervision-identities create
 
-  # Get a supervision-identitie, modify it, and create a copy
+  # Get a supervision-identity, modify it, and create a copy
   jamf-cli supervision-identities get 1 -o json | jq '.name = "Copy"' | jamf-cli supervision-identities create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -283,10 +283,10 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "update <id>",
 		Short: "Update a Supervision Identity with the supplied information",
 		Long:  "Updates a Supervision Identity with the supplied information",
-		Example: `  # Update a supervision-identitie from JSON
+		Example: `  # Update a supervision-identity from JSON
   echo '{"name":"Updated"}' | jamf-cli supervision-identities update 1
 
-  # Get a supervision-identitie, modify, and update
+  # Get a supervision-identity, modify, and update
   jamf-cli supervision-identities get 1 -o json | jq '.name = "New Name"' | jamf-cli supervision-identities update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -341,7 +341,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "delete <id>",
 		Short: "Delete a Supervision Identity with the supplied id",
 		Long:  "Deletes a Supervision Identity with the supplied id",
-		Example: `  # Delete a supervision-identitie (with confirmation)
+		Example: `  # Delete a supervision-identity (with confirmation)
   jamf-cli supervision-identities delete 1
 
   # Delete without confirmation prompt
@@ -455,8 +455,8 @@ func newSupervisionIdentitiesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 func newSupervisionIdentitiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a supervision-identitie by name",
-		Example: `  # Get a supervision-identitie by name
+		Short: "Get a supervision-identity by name",
+		Example: `  # Get a supervision-identity by name
   jamf-cli supervision-identities get-by-name "Example"
 
   # Get by name and output as YAML
@@ -487,8 +487,8 @@ func newSupervisionIdentitiesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a supervision-identitie by name",
-		Example: `  # Delete a supervision-identitie by name (with confirmation)
+		Short: "Delete a supervision-identity by name",
+		Example: `  # Delete a supervision-identity by name (with confirmation)
   jamf-cli supervision-identities delete-by-name "Example"
 
   # Delete without confirmation prompt
@@ -505,18 +505,18 @@ func newSupervisionIdentitiesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Co
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no supervision-identitie found with displayName %q", name)
+				return fmt.Errorf("no supervision-identity found with displayName %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete supervision-identitie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete supervision-identity %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete supervision-identitie %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete supervision-identity %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -532,7 +532,7 @@ func newSupervisionIdentitiesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Co
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted supervision-identitie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted supervision-identity %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
@@ -554,23 +554,23 @@ func newSupervisionIdentitiesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a supervision-identitie by name",
-		Long: `Create or replace a supervision-identitie. Reads JSON from --from-file or stdin.
+		Short: "Create or replace a supervision-identity by name",
+		Long: `Create or replace a supervision-identity. Reads JSON from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a supervision-identitie from a file
-  jamf-cli supervision-identities apply --from-file supervision-identitie.json
+		Example: `  # Apply a supervision-identity from a file
+  jamf-cli supervision-identities apply --from-file supervision-identity.json
 
   # Apply from stdin
-  cat supervision-identitie.json | jamf-cli supervision-identities apply
+  cat supervision-identity.json | jamf-cli supervision-identities apply
 
   # Apply without replacement confirmation
-  jamf-cli supervision-identities apply --from-file supervision-identitie.json --yes
+  jamf-cli supervision-identities apply --from-file supervision-identity.json --yes
 
   # Preview what would happen
-  jamf-cli supervision-identities apply --from-file supervision-identitie.json --dry-run`,
+  jamf-cli supervision-identities apply --from-file supervision-identity.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -596,7 +596,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create supervision-identitie %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create supervision-identity %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/supervision-identities", bytes.NewReader(data))
@@ -604,20 +604,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created supervision-identitie %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created supervision-identity %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace supervision-identitie %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace supervision-identity %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("supervision-identitie %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("supervision-identity %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "supervision-identitie %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "supervision-identity %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -631,7 +631,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced supervision-identitie %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced supervision-identity %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

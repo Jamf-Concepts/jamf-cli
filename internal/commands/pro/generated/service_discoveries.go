@@ -74,10 +74,10 @@ func newServiceDiscoveriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Update service discovery well-known settings",
 		Long:  "Accepts JSON payload to update enrollment types for AxM organizations. Requires \"Update User-Initiated Enrollment\" privilege.",
-		Example: `  # Update a service-discoverie from JSON
+		Example: `  # Update a service-discovery from JSON
   echo '{"name":"Updated"}' | jamf-cli service-discoveries update 1
 
-  # Get a service-discoverie, modify, and update
+  # Get a service-discovery, modify, and update
   jamf-cli service-discoveries get 1 -o json | jq '.name = "New Name"' | jamf-cli service-discoveries update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
