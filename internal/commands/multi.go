@@ -4,6 +4,8 @@ package commands
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +17,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 func newMultiCmd() *cobra.Command {
@@ -38,6 +41,9 @@ When no targeting flag is provided, an interactive selection prompt is
 shown. The -- separator is optional but recommended when the inner
 command has flags that could conflict with multi's flags.
 
+Report commands are automatically aggregated: summaries are combined and
+detail rows are merged with a profile column added.
+
 Examples:
   # Interactive profile selection (no multi flags, no -- needed)
   jamf-cli multi pro overview
@@ -48,6 +54,9 @@ Examples:
 
   # Explicit list
   jamf-cli multi --profiles pro-school1,pro-school2 -- pro overview
+
+  # Aggregated report across instances
+  jamf-cli multi --filter 'pro-*' -- pro report profile-status
 
   # Reuse the same URL file from setup
   jamf-cli multi --from-file instances.txt -- pro buildings apply --from-file b.json --yes`,
@@ -93,46 +102,98 @@ Examples:
 
 			_, _ = fmt.Fprintf(w, "Running against %d profile(s)...\n", len(profiles))
 
+			// Detect if inner command is a report — aggregate output if so
+			isReport := isReportCommand(innerArgs)
+
 			var succeeded, failed int
 			var failures []string
 
-			total := len(profiles)
-			for i, profileName := range profiles {
-				url := ""
-				if p, ok := cfg.Profiles[profileName]; ok {
-					url = p.URL
+			if isReport {
+				// Aggregate mode: capture JSON from each child, merge, re-render
+				results := make([]childResult, len(profiles))
+				for i, profileName := range profiles {
+					url := ""
+					if p, ok := cfg.Profiles[profileName]; ok {
+						url = p.URL
+					}
+
+					_, _ = fmt.Fprintf(w, "  [%d/%d] %s...\n", i+1, len(profiles), profileName)
+
+					// Force JSON output for capture — we'll re-render later
+					cmdArgs := append([]string{"--profile", profileName, "-o", "json"}, innerArgs...)
+					child := exec.Command(executable, cmdArgs...)
+					var stdout bytes.Buffer
+					child.Stdout = &stdout
+					child.Stderr = cmd.ErrOrStderr()
+
+					results[i] = childResult{
+						profileName: profileName,
+						profileURL:  url,
+						err:         child.Run(),
+					}
+					results[i].stdout = stdout.Bytes()
 				}
 
-				if url != "" {
-					_, _ = fmt.Fprintf(w, "\n── [%d/%d] %s (%s) ──\n", i+1, total, profileName, url)
-				} else {
-					_, _ = fmt.Fprintf(w, "\n── [%d/%d] %s ──\n", i+1, total, profileName)
+				for _, r := range results {
+					if r.err != nil {
+						failures = append(failures, fmt.Sprintf("%s: %v", r.profileName, r.err))
+						failed++
+					} else {
+						succeeded++
+					}
 				}
 
-				// Build command: jamf-cli --profile <name> <inner args...>
-				cmdArgs := append([]string{"--profile", profileName}, innerArgs...)
-				child := exec.Command(executable, cmdArgs...)
-				child.Stdout = cmd.OutOrStdout()
-				child.Stderr = cmd.ErrOrStderr()
-
-				if err := child.Run(); err != nil {
-					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
-					failures = append(failures, fmt.Sprintf("%s: %v", profileName, err))
-					failed++
+				if aggregated := tryAggregate(results); aggregated != nil {
+					if err := printAggregated(cmd, aggregated); err != nil {
+						return err
+					}
 				} else {
-					succeeded++
+					// Aggregation failed — dump raw JSON
+					for _, r := range results {
+						if r.err == nil {
+							_, _ = cmd.OutOrStdout().Write(r.stdout)
+						}
+					}
+				}
+			} else {
+				// Sequential mode: stream each child's output directly
+				total := len(profiles)
+				for i, profileName := range profiles {
+					url := ""
+					if p, ok := cfg.Profiles[profileName]; ok {
+						url = p.URL
+					}
+
+					if url != "" {
+						_, _ = fmt.Fprintf(w, "\n── [%d/%d] %s (%s) ──\n", i+1, total, profileName, url)
+					} else {
+						_, _ = fmt.Fprintf(w, "\n── [%d/%d] %s ──\n", i+1, total, profileName)
+					}
+
+					cmdArgs := append([]string{"--profile", profileName}, innerArgs...)
+					child := exec.Command(executable, cmdArgs...)
+					child.Stdout = cmd.OutOrStdout()
+					child.Stderr = cmd.ErrOrStderr()
+
+					if err := child.Run(); err != nil {
+						_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
+						failures = append(failures, fmt.Sprintf("%s: %v", profileName, err))
+						failed++
+					} else {
+						succeeded++
+					}
 				}
 			}
 
 			// Summary
 			_, _ = fmt.Fprintf(w, "\n── Summary ──\n")
 			_, _ = fmt.Fprintf(w, "  Succeeded: %d\n", succeeded)
-			if failed > 0 {
-				_, _ = fmt.Fprintf(w, "  Failed:    %d\n", failed)
+			if len(failures) > 0 {
+				_, _ = fmt.Fprintf(w, "  Failed:    %d\n", len(failures))
 				for _, f := range failures {
 					_, _ = fmt.Fprintf(w, "    - %s\n", f)
 				}
-				return fmt.Errorf("%d of %d profile(s) failed", failed, len(profiles))
+				return fmt.Errorf("%d of %d profile(s) failed", len(failures), len(profiles))
 			}
 
 			return nil
@@ -146,6 +207,213 @@ Examples:
 
 	return cmd
 }
+
+// ---------------------------------------------------------------------------
+// Aggregation
+// ---------------------------------------------------------------------------
+
+// tryAggregate attempts to parse and merge JSON output from multiple children.
+// Returns nil if the output isn't aggregatable (non-JSON, or not a structured
+// report format).
+func tryAggregate(results []childResult) map[string]any {
+	var parsed []struct {
+		profileName string
+		profileURL  string
+		data        map[string]any
+	}
+
+	for _, r := range results {
+		if r.err != nil || len(r.stdout) == 0 {
+			continue
+		}
+
+		// Try to parse as JSON array containing a single object (report format)
+		var arr []map[string]any
+		if err := json.Unmarshal(r.stdout, &arr); err == nil && len(arr) == 1 {
+			parsed = append(parsed, struct {
+				profileName string
+				profileURL  string
+				data        map[string]any
+			}{r.profileName, r.profileURL, arr[0]})
+			continue
+		}
+
+		// Try as flat array of rows (e.g. patch-status without --scan-failures)
+		var flatArr []map[string]any
+		if err := json.Unmarshal(r.stdout, &flatArr); err == nil && len(flatArr) > 0 {
+			// Wrap in a pseudo-section so aggregation works
+			parsed = append(parsed, struct {
+				profileName string
+				profileURL  string
+				data        map[string]any
+			}{r.profileName, r.profileURL, map[string]any{"results": flatArr}})
+			continue
+		}
+
+		// Not aggregatable
+		return nil
+	}
+
+	if len(parsed) == 0 {
+		return nil
+	}
+
+	// Merge: for each key across all parsed results:
+	//   dict   → sum numeric values (summary)
+	//   list   → concatenate, inject "profile" into each row (detail)
+	//   number → sum
+	//   null   → skip
+	merged := make(map[string]any)
+
+	for _, p := range parsed {
+		for key, val := range p.data {
+			switch v := val.(type) {
+			case map[string]any:
+				// Summary dict — sum numeric fields
+				existing, _ := merged[key].(map[string]any)
+				if existing == nil {
+					existing = make(map[string]any)
+				}
+				for sk, sv := range v {
+					switch sn := sv.(type) {
+					case float64:
+						prev, _ := existing[sk].(float64)
+						existing[sk] = prev + sn
+					case int:
+						prev, _ := existing[sk].(float64)
+						existing[sk] = prev + float64(sn)
+					}
+					// Non-numeric summary fields (like "days") — keep first
+					if _, exists := existing[sk]; !exists {
+						existing[sk] = sv
+					}
+				}
+				merged[key] = existing
+
+			case []any:
+				// Detail list — concatenate, inject profile
+				existing, _ := merged[key].([]any)
+				for _, item := range v {
+					if row, ok := item.(map[string]any); ok {
+						row["profile"] = p.profileName
+					}
+					existing = append(existing, item)
+				}
+				merged[key] = existing
+
+			case float64:
+				prev, _ := merged[key].(float64)
+				merged[key] = prev + v
+
+			case nil:
+				if _, exists := merged[key]; !exists {
+					merged[key] = nil
+				}
+			}
+		}
+	}
+
+	return merged
+}
+
+type childResult struct {
+	profileName string
+	profileURL  string
+	stdout      []byte
+	err         error
+}
+
+// printAggregated renders the merged report using the current output format.
+func printAggregated(cmd *cobra.Command, merged map[string]any) error {
+	// Default to table for aggregated reports (same as individual report commands)
+	renderFmt := outputFmt
+	if !cmd.Flags().Changed("output") {
+		renderFmt = "table"
+	}
+	formatter := output.New(renderFmt, noColor, wide)
+
+	if renderFmt == "json" || renderFmt == "yaml" {
+		return formatter.Print([]map[string]any{merged})
+	}
+
+	// Table mode: render each section
+	// Sort keys for deterministic order, with "summary" first
+	keys := make([]string, 0, len(merged))
+	for k := range merged {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i] == "summary" {
+			return true
+		}
+		if keys[j] == "summary" {
+			return false
+		}
+		return keys[i] < keys[j]
+	})
+
+	first := true
+	for _, key := range keys {
+		val := merged[key]
+
+		switch v := val.(type) {
+		case map[string]any:
+			// Summary dict — print as single-row table
+			if !first {
+				fmt.Println()
+			}
+			fmt.Printf("── %s ──\n", formatSectionTitle(key))
+			if err := formatter.Print([]map[string]any{v}); err != nil {
+				return err
+			}
+			first = false
+
+		case []any:
+			if len(v) == 0 {
+				continue
+			}
+			// Detail list — print as multi-row table
+			rows := make([]map[string]any, 0, len(v))
+			for _, item := range v {
+				if row, ok := item.(map[string]any); ok {
+					rows = append(rows, row)
+				}
+			}
+			if len(rows) == 0 {
+				continue
+			}
+			if !first {
+				fmt.Println()
+			}
+			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			if err := formatter.Print(rows); err != nil {
+				return err
+			}
+			first = false
+
+		case float64:
+			// Top-level scalar — skip in table mode (included in JSON)
+		}
+	}
+
+	return nil
+}
+
+// formatSectionTitle converts a JSON key to a display title.
+// "config_findings" → "Config Findings", "summary" → "Summary"
+func formatSectionTitle(key string) string {
+	words := strings.Split(key, "_")
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// ---------------------------------------------------------------------------
+// Profile resolution (unchanged)
+// ---------------------------------------------------------------------------
 
 // resolveMultiProfiles determines which profiles to target based on flags.
 // When no flag is set, prompts interactively (unless --no-input).
@@ -185,6 +453,19 @@ func resolveMultiProfiles(cfg *config.Config, filter, profilesCSV, fromFile, pro
 		return nil, fmt.Errorf("no matching %s profiles found", product)
 	}
 	return names, nil
+}
+
+// isReportCommand checks if the inner command args contain "report" as a subcommand.
+func isReportCommand(innerArgs []string) bool {
+	for _, arg := range innerArgs {
+		if arg == "report" {
+			return true
+		}
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+	}
+	return false
 }
 
 // detectProduct inspects the inner command args to determine the target product.
