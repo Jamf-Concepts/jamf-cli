@@ -22,6 +22,7 @@ Available subcommands:
   inventory-summary  Hardware model and OS version breakdown
   software-installs  Installed software version distribution
   ea-results         Extension attribute results across devices
+  policy-status      Policy execution status and health checks
   profile-status     Configuration profile deployment failures
   app-status         Managed app deployment failures`,
 	}
@@ -32,6 +33,7 @@ Available subcommands:
 	cmd.AddCommand(newReportSoftwareInstallsCmd(cliCtx))
 	cmd.AddCommand(newReportEAResultsCmd(cliCtx))
 	cmd.AddCommand(newReportSecurityCmd(cliCtx))
+	cmd.AddCommand(newReportPolicyStatusCmd(cliCtx))
 	cmd.AddCommand(newReportProfileStatusCmd(cliCtx))
 	cmd.AddCommand(newReportAppStatusCmd(cliCtx))
 
