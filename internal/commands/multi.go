@@ -120,8 +120,9 @@ Examples:
 
 					_, _ = fmt.Fprintf(w, "  [%d/%d] %s...\n", i+1, len(profiles), profileName)
 
-					// Force JSON output for capture — we'll re-render later
-					cmdArgs := append([]string{"--profile", profileName, "-o", "json"}, innerArgs...)
+					// Force JSON output for capture — strip any user -o flag first
+					captureArgs := stripOutputFlag(innerArgs)
+					cmdArgs := append([]string{"--profile", profileName, "-o", "json"}, captureArgs...)
 					child := exec.Command(executable, cmdArgs...)
 					var stdout bytes.Buffer
 					child.Stdout = &stdout
@@ -149,11 +150,18 @@ Examples:
 						return err
 					}
 				} else {
-					// Aggregation failed — dump raw JSON
+					// Aggregation failed — fall back to sequential with banners
 					for _, r := range results {
-						if r.err == nil {
-							_, _ = cmd.OutOrStdout().Write(r.stdout)
+						if r.err != nil {
+							continue
 						}
+						url := r.profileURL
+						if url != "" {
+							_, _ = fmt.Fprintf(w, "\n── %s (%s) ──\n", r.profileName, url)
+						} else {
+							_, _ = fmt.Fprintf(w, "\n── %s ──\n", r.profileName)
+						}
+						_, _ = cmd.OutOrStdout().Write(r.stdout)
 					}
 				}
 			} else {
@@ -492,6 +500,34 @@ func summaryFieldShouldSum(field string) bool {
 	return true
 }
 
+// stripOutputFlag removes -o/--output and its value from args so the forced
+// -o json for capture isn't overridden by the user's flag.
+func stripOutputFlag(args []string) []string {
+	var result []string
+	skip := false
+	for i, arg := range args {
+		if skip {
+			skip = false
+			continue
+		}
+		if arg == "-o" || arg == "--output" {
+			// Skip this flag and its next arg (the value)
+			skip = true
+			continue
+		}
+		if strings.HasPrefix(arg, "-o=") || strings.HasPrefix(arg, "--output=") {
+			continue
+		}
+		// Handle -o<value> (no space)
+		if strings.HasPrefix(arg, "-o") && len(arg) > 2 && !strings.HasPrefix(arg, "--") {
+			continue
+		}
+		_ = i
+		result = append(result, arg)
+	}
+	return result
+}
+
 // hasAggregatableSections returns true if a single-object JSON response
 // contains list or dict sections (indicating a report), not just scalars
 // (indicating a create/update/delete response).
@@ -616,18 +652,6 @@ func resolveMultiProfiles(cfg *config.Config, filter, profilesCSV, fromFile, pro
 }
 
 // isReportCommand checks if the inner command args contain "report" as a subcommand.
-func isReportCommand(innerArgs []string) bool {
-	for _, arg := range innerArgs {
-		if arg == "report" {
-			return true
-		}
-		if strings.HasPrefix(arg, "-") {
-			continue
-		}
-	}
-	return false
-}
-
 // detectProduct inspects the inner command args to determine the target product.
 // Returns "pro", "protect", or "" if indeterminate.
 func detectProduct(innerArgs []string) string {
