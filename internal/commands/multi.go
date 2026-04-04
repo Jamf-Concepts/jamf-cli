@@ -25,6 +25,7 @@ func newMultiCmd() *cobra.Command {
 		filter      string
 		profilesCSV string
 		fromFile    string
+		sequential  bool
 	)
 
 	cmd := &cobra.Command{
@@ -103,7 +104,7 @@ Examples:
 			_, _ = fmt.Fprintf(w, "Running against %d profile(s)...\n", len(profiles))
 
 			// Detect if inner command is a report — aggregate output if so
-			isReport := isReportCommand(innerArgs)
+			isReport := isReportCommand(innerArgs) && !sequential
 
 			var succeeded, failed int
 			var failures []string
@@ -203,6 +204,7 @@ Examples:
 	cmd.Flags().StringVar(&filter, "filter", "", "glob pattern to match profile names (e.g., 'pro-*')")
 	cmd.Flags().StringVar(&profilesCSV, "profiles", "", "comma-separated list of profile names")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing profile names or instance URLs (one per line)")
+	cmd.Flags().BoolVar(&sequential, "sequential", false, "show each instance's output separately instead of aggregating")
 	cmd.MarkFlagsMutuallyExclusive("filter", "profiles", "from-file")
 
 	return cmd
