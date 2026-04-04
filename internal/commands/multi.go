@@ -275,22 +275,23 @@ func tryAggregate(results []childResult) map[string]any {
 		for key, val := range p.data {
 			switch v := val.(type) {
 			case map[string]any:
-				// Summary dict — sum numeric fields
+				// Summary dict — sum count-like numeric fields, keep config
+				// fields (like "days") as-is when they're the same across instances.
 				existing, _ := merged[key].(map[string]any)
 				if existing == nil {
 					existing = make(map[string]any)
 				}
 				for sk, sv := range v {
-					switch sn := sv.(type) {
-					case float64:
-						prev, _ := existing[sk].(float64)
-						existing[sk] = prev + sn
-					case int:
-						prev, _ := existing[sk].(float64)
-						existing[sk] = prev + float64(sn)
-					}
-					// Non-numeric summary fields (like "days") — keep first
-					if _, exists := existing[sk]; !exists {
+					if summaryFieldShouldSum(sk) {
+						switch sn := sv.(type) {
+						case float64:
+							prev, _ := existing[sk].(float64)
+							existing[sk] = prev + sn
+						case int:
+							prev, _ := existing[sk].(float64)
+							existing[sk] = prev + float64(sn)
+						}
+					} else if _, exists := existing[sk]; !exists {
 						existing[sk] = sv
 					}
 				}
@@ -468,6 +469,22 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 	}
 
 	return nil
+}
+
+// summaryFieldShouldSum returns true if a summary field represents a count
+// that should be summed across instances (e.g. total_errors, warnings).
+// Config/parameter fields (days, threshold) should NOT be summed.
+func summaryFieldShouldSum(field string) bool {
+	// Fields that are config/parameters, not counts
+	noSum := map[string]bool{
+		"days": true,
+	}
+	if noSum[field] {
+		return false
+	}
+	// Heuristic: fields with count-like names or known patterns should sum
+	// Default to summing numeric fields
+	return true
 }
 
 // summaryRowLabel extracts the label from a summary row by finding the
