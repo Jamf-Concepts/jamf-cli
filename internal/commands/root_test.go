@@ -166,6 +166,12 @@ func TestCommandEntriesToMaps_Compact(t *testing.T) {
 	if _, ok := maps[0]["flags"]; ok {
 		t.Error("compact mode should not include flags key")
 	}
+	if _, ok := maps[0]["product"]; ok {
+		t.Error("compact mode should not include product key")
+	}
+	if _, ok := maps[0]["group"]; ok {
+		t.Error("compact mode should not include group key")
+	}
 }
 
 func TestCollectCommands_ProductAndGroup(t *testing.T) {
@@ -228,6 +234,9 @@ func TestCollectCommands_RootCommandsNoProduct(t *testing.T) {
 	}
 	if found.Product != "" {
 		t.Errorf("version product = %q, want empty", found.Product)
+	}
+	if found.Group != "Core Commands" {
+		t.Errorf("version group = %q, want %q", found.Group, "Core Commands")
 	}
 }
 

@@ -377,5 +377,5 @@ func groupTitle(id string) string {
 			}
 		}
 	}
-	return id
+	return ""
 }
