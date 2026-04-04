@@ -291,15 +291,34 @@ func tryAggregate(results []childResult) map[string]any {
 				merged[key] = existing
 
 			case []any:
-				// Detail list — concatenate, inject profile
-				existing, _ := merged[key].([]any)
-				for _, item := range v {
-					if row, ok := item.(map[string]any); ok {
-						row["profile"] = p.profileName
+				if strings.Contains(key, "summary") {
+					// Summary list (e.g. status_summary, plan_state_summary)
+					// — sum counts grouped by label keys, no profile column
+					existing, _ := merged[key].(map[string]float64)
+					if existing == nil {
+						existing = make(map[string]float64)
 					}
-					existing = append(existing, item)
+					for _, item := range v {
+						row, ok := item.(map[string]any)
+						if !ok {
+							continue
+						}
+						label := summaryRowLabel(row)
+						count, _ := row["count"].(float64)
+						existing[label] += count
+					}
+					merged[key] = existing
+				} else {
+					// Detail list — concatenate, inject profile
+					existing, _ := merged[key].([]any)
+					for _, item := range v {
+						if row, ok := item.(map[string]any); ok {
+							row["profile"] = p.profileName
+						}
+						existing = append(existing, item)
+					}
+					merged[key] = existing
 				}
-				merged[key] = existing
 
 			case float64:
 				prev, _ := merged[key].(float64)
@@ -333,7 +352,20 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 	formatter := output.New(renderFmt, noColor, wide)
 
 	if renderFmt == "json" || renderFmt == "yaml" {
-		return formatter.Print([]map[string]any{merged})
+		// Convert aggregated summary maps back to list format for JSON
+		jsonMerged := make(map[string]any, len(merged))
+		for k, v := range merged {
+			if counts, ok := v.(map[string]float64); ok {
+				var rows []map[string]any
+				for label, count := range counts {
+					rows = append(rows, map[string]any{"label": label, "count": count})
+				}
+				jsonMerged[k] = rows
+			} else {
+				jsonMerged[k] = v
+			}
+		}
+		return formatter.Print([]map[string]any{jsonMerged})
 	}
 
 	// Table mode: render each section
@@ -368,6 +400,40 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 			}
 			first = false
 
+		case map[string]float64:
+			// Aggregated summary list (e.g. status_summary) — render as table
+			if len(v) == 0 {
+				continue
+			}
+			type labelCount struct {
+				label string
+				count int
+			}
+			var items []labelCount
+			for label, count := range v {
+				items = append(items, labelCount{label, int(count)})
+			}
+			sort.Slice(items, func(i, j int) bool {
+				return items[i].count > items[j].count
+			})
+			rows := make([]map[string]any, len(items))
+			// Determine the label column name from the section key
+			labelCol := "status"
+			if strings.Contains(key, "plan") || strings.Contains(key, "state") {
+				labelCol = "state"
+			}
+			for i, item := range items {
+				rows[i] = map[string]any{labelCol: item.label, "count": item.count}
+			}
+			if !first {
+				fmt.Println()
+			}
+			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			if err := formatter.Print(rows); err != nil {
+				return err
+			}
+			first = false
+
 		case []any:
 			if len(v) == 0 {
 				continue
@@ -397,6 +463,20 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 	}
 
 	return nil
+}
+
+// summaryRowLabel extracts the label from a summary row by finding the
+// first non-"count" string field.
+func summaryRowLabel(row map[string]any) string {
+	for k, v := range row {
+		if k == "count" {
+			continue
+		}
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return "unknown"
 }
 
 // formatSectionTitle converts a JSON key to a display title.
