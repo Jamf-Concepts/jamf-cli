@@ -103,13 +103,13 @@ Examples:
 
 			_, _ = fmt.Fprintf(w, "Running against %d profile(s)...\n", len(profiles))
 
-			// Detect if inner command is a report — aggregate output if so
-			isReport := isReportCommand(innerArgs) && !sequential
+			// Try to aggregate output unless --sequential is set
+			shouldAggregate := !sequential
 
 			var succeeded, failed int
 			var failures []string
 
-			if isReport {
+			if shouldAggregate {
 				// Aggregate mode: capture JSON from each child, merge, re-render
 				results := make([]childResult, len(profiles))
 				for i, profileName := range profiles {
@@ -229,15 +229,21 @@ func tryAggregate(results []childResult) map[string]any {
 			continue
 		}
 
-		// Try to parse as JSON array containing a single object (report format)
+		// Try to parse as JSON array containing a single object with sections
+		// (report format: [{summary: {}, failures: [], ...}])
 		var arr []map[string]any
 		if err := json.Unmarshal(r.stdout, &arr); err == nil && len(arr) == 1 {
-			parsed = append(parsed, struct {
-				profileName string
-				profileURL  string
-				data        map[string]any
-			}{r.profileName, r.profileURL, arr[0]})
-			continue
+			// Only aggregate if the object has list or dict sections —
+			// a flat scalar object (e.g. create/update response) should
+			// not be aggregated.
+			if hasAggregatableSections(arr[0]) {
+				parsed = append(parsed, struct {
+					profileName string
+					profileURL  string
+					data        map[string]any
+				}{r.profileName, r.profileURL, arr[0]})
+				continue
+			}
 		}
 
 		// Try as flat array of rows (e.g. patch-status without --scan-failures)
@@ -484,6 +490,19 @@ func summaryFieldShouldSum(field string) bool {
 	// Heuristic: fields with count-like names or known patterns should sum
 	// Default to summing numeric fields
 	return true
+}
+
+// hasAggregatableSections returns true if a single-object JSON response
+// contains list or dict sections (indicating a report), not just scalars
+// (indicating a create/update/delete response).
+func hasAggregatableSections(obj map[string]any) bool {
+	for _, v := range obj {
+		switch v.(type) {
+		case []any, map[string]any:
+			return true
+		}
+	}
+	return false
 }
 
 // isSummaryList returns true if a list of rows looks like a summary table
