@@ -240,13 +240,17 @@ func tryAggregate(results []childResult) map[string]any {
 
 		// Try as flat array of rows (e.g. patch-status without --scan-failures)
 		var flatArr []map[string]any
-		if err := json.Unmarshal(r.stdout, &flatArr); err == nil && len(flatArr) > 0 {
-			// Wrap in a pseudo-section so aggregation works
+		if err := json.Unmarshal(r.stdout, &flatArr); err == nil {
+			// Convert to []any for consistent type handling in merge
+			asAny := make([]any, len(flatArr))
+			for i, row := range flatArr {
+				asAny[i] = row
+			}
 			parsed = append(parsed, struct {
 				profileName string
 				profileURL  string
 				data        map[string]any
-			}{r.profileName, r.profileURL, map[string]any{"results": flatArr}})
+			}{r.profileName, r.profileURL, map[string]any{"results": asAny}})
 			continue
 		}
 
@@ -387,7 +391,6 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 	first := true
 	for _, key := range keys {
 		val := merged[key]
-
 		switch v := val.(type) {
 		case map[string]any:
 			// Summary dict — print as single-row table
