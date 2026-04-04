@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Pro and Jamf Protect">
   <title>jamf-cli — Your fleet, one command away</title>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="jamf-cli — Your fleet, one command away">
+  <meta property="og:description" content="Unified CLI for Jamf Pro and Jamf Protect. 980+ commands. Full API coverage. Zero clicks.">
+  <meta property="og:url" content="https://jamf-concepts.github.io/jamf-cli/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="jamf-cli — Your fleet, one command away">
+  <meta name="twitter:description" content="Unified CLI for Jamf Pro and Jamf Protect. 980+ commands. Full API coverage. Zero clicks.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -78,8 +87,6 @@
       </div>
     </div>
 
-    <div class="hero-examples" id="hero-examples-buttons"></div>
-
     <div class="hero-install">
       <div class="code-block">
         <code><span aria-hidden="true">🍺 </span>brew install Jamf-Concepts/tap/jamf-cli</code>
@@ -103,7 +110,7 @@
         <button class="tab" data-filter="protect">Jamf Protect</button>
       </div>
     </div>
-    <input id="search" type="text" placeholder="Search commands..." aria-label="Search commands">
+    <input id="search" type="text" placeholder="Search commands... (press / to focus)" aria-label="Search commands">
     <div id="catalog-loading">Loading commands...</div>
     <div id="catalog"></div>
   </section>
@@ -165,6 +172,11 @@
       <span id="footer-version"></span>
     </p>
   </footer>
+
+  <!-- ===== Back to Top ===== -->
+  <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
 
   <!-- ===== Embedded Data ===== -->
   <script type="application/json" id="terminal-data">
@@ -305,6 +317,28 @@
         localStorage.setItem('theme', next);
       });
     })();
+
+    // Back to top button
+    (function () {
+      var btn = document.getElementById('back-to-top');
+      window.addEventListener('scroll', function () {
+        btn.classList.toggle('visible', window.scrollY > 600);
+      }, { passive: true });
+      btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+
+    // Focus search on "/" key (like GitHub)
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        e.preventDefault();
+        var search = document.getElementById('search');
+        if (search) search.focus();
+      }
+    });
 
     // Copy buttons
     document.querySelectorAll('.copy-btn').forEach(function (btn) {

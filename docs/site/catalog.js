@@ -126,7 +126,10 @@
 
   function setText(id, text) {
     var el = document.getElementById(id);
-    if (el) el.textContent = text;
+    if (el) {
+      el.textContent = text;
+      el.classList.add('loaded');
+    }
   }
 
   function formatDate(iso) {
