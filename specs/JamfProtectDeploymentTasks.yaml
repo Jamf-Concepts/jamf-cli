@@ -20,15 +20,15 @@ paths:
             type: string
         - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
         - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - $ref: '#/components/parameters/sort'
-        - $ref: '#/components/parameters/filter'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
       responses:
         200:
           description: Success.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/DeploymentTaskSearchResults'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/DeploymentTaskSearchResults'
       x-required-privileges:
         - Read Jamf Protect Deployments
 

@@ -1508,6 +1508,141 @@ components:
           type: string
           example: "EA Value"
           nullable: true
+    ProtectSettingsResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: false
+          example: "1"
+        apiClientId:
+          type: string
+          example: "esgzYzYBqN7wCImwyusbQcXob2qalGMN"
+        apiClientName:
+          type: string
+          description: display name used when creating the API Client in the Jamf Protect web console
+          example: "Jamf Pro integration"
+        registrationId:
+          type: string
+          description: ID used when making requests to identify this particular Protect registration.
+          example: "6f250316-2cfb-4521-8cb7-bfaf46497bc5"
+        protectUrl:
+          type: string
+          example: "https://examplejamfprotect.jamfcloud.com/graphql"
+        platformPlanSync:
+          type: boolean
+          description: determines whether Protect Platform Plan syncing is enabled
+          example: true
+        lastSyncTime:
+          type: string
+          example: "2003-01-05T18:00:14.885Z"
+        syncStatus:
+          type: string
+          example: "COMPLETED"
+          enum:
+            - IN_PROGRESS
+            - COMPLETED
+            - ERROR
+            - UNKNOWN
+        autoInstall:
+          type: boolean
+          description: determines whether the Jamf Protect agent will be automatically installed on client computers
+          example: true
+    JamfProtectPlan:
+      type: object
+      properties:
+        uuid:
+          type: string
+          nullable: false
+          readOnly: true
+          example: "b999dfd3-8fde-4bf2-aa56-b167c8b68071"
+        id:
+          type: string
+          readOnly: true
+          example: "d265dfd3-8fde-4bf2-aa56-b167c8b68069"
+        name:
+          type: string
+          readOnly: true
+          example: "Main Plan"
+        description:
+          type: string
+          readOnly: true
+          example: "Plan for the majority of the company's computers"
+        profileId:
+          type: integer
+          readOnly: true
+          example: 12
+        profileName:
+          type: string
+          readOnly: true
+          example: "Main Plan (Jamf Protect)"
+        profileVersion:
+          type: integer
+          readOnly: true
+          example: 1
+        scopeDescription:
+          type: string
+          readOnly: true
+          example: "All Computers"
+        siteId:
+          type: string
+          readOnly: true
+          example: "-1"
+    PlanSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          nullable: false
+          example: 3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/JamfProtectPlan'
+    DeploymentTask:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: "82"
+        computerId:
+          type: string
+          readOnly: true
+          example: "111"
+        computerName:
+          type: string
+          readOnly: true
+          example: "Polka dot Stratocaster"
+        version:
+          type: string
+          readOnly: true
+          example: "1.0.0"
+        updated:
+          type: string
+          readOnly: true
+          example: "2021-09-01T00:00:00Z"
+        status:
+          type: string
+          readOnly: true
+          example: "COMPLETE"
+          enum:
+            - COMMAND_QUEUED
+            - NO_COMMAND
+            - PENDING_MANIFEST
+            - COMPLETE
+            - GAVE_UP
+            - UNKNOWN
+    DeploymentTaskSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 13
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeploymentTask'
   parameters:
     page:
       name: page
