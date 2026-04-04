@@ -2,7 +2,11 @@
 
 package commands
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
 
 // ─── Root-level groups ──────────────────────────────────────────────────────
 
@@ -361,4 +365,17 @@ func applyProtectGroups(protect *cobra.Command) {
 			cmd.GroupID = gid
 		}
 	}
+}
+
+// groupTitle resolves a cobra group ID to its display title (without trailing colon).
+// It searches rootGroups, proGroups, and protectGroups.
+func groupTitle(id string) string {
+	for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups} {
+		for _, g := range groups {
+			if g.ID == id {
+				return strings.TrimSuffix(g.Title, ":")
+			}
+		}
+	}
+	return id
 }
