@@ -21,7 +21,9 @@ Available subcommands:
   device-compliance  Devices with stale check-ins, failed commands, or missing profiles
   inventory-summary  Hardware model and OS version breakdown
   software-installs  Installed software version distribution
-  ea-results         Extension attribute results across devices`,
+  ea-results         Extension attribute results across devices
+  profile-status     Configuration profile deployment failures
+  app-status         Managed app deployment failures`,
 	}
 
 	cmd.AddCommand(newReportPatchStatusCmd(cliCtx))
@@ -30,6 +32,8 @@ Available subcommands:
 	cmd.AddCommand(newReportSoftwareInstallsCmd(cliCtx))
 	cmd.AddCommand(newReportEAResultsCmd(cliCtx))
 	cmd.AddCommand(newReportSecurityCmd(cliCtx))
+	cmd.AddCommand(newReportProfileStatusCmd(cliCtx))
+	cmd.AddCommand(newReportAppStatusCmd(cliCtx))
 
 	return cmd
 }
