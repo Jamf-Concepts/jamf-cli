@@ -298,12 +298,12 @@ func tryAggregate(results []childResult) map[string]any {
 				merged[key] = existing
 
 			case []any:
-				if strings.Contains(key, "summary") {
-					// Summary list (e.g. status_summary, plan_state_summary)
-					// — sum counts grouped by label keys, no profile column
-					existing, _ := merged[key].(map[string]float64)
+				if isSummaryList(v) {
+					// Summary list — rows have a "count" field and no device-
+					// specific data. Sum counts grouped by label keys.
+					existing, _ := merged[key].(map[string]map[string]any)
 					if existing == nil {
-						existing = make(map[string]float64)
+						existing = make(map[string]map[string]any)
 					}
 					for _, item := range v {
 						row, ok := item.(map[string]any)
@@ -312,7 +312,17 @@ func tryAggregate(results []childResult) map[string]any {
 						}
 						label := summaryRowLabel(row)
 						count, _ := row["count"].(float64)
-						existing[label] += count
+						if prev, ok := existing[label]; ok {
+							prevCount, _ := prev["count"].(float64)
+							prev["count"] = prevCount + count
+						} else {
+							// Clone the row
+							clone := make(map[string]any, len(row))
+							for k, v := range row {
+								clone[k] = v
+							}
+							existing[label] = clone
+						}
 					}
 					merged[key] = existing
 				} else {
@@ -362,10 +372,10 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 		// Convert aggregated summary maps back to list format for JSON
 		jsonMerged := make(map[string]any, len(merged))
 		for k, v := range merged {
-			if counts, ok := v.(map[string]float64); ok {
-				var rows []map[string]any
-				for label, count := range counts {
-					rows = append(rows, map[string]any{"label": label, "count": count})
+			if rowMap, ok := v.(map[string]map[string]any); ok {
+				rows := make([]map[string]any, 0, len(rowMap))
+				for _, row := range rowMap {
+					rows = append(rows, row)
 				}
 				jsonMerged[k] = rows
 			} else {
@@ -406,31 +416,20 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 			}
 			first = false
 
-		case map[string]float64:
-			// Aggregated summary list (e.g. status_summary) — render as table
+		case map[string]map[string]any:
+			// Aggregated summary list — render as table sorted by count desc
 			if len(v) == 0 {
 				continue
 			}
-			type labelCount struct {
-				label string
-				count int
+			rows := make([]map[string]any, 0, len(v))
+			for _, row := range v {
+				rows = append(rows, row)
 			}
-			var items []labelCount
-			for label, count := range v {
-				items = append(items, labelCount{label, int(count)})
-			}
-			sort.Slice(items, func(i, j int) bool {
-				return items[i].count > items[j].count
+			sort.Slice(rows, func(i, j int) bool {
+				ci, _ := rows[i]["count"].(float64)
+				cj, _ := rows[j]["count"].(float64)
+				return ci > cj
 			})
-			rows := make([]map[string]any, len(items))
-			// Determine the label column name from the section key
-			labelCol := "status"
-			if strings.Contains(key, "plan") || strings.Contains(key, "state") {
-				labelCol = "state"
-			}
-			for i, item := range items {
-				rows[i] = map[string]any{labelCol: item.label, "count": item.count}
-			}
 			if !first {
 				fmt.Println()
 			}
@@ -487,18 +486,58 @@ func summaryFieldShouldSum(field string) bool {
 	return true
 }
 
-// summaryRowLabel extracts the label from a summary row by finding the
-// first non-"count" string field.
-func summaryRowLabel(row map[string]any) string {
-	for k, v := range row {
-		if k == "count" {
-			continue
-		}
-		if s, ok := v.(string); ok {
-			return s
+// isSummaryList returns true if a list of rows looks like a summary table
+// (has "count" field and no device-identifying fields like serial, device_id,
+// username). These should be aggregated by summing counts.
+func isSummaryList(items []any) bool {
+	if len(items) == 0 {
+		return false
+	}
+	// Check first row
+	row, ok := items[0].(map[string]any)
+	if !ok {
+		return false
+	}
+	if _, hasCount := row["count"]; !hasCount {
+		return false
+	}
+	// If it has device-specific fields, it's detail not summary
+	deviceFields := []string{"serial", "device_id", "device", "username", "management_id", "name"}
+	for _, f := range deviceFields {
+		if _, has := row[f]; has {
+			return false
 		}
 	}
-	return "unknown"
+	return true
+}
+
+// summaryRowLabel builds a composite label from all non-"count" fields in a
+// summary row, joined by "|". This handles rows with multiple label fields
+// (e.g. model + os_version in inventory-summary).
+func summaryRowLabel(row map[string]any) string {
+	// Collect non-count string fields in sorted order for determinism
+	var keys []string
+	for k := range row {
+		if k == "count" || k == "profile" {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var parts []string
+	for _, k := range keys {
+		switch v := row[k].(type) {
+		case string:
+			parts = append(parts, v)
+		case float64:
+			parts = append(parts, fmt.Sprintf("%g", v))
+		}
+	}
+	if len(parts) == 0 {
+		return "unknown"
+	}
+	return strings.Join(parts, "|")
 }
 
 // formatSectionTitle converts a JSON key to a display title.
