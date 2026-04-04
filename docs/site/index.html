@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Pro and Jamf Protect">
+  <title>jamf-cli — Your fleet, one command away</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== Nav ===== -->
+  <nav>
+    <a href="#" class="nav-brand">
+      jamf-cli
+      <span class="version-badge" id="version-badge"></span>
+    </a>
+    <button class="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <ul class="nav-links">
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <!-- ===== Hero ===== -->
+  <section id="hero">
+    <h1>Your fleet, one command away</h1>
+    <p class="subtitle">
+      Unified CLI for Jamf Pro and Jamf Protect.
+      <span id="command-count">&mdash;</span> commands. Full API coverage. Zero clicks.
+    </p>
+
+    <div class="stat-cards">
+      <div class="stat-card glow">
+        <span class="stat-value" id="stat-commands">&mdash;</span>
+        <span class="stat-label">Commands</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">2</span>
+        <span class="stat-label">Products</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">196</span>
+        <span class="stat-label">API Specs</span>
+      </div>
+    </div>
+
+    <div id="terminal">
+      <div class="terminal-titlebar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+      </div>
+      <div id="terminal-output"></div>
+      <div style="padding: 0 1.25rem 1rem;">
+        <div class="terminal-cursor"></div>
+      </div>
+    </div>
+
+    <div class="hero-examples" id="hero-examples-buttons"></div>
+
+    <div class="hero-install">
+      <div class="code-block">
+        <code>brew install Jamf-Concepts/tap/jamf-cli</code>
+        <button class="copy-btn" aria-label="Copy install command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Commands Catalog ===== -->
+  <section id="commands">
+    <div class="commands-header">
+      <h2>Commands</h2>
+      <div class="tabs">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="pro">Jamf Pro</button>
+        <button class="tab" data-filter="protect">Jamf Protect</button>
+      </div>
+    </div>
+    <input id="search" type="text" placeholder="Search commands..." aria-label="Search commands">
+    <div id="catalog-loading">Loading commands...</div>
+    <div id="catalog"></div>
+  </section>
+
+  <!-- ===== Install ===== -->
+  <section id="install">
+    <div class="install-inner">
+      <h2>Install</h2>
+      <div class="install-grid">
+
+        <div class="install-card">
+          <h3>Homebrew</h3>
+          <div class="code-block">
+            <code>brew install Jamf-Concepts/tap/jamf-cli</code>
+            <button class="copy-btn" aria-label="Copy Homebrew command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="install-card">
+          <h3>Binary</h3>
+          <p>Download pre-built binaries for macOS, Linux, and Windows.</p>
+          <a class="btn" href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">
+            Download from GitHub Releases
+          </a>
+        </div>
+
+        <div class="install-card">
+          <h3>Source</h3>
+          <div class="code-block">
+            <code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>
+            <button class="copy-btn" aria-label="Copy go install command" data-copy="go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer>
+    <ul class="footer-links">
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">Releases</a></li>
+    </ul>
+    <p>Auto-generated on every merge to main</p>
+    <p class="footer-meta">
+      <span id="last-updated"></span>
+      <span id="footer-version"></span>
+    </p>
+  </footer>
+
+  <!-- ===== Embedded Data ===== -->
+  <script type="application/json" id="terminal-data">
+[
+  {
+    "command": "jamf-cli pro overview",
+    "output": [
+      "\u001b[1mRESULTS\u001b[0m (37 parallel API calls)",
+      "Computers          1,247",
+      "Mobile Devices       892",
+      "Policies             156",
+      "Configuration Prof.  243",
+      "MDM Capable           98%"
+    ]
+  },
+  {
+    "command": "jamf-cli pro report security",
+    "output": [
+      "\u001b[1mSECURITY POSTURE\u001b[0m — 1,247 computers",
+      "FileVault Enabled    1,198  (96%)",
+      "SIP Enabled          1,240  (99%)",
+      "Gatekeeper Active    1,233  (99%)",
+      "Firewall Enabled     1,089  (87%)",
+      "Remote Login Off     1,176  (94%)"
+    ]
+  },
+  {
+    "command": "jamf-cli pro device C02X1234",
+    "output": [
+      "Name:     Keaton's MacBook Pro",
+      "Serial:   C02X1234DEFG",
+      "OS:       macOS 15.3 (24D60)",
+      "Model:    MacBook Pro 16\" (M4 Pro)",
+      "Managed:  \u2713 Yes",
+      "Last Check-in: 2 minutes ago"
+    ]
+  },
+  {
+    "command": "jamf-cli protect analytics list -o table",
+    "output": [
+      "NAME                          SEVERITY  ENABLED",
+      "Suspicious Download           High      \u2713",
+      "Unauthorized USB Mount        Medium    \u2713",
+      "Privilege Escalation          Critical  \u2713",
+      "Kernel Extension Load         Low       \u2713"
+    ]
+  },
+  {
+    "command": "jamf-cli pro comp list --filter \"osVersion>=15\" -o table",
+    "output": [
+      "NAME              OS     SERIAL         MANAGED",
+      "Keaton's MBP      15.3   H2WDT4RGQ6P0  \u25cf Yes",
+      "Admin's iMac      15.1   C02X5678DEFG   \u25cf Yes",
+      "Lab Mac Pro       15.0   F4KD7890HIJK   \u25cf Yes",
+      "Dev MacBook       15.2   MNOP1234QRST   \u25cf Yes"
+    ]
+  }
+]
+  </script>
+
+  <script type="application/json" id="hero-examples">
+{
+  "pro overview": {
+    "example": "jamf-cli pro overview",
+    "output": "RESULTS (37 parallel API calls)\nComputers          1,247\nMobile Devices       892\nPolicies             156\nMDM Capable           98%"
+  },
+  "pro device": {
+    "example": "jamf-cli pro device C02X1234",
+    "output": "Name:     Keaton's MacBook Pro\nSerial:   C02X1234DEFG\nOS:       macOS 15.3 (24D60)\nManaged:  \u2713 Yes"
+  },
+  "pro report security": {
+    "example": "jamf-cli pro report security",
+    "output": "SECURITY POSTURE \u2014 1,247 computers\nFileVault Enabled    1,198  (96%)\nSIP Enabled          1,240  (99%)\nGatekeeper Active    1,233  (99%)"
+  },
+  "pro computers list": {
+    "example": "jamf-cli pro comp list --filter \"osVersion>=15\" -o table",
+    "output": "NAME              OS     SERIAL         MANAGED\nKeaton's MBP      15.3   H2WDT4RGQ6P0  \u25cf Yes\nAdmin's iMac      15.1   C02X5678DEFG   \u25cf Yes"
+  },
+  "pro computers apply": {
+    "example": "echo '{\"name\":\"Lab Mac\"}' | jamf-cli pro comp apply",
+    "output": "\u2713 Created computer \"Lab Mac\" (id: 1042)"
+  },
+  "pro setup": {
+    "example": "jamf-cli pro setup --url https://jamf.company.com",
+    "output": "Jamf Pro URL: https://jamf.company.com\nAuth method: OAuth2 (Client Credentials)\n\u2713 Credentials verified\n\u2713 Profile 'default' saved to config"
+  },
+  "pro comp erase": {
+    "example": "jamf-cli pro comp erase --serial C02X1234 --yes",
+    "output": "[dry-run] Would erase computer C02X1234 (Keaton's MacBook Pro)\nUse --confirm-destructive to execute"
+  },
+  "pro policy-execute": {
+    "example": "jamf-cli pro policy-execute 'Update Inventory' --target C02X1234",
+    "output": "[dry-run] Would execute policy \"Update Inventory\" on 1 device\nTarget: C02X1234 (Keaton's MacBook Pro)"
+  },
+  "protect analytics list": {
+    "example": "jamf-cli protect analytics list -o table",
+    "output": "NAME                          SEVERITY  ENABLED\nSuspicious Download           High      \u2713\nUnauthorized USB Mount        Medium    \u2713\nPrivilege Escalation          Critical  \u2713"
+  },
+  "protect overview": {
+    "example": "jamf-cli protect overview",
+    "output": "PROTECT OVERVIEW\nPlans            12\nAnalytics       847\nAnalytic Sets     8\nComputers     1,523\nStatus:   Healthy"
+  }
+}
+  </script>
+
+  <!-- ===== Scripts ===== -->
+  <script>
+    // Hamburger menu toggle
+    document.querySelector('.hamburger').addEventListener('click', function () {
+      const expanded = this.getAttribute('aria-expanded') === 'true';
+      this.setAttribute('aria-expanded', String(!expanded));
+      document.querySelector('.nav-links').classList.toggle('open');
+    });
+
+    // Sticky nav scroll detection
+    window.addEventListener('scroll', function () {
+      document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // Copy buttons
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = this.getAttribute('data-copy');
+        navigator.clipboard.writeText(text).then(function () {
+          btn.classList.add('copied');
+          setTimeout(function () { btn.classList.remove('copied'); }, 1500);
+        });
+      });
+    });
+  </script>
+  <script src="terminal.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>
