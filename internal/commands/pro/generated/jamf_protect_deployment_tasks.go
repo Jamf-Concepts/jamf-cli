@@ -24,7 +24,7 @@ func NewJamfProtectDeploymentTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newJamfProtectDeploymentTasksGetCmd(ctx))
 	cmd.AddCommand(newJamfProtectDeploymentTasksRetryCmd(ctx))
-	// get-by-name suppressed — sub-resource has no list endpoint for name resolution (see #45)
+	cmd.AddCommand(newJamfProtectDeploymentTasksGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -97,7 +97,9 @@ func newJamfProtectDeploymentTasksGetCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newJamfProtectDeploymentTasksRetryCmd(ctx *registry.CLIContext) *cobra.Command {
-	var flagScaffold bool
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "retry <id>",

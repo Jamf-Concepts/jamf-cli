@@ -31,7 +31,7 @@ func NewJamfProtectsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newJamfProtectsDeleteCmd(ctx))
 	cmd.AddCommand(newJamfProtectsHistoryCmd(ctx))
 	cmd.AddCommand(newJamfProtectsAddHistoryNoteCmd(ctx))
-	// apply suppressed — singleton resource has no list endpoint for name resolution (see #45)
+	cmd.AddCommand(newJamfProtectsApplyCmd(ctx))
 
 	return cmd
 }
@@ -75,7 +75,9 @@ func newJamfProtectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newJamfProtectsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var flagScaffold bool
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -133,7 +135,9 @@ func newJamfProtectsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newJamfProtectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var flagScaffold bool
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -381,7 +385,9 @@ func newJamfProtectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newJamfProtectsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
-	var flagScaffold bool
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",

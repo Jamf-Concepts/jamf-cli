@@ -36,6 +36,10 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Generated Classic API commands
 	generated.RegisterClassicCommands(cmd, cliCtx)
 
+	// Suppress generated commands that don't work for singleton/sub-resource patterns (see #45)
+	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
+	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
+
 	// Replace broken generated upload with handwritten streaming upload
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
@@ -78,6 +82,20 @@ func addSubcommand(root *cobra.Command, parentPath []string, child *cobra.Comman
 		return
 	}
 	parent.AddCommand(child)
+}
+
+// removeSubcommand finds a parent command by path and removes a named child.
+func removeSubcommand(root *cobra.Command, parentPath []string, childName string) {
+	parent, _, err := root.Find(parentPath)
+	if err != nil {
+		return
+	}
+	for _, child := range parent.Commands() {
+		if child.Name() == childName {
+			parent.RemoveCommand(child)
+			return
+		}
+	}
 }
 
 // replaceSubcommand finds a parent command by path and replaces a named child.
