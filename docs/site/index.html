@@ -29,6 +29,10 @@
       <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
       <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
     </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
   </nav>
 
   <!-- ===== Hero ===== -->
@@ -40,18 +44,26 @@
     </p>
 
     <div class="stat-cards">
-      <div class="stat-card glow">
+      <a href="#commands" class="stat-card" data-product="total" data-tab="all">
         <span class="stat-value" id="stat-commands">&mdash;</span>
-        <span class="stat-label">Commands</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">2</span>
-        <span class="stat-label">Products</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">196</span>
-        <span class="stat-label">API Specs</span>
-      </div>
+        <span class="stat-label">Total Commands</span>
+      </a>
+      <a href="#commands" class="stat-card" data-product="pro" data-tab="pro">
+        <span class="stat-value" id="stat-pro">&mdash;</span>
+        <span class="stat-label">Jamf Pro</span>
+      </a>
+      <a href="#commands" class="stat-card" data-product="protect" data-tab="protect">
+        <span class="stat-value" id="stat-protect">&mdash;</span>
+        <span class="stat-label">Jamf Protect</span>
+      </a>
+    </div>
+
+    <div class="stat-secondary">
+      <span class="stat-tip" data-tip="Unique API resources across Jamf Pro and Jamf Protect"><strong id="stat-resources">&mdash;</strong> Resources</span>
+      <span class="stat-dot">&middot;</span>
+      <span class="stat-tip" data-tip="JSON, YAML, CSV, Table, Plain, and Field extraction"><strong>6</strong> Output Formats</span>
+      <span class="stat-dot">&middot;</span>
+      <span class="stat-tip" data-tip="Bearer Token, OAuth2 Client Credentials, and Platform Gateway"><strong>3</strong> Auth Methods</span>
     </div>
 
     <div id="terminal">
@@ -70,7 +82,7 @@
 
     <div class="hero-install">
       <div class="code-block">
-        <code>brew install Jamf-Concepts/tap/jamf-cli</code>
+        <code><span aria-hidden="true">🍺 </span>brew install Jamf-Concepts/tap/jamf-cli</code>
         <button class="copy-btn" aria-label="Copy install command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -103,7 +115,7 @@
       <div class="install-grid">
 
         <div class="install-card">
-          <h3>Homebrew</h3>
+          <h3>🍺 Homebrew</h3>
           <div class="code-block">
             <code>brew install Jamf-Concepts/tap/jamf-cli</code>
             <button class="copy-btn" aria-label="Copy Homebrew command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
@@ -116,15 +128,7 @@
         </div>
 
         <div class="install-card">
-          <h3>Binary</h3>
-          <p>Download pre-built binaries for macOS, Linux, and Windows.</p>
-          <a class="btn" href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">
-            Download from GitHub Releases
-          </a>
-        </div>
-
-        <div class="install-card">
-          <h3>Source</h3>
+          <h3>🛠️ Source</h3>
           <div class="code-block">
             <code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>
             <button class="copy-btn" aria-label="Copy go install command" data-copy="go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest">
@@ -134,6 +138,14 @@
               </svg>
             </button>
           </div>
+        </div>
+
+        <div class="install-card">
+          <h3>📦 Binary</h3>
+          <p>Download pre-built binaries for macOS, Linux, and Windows.</p>
+          <a class="btn" href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">
+            Download from GitHub
+          </a>
         </div>
 
       </div>
@@ -271,6 +283,28 @@
     window.addEventListener('scroll', function () {
       document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 40);
     }, { passive: true });
+
+    // Theme toggle
+    (function () {
+      var toggle = document.getElementById('theme-toggle');
+      var saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+      toggle.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme');
+        var isDark;
+        if (current === 'dark') {
+          isDark = true;
+        } else if (current === 'light') {
+          isDark = false;
+        } else {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        var next = isDark ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    })();
 
     // Copy buttons
     document.querySelectorAll('.copy-btn').forEach(function (btn) {
