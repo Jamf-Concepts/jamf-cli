@@ -1,0 +1,404 @@
+{
+  "pro setup": [
+    {
+      "description": "Interactive setup with a Jamf Pro URL",
+      "command": "jamf-cli pro setup --url https://jamf.company.com"
+    },
+    {
+      "description": "Rotate existing credentials and update the profile",
+      "command": "jamf-cli pro setup --url https://jamf.company.com --rotate-credentials"
+    },
+    {
+      "description": "Set up a named profile for a second instance",
+      "command": "jamf-cli pro setup --url https://staging.jamf.com --profile-name staging"
+    }
+  ],
+  "pro overview": [
+    {
+      "description": "Show instance dashboard",
+      "command": "jamf-cli pro overview"
+    },
+    {
+      "description": "Output as JSON for scripting",
+      "command": "jamf-cli pro overview -o json"
+    }
+  ],
+  "pro device": [
+    {
+      "description": "Look up a device by name",
+      "command": "jamf-cli pro device jamf-mini"
+    },
+    {
+      "description": "Output device detail as JSON",
+      "command": "jamf-cli pro device jamf-mini -o json"
+    }
+  ],
+  "protect setup": [
+    {
+      "description": "Interactive setup with a Jamf Protect URL",
+      "command": "jamf-cli protect setup --url https://protect.jamfcloud.com"
+    },
+    {
+      "description": "Set up a named profile",
+      "command": "jamf-cli protect setup --url https://protect.jamfcloud.com --profile-name protect-prod"
+    }
+  ],
+  "protect overview": [
+    {
+      "description": "Show Protect instance summary",
+      "command": "jamf-cli protect overview"
+    }
+  ],
+  "protect auth token": [
+    {
+      "description": "Print a bearer token for use in other tools",
+      "command": "jamf-cli protect auth token"
+    },
+    {
+      "description": "Use in a curl request",
+      "command": "curl -H \"Authorization: Bearer $(jamf-cli protect auth token)\" https://protect.jamfcloud.com/graphql"
+    }
+  ],
+  "pro audit": [
+    {
+      "description": "Run all audit checks",
+      "command": "jamf-cli pro audit"
+    },
+    {
+      "description": "Run only security checks",
+      "command": "jamf-cli pro audit --checks security"
+    },
+    {
+      "description": "Flag devices with no check-in for 30 days",
+      "command": "jamf-cli pro audit --checks hygiene --days 30"
+    }
+  ],
+  "pro backup": [
+    {
+      "description": "Back up everything to a directory",
+      "command": "jamf-cli pro backup --output ./backup-2026-04"
+    },
+    {
+      "description": "Back up only policies and scripts as JSON",
+      "command": "jamf-cli pro backup --output ./backup --resources policies,scripts --format json"
+    },
+    {
+      "description": "Include server IDs for exact restore",
+      "command": "jamf-cli pro backup --output ./backup --include-ids"
+    }
+  ],
+  "pro diff": [
+    {
+      "description": "Compare staging and production instances",
+      "command": "jamf-cli pro diff --source staging --target production"
+    },
+    {
+      "description": "Compare a local backup against a live instance",
+      "command": "jamf-cli pro diff --source ./backup-2026-01 --target production"
+    },
+    {
+      "description": "Compare only policies and scripts",
+      "command": "jamf-cli pro diff --source staging --target production --resources policies,scripts"
+    }
+  ],
+  "pro policy-execute": [
+    {
+      "description": "Preview executing a policy on a specific device",
+      "command": "jamf-cli pro policy-execute 5 --target jamf-mini"
+    },
+    {
+      "description": "Execute a policy on all members of a group",
+      "command": "jamf-cli pro policy-execute 5 --group \"Lab Macs\" --yes"
+    }
+  ],
+  "pro bulk send-command": [
+    {
+      "description": "Preview sending UpdateInventory to a group",
+      "command": "jamf-cli pro bulk send-command --command UpdateInventory --group \"All Managed Macs\""
+    },
+    {
+      "description": "Send BlankPush to devices listed in a file",
+      "command": "jamf-cli pro bulk send-command --command BlankPush --from-file device-ids.txt --yes"
+    },
+    {
+      "description": "Erase devices (requires double confirmation)",
+      "command": "jamf-cli pro bulk send-command --command EraseDevice --group \"Decommission\" --yes --confirm-destructive"
+    }
+  ],
+  "pro bulk add-to-group": [
+    {
+      "description": "Add devices from one group to another",
+      "command": "jamf-cli pro bulk add-to-group --group \"Staging\" --target-group \"Production\""
+    },
+    {
+      "description": "Add devices listed in a file to a group",
+      "command": "jamf-cli pro bulk add-to-group --from-file device-ids.txt --target-group \"Lab Macs\""
+    }
+  ],
+  "pro bulk remove-from-group": [
+    {
+      "description": "Remove devices from a group using a file list",
+      "command": "jamf-cli pro bulk remove-from-group --from-file retired.txt --target-group \"Production\""
+    }
+  ],
+  "pro bulk disable-policies": [
+    {
+      "description": "Preview disabling all policies in a category",
+      "command": "jamf-cli pro bulk disable-policies --category \"Testing\""
+    },
+    {
+      "description": "Disable policies matching a name pattern",
+      "command": "jamf-cli pro bulk disable-policies --name-pattern \"*deprecated*\" --yes"
+    }
+  ],
+  "pro bulk enable-policies": [
+    {
+      "description": "Re-enable all policies scoped to a group",
+      "command": "jamf-cli pro bulk enable-policies --scope-group \"Lab Macs\" --yes"
+    }
+  ],
+  "pro group-tools list": [
+    {
+      "description": "List all computer groups",
+      "command": "jamf-cli pro group-tools list"
+    },
+    {
+      "description": "List only empty static groups",
+      "command": "jamf-cli pro group-tools list --type static --empty"
+    },
+    {
+      "description": "Filter groups by name pattern",
+      "command": "jamf-cli pro group-tools list --name-pattern \"*Lab*\""
+    }
+  ],
+  "pro group-tools analyze": [
+    {
+      "description": "Analyze groups for hygiene issues",
+      "command": "jamf-cli pro group-tools analyze"
+    },
+    {
+      "description": "Find unused groups",
+      "command": "jamf-cli pro group-tools analyze --unused"
+    }
+  ],
+  "pro group-tools export": [
+    {
+      "description": "Export all group definitions as YAML",
+      "command": "jamf-cli pro group-tools export"
+    },
+    {
+      "description": "Export as JSON",
+      "command": "jamf-cli pro group-tools export --format json"
+    }
+  ],
+  "pro group-tools members": [
+    {
+      "description": "Show members of a group",
+      "command": "jamf-cli pro group-tools members \"Lab Macs\""
+    }
+  ],
+  "pro report security": [
+    {
+      "description": "Fleet security posture overview",
+      "command": "jamf-cli pro report security"
+    }
+  ],
+  "pro report device-compliance": [
+    {
+      "description": "Find devices that haven't checked in for 7 days",
+      "command": "jamf-cli pro report device-compliance --days-since-checkin 7"
+    }
+  ],
+  "pro report policy-status": [
+    {
+      "description": "Policy health check for the last 30 days",
+      "command": "jamf-cli pro report policy-status --days 30"
+    },
+    {
+      "description": "Include failure scan details",
+      "command": "jamf-cli pro report policy-status --scan-failures"
+    }
+  ],
+  "pro report profile-status": [
+    {
+      "description": "Configuration profile deployment health",
+      "command": "jamf-cli pro report profile-status"
+    },
+    {
+      "description": "Profiles deployed in the last 7 days",
+      "command": "jamf-cli pro report profile-status --days 7"
+    }
+  ],
+  "pro report patch-status": [
+    {
+      "description": "Patch compliance report",
+      "command": "jamf-cli pro report patch-status"
+    },
+    {
+      "description": "Include scan failure details",
+      "command": "jamf-cli pro report patch-status --scan-failures"
+    }
+  ],
+  "pro report inventory-summary": [
+    {
+      "description": "Hardware model breakdown",
+      "command": "jamf-cli pro report inventory-summary --by model"
+    },
+    {
+      "description": "OS version breakdown for a specific group",
+      "command": "jamf-cli pro report inventory-summary --by os --group \"Production\""
+    }
+  ],
+  "pro report ea-results": [
+    {
+      "description": "Results for a specific extension attribute",
+      "command": "jamf-cli pro report ea-results --name \"Battery Health\""
+    },
+    {
+      "description": "All extension attribute results",
+      "command": "jamf-cli pro report ea-results --all"
+    }
+  ],
+  "pro report app-status": [
+    {
+      "description": "Managed app deployment health",
+      "command": "jamf-cli pro report app-status"
+    },
+    {
+      "description": "App deployments in the last 7 days",
+      "command": "jamf-cli pro report app-status --days 7"
+    }
+  ],
+  "pro report software-installs": [
+    {
+      "description": "Software version distribution across the fleet",
+      "command": "jamf-cli pro report software-installs"
+    },
+    {
+      "description": "Distribution for a specific title",
+      "command": "jamf-cli pro report software-installs --title \"Google Chrome\""
+    },
+    {
+      "description": "Include system apps",
+      "command": "jamf-cli pro report software-installs --include-system"
+    }
+  ],
+  "pro report update-status": [
+    {
+      "description": "Managed software update deployment status",
+      "command": "jamf-cli pro report update-status"
+    }
+  ],
+  "config add-profile": [
+    {
+      "description": "Add an OAuth2 profile for a Jamf Pro instance",
+      "command": "jamf-cli config add-profile production --url https://jamf.company.com --auth-method oauth2"
+    },
+    {
+      "description": "Add a platform gateway profile",
+      "command": "jamf-cli config add-profile platform-prod --url https://us.apigw.jamf.com --auth-method platform --tenant-id abc123"
+    },
+    {
+      "description": "Add a bearer token profile",
+      "command": "jamf-cli config add-profile staging --url https://staging.jamf.com --auth-method token"
+    }
+  ],
+  "config list": [
+    {
+      "description": "List all configured profiles",
+      "command": "jamf-cli config list"
+    },
+    {
+      "description": "List profiles with connectivity status",
+      "command": "jamf-cli config list --status"
+    }
+  ],
+  "config show": [
+    {
+      "description": "Show resolved config with sources",
+      "command": "jamf-cli config show"
+    },
+    {
+      "description": "Show config for a specific profile",
+      "command": "jamf-cli config show -p staging"
+    }
+  ],
+  "config set-default": [
+    {
+      "description": "Set the default profile",
+      "command": "jamf-cli config set-default production"
+    }
+  ],
+  "config remove-profile": [
+    {
+      "description": "Remove a profile",
+      "command": "jamf-cli config remove-profile staging"
+    }
+  ],
+  "config validate": [
+    {
+      "description": "Validate config file syntax and settings",
+      "command": "jamf-cli config validate"
+    },
+    {
+      "description": "Validate and test server reachability",
+      "command": "jamf-cli config validate --connectivity"
+    }
+  ],
+  "config path": [
+    {
+      "description": "Print the config file location",
+      "command": "jamf-cli config path"
+    }
+  ],
+  "completion install": [
+    {
+      "description": "Auto-detect shell and install completions",
+      "command": "jamf-cli completion install"
+    }
+  ],
+  "completion zsh": [
+    {
+      "description": "Generate zsh completions and source them",
+      "command": "jamf-cli completion zsh > ~/.zfunc/_jamf-cli"
+    }
+  ],
+  "completion bash": [
+    {
+      "description": "Generate bash completions",
+      "command": "jamf-cli completion bash > /etc/bash_completion.d/jamf-cli"
+    }
+  ],
+  "completion fish": [
+    {
+      "description": "Generate fish completions",
+      "command": "jamf-cli completion fish > ~/.config/fish/completions/jamf-cli.fish"
+    }
+  ],
+  "completion powershell": [
+    {
+      "description": "Load PowerShell completions in current session",
+      "command": "jamf-cli completion powershell | Out-String | Invoke-Expression"
+    }
+  ],
+  "version": [
+    {
+      "description": "Print version, commit, and build date",
+      "command": "jamf-cli version"
+    }
+  ],
+  "multi": [
+    {
+      "description": "Run overview across all profiles",
+      "command": "jamf-cli multi pro overview"
+    },
+    {
+      "description": "Filter profiles by glob pattern",
+      "command": "jamf-cli multi --filter 'prod-*' -- pro comp list"
+    },
+    {
+      "description": "Target specific profiles",
+      "command": "jamf-cli multi --profiles production,staging -- pro report security"
+    }
+  ]
+}

@@ -31,13 +31,17 @@
   var allCommands = [];
   var newCommandSet = {};
   var heroExamples = {};
+  var commandExamples = {};
   var activeProduct = 'all';
   var expandedCommand = null;
+  var expandHintShown = false;
+  var currentSearchQuery = '';
 
   // ===== Initialization =====
 
   function init() {
     loadHeroExamples();
+    loadExamples();
     setupSearch();
     setupTabs();
     setupStatCards();
@@ -58,6 +62,13 @@
         heroExamples = {};
       }
     }
+  }
+
+  function loadExamples() {
+    fetch('examples.json')
+      .then(function (res) { return res.ok ? res.json() : {}; })
+      .then(function (data) { commandExamples = data || {}; })
+      .catch(function () { commandExamples = {}; });
   }
 
   function fetchCommands() {
@@ -159,12 +170,36 @@
     }
   }
 
+  function highlightText(text, parent) {
+    if (!currentSearchQuery || !text) {
+      parent.textContent = text;
+      return;
+    }
+    var lower = text.toLowerCase();
+    var idx = lower.indexOf(currentSearchQuery);
+    if (idx === -1) {
+      parent.textContent = text;
+      return;
+    }
+    parent.textContent = '';
+    if (idx > 0) parent.appendChild(document.createTextNode(text.slice(0, idx)));
+    var mark = document.createElement('mark');
+    mark.className = 'search-highlight';
+    mark.textContent = text.slice(idx, idx + currentSearchQuery.length);
+    parent.appendChild(mark);
+    if (idx + currentSearchQuery.length < text.length) {
+      parent.appendChild(document.createTextNode(text.slice(idx + currentSearchQuery.length)));
+    }
+  }
+
   // ===== Rendering =====
 
   function renderCatalog(commands, searchQuery, productFilter) {
     var catalog = document.getElementById('catalog');
     if (!catalog) return;
 
+    currentSearchQuery = (searchQuery || '').trim().toLowerCase();
+    expandedCommand = null;
     var filtered = filterCommands(commands, searchQuery, productFilter);
     var groups = groupCommands(filtered);
     var sorted = sortGroups(groups);
@@ -230,7 +265,8 @@
       if (!productGroups[prod] || productGroups[prod].length === 0) continue;
       catalog.appendChild(renderProductDivider(prod));
       for (var g = 0; g < productGroups[prod].length; g++) {
-        catalog.appendChild(renderGroup(productGroups[prod][g], hasSearch));
+        var expandGroup = hasSearch || productGroups[prod][g].name === 'Getting Started';
+        catalog.appendChild(renderGroup(productGroups[prod][g], expandGroup));
       }
     }
 
@@ -308,7 +344,8 @@
       var firstWord = cmd.command.split(' ')[0];
       var subgroup = CORE_SUBGROUPS[firstWord];
       if (subgroup) {
-        return Object.assign({}, cmd, { group: subgroup });
+        var shellOrder = cmd.command === 'completion install' ? 0 : 1;
+        return Object.assign({}, cmd, { group: subgroup, _shellOrder: shellOrder });
       }
 
       // Everything else → Utilities
@@ -316,6 +353,11 @@
     }).sort(function (a, b) {
       if (a.group === 'Getting Started' && b.group === 'Getting Started') {
         return (a._gsOrder || 99) - (b._gsOrder || 99);
+      }
+      if (a.group === 'Shell Completion' && b.group === 'Shell Completion') {
+        var diff = (a._shellOrder === undefined ? 1 : a._shellOrder) - (b._shellOrder === undefined ? 1 : b._shellOrder);
+        if (diff !== 0) return diff;
+        return a.command.localeCompare(b.command);
       }
       return 0;
     });
@@ -492,17 +534,17 @@
     if (parts.length >= 2) {
       var prodSpan = document.createElement('span');
       prodSpan.className = 'cmd-product';
-      prodSpan.textContent = parts[0] + ' ';
+      highlightText(parts[0] + ' ', prodSpan);
       nameSpan.appendChild(prodSpan);
       if (parts.length > 2) {
         var resource = document.createElement('span');
         resource.className = 'cmd-prefix';
-        resource.textContent = parts.slice(1, -1).join(' ') + ' ';
+        highlightText(parts.slice(1, -1).join(' ') + ' ', resource);
         nameSpan.appendChild(resource);
       }
       var action = document.createElement('span');
       action.className = 'cmd-action';
-      action.textContent = parts[parts.length - 1];
+      highlightText(parts[parts.length - 1], action);
       nameSpan.appendChild(action);
     } else {
       nameSpan.textContent = cmd.command;
@@ -530,7 +572,7 @@
 
     var descSpan = document.createElement('span');
     descSpan.className = 'command-desc';
-    descSpan.textContent = cmd.description || '';
+    highlightText(cmd.description || '', descSpan);
     descLine.appendChild(descSpan);
 
     // Product badge on every command
@@ -541,6 +583,11 @@
       prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product];
       descLine.appendChild(prodBadge);
     }
+
+    var rowChevron = document.createElement('span');
+    rowChevron.className = 'row-chevron';
+    rowChevron.textContent = '\u203A';
+    descLine.appendChild(rowChevron);
 
     // Cross-product reference badge
     var relatedProduct = detectRelatedProduct(cmd);
@@ -582,6 +629,16 @@
       row.appendChild(meta);
     }
 
+    // One-time expand hint below the command row content
+    var hintEl = null;
+    if (!expandHintShown) {
+      expandHintShown = true;
+      hintEl = document.createElement('div');
+      hintEl.className = 'expand-hint';
+      hintEl.textContent = '\u2193 Click any command to expand';
+      row.appendChild(hintEl);
+    }
+
     // Detail panel (hidden by default)
     var detail = document.createElement('div');
     detail.className = 'command-expanded';
@@ -593,10 +650,20 @@
       // Close any previously expanded command
       if (expandedCommand && expandedCommand !== detail) {
         expandedCommand.classList.remove('open');
+        // Reset chevron on previously expanded row
+        var prevRow = expandedCommand.previousElementSibling;
+        if (prevRow) prevRow.classList.remove('expanded');
       }
 
       detail.classList.toggle('open');
+      row.classList.toggle('expanded');
       expandedCommand = isOpen ? null : detail;
+
+      // Remove the one-time hint after first click
+      if (hintEl && hintEl.parentNode) {
+        hintEl.parentNode.removeChild(hintEl);
+        hintEl = null;
+      }
 
       // Update URL hash for deep linking
       if (!isOpen) {
@@ -680,6 +747,34 @@
       var promptLine = '$ ' + example.example + '\n';
       pre.textContent = promptLine + example.output;
       frag.appendChild(pre);
+    }
+
+    // Usage examples (from examples.json)
+    var examples = commandExamples[cmd.command];
+    if (examples && examples.length > 0) {
+      frag.appendChild(createDetailHeading('Examples'));
+      for (var ex = 0; ex < examples.length; ex++) {
+        var exBlock = document.createElement('div');
+        exBlock.className = 'example-block';
+        if (examples[ex].description) {
+          var exDesc = document.createElement('div');
+          exDesc.className = 'example-desc';
+          exDesc.textContent = examples[ex].description;
+          exBlock.appendChild(exDesc);
+        }
+        var exPre = document.createElement('pre');
+        exPre.className = 'example-command';
+        exPre.textContent = '$ ' + examples[ex].command;
+        exPre.title = 'Click to copy';
+        (function (text, el) {
+          el.addEventListener('click', function (e) {
+            e.stopPropagation();
+            copyWithFeedback(text, el);
+          });
+        })(examples[ex].command, exPre);
+        exBlock.appendChild(exPre);
+        frag.appendChild(exBlock);
+      }
     }
 
     // Related commands (siblings under same parent)

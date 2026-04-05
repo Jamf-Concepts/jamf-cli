@@ -136,14 +136,29 @@ func TestParseVersion(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "with v prefix",
+			name:  "strips git describe suffix",
 			input: "jamf-cli v1.1.0-3-g6e19a4c\n  commit: 6e19a4c\n  built:  2026-04-04T00:27:01Z\n",
-			want:  "v1.1.0-3-g6e19a4c",
+			want:  "v1.1.0",
+		},
+		{
+			name:  "strips dirty suffix",
+			input: "jamf-cli v1.2.0-52-gffc0b5a-dirty\n  commit: ffc0b5a\n  built:  2026-04-05T03:47:51Z\n",
+			want:  "v1.2.0",
+		},
+		{
+			name:  "exact tag unchanged",
+			input: "jamf-cli v1.2.0\n  commit: abc1234\n",
+			want:  "v1.2.0",
 		},
 		{
 			name:  "without v prefix",
 			input: "jamf-cli 1.0.0\n  commit: abc1234\n",
 			want:  "1.0.0",
+		},
+		{
+			name:  "pre-release preserved",
+			input: "jamf-cli v2.0.0-beta.1\n  commit: abc1234\n",
+			want:  "v2.0.0-beta.1",
 		},
 		{
 			name:  "empty output",
