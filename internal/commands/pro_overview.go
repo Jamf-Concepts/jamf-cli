@@ -696,7 +696,11 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v1/cloud-distribution-point/files")
+		data, err := fetchJSON(ctx, client, "/v1/cloud-distribution-point/files")
+		var v string
+		if err == nil {
+			v = formatCount(data["totalCount"])
+		}
 		send("jcds_files", v, err)
 	})
 
