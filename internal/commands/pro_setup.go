@@ -280,12 +280,16 @@ func (c *setupClient) updateAPIIntegration(ctx context.Context, integrationID in
 	return fmt.Errorf("updating API integration failed (HTTP %d): %s", status, string(body))
 }
 
-// filterPrivileges returns privileges matching any of the given prefixes.
-func filterPrivileges(all []string, prefixes []string) []string {
+// filterPrivileges returns privileges from all that match any pattern.
+// Patterns ending with a space match by prefix (e.g. "Read " matches
+// "Read Computers", "Read Scripts", etc.). Any other pattern is matched
+// as an exact string — strings.HasPrefix(p, p) is always true, so exact
+// names work without a separate equality check.
+func filterPrivileges(all []string, patterns []string) []string {
 	var result []string
 	for _, p := range all {
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(p, prefix) {
+		for _, pattern := range patterns {
+			if strings.HasPrefix(p, pattern) {
 				result = append(result, p)
 				break
 			}
@@ -294,10 +298,59 @@ func filterPrivileges(all []string, prefixes []string) []string {
 	return result
 }
 
-// scopePresets maps scope names to privilege prefixes. nil means all privileges.
+// scopePresets maps scope names to privilege patterns used by filterPrivileges.
+// Patterns ending with a space match all privileges sharing that prefix.
+// Other patterns are matched as exact privilege names.
+// nil means all privileges (full-admin: caller passes the full list through).
 var scopePresets = map[string][]string{
-	"read-only":  {"Read "},
-	"standard":   {"Read ", "Create ", "Update "},
+	// read-only: read and view access — monitoring, auditing, troubleshooting.
+	// No write privileges, no MDM send commands.
+	"read-only": {
+		"Read ",
+		"View ",
+		// Platform Services privileges use a different lowercase format
+		"blueprints read",
+		"compliance-benchmarks read",
+	},
+
+	// standard: day-to-day admin work — read + write without destructive deletes.
+	// Includes safe MDM commands (inventory refresh, check-in, MDM renewal) and
+	// common operational actions. Excludes erase, wipe, lock, and remote wipe.
+	"standard": {
+		"Read ",
+		"View ",
+		"Create ",
+		"Update ",
+		// Operational privileges not covered by the prefix patterns above
+		"Allow User to Enroll",
+		"Assign Users to Computers",
+		"Assign Users to Mobile Devices",
+		"Dismiss Notifications",
+		"Edit Return To Service Configurations", // "Edit" not "Update"
+		"Enroll Computers",
+		"Enroll Mobile Devices",
+		"Flush MDM Commands",
+		"Flush Policy Logs",
+		"Jamf Connect Deployment Retry",
+		"Jamf Packages Action",
+		"Jamf Protect Deployment Retry",
+		// Non-destructive MDM send commands
+		"Send Blank Pushes to Mobile Devices",
+		"Send Command to Renew MDM Profile",
+		"Send Declarative Management Command",
+		"Send Device Information Command",
+		"Send Inventory Requests to Mobile Devices",
+		"Send MDM Check In Command",
+		// Platform Services privileges (lowercase format)
+		"blueprints read",
+		"blueprints create",
+		"blueprints update",
+		"compliance-benchmarks read",
+		"compliance-benchmarks create",
+		"compliance-benchmarks update",
+	},
+
+	// full-admin: nil — caller passes the full live privilege list unchanged.
 	"full-admin": nil,
 }
 

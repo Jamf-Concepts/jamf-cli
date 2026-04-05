@@ -15,33 +15,204 @@ import (
 )
 
 func TestFilterPrivileges(t *testing.T) {
-	all := []string{
-		"Read Computers",
-		"Create Computers",
-		"Update Computers",
-		"Delete Computers",
-		"Read Users",
-		"Create Users",
-	}
-
 	tests := []struct {
 		name     string
-		prefixes []string
-		want     int
+		all      []string
+		patterns []string
+		include  []string // must appear in result
+		exclude  []string // must not appear in result
 	}{
-		{"read-only", []string{"Read "}, 2},
-		{"standard", []string{"Read ", "Create ", "Update "}, 5},
-		{"no match", []string{"Assign "}, 0},
+		{
+			name:     "prefix match includes all matching, excludes others",
+			all:      []string{"Read Computers", "Read Scripts", "Create Computers", "Delete Computers"},
+			patterns: []string{"Read "},
+			include:  []string{"Read Computers", "Read Scripts"},
+			exclude:  []string{"Create Computers", "Delete Computers"},
+		},
+		{
+			name:     "exact match only matches that string, not similar ones",
+			all:      []string{"blueprints read", "blueprints create", "blueprints delete"},
+			patterns: []string{"blueprints read"},
+			include:  []string{"blueprints read"},
+			exclude:  []string{"blueprints create", "blueprints delete"},
+		},
+		{
+			name:     "multiple prefixes combined",
+			all:      []string{"Read A", "View B", "Create C", "Delete D"},
+			patterns: []string{"Read ", "View "},
+			include:  []string{"Read A", "View B"},
+			exclude:  []string{"Create C", "Delete D"},
+		},
+		{
+			name:     "no matching patterns returns nothing",
+			all:      []string{"Read Computers", "Create Computers"},
+			patterns: []string{"Delete "},
+			exclude:  []string{"Read Computers", "Create Computers"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterPrivileges(all, tt.prefixes)
-			if len(got) != tt.want {
-				t.Errorf("filterPrivileges(%v) returned %d results, want %d", tt.prefixes, len(got), tt.want)
+			got := filterPrivileges(tt.all, tt.patterns)
+			gotSet := make(map[string]bool, len(got))
+			for _, g := range got {
+				gotSet[g] = true
+			}
+			for _, p := range tt.include {
+				if !gotSet[p] {
+					t.Errorf("expected %q in result", p)
+				}
+			}
+			for _, p := range tt.exclude {
+				if gotSet[p] {
+					t.Errorf("unexpected %q in result", p)
+				}
 			}
 		})
 	}
+}
+
+func TestScopePresets_PrivilegeCoverage(t *testing.T) {
+	// Build a synthetic privilege set that mirrors the real API structure.
+	// Uses representative resource names so tests don't need updating when
+	// Jamf adds new resources — the invariants are checked by verb prefix.
+	resources := []string{"Computers", "Scripts", "Policies", "Buildings", "Categories"}
+
+	var all []string
+	for _, r := range resources {
+		all = append(all, "Read "+r, "Create "+r, "Update "+r, "Delete "+r)
+	}
+
+	viewItems := []string{
+		"View MDM command information in Jamf Pro API",
+		"View Disk Encryption Recovery Key",
+		"View Local Admin Password",
+		"View Event Logs",
+		"View JSS Information",
+		"View Recovery Lock",
+	}
+	operationalItems := []string{
+		"Edit Return To Service Configurations",
+		"Allow User to Enroll",
+		"Assign Users to Computers",
+		"Assign Users to Mobile Devices",
+		"Dismiss Notifications",
+		"Enroll Computers",
+		"Enroll Mobile Devices",
+		"Flush MDM Commands",
+		"Flush Policy Logs",
+		"Jamf Connect Deployment Retry",
+		"Jamf Packages Action",
+		"Jamf Protect Deployment Retry",
+		"Send Blank Pushes to Mobile Devices",
+		"Send Command to Renew MDM Profile",
+		"Send Declarative Management Command",
+		"Send Device Information Command",
+		"Send Inventory Requests to Mobile Devices",
+		"Send MDM Check In Command",
+	}
+	destructiveSends := []string{
+		"Send Computer Remote Wipe Command",
+		"Send Computer Remote Lock Command",
+		"Send Mobile Device Remote Wipe Command",
+		"Send Mobile Device Remote Lock Command",
+	}
+	platformItems := []string{
+		"blueprints read", "blueprints create", "blueprints update", "blueprints delete",
+		"compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update", "compliance-benchmarks delete",
+	}
+
+	all = append(all, viewItems...)
+	all = append(all, operationalItems...)
+	all = append(all, destructiveSends...)
+	all = append(all, platformItems...)
+
+	toSet := func(privs []string) map[string]bool {
+		s := make(map[string]bool, len(privs))
+		for _, p := range privs {
+			s[p] = true
+		}
+		return s
+	}
+
+	t.Run("read-only includes all Read and View, excludes write and destructive", func(t *testing.T) {
+		got := toSet(filterPrivileges(all, scopePresets["read-only"]))
+
+		// Every Read X and View X in the live list must be included
+		for _, p := range all {
+			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") {
+				if !got[p] {
+					t.Errorf("read-only: missing %q", p)
+				}
+			}
+		}
+		// Platform read items must be included
+		for _, p := range []string{"blueprints read", "compliance-benchmarks read"} {
+			if !got[p] {
+				t.Errorf("read-only: missing %q", p)
+			}
+		}
+		// Write verbs must be excluded
+		for _, p := range all {
+			if strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") || strings.HasPrefix(p, "Delete ") {
+				if got[p] {
+					t.Errorf("read-only: should not contain %q", p)
+				}
+			}
+		}
+		// Destructive sends and platform write/delete must be excluded
+		for _, p := range append(destructiveSends, "blueprints create", "blueprints delete", "compliance-benchmarks create", "compliance-benchmarks delete") {
+			if got[p] {
+				t.Errorf("read-only: should not contain %q", p)
+			}
+		}
+	})
+
+	t.Run("standard includes Read/View/Create/Update and operational, excludes Delete and destructive sends", func(t *testing.T) {
+		got := toSet(filterPrivileges(all, scopePresets["standard"]))
+
+		// Every Read/View/Create/Update X must be included
+		for _, p := range all {
+			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") ||
+				strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") {
+				if !got[p] {
+					t.Errorf("standard: missing %q", p)
+				}
+			}
+		}
+		// All operational and safe sends must be included
+		for _, p := range operationalItems {
+			if !got[p] {
+				t.Errorf("standard: missing operational privilege %q", p)
+			}
+		}
+		// Platform read/create/update must be included, delete must not
+		for _, p := range []string{"blueprints read", "blueprints create", "blueprints update", "compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update"} {
+			if !got[p] {
+				t.Errorf("standard: missing %q", p)
+			}
+		}
+		// Delete verbs must be excluded
+		for _, p := range all {
+			if strings.HasPrefix(p, "Delete ") {
+				if got[p] {
+					t.Errorf("standard: should not contain %q", p)
+				}
+			}
+		}
+		// Destructive sends and platform delete must be excluded
+		for _, p := range append(destructiveSends, "blueprints delete", "compliance-benchmarks delete") {
+			if got[p] {
+				t.Errorf("standard: should not contain %q", p)
+			}
+		}
+	})
+
+	t.Run("full-admin uses nil so caller passes all privileges through", func(t *testing.T) {
+		if scopePresets["full-admin"] != nil {
+			t.Error("full-admin should have nil patterns")
+		}
+	})
 }
 
 func TestFilterPrivileges_NilPrefixes(t *testing.T) {
