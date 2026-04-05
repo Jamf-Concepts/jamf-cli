@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -296,6 +297,35 @@ func filterPrivileges(all []string, patterns []string) []string {
 		}
 	}
 	return result
+}
+
+// scopeOption describes a selectable scope tier in the setup wizard.
+type scopeOption struct {
+	key         string // must match a key in scopePresets
+	displayName string
+	description string
+}
+
+// defaultScope is used when the user presses Enter without choosing.
+const defaultScope = "standard"
+
+// scopeOptions defines the ordered list of tiers shown in the interactive
+// prompt. Adding a new tier here (and a matching entry in scopePresets) is
+// all that is needed — the prompt, validation, and flag help auto-update.
+var scopeOptions = []scopeOption{
+	{"read-only", "Read Only", "read access to all resources"},
+	{"standard", "Standard", "read, create, and update (no deletes)"},
+	{"full-admin", "Full Admin", "all privileges"},
+}
+
+// validScopeNames returns a comma-separated list of valid scope keys derived
+// from scopeOptions — used in error messages and flag help text.
+func validScopeNames() string {
+	names := make([]string, len(scopeOptions))
+	for i, opt := range scopeOptions {
+		names[i] = opt.key
+	}
+	return strings.Join(names, ", ")
 }
 
 // scopePresets maps scope names to privilege patterns used by filterPrivileges.
@@ -602,28 +632,29 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 			// Choose scope — once for all instances
 			if setupScope == "" {
 				if noInput {
-					setupScope = "standard"
+					setupScope = defaultScope
 				} else {
 					_, _ = fmt.Fprintln(w, "\nAPI scope:")
-					_, _ = fmt.Fprintln(w, "  1. Read Only    — read access to all resources")
-					_, _ = fmt.Fprintln(w, "  2. Standard     — read, create, and update (no deletes)")
-					_, _ = fmt.Fprintln(w, "  3. Full Admin   — all privileges")
-					_, _ = fmt.Fprint(w, "Choose [1-3] (default 2): ")
+					for i, opt := range scopeOptions {
+						marker := ""
+						if opt.key == defaultScope {
+							marker = " (default)"
+						}
+						_, _ = fmt.Fprintf(w, "  %d. %-12s — %s%s\n", i+1, opt.displayName, opt.description, marker)
+					}
+					_, _ = fmt.Fprintf(w, "Choose [1-%d]: ", len(scopeOptions))
 					line, _ := reader.ReadString('\n')
 					choice := strings.TrimSpace(line)
-					switch choice {
-					case "1":
-						setupScope = "read-only"
-					case "3":
-						setupScope = "full-admin"
-					default:
-						setupScope = "standard"
+
+					setupScope = defaultScope
+					if n, err := strconv.Atoi(choice); err == nil && n >= 1 && n <= len(scopeOptions) {
+						setupScope = scopeOptions[n-1].key
 					}
 				}
 			}
 
 			if _, ok := scopePresets[setupScope]; !ok {
-				return fmt.Errorf("invalid --scope %q: must be read-only, standard, or full-admin", setupScope)
+				return fmt.Errorf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames())
 			}
 
 			// Load config once for all instances
@@ -705,7 +736,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one Jamf Pro URL per line (for multi-instance setup)")
-	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
+	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope: %s (default: %s)", validScopeNames(), defaultScope))
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
 	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations")
 	cmd.MarkFlagsMutuallyExclusive("url", "from-file")
