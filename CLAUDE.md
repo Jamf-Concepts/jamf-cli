@@ -48,6 +48,9 @@ After modifying a template: `make generate && make test`
 | Change global flags or root command behavior | `internal/commands/root.go` |
 | Change config file handling | `internal/config/` |
 | Change shared CLI interfaces (CLIContext, etc.) | `internal/registry/` |
+| Modify the GitHub Pages showcase site | `docs/site/index.html`, `docs/site/style.css`, `docs/site/catalog.js`, `docs/site/terminal.js` |
+| Change how commands.json is generated for the site | `generator/site/main.go` |
+| Add a new product color to the site | CSS vars in `docs/site/style.css` (search "add new products here") + `PRODUCT_LABELS` in `docs/site/catalog.js` |
 
 ## Build & Dev Commands
 
@@ -58,6 +61,7 @@ make lint                   # golangci-lint (skips generated code via .golangci.
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
 make sync-specs             # Copy specs from jamf/jss repo, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
+make site                   # Build binary, generate commands.json, serve site locally at :8080
 make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```
@@ -97,6 +101,10 @@ internal/
     protect_*.go         Jamf Protect commands (CRUD, import/export, granular mutations)
     pro/
       generated/         Pro generated commands from OpenAPI specs + Classic manifest
+docs/
+  site/                  GitHub Pages showcase site (HTML/CSS/JS, deployed via GH Action)
+generator/
+  site/                  Site data generator: introspects binary → commands.json
 ```
 
 ### Code Generation Pipeline
