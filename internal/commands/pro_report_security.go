@@ -15,12 +15,10 @@ import (
 
 // Security status constants used across multiple commands.
 const (
-	statusFVAllEncrypted  = "ALL_ENCRYPTED"
-	statusFVBootEncrypted = "BOOT_ENCRYPTED"
-	statusGKDisabled      = "DISABLED"
-	statusGKDisabledAlt   = "Disabled" // Some API versions use mixed case
-	statusSIPEnabled      = "ENABLED"
-	statusSIPEnabledAlt   = "Enabled"
+	statusGKDisabled    = "DISABLED"
+	statusGKDisabledAlt = "Disabled" // Some API versions use mixed case
+	statusSIPEnabled    = "ENABLED"
+	statusSIPEnabledAlt = "Enabled"
 )
 
 // securityReport holds all sections of the security posture report.
@@ -56,7 +54,7 @@ all three sections.`,
 
 func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securityReport, error) {
 	computers, err := FetchAllPaginated(ctx, client,
-		"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY", 100)
+		"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY&section=DISK_ENCRYPTION", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}
@@ -78,6 +76,7 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		hardware, _ := c["hardware"].(map[string]any)
 		osInfo, _ := c["operatingSystem"].(map[string]any)
 		security, _ := c["security"].(map[string]any)
+		diskEnc, _ := c["diskEncryption"].(map[string]any)
 
 		name := strVal(general, "name")
 		if name == "" {
@@ -86,12 +85,14 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		serial := strVal(hardware, "serialNumber")
 		osVersion := strVal(osInfo, "version")
 
-		fvStatus := strVal(security, "fileVault2Status")
+		// v3 moved FileVault from security to diskEncryption section.
+		fvEnabled := boolVal(diskEnc, "fileVault2Enabled")
+		fvStatus := fileVaultStatus(diskEnc)
 		gkStatus := strVal(security, "gatekeeperStatus")
 		sipStatus := strVal(security, "sipStatus")
 		firewall := boolVal(security, "firewallEnabled")
 
-		if fvStatus == statusFVAllEncrypted || fvStatus == statusFVBootEncrypted {
+		if fvEnabled {
 			fvEncrypted++
 		}
 		if gkStatus != statusGKDisabled && gkStatus != statusGKDisabledAlt && gkStatus != "" {
@@ -109,13 +110,14 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		}
 
 		devices = append(devices, map[string]any{
-			"name":       name,
-			"serial":     serial,
-			"os_version": osVersion,
-			"filevault":  fvStatus,
-			"gatekeeper": gkStatus,
-			"sip":        sipStatus,
-			"firewall":   firewall,
+			"name":              name,
+			"serial":            serial,
+			"os_version":        osVersion,
+			"filevault":         fvStatus,
+			"filevault_enabled": fvEnabled,
+			"gatekeeper":        gkStatus,
+			"sip":               sipStatus,
+			"firewall":          firewall,
 		})
 	}
 
@@ -180,11 +182,11 @@ func printSecurityReport(report *securityReport) error {
 	// Show only devices with at least one issue
 	var flagged []map[string]any
 	for _, d := range report.Devices {
-		fv, _ := d["filevault"].(string)
+		fvEnabled, _ := d["filevault_enabled"].(bool)
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if (fv != statusFVAllEncrypted && fv != statusFVBootEncrypted && fv != "") ||
+		if !fvEnabled ||
 			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
 			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {
@@ -232,4 +234,19 @@ func boolVal(m map[string]any, key string) bool {
 	}
 	v, _ := m[key].(bool)
 	return v
+}
+
+// fileVaultStatus extracts the boot partition FileVault state from the
+// v3 diskEncryption section. Returns the partition state string
+// (e.g. "ENCRYPTED", "UNENCRYPTED") or empty string if unavailable.
+func fileVaultStatus(diskEnc map[string]any) string {
+	if diskEnc == nil {
+		return ""
+	}
+	boot, _ := diskEnc["bootPartitionEncryptionDetails"].(map[string]any)
+	if boot == nil {
+		return ""
+	}
+	state, _ := boot["partitionFileVault2State"].(string)
+	return state
 }

@@ -693,10 +693,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02A"},
 						"operatingSystem": {"version": "15.3"},
 						"security": {
-							"fileVault2Status": "ALL_ENCRYPTED",
 							"gatekeeperStatus": "ENABLED",
 							"sipStatus": "ENABLED",
 							"firewallEnabled": true
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": true,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "ENCRYPTED"}
 						}
 					},
 					{
@@ -705,10 +708,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02B"},
 						"operatingSystem": {"version": "14.1"},
 						"security": {
-							"fileVault2Status": "NOT_STARTED",
 							"gatekeeperStatus": "DISABLED",
 							"sipStatus": "ENABLED",
 							"firewallEnabled": false
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": false,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "UNENCRYPTED"}
 						}
 					},
 					{
@@ -717,10 +723,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02C"},
 						"operatingSystem": {"version": "15.3"},
 						"security": {
-							"fileVault2Status": "ALL_ENCRYPTED",
 							"gatekeeperStatus": "ENABLED",
 							"sipStatus": "DISABLED",
 							"firewallEnabled": true
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": true,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "ENCRYPTED"}
 						}
 					}
 				]
@@ -755,7 +764,7 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 		t.Errorf("firewall pct = %q, want 66.7%%", result.Summary["firewall_enabled_pct"])
 	}
 
-	// Check that Mac-B is flagged
+	// Check that Mac-B is flagged with UNENCRYPTED status
 	var macB map[string]any
 	for _, d := range result.Devices {
 		if d["name"] == "Mac-B" {
@@ -766,8 +775,8 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 	if macB == nil {
 		t.Fatal("missing Mac-B row")
 	}
-	if macB["filevault"] != "NOT_STARTED" {
-		t.Errorf("Mac-B filevault = %q, want NOT_STARTED", macB["filevault"])
+	if macB["filevault"] != "UNENCRYPTED" {
+		t.Errorf("Mac-B filevault = %q, want UNENCRYPTED", macB["filevault"])
 	}
 }
 
@@ -806,9 +815,9 @@ func TestRunReportSecurity_OSDistribution(t *testing.T) {
 			"/v3/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
-					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
-					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
-					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}}
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}},
+					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}}
 				]
 			}`},
 		},

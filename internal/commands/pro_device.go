@@ -65,13 +65,14 @@ func runDeviceDeepDive(ctx context.Context, client registry.HTTPClient, identifi
 	hardware, _ := detail["hardware"].(map[string]any)
 	operatingSystem, _ := detail["operatingSystem"].(map[string]any)
 	security, _ := detail["security"].(map[string]any)
+	diskEnc, _ := detail["diskEncryption"].(map[string]any)
 	userAndLocation, _ := detail["userAndLocation"].(map[string]any)
 
 	// 4. Build core sections.
 	sections := []overviewSection{
 		buildIdentitySection(deviceID, deviceName, general),
 		buildHardwareSection(hardware, operatingSystem),
-		buildSecuritySection(security),
+		buildSecuritySection(security, diskEnc),
 		buildUserLocationSection(userAndLocation),
 	}
 
@@ -156,17 +157,22 @@ func buildHardwareSection(hw, os map[string]any) overviewSection {
 	}
 }
 
-func buildSecuritySection(sec map[string]any) overviewSection {
+func buildSecuritySection(sec, diskEnc map[string]any) overviewSection {
 	sipStatus := strVal(sec, "sipStatus")
 	gkStatus := strVal(sec, "gatekeeperStatus")
 	fwEnabled := boolVal(sec, "firewallEnabled")
 	btAllowed := boolVal(sec, "bootstrapTokenAllowed")
 	btEscrow := strVal(sec, "bootstrapTokenEscrowedStatus")
 
-	fvStatus := strVal(sec, "fileVault2Status")
+	// v3 moved FileVault from security to diskEncryption section.
+	fvEnabled := boolVal(diskEnc, "fileVault2Enabled")
+	fvStatus := fileVaultStatus(diskEnc)
+	if fvStatus == "" && fvEnabled {
+		fvStatus = "ENCRYPTED"
+	}
 
 	var fvColor string
-	if fvStatus != "" && fvStatus != statusFVAllEncrypted && fvStatus != statusFVBootEncrypted {
+	if !fvEnabled && fvStatus != "" {
 		fvColor = "red"
 	}
 
