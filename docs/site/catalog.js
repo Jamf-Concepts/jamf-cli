@@ -2,7 +2,10 @@
   'use strict';
 
   var GROUP_ORDER = [
-    'Core Commands',
+    'Getting Started',
+    'Configuration',
+    'Shell Completion',
+    'Utilities',
     'Power Commands',
     'Computer Management',
     'Mobile Device Management',
@@ -37,8 +40,10 @@
     setupSearch();
     setupTabs();
     setupStatCards();
+    setupToggleAll();
     setupNavScroll();
     setupCopyButtons();
+    setupDeepLinking();
     fetchCommands();
   }
 
@@ -64,6 +69,7 @@
         populateStats(data);
         renderCatalog(allCommands, '', activeProduct);
         hideCatalogLoading();
+        handleDeepLink();
       })
       .catch(function (err) {
         var catalog = document.getElementById('catalog');
@@ -150,7 +156,8 @@
     if (!catalog) return;
 
     var filtered = filterCommands(commands, searchQuery, productFilter);
-    var groups = groupCommands(filtered);
+    var reclassified = reclassifyCoreCommands(filtered);
+    var groups = groupCommands(reclassified);
     var sorted = sortGroups(groups);
 
     catalog.innerHTML = '';
@@ -161,14 +168,71 @@
     }
 
     var hasSearch = !!(searchQuery && searchQuery.trim());
-    var lastProduct = '';
+
+    // Split groups into shared (no product) and per-product
+    // Multi-product groups get split: commands go under each product separately
+    var sharedGroups = [];
+    var productGroups = {};
     for (var i = 0; i < sorted.length; i++) {
-      var groupProduct = sorted[i].commands.length > 0 ? (sorted[i].commands[0].product || '') : '';
-      if (groupProduct && groupProduct !== lastProduct) {
-        catalog.appendChild(renderProductDivider(groupProduct));
-        lastProduct = groupProduct;
+      var byProduct = {};
+      var hasNoProduct = false;
+      for (var j = 0; j < sorted[i].commands.length; j++) {
+        var p = sorted[i].commands[j].product;
+        if (p) {
+          if (!byProduct[p]) byProduct[p] = [];
+          byProduct[p].push(sorted[i].commands[j]);
+        } else {
+          hasNoProduct = true;
+        }
       }
-      catalog.appendChild(renderGroup(sorted[i], hasSearch));
+      var prodKeys = Object.keys(byProduct);
+
+      if (prodKeys.length === 0) {
+        // All commands have no product — truly shared
+        sharedGroups.push(sorted[i]);
+      } else if (prodKeys.length === 1 && !hasNoProduct) {
+        // All commands are one product
+        var prod = prodKeys[0];
+        if (!productGroups[prod]) productGroups[prod] = [];
+        productGroups[prod].push(sorted[i]);
+      } else {
+        // Mixed products or mix of product + no-product — split by product
+        if (hasNoProduct) {
+          var noProdCmds = sorted[i].commands.filter(function (c) { return !c.product; });
+          sharedGroups.push({ name: sorted[i].name, commands: noProdCmds });
+        }
+        for (var pk = 0; pk < prodKeys.length; pk++) {
+          var prd = prodKeys[pk];
+          if (!productGroups[prd]) productGroups[prd] = [];
+          productGroups[prd].push({ name: sorted[i].name, commands: byProduct[prd] });
+        }
+      }
+    }
+
+    // Render shared groups first (no divider)
+    for (var s = 0; s < sharedGroups.length; s++) {
+      catalog.appendChild(renderGroup(sharedGroups[s], hasSearch));
+    }
+
+    // Render each product's groups under a divider
+    var productOrder = Object.keys(PRODUCT_LABELS);
+    for (var pi = 0; pi < productOrder.length; pi++) {
+      var prod = productOrder[pi];
+      if (!productGroups[prod] || productGroups[prod].length === 0) continue;
+      catalog.appendChild(renderProductDivider(prod));
+      for (var g = 0; g < productGroups[prod].length; g++) {
+        catalog.appendChild(renderGroup(productGroups[prod][g], hasSearch));
+      }
+    }
+
+    // Any remaining products not in PRODUCT_LABELS
+    var allProds = Object.keys(productGroups);
+    for (var r = 0; r < allProds.length; r++) {
+      if (PRODUCT_LABELS[allProds[r]]) continue;
+      catalog.appendChild(renderProductDivider(allProds[r]));
+      for (var rg = 0; rg < productGroups[allProds[r]].length; rg++) {
+        catalog.appendChild(renderGroup(productGroups[allProds[r]][rg], hasSearch));
+      }
     }
   }
 
@@ -186,10 +250,66 @@
 
     var label = document.createElement('span');
     label.className = 'product-divider-label';
-    label.textContent = PRODUCT_LABELS[product] || product;
+    label.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[product] || product);
     divider.appendChild(label);
 
     return divider;
+  }
+
+  // Detect when a command references another product (e.g., "pro jamf-protect-plans" → protect)
+  // Uses word-boundary matching to avoid false positives like "protect" matching "pro"
+  function detectRelatedProduct(cmd) {
+    if (!cmd.product || !cmd.command) return null;
+    var productNames = Object.keys(PRODUCT_LABELS);
+    // Strip the product prefix to avoid self-matching (e.g., "protect ..." shouldn't match "pro")
+    var parts = cmd.command.split(' ');
+    var remainder = parts.slice(1).join(' ').toLowerCase();
+    for (var i = 0; i < productNames.length; i++) {
+      var other = productNames[i];
+      if (other === cmd.product) continue;
+      // Match as a whole word or hyphenated segment (e.g., "jamf-protect" contains "protect")
+      var re = new RegExp('(^|[^a-z])' + other + '([^a-z]|$)');
+      if (re.test(remainder)) return other;
+    }
+    return null;
+  }
+
+  // Reclassify "Core Commands" into more meaningful subgroups
+  var GETTING_STARTED_ORDER = ['setup', 'overview', 'device', 'auth'];
+
+  var CORE_SUBGROUPS = {
+    'completion': 'Shell Completion',
+    'config': 'Configuration'
+  };
+
+  function reclassifyCoreCommands(commands) {
+    return commands.map(function (cmd) {
+      if (cmd.group !== 'Core Commands') return cmd;
+
+      // Product-specific core → "Getting Started" under that product
+      if (cmd.product) {
+        var parts = cmd.command.split(' ');
+        var action = parts[parts.length - 1];
+        var order = GETTING_STARTED_ORDER.indexOf(action);
+        if (order === -1) order = 99;
+        return Object.assign({}, cmd, { group: 'Getting Started', _gsOrder: order });
+      }
+
+      // Non-product core → split by first command segment
+      var firstWord = cmd.command.split(' ')[0];
+      var subgroup = CORE_SUBGROUPS[firstWord];
+      if (subgroup) {
+        return Object.assign({}, cmd, { group: subgroup });
+      }
+
+      // Everything else → Utilities
+      return Object.assign({}, cmd, { group: 'Utilities' });
+    }).sort(function (a, b) {
+      if (a.group === 'Getting Started' && b.group === 'Getting Started') {
+        return (a._gsOrder || 99) - (b._gsOrder || 99);
+      }
+      return 0;
+    });
   }
 
   function filterCommands(commands, query, product) {
@@ -253,6 +373,7 @@
   function renderGroup(group, startExpanded) {
     var container = document.createElement('div');
     container.className = 'catalog-group';
+    if (group.name === 'Getting Started') container.classList.add('getting-started');
 
     // Determine which products are in this group
     var products = {};
@@ -287,13 +408,16 @@
 
     // Show product badges if group has commands from multiple products, or for Core/shared groups
     if (productKeys.length > 1 || (productKeys.length === 1 && group.name === 'Core Commands')) {
+      var badgeWrap = document.createElement('span');
+      badgeWrap.className = 'header-badges';
       for (var b = 0; b < productKeys.length; b++) {
         var badge = document.createElement('span');
-        badge.className = 'product-badge';
+        badge.className = 'cmd-product-badge';
         badge.setAttribute('data-product', productKeys[b]);
         badge.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[productKeys[b]] || productKeys[b]);
-        header.appendChild(badge);
+        badgeWrap.appendChild(badge);
       }
+      header.appendChild(badgeWrap);
     }
 
     var commandsDiv = document.createElement('div');
@@ -336,26 +460,75 @@
 
     var nameSpan = document.createElement('span');
     nameSpan.className = 'command-name';
-    // Split command into prefix (dimmed) and action (bold)
+    // Split: product (full color) + resource path (dimmed) + action (bold)
     var parts = cmd.command.split(' ');
-    if (parts.length > 1) {
-      var prefix = document.createElement('span');
-      prefix.className = 'cmd-prefix';
-      prefix.textContent = parts.slice(0, -1).join(' ') + ' ';
-      nameSpan.appendChild(prefix);
+    if (parts.length > 2) {
+      var productSpan = document.createElement('span');
+      productSpan.className = 'cmd-product';
+      productSpan.textContent = parts[0] + ' ';
+      nameSpan.appendChild(productSpan);
+      var resource = document.createElement('span');
+      resource.className = 'cmd-prefix';
+      resource.textContent = parts.slice(1, -1).join(' ') + ' ';
+      nameSpan.appendChild(resource);
       var action = document.createElement('span');
       action.className = 'cmd-action';
       action.textContent = parts[parts.length - 1];
       nameSpan.appendChild(action);
+    } else if (parts.length === 2) {
+      var productSpan2 = document.createElement('span');
+      productSpan2.className = 'cmd-product';
+      productSpan2.textContent = parts[0] + ' ';
+      nameSpan.appendChild(productSpan2);
+      var action2 = document.createElement('span');
+      action2.className = 'cmd-action';
+      action2.textContent = parts[1];
+      nameSpan.appendChild(action2);
     } else {
       nameSpan.textContent = cmd.command;
     }
+    var copyIcon = document.createElement('span');
+    copyIcon.className = 'command-copy-icon';
+    copyIcon.setAttribute('title', 'Copy: jamf-cli ' + cmd.command);
+    copyIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    copyIcon.addEventListener('click', function (e) {
+      e.stopPropagation();
+      navigator.clipboard.writeText('jamf-cli ' + cmd.command).then(function () {
+        nameSpan.classList.add('copied');
+        setTimeout(function () { nameSpan.classList.remove('copied'); }, 1500);
+      });
+    });
+    nameSpan.appendChild(copyIcon);
     row.appendChild(nameSpan);
+
+    var descLine = document.createElement('div');
+    descLine.className = 'command-desc-line';
 
     var descSpan = document.createElement('span');
     descSpan.className = 'command-desc';
     descSpan.textContent = cmd.description || '';
-    row.appendChild(descSpan);
+    descLine.appendChild(descSpan);
+
+    // Product badge on every command
+    if (cmd.product && PRODUCT_LABELS[cmd.product]) {
+      var prodBadge = document.createElement('span');
+      prodBadge.className = 'cmd-product-badge';
+      prodBadge.setAttribute('data-product', cmd.product);
+      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product];
+      descLine.appendChild(prodBadge);
+    }
+
+    // Cross-product reference badge
+    var relatedProduct = detectRelatedProduct(cmd);
+    if (relatedProduct) {
+      var xrefBadge = document.createElement('span');
+      xrefBadge.className = 'xref-badge';
+      xrefBadge.setAttribute('data-product', relatedProduct);
+      xrefBadge.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[relatedProduct] || relatedProduct);
+      descLine.appendChild(xrefBadge);
+    }
+
+    row.appendChild(descLine);
 
     var hasAliases = cmd.aliases && cmd.aliases.length > 0;
     var hasFlags = cmd.flags && cmd.flags.length > 0;
@@ -368,7 +541,7 @@
         for (var a = 0; a < cmd.aliases.length; a++) {
           var aliasBadge = document.createElement('span');
           aliasBadge.className = 'alias-badge';
-          aliasBadge.textContent = cmd.aliases[a];
+          aliasBadge.textContent = 'alias: ' + cmd.aliases[a];
           meta.appendChild(aliasBadge);
         }
       }
@@ -400,6 +573,14 @@
 
       detail.classList.toggle('open');
       expandedCommand = isOpen ? null : detail;
+
+      // Update URL hash for deep linking
+      if (!isOpen) {
+        var cmdHash = '#cmd/' + cmd.command.replace(/ /g, '/');
+        history.pushState({ search: document.getElementById('search').value, cmd: cmd.command }, '', cmdHash);
+      } else {
+        history.pushState({ search: document.getElementById('search').value, cmd: null }, '', '#commands');
+      }
     });
 
     return { row: row, detail: detail };
@@ -412,40 +593,46 @@
     return el;
   }
 
+  function getParentPath(command) {
+    var parts = command.split(' ');
+    if (parts.length > 1) return parts.slice(0, -1).join(' ');
+    return null;
+  }
+
+  function findSiblings(cmd) {
+    var parent = getParentPath(cmd.command);
+    if (!parent) return [];
+    var siblings = [];
+    for (var i = 0; i < allCommands.length; i++) {
+      var other = allCommands[i];
+      if (other.command === cmd.command) continue;
+      if (getParentPath(other.command) === parent) {
+        siblings.push(other);
+      }
+    }
+    return siblings;
+  }
+
   function buildDetailContent(cmd) {
     var frag = document.createDocumentFragment();
 
-    if (cmd.description) {
-      var desc = document.createElement('p');
-      desc.style.marginBottom = '0.5rem';
-      desc.textContent = cmd.description;
-      frag.appendChild(desc);
-    }
-
-    if (cmd.flags && cmd.flags.length > 0) {
-      frag.appendChild(createDetailHeading('Flags'));
-      var flagsWrap = document.createElement('div');
-      flagsWrap.style.marginBottom = '0.5rem';
-      for (var f = 0; f < cmd.flags.length; f++) {
-        var pill = document.createElement('span');
-        pill.className = 'flag-pill';
-        pill.textContent = cmd.flags[f];
-        flagsWrap.appendChild(pill);
-      }
-      frag.appendChild(flagsWrap);
-    }
-
-    if (cmd.aliases && cmd.aliases.length > 0) {
-      frag.appendChild(createDetailHeading('Aliases'));
-      var aliasWrap = document.createElement('div');
-      aliasWrap.style.marginBottom = '0.5rem';
-      for (var a = 0; a < cmd.aliases.length; a++) {
-        var badge = document.createElement('span');
-        badge.className = 'alias-badge';
-        badge.textContent = cmd.aliases[a];
-        aliasWrap.appendChild(badge);
-      }
-      frag.appendChild(aliasWrap);
+    // Breadcrumb: "Subcommand of pro computers"
+    var parent = getParentPath(cmd.command);
+    if (parent) {
+      var breadcrumb = document.createElement('div');
+      breadcrumb.className = 'detail-breadcrumb';
+      breadcrumb.textContent = 'Subcommand of ';
+      var parentLink = document.createElement('a');
+      parentLink.className = 'detail-parent-link';
+      parentLink.textContent = parent;
+      parentLink.href = '#';
+      parentLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateToCommand(parent);
+      });
+      breadcrumb.appendChild(parentLink);
+      frag.appendChild(breadcrumb);
     }
 
     // Hero example (if available)
@@ -456,6 +643,35 @@
       var promptLine = '$ ' + example.example + '\n';
       pre.textContent = promptLine + example.output;
       frag.appendChild(pre);
+    }
+
+    // Related commands (siblings under same parent)
+    var siblings = findSiblings(cmd);
+    if (siblings.length > 0) {
+      frag.appendChild(createDetailHeading('Related commands'));
+      var siblingList = document.createElement('div');
+      siblingList.className = 'detail-siblings';
+      for (var s = 0; s < siblings.length; s++) {
+        var sibCmd = siblings[s];
+        var sibParts = sibCmd.command.split(' ');
+        var sibAction = sibParts[sibParts.length - 1];
+
+        var sibEl = document.createElement('a');
+        sibEl.className = 'sibling-link';
+        sibEl.href = '#';
+        sibEl.setAttribute('data-product', sibCmd.product || '');
+        sibEl.textContent = sibAction;
+        sibEl.title = 'jamf-cli ' + sibCmd.command;
+        (function (command) {
+          sibEl.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            navigateToCommand(command);
+          });
+        })(sibCmd.command);
+        siblingList.appendChild(sibEl);
+      }
+      frag.appendChild(siblingList);
     }
 
     return frag;
@@ -481,15 +697,28 @@
   function setupSearch() {
     var search = document.getElementById('search');
     if (!search) return;
+    var wrap = search.closest('.search-wrap');
+    var clearBtn = document.getElementById('search-clear');
 
     var debounceTimer;
     search.addEventListener('input', function () {
+      if (wrap) wrap.classList.toggle('has-value', search.value.length > 0);
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(function () {
         var query = search.value.trim();
         renderCatalog(allCommands, query, activeProduct);
       }, 200);
     });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        search.value = '';
+        if (wrap) wrap.classList.remove('has-value');
+        renderCatalog(allCommands, '', activeProduct);
+        search.focus();
+        history.pushState({ search: '', cmd: null }, '', '#commands');
+      });
+    }
   }
 
   // ===== Product Tabs =====
@@ -508,6 +737,25 @@
         renderCatalog(allCommands, query, activeProduct);
       });
     }
+  }
+
+  function setupToggleAll() {
+    var btn = document.getElementById('toggle-all');
+    if (!btn) return;
+    var allExpanded = false;
+
+    btn.addEventListener('click', function () {
+      allExpanded = !allExpanded;
+      var headers = document.querySelectorAll('.catalog-group-header');
+      for (var i = 0; i < headers.length; i++) {
+        headers[i].setAttribute('aria-expanded', String(allExpanded));
+        var commands = headers[i].nextElementSibling;
+        if (commands && commands.classList.contains('group-commands')) {
+          commands.style.display = allExpanded ? '' : 'none';
+        }
+      }
+      btn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+    });
   }
 
   function setupStatCards() {
@@ -531,6 +779,48 @@
   }
 
   // ===== Nav Scroll (IntersectionObserver) =====
+
+  // ===== Deep Linking & Navigation =====
+
+  function navigateToCommand(command) {
+    var search = document.getElementById('search');
+    if (search) {
+      var cmdHash = '#cmd/' + command.replace(/ /g, '/');
+      history.pushState({ search: command, cmd: command }, '', cmdHash);
+      search.value = command;
+      search.dispatchEvent(new Event('input'));
+      search.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function handleDeepLink() {
+    var hash = window.location.hash;
+    if (!hash || !hash.startsWith('#cmd/')) return;
+    var command = hash.slice(5).replace(/\//g, ' ');
+    var search = document.getElementById('search');
+    if (search) {
+      search.value = command;
+      search.dispatchEvent(new Event('input'));
+    }
+  }
+
+  function setupDeepLinking() {
+    window.addEventListener('popstate', function (e) {
+      var search = document.getElementById('search');
+      if (!search) return;
+      if (e.state && e.state.search != null) {
+        search.value = e.state.search;
+      } else {
+        var hash = window.location.hash;
+        if (hash && hash.startsWith('#cmd/')) {
+          search.value = hash.slice(5).replace(/\//g, ' ');
+        } else {
+          search.value = '';
+        }
+      }
+      search.dispatchEvent(new Event('input'));
+    });
+  }
 
   function setupNavScroll() {
     var hero = document.getElementById('hero');
