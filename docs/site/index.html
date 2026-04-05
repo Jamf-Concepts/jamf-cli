@@ -300,6 +300,17 @@
         var search = document.getElementById('search');
         if (search) search.focus();
       }
+      if (e.key === 'Escape') {
+        var search = document.getElementById('search');
+        if (search && search.value) {
+          e.preventDefault();
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          var wrap = search.closest('.search-wrap');
+          if (wrap) wrap.classList.remove('has-value');
+          search.blur();
+        }
+      }
     });
 
   </script>

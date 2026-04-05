@@ -834,9 +834,11 @@ a.stat-card:hover {
   position: relative;
 }
 
-.command-row:hover {
+.command-row:hover,
+.command-row:focus-visible {
   border-color: var(--text-secondary);
   background: var(--page-bg);
+  outline: none;
 }
 
 .command-name {
@@ -1323,6 +1325,7 @@ footer .footer-meta {
 @media (max-width: 768px) {
   nav {
     padding: 0.75rem 1.25rem;
+    flex-wrap: wrap;
   }
 
   .nav-links {
@@ -1332,10 +1335,12 @@ footer .footer-meta {
     left: 0;
     right: 0;
     flex-direction: column;
-    background: var(--hero-bg);
+    background: var(--page-bg);
     padding: 1rem 1.25rem;
     gap: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 99;
   }
 
   .nav-links.open {
@@ -1344,10 +1349,23 @@ footer .footer-meta {
 
   .hamburger {
     display: flex;
+    order: 2;
+  }
+
+  .hamburger span {
+    background: var(--text-primary);
+  }
+
+  .theme-toggle {
+    order: 3;
+  }
+
+  .nav-brand {
+    order: 1;
   }
 
   #hero {
-    padding: 5.5rem 1.25rem 3rem;
+    padding: 5rem 1.25rem 2rem;
   }
 
   #hero h1 {
@@ -1368,32 +1386,94 @@ footer .footer-meta {
     max-width: 260px;
   }
 
+  .stat-secondary {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .stat-dot {
+    display: none;
+  }
+
   #terminal {
     margin-left: -0.5rem;
     margin-right: -0.5rem;
     border-radius: 8px;
   }
 
+  #commands {
+    padding: 2rem 1rem;
+  }
+
   .commands-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.5rem;
+  }
+
+  .catalog-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toggle-all-btn {
+    width: 100%;
+  }
+
+  .product-divider {
+    top: 50px;
+  }
+
+  .catalog-group-header {
+    top: 88px;
+    font-size: 0.7rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .header-badges {
+    display: none;
+  }
+
+  .command-name {
+    font-size: 0.75rem;
+  }
+
+  .command-desc {
+    font-size: 0.8rem;
+  }
+
+  .flag-pill,
+  .alias-badge {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.35rem;
+  }
+
+  .cmd-product-badge {
+    font-size: 0.5rem;
   }
 
   .install-card {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .install-card h3 {
     min-width: auto;
   }
 
-  .hero-examples {
-    gap: 0.35rem;
-  }
-
-  .hero-example-btn {
-    font-size: 0.65rem;
-    padding: 0.25rem 0.5rem;
+  #install {
+    padding: 3rem 1.25rem;
   }
 }
 

@@ -41,6 +41,7 @@
     setupTabs();
     setupStatCards();
     setupToggleAll();
+    setupKeyboardNav();
     setupNavScroll();
     setupCopyButtons();
     setupDeepLinking();
@@ -93,6 +94,9 @@
 
     setText('command-count', count.toLocaleString());
     setText('stat-commands', count.toLocaleString());
+
+    var search = document.getElementById('search');
+    if (search) search.placeholder = 'Search ' + count.toLocaleString() + ' commands... (press / to focus)';
 
     var proCount = 0;
     var protectCount = 0;
@@ -472,6 +476,7 @@
   function renderCommandRow(cmd) {
     var row = document.createElement('div');
     row.className = 'command-row';
+    row.setAttribute('tabindex', '0');
     if (cmd.product) {
       row.setAttribute('data-product', cmd.product);
     }
@@ -868,6 +873,47 @@
   }
 
   // ===== Copy Buttons =====
+
+  function setupKeyboardNav() {
+    var catalog = document.getElementById('catalog');
+    if (!catalog) return;
+
+    document.addEventListener('keydown', function (e) {
+      // Only handle when not in an input
+      var tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      var rows = catalog.querySelectorAll('.command-row');
+      if (rows.length === 0) return;
+
+      var currentIndex = -1;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i] === document.activeElement || rows[i].contains(document.activeElement)) {
+          currentIndex = i;
+          break;
+        }
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        var next = currentIndex + 1;
+        if (next < rows.length) {
+          rows[next].focus();
+          rows[next].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        var prev = currentIndex - 1;
+        if (prev >= 0) {
+          rows[prev].focus();
+          rows[prev].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      } else if (e.key === 'Enter' && currentIndex >= 0) {
+        e.preventDefault();
+        rows[currentIndex].click();
+      }
+    });
+  }
 
   function setupCopyButtons() {
     document.addEventListener('click', function (e) {
