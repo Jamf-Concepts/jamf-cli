@@ -186,7 +186,7 @@ func printSecurityReport(report *securityReport) error {
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if fv != "ENCRYPTED" ||
+		if (fv != "ENCRYPTED" && fv != "") ||
 			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
 			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {
