@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs install lint verify-generated smoke smoke-seed smoke-cleanup release-check
+.PHONY: build test clean generate sync-specs install lint verify-generated smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -84,6 +84,12 @@ dev: build
 deps:
 	go mod tidy
 	go mod download
+
+# Generate site data and serve locally
+site: build
+	go run ./generator/site/main.go --binary ./bin/jamf-cli --output ./docs/site/commands.json
+	@echo "Serving at http://localhost:8080 — press Ctrl+C to stop"
+	@cd docs/site && python3 -m http.server 8080
 
 # Verify generated code is up to date (CI-safe)
 verify-generated:

@@ -48,6 +48,11 @@ After modifying a template: `make generate && make test`
 | Change global flags or root command behavior | `internal/commands/root.go` |
 | Change config file handling | `internal/config/` |
 | Change shared CLI interfaces (CLIContext, etc.) | `internal/registry/` |
+| Modify the GitHub Pages showcase site | `docs/site/index.html`, `docs/site/style.css`, `docs/site/catalog.js`, `docs/site/terminal.js` |
+| Change how commands.json is generated for the site | `generator/site/main.go` |
+| Add a new product color to the site | CSS vars in `docs/site/style.css` (search "add new products here") + `PRODUCT_LABELS` and `CORE_SUBGROUPS` in `docs/site/catalog.js` |
+| Reclassify a command group on the site | `catalog.js` — `CORE_SUBGROUPS` map, `GROUP_ORDER` array, `reclassifyCoreCommands()` |
+| Add a new Jamf product namespace | Also update site: `PRODUCT_LABELS` in `catalog.js`, `--product-*` CSS vars, product badge selectors |
 
 ## Build & Dev Commands
 
@@ -58,6 +63,7 @@ make lint                   # golangci-lint (skips generated code via .golangci.
 make generate               # Regenerate commands from OpenAPI specs + Classic manifest
 make sync-specs             # Copy specs from jamf/jss repo, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
+make site                   # Build binary, generate commands.json, serve site locally at :8080
 make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
 ```
@@ -97,6 +103,10 @@ internal/
     protect_*.go         Jamf Protect commands (CRUD, import/export, granular mutations)
     pro/
       generated/         Pro generated commands from OpenAPI specs + Classic manifest
+docs/
+  site/                  GitHub Pages showcase site (HTML/CSS/JS, deployed via GH Action)
+generator/
+  site/                  Site data generator: introspects binary → commands.json
 ```
 
 ### Code Generation Pipeline
@@ -119,6 +129,21 @@ Key types available in templates:
 - **`classic.ClassicResource`** — `Name`, `Path`, `CLIName`, `GoName`, `Singular`, `Operations`, `Lookups`
 
 See `generator/README.md` for full template function reference and testing workflow.
+
+### GitHub Pages Site
+
+The site at `docs/site/` auto-deploys on every push to `main` via `.github/workflows/deploy-site.yaml`. It introspects the built binary to generate `commands.json` — no manual updates needed when commands change.
+
+**What auto-updates:** command list, counts, groups, products, flags, aliases, version, timestamp, "New" badges (diff against previous deploy).
+
+**What needs manual updates when adding a product:**
+1. `docs/site/style.css` — add `--product-<name>` CSS variable and all `[data-product="<name>"]` selectors (search "add new products here")
+2. `docs/site/catalog.js` — add to `PRODUCT_LABELS` map
+
+**What needs manual updates when reclassifying groups:**
+1. `docs/site/catalog.js` — `GROUP_ORDER` array (display order), `CORE_SUBGROUPS` map (splits Core Commands), `GETTING_STARTED_ORDER` (sort within Getting Started)
+
+**Local dev:** `make site` builds the binary, generates `commands.json`, and serves at localhost:8080.
 
 ### Runtime Flow
 

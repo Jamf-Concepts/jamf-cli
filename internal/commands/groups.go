@@ -2,7 +2,11 @@
 
 package commands
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
 
 // ─── Root-level groups ──────────────────────────────────────────────────────
 
@@ -364,4 +368,19 @@ func applyProtectGroups(protect *cobra.Command) {
 			cmd.GroupID = gid
 		}
 	}
+}
+
+// groupTitleMap is a cached lookup from group ID to display title, built once on first use.
+var groupTitleMap map[string]string
+
+func groupTitle(id string) string {
+	if groupTitleMap == nil {
+		groupTitleMap = make(map[string]string)
+		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups} {
+			for _, g := range groups {
+				groupTitleMap[g.ID] = strings.TrimSuffix(g.Title, ":")
+			}
+		}
+	}
+	return groupTitleMap[id]
 }

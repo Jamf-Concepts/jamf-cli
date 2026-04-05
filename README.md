@@ -4,6 +4,8 @@ Unified CLI for the Jamf platform. Supports Jamf Pro and Jamf Protect.
 
 **[Documentation Wiki](https://github.com/Jamf-Concepts/jamf-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
+**[Command Explorer](https://jamf-concepts.github.io/jamf-cli/)** — interactive showcase of all commands, searchable and filterable. Auto-updated on every merge.
+
 ![jamf-cli demo](docs/demo.gif)
 
 ## Installation

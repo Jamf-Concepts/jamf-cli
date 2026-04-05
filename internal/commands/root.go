@@ -530,6 +530,8 @@ type commandEntry struct {
 	Description string   `json:"description"`
 	Aliases     []string `json:"aliases,omitempty"`
 	Flags       []string `json:"flags,omitempty"`
+	Product     string   `json:"product,omitempty"`
+	Group       string   `json:"group,omitempty"`
 }
 
 // newCommandsCmd creates the "commands" subcommand that outputs the full
@@ -540,7 +542,7 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 		Short: "List all available commands",
 		Long:  `List all available commands in a structured format for discovery by scripts and AI agents.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			entries := collectCommands(root, "")
+			entries := collectCommands(root, "", "", "")
 			formatter := output.New(outputFmt, noColor, wide)
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
@@ -551,7 +553,8 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 }
 
 // collectCommands recursively walks the command tree and returns leaf commands.
-func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
+// product and group are inherited from parent context and updated as we descend.
+func collectCommands(cmd *cobra.Command, prefix, product, group string) []commandEntry {
 	var entries []commandEntry
 	for _, child := range cmd.Commands() {
 		if child.Hidden || child.Name() == "help" || child.Name() == "commands" {
@@ -563,11 +566,25 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
 			fullPath = prefix + " " + child.Name()
 		}
 
+		// Determine product for this child's subtree.
+		childProduct := product
+		if child.Name() == "pro" || child.Name() == "protect" {
+			childProduct = child.Name()
+		}
+
+		// Determine group for this child's subtree.
+		childGroup := group
+		if child.GroupID != "" {
+			childGroup = groupTitle(child.GroupID)
+		}
+
 		// Leaf command: has RunE or Run
 		if child.RunE != nil || child.Run != nil {
 			entry := commandEntry{
 				Command:     fullPath,
 				Description: child.Short,
+				Product:     childProduct,
+				Group:       childGroup,
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -593,7 +610,7 @@ func collectCommands(cmd *cobra.Command, prefix string) []commandEntry {
 
 		// Recurse into subcommands
 		if child.HasSubCommands() {
-			entries = append(entries, collectCommands(child, fullPath)...)
+			entries = append(entries, collectCommands(child, fullPath, childProduct, childGroup)...)
 		}
 	}
 	return entries
@@ -621,6 +638,8 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			}
 			m["aliases"] = aliases
 			m["flags"] = flags
+			m["product"] = e.Product
+			m["group"] = e.Group
 		}
 		result[i] = m
 	}

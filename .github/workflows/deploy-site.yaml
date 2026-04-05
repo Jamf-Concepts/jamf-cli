@@ -1,0 +1,57 @@
+name: Deploy Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build CLI
+        run: make build
+
+      - name: Download previous commands.json
+        run: |
+          curl -sSfL "${{ steps.deployment.outputs.page_url || 'https://jamf-concepts.github.io/jamf-cli/' }}commands.json" \
+            -o /tmp/previous-commands.json 2>/dev/null || echo "No previous commands.json (first deploy)"
+
+      - name: Generate commands.json
+        run: |
+          PREV_FLAG=""
+          if [ -f /tmp/previous-commands.json ]; then
+            PREV_FLAG="--previous /tmp/previous-commands.json"
+          fi
+          go run ./generator/site/main.go \
+            --binary ./bin/jamf-cli \
+            --output ./docs/site/commands.json \
+            $PREV_FLAG
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

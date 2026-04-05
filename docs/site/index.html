@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Pro and Jamf Protect">
+  <title>jamf-cli — Your fleet, one command away</title>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="jamf-cli — Your fleet, one command away">
+  <meta property="og:description" content="Unified CLI for Jamf Pro and Jamf Protect. 980+ commands. Full API coverage. Zero clicks.">
+  <meta property="og:url" content="https://jamf-concepts.github.io/jamf-cli/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="jamf-cli — Your fleet, one command away">
+  <meta name="twitter:description" content="Unified CLI for Jamf Pro and Jamf Protect. 980+ commands. Full API coverage. Zero clicks.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== Nav ===== -->
+  <nav>
+    <a href="#" class="nav-brand">
+      jamf-cli
+      <span class="version-badge" id="version-badge"></span>
+    </a>
+    <button class="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <ul class="nav-links">
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </nav>
+
+  <!-- ===== Hero ===== -->
+  <section id="hero">
+    <div class="hero-brand">jamf-cli</div>
+    <h1>Your fleet, one command away</h1>
+    <p class="subtitle">
+      Unified CLI for Jamf Pro and Jamf Protect.
+      <span id="command-count">&mdash;</span> commands. Full API coverage. Zero clicks.
+    </p>
+
+    <div class="stat-cards">
+      <a href="#commands" class="stat-card" data-product="pro" data-tab="pro">
+        <span class="stat-value" id="stat-pro">&mdash;</span>
+        <span class="stat-label"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Pro</span>
+      </a>
+      <a href="#commands" class="stat-card" data-product="protect" data-tab="protect">
+        <span class="stat-value" id="stat-protect">&mdash;</span>
+        <span class="stat-label"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Protect</span>
+      </a>
+      <a href="#commands" class="stat-card" data-product="core" data-tab="all">
+        <span class="stat-value" id="stat-core">&mdash;</span>
+        <span class="stat-label">Core / Shared</span>
+      </a>
+    </div>
+
+    <div class="stat-secondary">
+      <span class="stat-tip" data-tip="Unique API resources across Jamf Pro and Jamf Protect"><strong id="stat-resources">&mdash;</strong> Resources</span>
+      <span class="stat-dot">&middot;</span>
+      <span class="stat-tip" data-tip="JSON, YAML, CSV, Table, Plain, and Field extraction"><strong>6</strong> Output Formats</span>
+      <span class="stat-dot">&middot;</span>
+      <span class="stat-tip" data-tip="Bearer Token, OAuth2 Client Credentials, and Platform Gateway"><strong>3</strong> Auth Methods</span>
+    </div>
+
+    <div id="terminal">
+      <div class="terminal-titlebar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+      </div>
+      <div id="terminal-output"></div>
+      <div style="padding: 0 1.25rem 1rem;">
+        <div class="terminal-cursor"></div>
+      </div>
+    </div>
+
+    <div class="hero-install">
+      <div class="code-block">
+        <code><span aria-hidden="true">🍺 </span>brew install Jamf-Concepts/tap/jamf-cli</code>
+        <button class="copy-btn" aria-label="Copy install command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Commands Catalog ===== -->
+  <section id="commands">
+    <div class="commands-header">
+      <h2>Commands</h2>
+      <div class="tabs">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="pro"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Pro</button>
+        <button class="tab" data-filter="protect"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Protect</button>
+      </div>
+    </div>
+    <div class="catalog-controls">
+      <div class="search-wrap">
+        <input id="search" type="text" placeholder="Search commands... (press / to focus)" aria-label="Search commands">
+        <button id="search-clear" class="search-clear" aria-label="Clear search" type="button">&times;</button>
+      </div>
+      <button id="toggle-all" class="toggle-all-btn" title="Expand/collapse all groups">Expand All</button>
+      <button class="kbd-hint-btn" id="kbd-hint-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button>
+    </div>
+    <div id="catalog-loading">Loading commands...</div>
+    <div id="catalog"></div>
+  </section>
+
+  <!-- ===== Install ===== -->
+  <section id="install">
+    <div class="install-inner">
+      <h2>Install</h2>
+      <div class="install-grid">
+
+        <div class="install-card">
+          <h3>🍺 Homebrew</h3>
+          <div class="code-block">
+            <code>brew install Jamf-Concepts/tap/jamf-cli</code>
+            <button class="copy-btn" aria-label="Copy Homebrew command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="install-card">
+          <h3>🛠️ Source</h3>
+          <div class="code-block">
+            <code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>
+            <button class="copy-btn" aria-label="Copy go install command" data-copy="go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="install-card">
+          <h3>📦 Binary</h3>
+          <p>Download pre-built binaries for macOS, Linux, and Windows.</p>
+          <a class="btn" href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">
+            Download from GitHub
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Keyboard Shortcuts Modal ===== -->
+  <div class="kbd-modal" id="kbd-modal">
+    <div class="kbd-modal-content">
+      <div class="kbd-modal-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button class="kbd-modal-close" id="kbd-modal-close">&times;</button>
+      </div>
+      <div class="kbd-modal-body">
+        <div class="kbd-row"><kbd>/</kbd> <span>Focus search</span></div>
+        <div class="kbd-row"><kbd>Esc</kbd> <span>Clear search</span></div>
+        <div class="kbd-row"><kbd>&darr;</kbd> <kbd>j</kbd> <span>Next command</span></div>
+        <div class="kbd-row"><kbd>&uarr;</kbd> <kbd>k</kbd> <span>Previous command</span></div>
+        <div class="kbd-row"><kbd>Enter</kbd> <span>Expand command</span></div>
+        <div class="kbd-row"><kbd>c</kbd> <span>Copy command</span></div>
+        <div class="kbd-row"><kbd>?</kbd> <span>Toggle this guide</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Footer ===== -->
+  <footer>
+    <ul class="footer-links">
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
+      <li><a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">Releases</a></li>
+    </ul>
+    <p>Auto-generated on every merge to main · Press <kbd class="footer-kbd">?</kbd> for keyboard shortcuts</p>
+    <p class="footer-meta">
+      <span id="last-updated"></span>
+      <span id="footer-version"></span>
+    </p>
+  </footer>
+
+  <!-- ===== Back to Top ===== -->
+  <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+
+  <!-- ===== Embedded Data ===== -->
+  <script type="application/json" id="terminal-data">
+[
+  { "command": "jamf-cli pro overview" },
+  { "command": "jamf-cli pro report security" },
+  { "command": "jamf-cli pro device jamf-mini" },
+  { "command": "jamf-cli pro comp list -o table --filter \"osVersion>=15\"" },
+  { "command": "jamf-cli pro policy-execute 5 --target jamf-mini" },
+  { "command": "jamf-cli protect analytics list -o table" },
+  { "command": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0 --yes" },
+  { "command": "jamf-cli pro backup --output ./backup/" }
+]
+  </script>
+
+  <script type="application/json" id="hero-examples">
+{
+  "pro overview": {
+    "example": "jamf-cli pro overview",
+    "output": "  INSTANCE OVERVIEW\n\n  Health & Alerts\n  Health Status                  \u2705 Healthy\n  Pending Computer Commands             0\n\n  Fleet\n  Managed Computers                    18\n  Managed Devices                       4"
+  },
+  "pro device": {
+    "example": "jamf-cli pro device jamf-mini",
+    "output": "  Identity\n  Name                       jamf-mini\n  Serial Number          H2WDT4RGQ6P0\n  Managed                          Yes\n\n  Hardware & OS\n  Model              Mac mini (M1, 2020)\n  OS                       macOS 26.1.0"
+  },
+  "pro report security": {
+    "example": "jamf-cli pro report security",
+    "output": "\u2500\u2500 Security Summary \u2500\u2500\nRESULTS (1 total)\n\n FILEVAULT  FIREWALL  GATEKEEPER  SIP\n 0.0%       5.6%      100.0%      72.2%"
+  },
+  "pro computers list": {
+    "example": "jamf-cli pro comp list -o table",
+    "output": "RESULTS (18 total)\n\n NAME                    SERIAL         OS_VERSION\n admin's MacBook Air     FVFHG3AYQ6L4   26.0.0\n jamf-mini               H2WDT4RGQ6P0   26.1.0"
+  },
+  "pro computers apply": {
+    "example": "echo '{\"name\":\"HQ\"}' | jamf-cli pro buildings apply",
+    "output": "\u2713 Created building \"HQ\" (id: 3)"
+  },
+  "pro setup": {
+    "example": "jamf-cli pro setup --url https://jamf.company.com",
+    "output": "Jamf Pro URL: https://jamf.company.com\nAuth method: OAuth2 (Client Credentials)\n\u2713 Credentials verified\n\u2713 Profile 'default' saved to config"
+  },
+  "pro comp erase": {
+    "example": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0",
+    "output": "[dry-run] Would erase computer H2WDT4RGQ6P0 (jamf-mini)\nUse --yes --confirm-destructive to execute."
+  },
+  "pro policy-execute": {
+    "example": "jamf-cli pro policy-execute 5 --target jamf-mini",
+    "output": "[dry-run] Would execute policy\n  \"DMG | JCDS Cloud Install Test\" (id=5)\n  on 1 device(s):\n  - jamf-mini (id=29)\nUse --yes to execute."
+  },
+  "protect analytics list": {
+    "example": "jamf-cli protect analytics list -o table",
+    "output": "RESULTS (847 total)\n\n NAME                          SEVERITY  ENABLED\n Suspicious Download           High      \u2713\n Unauthorized USB Mount        Medium    \u2713"
+  },
+  "protect overview": {
+    "example": "jamf-cli protect overview",
+    "output": "  PROTECT OVERVIEW\n\n  Plans                          12\n  Analytics                     847\n  Analytic Sets                   8\n  Computers                   1,523"
+  }
+}
+  </script>
+
+  <!-- ===== Scripts ===== -->
+  <script>
+    // Hamburger menu toggle
+    document.querySelector('.hamburger').addEventListener('click', function () {
+      const expanded = this.getAttribute('aria-expanded') === 'true';
+      this.setAttribute('aria-expanded', String(!expanded));
+      document.querySelector('.nav-links').classList.toggle('open');
+    });
+
+    // Sticky nav scroll detection
+    window.addEventListener('scroll', function () {
+      document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // Theme toggle
+    (function () {
+      var toggle = document.getElementById('theme-toggle');
+      var saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+      toggle.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme');
+        var isDark;
+        if (current === 'dark') {
+          isDark = true;
+        } else if (current === 'light') {
+          isDark = false;
+        } else {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        var next = isDark ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+      });
+    })();
+
+    // Back to top button
+    (function () {
+      var btn = document.getElementById('back-to-top');
+      window.addEventListener('scroll', function () {
+        btn.classList.toggle('visible', window.scrollY > 600);
+      }, { passive: true });
+      btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+
+    // Focus search on "/" key (like GitHub)
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        e.preventDefault();
+        var search = document.getElementById('search');
+        if (search) search.focus();
+      }
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        var tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        document.getElementById('kbd-modal').classList.toggle('open');
+      }
+      if (e.key === 'Escape') {
+        var modal = document.getElementById('kbd-modal');
+        if (modal.classList.contains('open')) {
+          modal.classList.remove('open');
+          return;
+        }
+        var search = document.getElementById('search');
+        if (search && search.value) {
+          e.preventDefault();
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          var wrap = search.closest('.search-wrap');
+          if (wrap) wrap.classList.remove('has-value');
+          search.blur();
+        }
+      }
+    });
+
+    // Keyboard shortcuts hint button
+    document.getElementById('kbd-hint-btn').addEventListener('click', function () {
+      document.getElementById('kbd-modal').classList.toggle('open');
+    });
+
+    // Keyboard shortcuts modal close button
+    document.getElementById('kbd-modal-close').addEventListener('click', function () {
+      document.getElementById('kbd-modal').classList.remove('open');
+    });
+    document.getElementById('kbd-modal').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+  </script>
+  <script src="terminal.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>

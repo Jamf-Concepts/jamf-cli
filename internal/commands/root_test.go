@@ -43,7 +43,7 @@ func TestCommandsSubcommand_JSON(t *testing.T) {
 
 func TestCollectCommands(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
-	entries := collectCommands(root, "")
+	entries := collectCommands(root, "", "", "")
 
 	if len(entries) == 0 {
 		t.Fatal("expected at least one command entry")
@@ -100,6 +100,8 @@ func TestCommandEntriesToMaps_Full(t *testing.T) {
 			Description: "List computers",
 			Aliases:     []string{"comp"},
 			Flags:       []string{"--page", "--sort"},
+			Product:     "pro",
+			Group:       "Computer Management",
 		},
 		{
 			Command:     "version",
@@ -121,13 +123,25 @@ func TestCommandEntriesToMaps_Full(t *testing.T) {
 	if maps[0]["flags"] != "--page, --sort" {
 		t.Errorf("flags = %q, want %q", maps[0]["flags"], "--page, --sort")
 	}
+	if maps[0]["product"] != "pro" {
+		t.Errorf("product = %q, want %q", maps[0]["product"], "pro")
+	}
+	if maps[0]["group"] != "Computer Management" {
+		t.Errorf("group = %q, want %q", maps[0]["group"], "Computer Management")
+	}
 
-	// Entry without aliases/flags should have empty strings
+	// Entry without product/group/aliases/flags should have empty strings
 	if maps[1]["aliases"] != "" {
 		t.Errorf("version aliases = %q, want empty", maps[1]["aliases"])
 	}
 	if maps[1]["flags"] != "" {
 		t.Errorf("version flags = %q, want empty", maps[1]["flags"])
+	}
+	if maps[1]["product"] != "" {
+		t.Errorf("version product = %q, want empty", maps[1]["product"])
+	}
+	if maps[1]["group"] != "" {
+		t.Errorf("version group = %q, want empty", maps[1]["group"])
 	}
 }
 
@@ -151,6 +165,78 @@ func TestCommandEntriesToMaps_Compact(t *testing.T) {
 	}
 	if _, ok := maps[0]["flags"]; ok {
 		t.Error("compact mode should not include flags key")
+	}
+	if _, ok := maps[0]["product"]; ok {
+		t.Error("compact mode should not include product key")
+	}
+	if _, ok := maps[0]["group"]; ok {
+		t.Error("compact mode should not include group key")
+	}
+}
+
+func TestCollectCommands_ProductAndGroup(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	entries := collectCommands(root, "", "", "")
+
+	var found *commandEntry
+	for i := range entries {
+		if entries[i].Command == "pro computers list" {
+			found = &entries[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("expected 'pro computers list' in entries")
+	}
+	if found.Product != "pro" {
+		t.Errorf("product = %q, want %q", found.Product, "pro")
+	}
+	if found.Group != "Computer Management" {
+		t.Errorf("group = %q, want %q", found.Group, "Computer Management")
+	}
+}
+
+func TestCollectCommands_ProtectProductAndGroup(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	entries := collectCommands(root, "", "", "")
+
+	var found *commandEntry
+	for i := range entries {
+		if entries[i].Command == "protect analytics list" {
+			found = &entries[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("expected 'protect analytics list' in entries")
+	}
+	if found.Product != "protect" {
+		t.Errorf("product = %q, want %q", found.Product, "protect")
+	}
+	if found.Group != "Security Configuration" {
+		t.Errorf("group = %q, want %q", found.Group, "Security Configuration")
+	}
+}
+
+func TestCollectCommands_RootCommandsNoProduct(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01")
+	entries := collectCommands(root, "", "", "")
+
+	var found *commandEntry
+	for i := range entries {
+		if entries[i].Command == "version" {
+			found = &entries[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("expected 'version' in entries")
+	}
+	if found.Product != "" {
+		t.Errorf("version product = %q, want empty", found.Product)
+	}
+	if found.Group != "Core Commands" {
+		t.Errorf("version group = %q, want %q", found.Group, "Core Commands")
 	}
 }
 

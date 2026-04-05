@@ -33,3 +33,6 @@ jobs:
 
       - name: Build
         run: make build
+
+      - name: Verify site generator compiles
+        run: go build ./generator/site/...
