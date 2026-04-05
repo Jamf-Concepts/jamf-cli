@@ -106,7 +106,7 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 			continue
 		}
 
-		path := fmt.Sprintf("/v2/patch-policies/%s/logs?filter=statusEnum%%3D%%3DFAILED", policyID)
+		path := fmt.Sprintf("/v2/patch-policies/%s/logs", policyID)
 		logs, err := FetchAllPaginated(ctx, client, path, 200)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", policyID, err)
@@ -114,6 +114,9 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 		}
 
 		for _, l := range logs {
+			if strVal(l, "statusEnum") != "FAILED" {
+				continue
+			}
 			deviceRows = append(deviceRows, map[string]any{
 				"policy":      policyName,
 				"policy_id":   policyID,

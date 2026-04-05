@@ -84,8 +84,8 @@ func TestFetchPatchDeviceFailures_Basic(t *testing.T) {
 			"/v2/patch-policies/10/logs": {200, `{
 				"totalCount": 2,
 				"results": [
-					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1},
-					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2}
+					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1, "statusEnum": "FAILED"},
+					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2, "statusEnum": "FAILED"}
 				]
 			}`},
 		},
