@@ -199,6 +199,7 @@
     if (!catalog) return;
 
     currentSearchQuery = (searchQuery || '').trim().toLowerCase();
+    expandedCommand = null;
     var filtered = filterCommands(commands, searchQuery, productFilter);
     var groups = groupCommands(filtered);
     var sorted = sortGroups(groups);
@@ -579,7 +580,7 @@
       var prodBadge = document.createElement('span');
       prodBadge.className = 'cmd-product-badge';
       prodBadge.setAttribute('data-product', cmd.product);
-      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product]; // static SVG constant, safe
+      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product];
       descLine.appendChild(prodBadge);
     }
 
@@ -768,10 +769,7 @@
         (function (text, el) {
           el.addEventListener('click', function (e) {
             e.stopPropagation();
-            navigator.clipboard.writeText(text).then(function () {
-              el.classList.add('copied');
-              setTimeout(function () { el.classList.remove('copied'); }, 1500);
-            });
+            copyWithFeedback(text, el);
           });
         })(examples[ex].command, exPre);
         exBlock.appendChild(exPre);
