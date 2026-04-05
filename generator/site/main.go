@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -155,5 +156,12 @@ func parseVersion(output string) string {
 	if len(fields) < 2 {
 		return "unknown"
 	}
-	return fields[1]
+	v := fields[1]
+	// Strip git-describe suffix (e.g. "v1.2.0-52-gffc0b5a-dirty" → "v1.2.0")
+	if parts := strings.SplitN(v, "-", 2); len(parts) == 2 && strings.ContainsAny(parts[1], "0123456789") {
+		if _, err := strconv.Atoi(strings.Split(parts[1], "-")[0]); err == nil {
+			v = parts[0]
+		}
+	}
+	return v
 }
