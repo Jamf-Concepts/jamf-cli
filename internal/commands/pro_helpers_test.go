@@ -419,10 +419,10 @@ func TestReportSampleSize(t *testing.T) {
 	}{
 		// Smart default (limit < 0): max(10%, 100), clamped to total
 		{"smart default large fleet", 2000, -1, 200},
-		{"smart default small fleet", 50, -1, 50},  // 10%=5 < 100, but 100 > 50, so clamp to 50
-		{"smart default 1000", 1000, -1, 100},      // 10%=100 == 100
-		{"smart default 500", 500, -1, 100},        // 10%=50 < 100
-		{"smart default 1001", 1001, -1, 100},      // 10%=100 rounds down
+		{"smart default small fleet", 50, -1, 50}, // 10%=5 < 100, but 100 > 50, so clamp to 50
+		{"smart default 1000", 1000, -1, 100},     // 10%=100 == 100
+		{"smart default 500", 500, -1, 100},       // 10%=50 < 100
+		{"smart default 1001", 1001, -1, 100},     // 10%=100 rounds down
 
 		// Explicit limit (limit > 0)
 		{"explicit limit under total", 500, 50, 50},

@@ -190,7 +190,9 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 		}
 		planStateCounts[state]++
 
-		if state == "PlanFailed" {
+		// PlanFailed: structured failure with errorReasons.
+		// PlanException: unexpected exception in update orchestration — no errorReasons.
+		if state == "PlanFailed" || state == "PlanException" {
 			device, _ := p["device"].(map[string]any)
 			deviceID := ""
 			deviceType := ""
@@ -372,6 +374,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 				"device_type": dt,
 				"os_version":  meta.osVersion,
 				"username":    meta.username,
+				"state":       fp.state,
 				"action":      fp.action,
 				"version":     fp.version,
 				"error":       fp.errors,
