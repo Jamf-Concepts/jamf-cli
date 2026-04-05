@@ -101,16 +101,14 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		"View JSS Information",
 		"View Recovery Lock",
 	}
-	operationalItems := []string{
+	// Operational privileges included in standard (non-destructive, non-audit-destroying).
+	safeOperational := []string{
 		"Edit Return To Service Configurations",
 		"Allow User to Enroll",
 		"Assign Users to Computers",
 		"Assign Users to Mobile Devices",
-		"Dismiss Notifications",
 		"Enroll Computers",
 		"Enroll Mobile Devices",
-		"Flush MDM Commands",
-		"Flush Policy Logs",
 		"Jamf Connect Deployment Retry",
 		"Jamf Packages Action",
 		"Jamf Protect Deployment Retry",
@@ -120,12 +118,16 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		"Send Device Information Command",
 		"Send Inventory Requests to Mobile Devices",
 		"Send MDM Check In Command",
-	}
-	destructiveSends := []string{
 		"Send Computer Remote Wipe Command",
 		"Send Computer Remote Lock Command",
 		"Send Mobile Device Remote Wipe Command",
 		"Send Mobile Device Remote Lock Command",
+	}
+	// Operational privileges excluded from standard: irreversible or audit-destroying.
+	destructiveOperational := []string{
+		"Dismiss Notifications", // irreversible
+		"Flush MDM Commands",    // destroys audit data
+		"Flush Policy Logs",     // destroys audit data
 	}
 	platformItems := []string{
 		"blueprints read", "blueprints create", "blueprints update", "blueprints delete",
@@ -133,8 +135,8 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 	}
 
 	all = append(all, viewItems...)
-	all = append(all, operationalItems...)
-	all = append(all, destructiveSends...)
+	all = append(all, safeOperational...)
+	all = append(all, destructiveOperational...)
 	all = append(all, platformItems...)
 
 	toSet := func(privs []string) map[string]bool {
@@ -145,43 +147,43 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		return s
 	}
 
-	t.Run("read-only includes all Read and View, excludes write and destructive", func(t *testing.T) {
-		got := toSet(filterPrivileges(all, scopePresets["read-only"]))
+	t.Run("read-only includes all Read and View, excludes everything else", func(t *testing.T) {
+		got := toSet(applyPrivilegeFilter(all, scopeOptionByKey("read-only")))
 
-		// Every Read X and View X in the live list must be included
+		// Every Read X and View X must be included (covers platform " read" suffix too)
 		for _, p := range all {
-			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") {
+			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") ||
+				strings.HasSuffix(p, " read") {
 				if !got[p] {
 					t.Errorf("read-only: missing %q", p)
 				}
 			}
 		}
-		// Platform read items must be included
-		for _, p := range []string{"blueprints read", "compliance-benchmarks read"} {
-			if !got[p] {
-				t.Errorf("read-only: missing %q", p)
-			}
-		}
 		// Write verbs must be excluded
 		for _, p := range all {
-			if strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") || strings.HasPrefix(p, "Delete ") {
+			if strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") ||
+				strings.HasPrefix(p, "Delete ") || strings.HasPrefix(p, "Flush ") ||
+				strings.HasPrefix(p, "Dismiss ") {
 				if got[p] {
 					t.Errorf("read-only: should not contain %q", p)
 				}
 			}
 		}
-		// Destructive sends and platform write/delete must be excluded
-		for _, p := range append(destructiveSends, "blueprints create", "blueprints delete", "compliance-benchmarks create", "compliance-benchmarks delete") {
+		// Platform non-read must be excluded
+		for _, p := range []string{
+			"blueprints create", "blueprints update", "blueprints delete",
+			"compliance-benchmarks create", "compliance-benchmarks update", "compliance-benchmarks delete",
+		} {
 			if got[p] {
 				t.Errorf("read-only: should not contain %q", p)
 			}
 		}
 	})
 
-	t.Run("standard includes Read/View/Create/Update and operational, excludes Delete and destructive sends", func(t *testing.T) {
-		got := toSet(filterPrivileges(all, scopePresets["standard"]))
+	t.Run("standard excludes Delete/Flush/Dismiss, includes everything else", func(t *testing.T) {
+		got := toSet(applyPrivilegeFilter(all, scopeOptionByKey("standard")))
 
-		// Every Read/View/Create/Update X must be included
+		// Read/View/Create/Update must be included
 		for _, p := range all {
 			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") ||
 				strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") {
@@ -190,37 +192,41 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 				}
 			}
 		}
-		// All operational and safe sends must be included
-		for _, p := range operationalItems {
-			if !got[p] {
-				t.Errorf("standard: missing operational privilege %q", p)
-			}
-		}
-		// Platform read/create/update must be included, delete must not
-		for _, p := range []string{"blueprints read", "blueprints create", "blueprints update", "compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update"} {
+		// Safe operational items must be included
+		for _, p := range safeOperational {
 			if !got[p] {
 				t.Errorf("standard: missing %q", p)
 			}
 		}
-		// Delete verbs must be excluded
+		// Platform read/create/update must be included
+		for _, p := range []string{
+			"blueprints read", "blueprints create", "blueprints update",
+			"compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update",
+		} {
+			if !got[p] {
+				t.Errorf("standard: missing %q", p)
+			}
+		}
+		// Delete, Flush, Dismiss must be excluded (covers platform verb suffixes too)
 		for _, p := range all {
-			if strings.HasPrefix(p, "Delete ") {
+			if strings.HasPrefix(p, "Delete ") || strings.HasPrefix(p, "Flush ") ||
+				strings.HasPrefix(p, "Dismiss ") {
 				if got[p] {
 					t.Errorf("standard: should not contain %q", p)
 				}
 			}
 		}
-		// Destructive sends and platform delete must be excluded
-		for _, p := range append(destructiveSends, "blueprints delete", "compliance-benchmarks delete") {
+		for _, p := range append(destructiveOperational, "blueprints delete", "compliance-benchmarks delete") {
 			if got[p] {
 				t.Errorf("standard: should not contain %q", p)
 			}
 		}
 	})
 
-	t.Run("full-admin uses nil so caller passes all privileges through", func(t *testing.T) {
-		if scopePresets["full-admin"] != nil {
-			t.Error("full-admin should have nil patterns")
+	t.Run("full-admin passes all privileges through unchanged", func(t *testing.T) {
+		got := applyPrivilegeFilter(all, scopeOptionByKey("full-admin"))
+		if len(got) != len(all) {
+			t.Errorf("full-admin: got %d privileges, want %d (all)", len(got), len(all))
 		}
 	})
 }
@@ -365,17 +371,14 @@ func TestSetupClient_GenerateClientCredentials_Error(t *testing.T) {
 }
 
 func TestScopePresets(t *testing.T) {
-	if _, ok := scopePresets["read-only"]; !ok {
-		t.Error("missing read-only preset")
+	for _, key := range []string{"read-only", "standard", "full-admin"} {
+		if scopeOptionByKey(key).key == "" {
+			t.Errorf("missing scope option %q", key)
+		}
 	}
-	if _, ok := scopePresets["standard"]; !ok {
-		t.Error("missing standard preset")
-	}
-	if _, ok := scopePresets["full-admin"]; !ok {
-		t.Error("missing full-admin preset")
-	}
-	if scopePresets["full-admin"] != nil {
-		t.Error("full-admin should have nil prefixes (all privileges)")
+	opt := scopeOptionByKey("full-admin")
+	if opt.include != nil || len(opt.exclude) > 0 {
+		t.Error("full-admin should have nil include and no excludes (all privileges)")
 	}
 }
 

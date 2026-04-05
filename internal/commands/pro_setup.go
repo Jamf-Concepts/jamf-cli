@@ -282,22 +282,31 @@ func (c *setupClient) updateAPIIntegration(ctx context.Context, integrationID in
 }
 
 // filterPrivileges returns privileges from all that match any pattern.
-// Two strategies are applied per pattern:
-//   - Prefix: HasPrefix(p, pattern) — handles "Read Computers" style. Patterns
-//     ending with a space (e.g. "Read ") prevent false matches on partial words.
-//   - Verb suffix: for patterns ending with a space, the trimmed lowercase form
-//     is also checked as a suffix — so "Read " matches "blueprints read" and
-//     "compliance-benchmarks read", and any future platform-services privilege
-//     whose name ends with " read". Derived as " "+ToLower(TrimRight(pattern," ")).
+// Three pattern forms are supported:
 //
-// Exact privilege names (no trailing space) match via prefix since
-// HasPrefix(p, p) is always true. nil patterns returns an empty slice.
+//   - "*suffix"  — leading asterisk: matches any privilege ending with suffix,
+//     e.g. "*Retry" matches "Jamf Connect Deployment Retry".
+//
+//   - "Verb "    — trailing space: matches by prefix ("Read Computers") AND by
+//     lowercase verb suffix ("blueprints read"). The space prevents false matches
+//     on partial words; the verb-suffix derives as " "+ToLower(TrimRight(p," ")).
+//
+//   - exact name — no asterisk, no trailing space: matched via HasPrefix since
+//     HasPrefix(p, p) is always true.
+//
+// nil patterns returns an empty slice (full-admin is handled by the caller).
 func filterPrivileges(all []string, patterns []string) []string {
 	var result []string
 	for _, p := range all {
 		for _, pattern := range patterns {
-			verbSuffix := " " + strings.ToLower(strings.TrimRight(pattern, " "))
-			if strings.HasPrefix(p, pattern) || strings.HasSuffix(p, verbSuffix) {
+			var matched bool
+			if strings.HasPrefix(pattern, "*") {
+				matched = strings.HasSuffix(p, pattern[1:])
+			} else {
+				verbSuffix := " " + strings.ToLower(strings.TrimRight(pattern, " "))
+				matched = strings.HasPrefix(p, pattern) || strings.HasSuffix(p, verbSuffix)
+			}
+			if matched {
 				result = append(result, p)
 				break
 			}
@@ -307,11 +316,14 @@ func filterPrivileges(all []string, patterns []string) []string {
 }
 
 // scopeOption describes a selectable scope tier in the setup wizard.
+// include == nil means start from all privileges (apply exclude if set).
+// exclude == nil means no exclusions. Both nil = pass everything through (full-admin).
 type scopeOption struct {
 	key         string
 	displayName string
 	description string
-	patterns    []string // privilege patterns for filterPrivileges; nil = all (full-admin)
+	include     []string // allowlist patterns; nil = include all
+	exclude     []string // denylist patterns applied after include; nil = exclude nothing
 }
 
 // defaultScope is used when the user presses Enter without choosing.
@@ -323,46 +335,21 @@ const defaultScope = "standard"
 var scopeOptions = []scopeOption{
 	{
 		key: "read-only", displayName: "Read Only", description: "read access to all resources",
-		// "Read " and "View " catch both the "Read Computers" prefix form and
-		// the "blueprints read" / "compliance-benchmarks read" suffix form via
-		// filterPrivileges' verb-suffix matching.
-		patterns: []string{"Read ", "View "},
+		// "Read " and "View " match both "Read Computers" (prefix) and
+		// "blueprints read" (verb suffix) via filterPrivileges.
+		include: []string{"Read ", "View "},
 	},
 	{
-		key: "standard", displayName: "Standard", description: "read, create, and update (no deletes)",
-		// "Read ", "Create ", "Update " also match Platform Services privileges
-		// via verb-suffix (e.g. "blueprints create", "compliance-benchmarks update").
-		// Excludes erase, wipe, lock, and remote wipe.
-		patterns: []string{
-			"Read ",
-			"View ",
-			"Create ",
-			"Update ",
-			// Operational privileges not covered by prefix/suffix patterns above
-			"Allow User to Enroll",
-			"Assign Users to Computers",
-			"Assign Users to Mobile Devices",
-			"Dismiss Notifications",
-			"Edit Return To Service Configurations", // "Edit" not "Update"
-			"Enroll Computers",
-			"Enroll Mobile Devices",
-			"Flush MDM Commands",
-			"Flush Policy Logs",
-			"Jamf Connect Deployment Retry",
-			"Jamf Packages Action",
-			"Jamf Protect Deployment Retry",
-			// Non-destructive MDM send commands
-			"Send Blank Pushes to Mobile Devices",
-			"Send Command to Renew MDM Profile",
-			"Send Declarative Management Command",
-			"Send Device Information Command",
-			"Send Inventory Requests to Mobile Devices",
-			"Send MDM Check In Command",
-		},
+		key: "standard", displayName: "Standard", description: "read, create, update — no destructive actions",
+		// Denylist: all privileges except destructive/irreversible operations.
+		// "Delete " covers "Delete Computers" (prefix) and "blueprints delete" (verb suffix).
+		// "Flush " covers "Flush MDM Commands" / "Flush Policy Logs" (destroys audit data).
+		// "Dismiss " covers "Dismiss Notifications" (irreversible).
+		exclude: []string{"Delete ", "Flush ", "Dismiss "},
 	},
 	{
 		key: "full-admin", displayName: "Full Admin", description: "all privileges",
-		patterns: nil, // caller passes the full live privilege list unchanged
+		// Both nil: applyPrivilegeFilter returns all privileges unchanged.
 	},
 }
 
@@ -376,15 +363,40 @@ func validScopeNames() string {
 	return strings.Join(names, ", ")
 }
 
-// scopePresets maps scope keys to privilege patterns for filterPrivileges.
-// Derived from scopeOptions — do not edit directly; edit scopeOptions instead.
-var scopePresets = func() map[string][]string {
-	m := make(map[string][]string, len(scopeOptions))
+// scopeOptionByKey returns the scopeOption whose key matches key.
+// Returns the zero value if not found; callers should validate scope upstream.
+func scopeOptionByKey(key string) scopeOption {
 	for _, opt := range scopeOptions {
-		m[opt.key] = opt.patterns
+		if opt.key == key {
+			return opt
+		}
 	}
-	return m
-}()
+	return scopeOption{}
+}
+
+// applyPrivilegeFilter applies a scope's include/exclude rules to all privileges.
+// include == nil: start with all. include set: start with matching subset.
+// exclude is then subtracted from the result. Both nil returns all unchanged.
+func applyPrivilegeFilter(all []string, opt scopeOption) []string {
+	base := all
+	if opt.include != nil {
+		base = filterPrivileges(all, opt.include)
+	}
+	if len(opt.exclude) == 0 {
+		return base
+	}
+	excluded := make(map[string]bool, len(opt.exclude))
+	for _, p := range filterPrivileges(all, opt.exclude) {
+		excluded[p] = true
+	}
+	result := make([]string, 0, len(base))
+	for _, p := range base {
+		if !excluded[p] {
+			result = append(result, p)
+		}
+	}
+	return result
+}
 
 // normalizeURL ensures the URL has a scheme (defaults to https) and no trailing slash.
 func normalizeURL(rawURL string) string {
@@ -468,12 +480,7 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		return fmt.Errorf("fetching privileges: %w", err)
 	}
 
-	var rolePrivileges []string
-	if prefixes := scopePresets[scope]; prefixes != nil {
-		rolePrivileges = filterPrivileges(allPrivileges, prefixes)
-	} else {
-		rolePrivileges = allPrivileges
-	}
+	rolePrivileges := applyPrivilegeFilter(allPrivileges, scopeOptionByKey(scope))
 
 	roleName := "jamf-cli-" + scope
 
@@ -655,7 +662,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				}
 			}
 
-			if _, ok := scopePresets[setupScope]; !ok {
+			if scopeOptionByKey(setupScope).key == "" {
 				return fmt.Errorf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames())
 			}
 
