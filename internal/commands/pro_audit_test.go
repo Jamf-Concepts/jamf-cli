@@ -287,6 +287,26 @@ func TestCheckUnencryptedDevices_NoDiskEncryptionSection(t *testing.T) {
 	}
 }
 
+func TestCheckUnencryptedDevices_EmptyDiskEncryptionSection(t *testing.T) {
+	// diskEncryption present but bootPartitionEncryptionDetails absent — fileVaultStatus
+	// returns "" which must not be counted as unencrypted.
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
+				{"id":"1","diskEncryption":{}}
+			]}`},
+		},
+	}
+
+	result, err := checkUnencryptedDevices(context.Background(), client, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Error("expected nil when bootPartitionEncryptionDetails absent (graceful skip, not counted as unencrypted)")
+	}
+}
+
 func TestCheckGatekeeper_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{

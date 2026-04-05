@@ -15,6 +15,7 @@ import (
 
 // Security status constants used across multiple commands.
 const (
+	statusFVEncrypted   = "ENCRYPTED"
 	statusGKDisabled    = "DISABLED"
 	statusGKDisabledAlt = "Disabled" // Some API versions use mixed case
 	statusSIPEnabled    = "ENABLED"
@@ -93,7 +94,7 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		sipStatus := strVal(security, "sipStatus")
 		firewall := boolVal(security, "firewallEnabled")
 
-		if fvStatus == "ENCRYPTED" {
+		if fvStatus == statusFVEncrypted {
 			fvEncrypted++
 		}
 		if gkStatus != statusGKDisabled && gkStatus != statusGKDisabledAlt && gkStatus != "" {
@@ -186,7 +187,7 @@ func printSecurityReport(report *securityReport) error {
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if (fv != "ENCRYPTED" && fv != "") ||
+		if (fv != statusFVEncrypted && fv != "") ||
 			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
 			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {

@@ -166,7 +166,8 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 		if diskEnc == nil {
 			continue
 		}
-		if fileVaultStatus(diskEnc) != "ENCRYPTED" {
+		fv := fileVaultStatus(diskEnc)
+		if fv != "" && fv != statusFVEncrypted {
 			count++
 		}
 	}

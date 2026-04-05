@@ -169,7 +169,7 @@ func buildSecuritySection(sec, diskEnc map[string]any) overviewSection {
 	fvStatus := fileVaultStatus(diskEnc)
 
 	var fvColor string
-	if fvStatus != "" && fvStatus != "ENCRYPTED" {
+	if fvStatus != "" && fvStatus != statusFVEncrypted {
 		fvColor = "red"
 	}
 
