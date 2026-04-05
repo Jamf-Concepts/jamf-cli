@@ -282,15 +282,22 @@ func (c *setupClient) updateAPIIntegration(ctx context.Context, integrationID in
 }
 
 // filterPrivileges returns privileges from all that match any pattern.
-// Patterns ending with a space match by prefix (e.g. "Read " matches
-// "Read Computers", "Read Scripts", etc.). Any other pattern is matched
-// as an exact string — strings.HasPrefix(p, p) is always true, so exact
-// names work without a separate equality check.
+// Two strategies are applied per pattern:
+//   - Prefix: HasPrefix(p, pattern) — handles "Read Computers" style. Patterns
+//     ending with a space (e.g. "Read ") prevent false matches on partial words.
+//   - Verb suffix: for patterns ending with a space, the trimmed lowercase form
+//     is also checked as a suffix — so "Read " matches "blueprints read" and
+//     "compliance-benchmarks read", and any future platform-services privilege
+//     whose name ends with " read". Derived as " "+ToLower(TrimRight(pattern," ")).
+//
+// Exact privilege names (no trailing space) match via prefix since
+// HasPrefix(p, p) is always true. nil patterns returns an empty slice.
 func filterPrivileges(all []string, patterns []string) []string {
 	var result []string
 	for _, p := range all {
 		for _, pattern := range patterns {
-			if strings.HasPrefix(p, pattern) {
+			verbSuffix := " " + strings.ToLower(strings.TrimRight(pattern, " "))
+			if strings.HasPrefix(p, pattern) || strings.HasSuffix(p, verbSuffix) {
 				result = append(result, p)
 				break
 			}
@@ -301,21 +308,62 @@ func filterPrivileges(all []string, patterns []string) []string {
 
 // scopeOption describes a selectable scope tier in the setup wizard.
 type scopeOption struct {
-	key         string // must match a key in scopePresets
+	key         string
 	displayName string
 	description string
+	patterns    []string // privilege patterns for filterPrivileges; nil = all (full-admin)
 }
 
 // defaultScope is used when the user presses Enter without choosing.
 const defaultScope = "standard"
 
 // scopeOptions defines the ordered list of tiers shown in the interactive
-// prompt. Adding a new tier here (and a matching entry in scopePresets) is
-// all that is needed — the prompt, validation, and flag help auto-update.
+// prompt. To add a new tier, add one entry here — the prompt, validation,
+// flag help, and privilege filtering all derive from this slice automatically.
 var scopeOptions = []scopeOption{
-	{"read-only", "Read Only", "read access to all resources"},
-	{"standard", "Standard", "read, create, and update (no deletes)"},
-	{"full-admin", "Full Admin", "all privileges"},
+	{
+		key: "read-only", displayName: "Read Only", description: "read access to all resources",
+		// "Read " and "View " catch both the "Read Computers" prefix form and
+		// the "blueprints read" / "compliance-benchmarks read" suffix form via
+		// filterPrivileges' verb-suffix matching.
+		patterns: []string{"Read ", "View "},
+	},
+	{
+		key: "standard", displayName: "Standard", description: "read, create, and update (no deletes)",
+		// "Read ", "Create ", "Update " also match Platform Services privileges
+		// via verb-suffix (e.g. "blueprints create", "compliance-benchmarks update").
+		// Excludes erase, wipe, lock, and remote wipe.
+		patterns: []string{
+			"Read ",
+			"View ",
+			"Create ",
+			"Update ",
+			// Operational privileges not covered by prefix/suffix patterns above
+			"Allow User to Enroll",
+			"Assign Users to Computers",
+			"Assign Users to Mobile Devices",
+			"Dismiss Notifications",
+			"Edit Return To Service Configurations", // "Edit" not "Update"
+			"Enroll Computers",
+			"Enroll Mobile Devices",
+			"Flush MDM Commands",
+			"Flush Policy Logs",
+			"Jamf Connect Deployment Retry",
+			"Jamf Packages Action",
+			"Jamf Protect Deployment Retry",
+			// Non-destructive MDM send commands
+			"Send Blank Pushes to Mobile Devices",
+			"Send Command to Renew MDM Profile",
+			"Send Declarative Management Command",
+			"Send Device Information Command",
+			"Send Inventory Requests to Mobile Devices",
+			"Send MDM Check In Command",
+		},
+	},
+	{
+		key: "full-admin", displayName: "Full Admin", description: "all privileges",
+		patterns: nil, // caller passes the full live privilege list unchanged
+	},
 }
 
 // validScopeNames returns a comma-separated list of valid scope keys derived
@@ -328,61 +376,15 @@ func validScopeNames() string {
 	return strings.Join(names, ", ")
 }
 
-// scopePresets maps scope names to privilege patterns used by filterPrivileges.
-// Patterns ending with a space match all privileges sharing that prefix.
-// Other patterns are matched as exact privilege names.
-// nil means all privileges (full-admin: caller passes the full list through).
-var scopePresets = map[string][]string{
-	// read-only: read and view access — monitoring, auditing, troubleshooting.
-	// No write privileges, no MDM send commands.
-	"read-only": {
-		"Read ",
-		"View ",
-		// Platform Services privileges use a different lowercase format
-		"blueprints read",
-		"compliance-benchmarks read",
-	},
-
-	// standard: day-to-day admin work — read + write without destructive deletes.
-	// Includes safe MDM commands (inventory refresh, check-in, MDM renewal) and
-	// common operational actions. Excludes erase, wipe, lock, and remote wipe.
-	"standard": {
-		"Read ",
-		"View ",
-		"Create ",
-		"Update ",
-		// Operational privileges not covered by the prefix patterns above
-		"Allow User to Enroll",
-		"Assign Users to Computers",
-		"Assign Users to Mobile Devices",
-		"Dismiss Notifications",
-		"Edit Return To Service Configurations", // "Edit" not "Update"
-		"Enroll Computers",
-		"Enroll Mobile Devices",
-		"Flush MDM Commands",
-		"Flush Policy Logs",
-		"Jamf Connect Deployment Retry",
-		"Jamf Packages Action",
-		"Jamf Protect Deployment Retry",
-		// Non-destructive MDM send commands
-		"Send Blank Pushes to Mobile Devices",
-		"Send Command to Renew MDM Profile",
-		"Send Declarative Management Command",
-		"Send Device Information Command",
-		"Send Inventory Requests to Mobile Devices",
-		"Send MDM Check In Command",
-		// Platform Services privileges (lowercase format)
-		"blueprints read",
-		"blueprints create",
-		"blueprints update",
-		"compliance-benchmarks read",
-		"compliance-benchmarks create",
-		"compliance-benchmarks update",
-	},
-
-	// full-admin: nil — caller passes the full live privilege list unchanged.
-	"full-admin": nil,
-}
+// scopePresets maps scope keys to privilege patterns for filterPrivileges.
+// Derived from scopeOptions — do not edit directly; edit scopeOptions instead.
+var scopePresets = func() map[string][]string {
+	m := make(map[string][]string, len(scopeOptions))
+	for _, opt := range scopeOptions {
+		m[opt.key] = opt.patterns
+	}
+	return m
+}()
 
 // normalizeURL ensures the URL has a scheme (defaults to https) and no trailing slash.
 func normalizeURL(rawURL string) string {

@@ -49,6 +49,16 @@ func TestFilterPrivileges(t *testing.T) {
 			patterns: []string{"Delete "},
 			exclude:  []string{"Read Computers", "Create Computers"},
 		},
+		{
+			// Platform Services privileges end with " verb" (lowercase). A pattern
+			// of "Read " should match both "Read Computers" (prefix) and
+			// "blueprints read" (suffix), but not "blueprints create".
+			name:     "verb-suffix match: platform services caught by prefix pattern",
+			all:      []string{"Read Computers", "blueprints read", "compliance-benchmarks read", "blueprints create"},
+			patterns: []string{"Read "},
+			include:  []string{"Read Computers", "blueprints read", "compliance-benchmarks read"},
+			exclude:  []string{"blueprints create"},
+		},
 	}
 
 	for _, tt := range tests {
