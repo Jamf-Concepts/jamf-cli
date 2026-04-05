@@ -424,6 +424,14 @@
     commandsDiv.className = 'group-commands';
     commandsDiv.style.display = expanded ? '' : 'none';
 
+    // Store commands as data for lazy rendering
+    commandsDiv._commands = group.commands;
+    commandsDiv._rendered = false;
+
+    if (expanded) {
+      renderGroupCommands(commandsDiv);
+    }
+
     header.addEventListener('click', function () {
       toggleGroup(header, commandsDiv);
     });
@@ -434,21 +442,31 @@
       }
     });
 
-    for (var i = 0; i < group.commands.length; i++) {
-      var pair = renderCommandRow(group.commands[i]);
-      commandsDiv.appendChild(pair.row);
-      commandsDiv.appendChild(pair.detail);
-    }
-
     container.appendChild(header);
     container.appendChild(commandsDiv);
     return container;
   }
 
+  function renderGroupCommands(commandsDiv) {
+    if (commandsDiv._rendered) return;
+    var cmds = commandsDiv._commands;
+    for (var i = 0; i < cmds.length; i++) {
+      var pair = renderCommandRow(cmds[i]);
+      commandsDiv.appendChild(pair.row);
+      commandsDiv.appendChild(pair.detail);
+    }
+    commandsDiv._rendered = true;
+  }
+
   function toggleGroup(header, commandsDiv) {
     var expanded = header.getAttribute('aria-expanded') === 'true';
     header.setAttribute('aria-expanded', String(!expanded));
-    commandsDiv.style.display = expanded ? 'none' : '';
+    if (!expanded) {
+      renderGroupCommands(commandsDiv);
+      commandsDiv.style.display = '';
+    } else {
+      commandsDiv.style.display = 'none';
+    }
   }
 
   function renderCommandRow(cmd) {
@@ -599,18 +617,24 @@
     return null;
   }
 
-  function findSiblings(cmd) {
-    var parent = getParentPath(cmd.command);
-    if (!parent) return [];
-    var siblings = [];
+  // Pre-computed sibling lookup: parent path → [commands]
+  var siblingMap = null;
+
+  function buildSiblingMap() {
+    siblingMap = {};
     for (var i = 0; i < allCommands.length; i++) {
-      var other = allCommands[i];
-      if (other.command === cmd.command) continue;
-      if (getParentPath(other.command) === parent) {
-        siblings.push(other);
-      }
+      var parent = getParentPath(allCommands[i].command);
+      if (!parent) continue;
+      if (!siblingMap[parent]) siblingMap[parent] = [];
+      siblingMap[parent].push(allCommands[i]);
     }
-    return siblings;
+  }
+
+  function findSiblings(cmd) {
+    if (!siblingMap) buildSiblingMap();
+    var parent = getParentPath(cmd.command);
+    if (!parent || !siblingMap[parent]) return [];
+    return siblingMap[parent].filter(function (c) { return c.command !== cmd.command; });
   }
 
   function buildDetailContent(cmd) {
@@ -751,7 +775,12 @@
         headers[i].setAttribute('aria-expanded', String(allExpanded));
         var commands = headers[i].nextElementSibling;
         if (commands && commands.classList.contains('group-commands')) {
-          commands.style.display = allExpanded ? '' : 'none';
+          if (allExpanded) {
+            renderGroupCommands(commands);
+            commands.style.display = '';
+          } else {
+            commands.style.display = 'none';
+          }
         }
       }
       btn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
