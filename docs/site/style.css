@@ -843,7 +843,7 @@ a.stat-card:hover {
 
 .command-name {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--brand-blue);
 }
 
@@ -856,13 +856,15 @@ a.stat-card:hover {
 
 .command-copy-icon {
   display: none;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0.5;
   transition: opacity 0.1s;
+  vertical-align: middle;
+  margin-top: -2px;
 }
 
 .command-name:hover .command-copy-icon {
@@ -878,6 +880,30 @@ a.stat-card:hover {
   display: inline-block;
   color: var(--terminal-success);
   opacity: 1;
+}
+
+.command-name.copied {
+  background: rgba(40, 200, 64, 0.1);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  margin: -0.1rem -0.3rem;
+}
+
+.command-name.copied .cmd-action,
+.command-name.copied .cmd-product,
+.command-name.copied .cmd-prefix {
+  color: var(--terminal-success);
+  opacity: 1;
+}
+
+.command-name.copied::after {
+  content: 'Copied!';
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--terminal-success);
+  margin-left: 0.5rem;
 }
 
 .new-badge {
@@ -907,6 +933,7 @@ a.stat-card:hover {
 
 .command-name .cmd-action {
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 /* Product-specific command colors — add new products here */
@@ -978,7 +1005,8 @@ a.stat-card:hover {
   border-radius: 4px;
   white-space: nowrap;
   position: absolute;
-  top: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
   right: 0.75rem;
 }
 
@@ -1093,13 +1121,13 @@ a.stat-card:hover {
   display: inline-block;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
-  background: rgba(100, 116, 139, 0.15);
-  color: #475569;
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
   margin-right: 0.25rem;
   margin-bottom: 0.25rem;
-  border: 1px solid rgba(100, 116, 139, 0.15);
+  border: none;
 }
 
 /* Alias badge */
@@ -1107,23 +1135,23 @@ a.stat-card:hover {
   display: inline-block;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
-  background: rgba(0, 0, 0, 0.05);
-  color: #64748B;
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
   margin-right: 0.25rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: none;
+  font-style: italic;
 }
 
 @media (prefers-color-scheme: dark) {
   .flag-pill {
-    background: rgba(100, 116, 139, 0.2);
-    color: #94a3b8;
-    border-color: rgba(100, 116, 139, 0.25);
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
   }
   .alias-badge {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -1658,9 +1686,8 @@ footer .footer-meta {
   background: #162B25;
 }
 :root[data-theme="dark"] .flag-pill {
-  background: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
-  border-color: rgba(100, 116, 139, 0.25);
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
 }
 :root[data-theme="dark"] .alias-badge {
   background: rgba(255, 255, 255, 0.08);
@@ -1686,9 +1713,8 @@ footer .footer-meta {
     background: #E8F8F2;
   }
   :root[data-theme="light"] .flag-pill {
-    background: rgba(100, 116, 139, 0.15);
-    color: #475569;
-    border-color: rgba(100, 116, 139, 0.15);
+    background: rgba(100, 116, 139, 0.08);
+    color: #64748b;
   }
   :root[data-theme="light"] .alias-badge {
     background: rgba(0, 0, 0, 0.05);
