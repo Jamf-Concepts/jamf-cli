@@ -829,18 +829,18 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("alert_detail", strings.Join(types, ", "), nil)
 	})
 
-	// 12. Pending MDM Commands (Classic API)
+	// 12. Pending MDM Commands (Modern API v2 — replaces heavy Classic calls)
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/computercommands", "computer_commands")
+		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DPending%3BclientType%3D%3DCOMPUTER")
 		send("pending_computer_cmds", v, err)
 	})
 
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/mobiledevicecommands", "mobile_device_commands")
+		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DPending%3BclientType%3D%3DMOBILE_DEVICE")
 		send("pending_mobile_cmds", v, err)
 	})
 
