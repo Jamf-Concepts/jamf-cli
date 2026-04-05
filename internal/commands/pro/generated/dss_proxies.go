@@ -32,13 +32,13 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Retrieve an existing declaration",
 		Long:  "Retrieves a stored declaration based on the provided declaration id",
-		Example: `  # Get a dss-proxie by ID
+		Example: `  # Get a dss-proxy by ID
   jamf-cli dss-proxies get 1
 
-  # Get a dss-proxie by name
+  # Get a dss-proxy by name
   jamf-cli dss-proxies get-by-name "Example"
 
-  # Get a dss-proxie and output as YAML
+  # Get a dss-proxy and output as YAML
   jamf-cli dss-proxies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,8 +71,8 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newDssProxiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a dss-proxie by name",
-		Example: `  # Get a dss-proxie by name
+		Short: "Get a dss-proxy by name",
+		Example: `  # Get a dss-proxy by name
   jamf-cli dss-proxies get-by-name "Example"
 
   # Get by name and output as YAML

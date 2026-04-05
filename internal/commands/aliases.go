@@ -18,6 +18,8 @@ var commandAliases = map[string][]string{
 	"api-integrations": {"ai"},
 	"device":           {"dev"},
 	"policy-execute":   {"pe"},
+	"jamf-protects":    {"jamf-protect"},
+	"jamf-connects":    {"jamf-connect"},
 }
 
 // rootAliases maps root-level command names to short aliases.

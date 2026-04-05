@@ -14,23 +14,23 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewPatchPolicyLogsV2SCmd creates the patch-policy-logs-v-2s command group
-func NewPatchPolicyLogsV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewPatchPolicyLogsCmd creates the patch-policy-logs command group
+func NewPatchPolicyLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-policy-logs-v-2s",
-		Short: "Manage patch-policy-logs-v-2s",
-		Long:  `Manage patch-policy-logs-v-2s in Jamf Pro.`,
+		Use:   "patch-policy-logs",
+		Short: "Manage patch-policy-logs",
+		Long:  `Manage patch-policy-logs in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newPatchPolicyLogsV2SGetCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsV2SRetryCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsV2SRetryAllCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsV2SGetByNameCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsGetCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsRetryCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsRetryAllCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsGetByNameCmd(ctx))
 
 	return cmd
 }
 
-func newPatchPolicyLogsV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -42,14 +42,14 @@ func newPatchPolicyLogsV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Retrieve Patch Policy Logs",
 		Long:  "Retrieves Patch Policy Logs",
-		Example: `  # Get a patch-policy-logs-v-2 by ID
-  jamf-cli patch-policy-logs-v-2s get 1
+		Example: `  # Get a patch-policy-log by ID
+  jamf-cli patch-policy-logs get 1
 
-  # Get a patch-policy-logs-v-2 by name
-  jamf-cli patch-policy-logs-v-2s get-by-name "Example"
+  # Get a patch-policy-log by name
+  jamf-cli patch-policy-logs get-by-name "Example"
 
-  # Get a patch-policy-logs-v-2 and output as YAML
-  jamf-cli patch-policy-logs-v-2s get 1 -o yaml`,
+  # Get a patch-policy-log and output as YAML
+  jamf-cli patch-policy-logs get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -97,7 +97,7 @@ func newPatchPolicyLogsV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyLogsV2SRetryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPolicyLogsRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -152,7 +152,7 @@ func newPatchPolicyLogsV2SRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyLogsV2SRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPolicyLogsRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -193,15 +193,15 @@ func newPatchPolicyLogsV2SRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyLogsV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchPolicyLogsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a patch-policy-logs-v-2 by name",
-		Example: `  # Get a patch-policy-logs-v-2 by name
-  jamf-cli patch-policy-logs-v-2s get-by-name "Example"
+		Short: "Get a patch-policy-log by name",
+		Example: `  # Get a patch-policy-log by name
+  jamf-cli patch-policy-logs get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli patch-policy-logs-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli patch-policy-logs get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -74,10 +74,10 @@ func newPolicyPropertiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Update Policy Properties object",
 		Long:  "Update Policy Properties object",
-		Example: `  # Update a policy-propertie from JSON
+		Example: `  # Update a policy-property from JSON
   echo '{"name":"Updated"}' | jamf-cli policy-properties update 1
 
-  # Get a policy-propertie, modify, and update
+  # Get a policy-property, modify, and update
   jamf-cli policy-properties get 1 -o json | jq '.name = "New Name"' | jamf-cli policy-properties update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

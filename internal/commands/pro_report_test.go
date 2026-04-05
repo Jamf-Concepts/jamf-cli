@@ -17,25 +17,15 @@ func TestRunReportPatchStatus_Basic(t *testing.T) {
 			"/v2/patch-software-title-configurations": {200, `{
 				"totalCount": 2,
 				"results": [
-					{
-						"id": "1",
-						"softwareTitleName": "Google Chrome",
-						"latestVersion": "123.0",
-						"patchSummary": {
-							"installedCount": 80,
-							"totalCount": 100,
-							"latestVersion": "123.0"
-						}
-					},
-					{
-						"id": "2",
-						"softwareTitleName": "Firefox",
-						"patchSummary": {
-							"installedCount": 50,
-							"totalCount": 50
-						}
-					}
+					{"id": "1", "displayName": "Google Chrome"},
+					{"id": "2", "displayName": "Firefox"}
 				]
+			}`},
+			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+				"title": "Google Chrome", "latestVersion": "123.0", "upToDate": 80, "outOfDate": 20
+			}`},
+			"/v2/patch-software-title-configurations/2/patch-summary": {200, `{
+				"title": "Firefox", "latestVersion": "124.0", "upToDate": 50, "outOfDate": 0
 			}`},
 		},
 	}
@@ -53,17 +43,17 @@ func TestRunReportPatchStatus_Basic(t *testing.T) {
 	if chrome["title"] != "Google Chrome" {
 		t.Errorf("title = %q, want %q", chrome["title"], "Google Chrome")
 	}
-	if chrome["installed"] != 80 {
-		t.Errorf("installed = %v, want 80", chrome["installed"])
+	if chrome["on_latest"] != 80 {
+		t.Errorf("on_latest = %v, want 80", chrome["on_latest"])
 	}
-	if chrome["compliance_pct"] != "80.0%" {
-		t.Errorf("compliance_pct = %q, want %q", chrome["compliance_pct"], "80.0%")
+	if chrome["compliance_pct"] != "80%" {
+		t.Errorf("compliance_pct = %q, want %q", chrome["compliance_pct"], "80%")
 	}
 
 	// Firefox row — 100% compliance
 	ff := rows[1]
-	if ff["compliance_pct"] != "100.0%" {
-		t.Errorf("firefox compliance_pct = %q, want %q", ff["compliance_pct"], "100.0%")
+	if ff["compliance_pct"] != "100%" {
+		t.Errorf("firefox compliance_pct = %q, want %q", ff["compliance_pct"], "100%")
 	}
 }
 
@@ -88,13 +78,10 @@ func TestRunReportPatchStatus_NoTotal(t *testing.T) {
 		responses: map[string]overviewMockResponse{
 			"/v2/patch-software-title-configurations": {200, `{
 				"totalCount": 1,
-				"results": [
-					{
-						"id": "1",
-						"softwareTitleName": "Zoom",
-						"patchSummary": {}
-					}
-				]
+				"results": [{"id": "1", "displayName": "Zoom"}]
+			}`},
+			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+				"title": "Zoom", "upToDate": 0, "outOfDate": 0
 			}`},
 		},
 	}
@@ -129,13 +116,10 @@ func TestRunReportPatchStatus_FallbackToDisplayName(t *testing.T) {
 		responses: map[string]overviewMockResponse{
 			"/v2/patch-software-title-configurations": {200, `{
 				"totalCount": 1,
-				"results": [
-					{
-						"id": "99",
-						"displayName": "MyApp",
-						"patchSummary": {"installedCount": 5, "totalCount": 10}
-					}
-				]
+				"results": [{"id": "99", "displayName": "MyApp"}]
+			}`},
+			"/v2/patch-software-title-configurations/99/patch-summary": {200, `{
+				"title": "MyApp", "upToDate": 5, "outOfDate": 5
 			}`},
 		},
 	}
@@ -154,17 +138,15 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v2/patch-software-title-configurations": {200, `[
-				{
-					"id": "1",
-					"softwareTitleName": "Google Chrome",
-					"patchSummary": {"installedCount": 80, "totalCount": 100, "latestVersion": "123.0"}
-				},
-				{
-					"id": "2",
-					"displayName": "Slack",
-					"patchSummary": {"installedCount": 0, "totalCount": 0}
-				}
+				{"id": "1", "displayName": "Google Chrome"},
+				{"id": "2", "displayName": "Slack"}
 			]`},
+			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+				"title": "Google Chrome", "latestVersion": "123.0", "upToDate": 80, "outOfDate": 20
+			}`},
+			"/v2/patch-software-title-configurations/2/patch-summary": {200, `{
+				"title": "Slack", "latestVersion": "4.0", "upToDate": 0, "outOfDate": 0
+			}`},
 		},
 	}
 
@@ -178,11 +160,11 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 	if rows[0]["title"] != "Google Chrome" {
 		t.Errorf("row 0 title = %q, want Google Chrome", rows[0]["title"])
 	}
-	if rows[0]["compliance_pct"] != "80.0%" {
-		t.Errorf("row 0 compliance = %q, want 80.0%%", rows[0]["compliance_pct"])
+	if rows[0]["compliance_pct"] != "80%" {
+		t.Errorf("row 0 compliance = %q, want 80%%", rows[0]["compliance_pct"])
 	}
 	if rows[1]["title"] != "Slack" {
-		t.Errorf("row 1 title = %q, want Slack (displayName fallback)", rows[1]["title"])
+		t.Errorf("row 1 title = %q, want Slack", rows[1]["title"])
 	}
 }
 

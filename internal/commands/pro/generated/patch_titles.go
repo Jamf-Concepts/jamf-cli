@@ -12,20 +12,20 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewPatchV2SCmd creates the patch-v-2s command group
-func NewPatchV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewPatchTitlesCmd creates the patch-titles command group
+func NewPatchTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-v-2s",
-		Short: "Manage patch-v-2s",
-		Long:  `Manage patch-v-2s in Jamf Pro.`,
+		Use:   "patch-titles",
+		Short: "Manage patch-titles",
+		Long:  `Manage patch-titles in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newPatchV2SPatchManagementAcceptDisclaimerCmd(ctx))
+	cmd.AddCommand(newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx))
 
 	return cmd
 }
 
-func newPatchV2SPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

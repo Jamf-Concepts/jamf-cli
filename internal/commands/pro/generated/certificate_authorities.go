@@ -71,13 +71,13 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
-		Example: `  # Get a certificate-authoritie by ID
+		Example: `  # Get a certificate-authority by ID
   jamf-cli certificate-authorities get 1
 
-  # Get a certificate-authoritie by name
+  # Get a certificate-authority by name
   jamf-cli certificate-authorities get-by-name "Example"
 
-  # Get a certificate-authoritie and output as YAML
+  # Get a certificate-authority and output as YAML
   jamf-cli certificate-authorities get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -110,8 +110,8 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newCertificateAuthoritiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a certificate-authoritie by name",
-		Example: `  # Get a certificate-authoritie by name
+		Short: "Get a certificate-authority by name",
+		Example: `  # Get a certificate-authority by name
   jamf-cli certificate-authorities get-by-name "Example"
 
   # Get by name and output as YAML
