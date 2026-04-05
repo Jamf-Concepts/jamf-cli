@@ -86,13 +86,14 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		osVersion := strVal(osInfo, "version")
 
 		// v3 moved FileVault from security to diskEncryption section.
-		fvEnabled := boolVal(diskEnc, "fileVault2Enabled")
+		// Use partition state as ground truth — fileVault2Enabled has narrower
+		// semantics (MDM-managed) and under-reports actual encryption.
 		fvStatus := fileVaultStatus(diskEnc)
 		gkStatus := strVal(security, "gatekeeperStatus")
 		sipStatus := strVal(security, "sipStatus")
 		firewall := boolVal(security, "firewallEnabled")
 
-		if fvEnabled {
+		if fvStatus == "ENCRYPTED" {
 			fvEncrypted++
 		}
 		if gkStatus != statusGKDisabled && gkStatus != statusGKDisabledAlt && gkStatus != "" {
@@ -110,14 +111,13 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		}
 
 		devices = append(devices, map[string]any{
-			"name":              name,
-			"serial":            serial,
-			"os_version":        osVersion,
-			"filevault":         fvStatus,
-			"filevault_enabled": fvEnabled,
-			"gatekeeper":        gkStatus,
-			"sip":               sipStatus,
-			"firewall":          firewall,
+			"name":       name,
+			"serial":     serial,
+			"os_version": osVersion,
+			"filevault":  fvStatus,
+			"gatekeeper": gkStatus,
+			"sip":        sipStatus,
+			"firewall":   firewall,
 		})
 	}
 
@@ -182,11 +182,11 @@ func printSecurityReport(report *securityReport) error {
 	// Show only devices with at least one issue
 	var flagged []map[string]any
 	for _, d := range report.Devices {
-		fvEnabled, _ := d["filevault_enabled"].(bool)
+		fv, _ := d["filevault"].(string)
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if !fvEnabled ||
+		if fv != "ENCRYPTED" ||
 			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
 			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {

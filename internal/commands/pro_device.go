@@ -165,14 +165,11 @@ func buildSecuritySection(sec, diskEnc map[string]any) overviewSection {
 	btEscrow := strVal(sec, "bootstrapTokenEscrowedStatus")
 
 	// v3 moved FileVault from security to diskEncryption section.
-	fvEnabled := boolVal(diskEnc, "fileVault2Enabled")
+	// Use partition state as ground truth for encryption status.
 	fvStatus := fileVaultStatus(diskEnc)
-	if fvStatus == "" && fvEnabled {
-		fvStatus = "ENCRYPTED"
-	}
 
 	var fvColor string
-	if !fvEnabled && fvStatus != "" {
+	if fvStatus != "" && fvStatus != "ENCRYPTED" {
 		fvColor = "red"
 	}
 

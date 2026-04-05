@@ -227,9 +227,9 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
-				{"id":"1","diskEncryption":{"fileVault2Enabled":true}},
-				{"id":"2","diskEncryption":{"fileVault2Enabled":false}},
-				{"id":"3","diskEncryption":{"fileVault2Enabled":false}}
+				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"UNENCRYPTED"}}},
+				{"id":"3","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"DECRYPTED"}}}
 			]}`},
 		},
 	}
@@ -243,7 +243,7 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 		return
 	}
 	if result.AffectedCount != 2 {
-		t.Errorf("affected = %d, want 2 (two devices with fileVault2Enabled=false)", result.AffectedCount)
+		t.Errorf("affected = %d, want 2 (UNENCRYPTED + DECRYPTED)", result.AffectedCount)
 	}
 	if result.Severity != severityCritical {
 		t.Errorf("severity = %q, want %q", result.Severity, severityCritical)
@@ -254,8 +254,8 @@ func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v3/computers-inventory": {200, `{"totalCount":2,"results":[
-				{"id":"1","diskEncryption":{"fileVault2Enabled":true}},
-				{"id":"2","diskEncryption":{"fileVault2Enabled":true}}
+				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}}
 			]}`},
 		},
 	}

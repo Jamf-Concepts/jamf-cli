@@ -815,9 +815,9 @@ func TestRunReportSecurity_OSDistribution(t *testing.T) {
 			"/v3/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
-					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}},
-					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}},
-					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"fileVault2Enabled":true}}
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}}
 				]
 			}`},
 		},
