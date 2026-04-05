@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -280,12 +281,32 @@ func (c *setupClient) updateAPIIntegration(ctx context.Context, integrationID in
 	return fmt.Errorf("updating API integration failed (HTTP %d): %s", status, string(body))
 }
 
-// filterPrivileges returns privileges matching any of the given prefixes.
-func filterPrivileges(all []string, prefixes []string) []string {
+// filterPrivileges returns privileges from all that match any pattern.
+// Three pattern forms are supported:
+//
+//   - "*suffix"  — leading asterisk: matches any privilege ending with suffix,
+//     e.g. "*Retry" matches "Jamf Connect Deployment Retry".
+//
+//   - "Verb "    — trailing space: matches by prefix ("Read Computers") AND by
+//     lowercase verb suffix ("blueprints read"). The space prevents false matches
+//     on partial words; the verb-suffix derives as " "+ToLower(TrimRight(p," ")).
+//
+//   - exact name — no asterisk, no trailing space: matched via HasPrefix since
+//     HasPrefix(p, p) is always true.
+//
+// nil patterns returns an empty slice (full-admin is handled by the caller).
+func filterPrivileges(all []string, patterns []string) []string {
 	var result []string
 	for _, p := range all {
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(p, prefix) {
+		for _, pattern := range patterns {
+			var matched bool
+			if strings.HasPrefix(pattern, "*") {
+				matched = strings.HasSuffix(p, pattern[1:])
+			} else {
+				verbSuffix := " " + strings.ToLower(strings.TrimRight(pattern, " "))
+				matched = strings.HasPrefix(p, pattern) || strings.HasSuffix(p, verbSuffix)
+			}
+			if matched {
 				result = append(result, p)
 				break
 			}
@@ -294,11 +315,89 @@ func filterPrivileges(all []string, prefixes []string) []string {
 	return result
 }
 
-// scopePresets maps scope names to privilege prefixes. nil means all privileges.
-var scopePresets = map[string][]string{
-	"read-only":  {"Read "},
-	"standard":   {"Read ", "Create ", "Update "},
-	"full-admin": nil,
+// scopeOption describes a selectable scope tier in the setup wizard.
+// include == nil means start from all privileges (apply exclude if set).
+// exclude == nil means no exclusions. Both nil = pass everything through (full-admin).
+type scopeOption struct {
+	key         string
+	displayName string
+	description string
+	include     []string // allowlist patterns; nil = include all
+	exclude     []string // denylist patterns applied after include; nil = exclude nothing
+}
+
+// defaultScope is used when the user presses Enter without choosing.
+const defaultScope = "standard"
+
+// scopeOptions defines the ordered list of tiers shown in the interactive
+// prompt. To add a new tier, add one entry here — the prompt, validation,
+// flag help, and privilege filtering all derive from this slice automatically.
+var scopeOptions = []scopeOption{
+	{
+		key: "read-only", displayName: "Read Only", description: "read access to all resources",
+		// "Read " and "View " match both "Read Computers" (prefix) and
+		// "blueprints read" (verb suffix) via filterPrivileges.
+		include: []string{"Read ", "View "},
+	},
+	{
+		key: "standard", displayName: "Standard", description: "read, create, update — no deletes, wipes, or audit destruction",
+		// Denylist: all privileges except destructive/irreversible operations.
+		// "Delete " covers "Delete Computers" (prefix) and "blueprints delete" (verb suffix).
+		// "Flush " covers "Flush MDM Commands" / "Flush Policy Logs" (destroys audit data).
+		// "Dismiss " covers "Dismiss Notifications" (irreversible).
+		// "*Remote Wipe Command" / "*Remote Lock Command" use the *suffix form to match
+		// "Send Computer/Mobile Device Remote Wipe/Lock Command" without listing each variant.
+		exclude: []string{"Delete ", "Flush ", "Dismiss ", "*Remote Wipe Command", "*Remote Lock Command"},
+	},
+	{
+		key: "full-admin", displayName: "Full Admin", description: "all privileges",
+		// Both nil: applyPrivilegeFilter returns all privileges unchanged.
+	},
+}
+
+// validScopeNames returns a comma-separated list of valid scope keys derived
+// from scopeOptions — used in error messages and flag help text.
+func validScopeNames() string {
+	names := make([]string, len(scopeOptions))
+	for i, opt := range scopeOptions {
+		names[i] = opt.key
+	}
+	return strings.Join(names, ", ")
+}
+
+// scopeOptionByKey returns the scopeOption whose key matches key.
+// Returns the zero value if not found; callers should validate scope upstream.
+func scopeOptionByKey(key string) scopeOption {
+	for _, opt := range scopeOptions {
+		if opt.key == key {
+			return opt
+		}
+	}
+	return scopeOption{}
+}
+
+// applyPrivilegeFilter applies a scope's include/exclude rules to all privileges.
+// include == nil: start with all. include set: start with matching subset.
+// exclude is then subtracted from the result. Both nil returns all unchanged.
+func applyPrivilegeFilter(all []string, opt scopeOption) []string {
+	base := all
+	if opt.include != nil {
+		base = filterPrivileges(all, opt.include)
+	}
+	if len(opt.exclude) == 0 {
+		return base
+	}
+	excluded := make(map[string]bool, len(base))
+	for _, p := range filterPrivileges(all, opt.exclude) {
+		excluded[p] = true
+	}
+	result := make([]string, 0, len(base))
+	for _, p := range base {
+		if !excluded[p] {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 // normalizeURL ensures the URL has a scheme (defaults to https) and no trailing slash.
@@ -383,12 +482,7 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		return fmt.Errorf("fetching privileges: %w", err)
 	}
 
-	var rolePrivileges []string
-	if prefixes := scopePresets[scope]; prefixes != nil {
-		rolePrivileges = filterPrivileges(allPrivileges, prefixes)
-	} else {
-		rolePrivileges = allPrivileges
-	}
+	rolePrivileges := applyPrivilegeFilter(allPrivileges, scopeOptionByKey(scope))
 
 	roleName := "jamf-cli-" + scope
 
@@ -549,28 +643,29 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 			// Choose scope — once for all instances
 			if setupScope == "" {
 				if noInput {
-					setupScope = "standard"
+					setupScope = defaultScope
 				} else {
 					_, _ = fmt.Fprintln(w, "\nAPI scope:")
-					_, _ = fmt.Fprintln(w, "  1. Read Only    — read access to all resources")
-					_, _ = fmt.Fprintln(w, "  2. Standard     — read, create, and update (no deletes)")
-					_, _ = fmt.Fprintln(w, "  3. Full Admin   — all privileges")
-					_, _ = fmt.Fprint(w, "Choose [1-3] (default 2): ")
+					for i, opt := range scopeOptions {
+						marker := ""
+						if opt.key == defaultScope {
+							marker = " (default)"
+						}
+						_, _ = fmt.Fprintf(w, "  %d. %-12s — %s%s\n", i+1, opt.displayName, opt.description, marker)
+					}
+					_, _ = fmt.Fprintf(w, "Choose [1-%d]: ", len(scopeOptions))
 					line, _ := reader.ReadString('\n')
 					choice := strings.TrimSpace(line)
-					switch choice {
-					case "1":
-						setupScope = "read-only"
-					case "3":
-						setupScope = "full-admin"
-					default:
-						setupScope = "standard"
+
+					setupScope = defaultScope
+					if n, err := strconv.Atoi(choice); err == nil && n >= 1 && n <= len(scopeOptions) {
+						setupScope = scopeOptions[n-1].key
 					}
 				}
 			}
 
-			if _, ok := scopePresets[setupScope]; !ok {
-				return fmt.Errorf("invalid --scope %q: must be read-only, standard, or full-admin", setupScope)
+			if scopeOptionByKey(setupScope).key == "" {
+				return fmt.Errorf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames())
 			}
 
 			// Load config once for all instances
@@ -652,7 +747,7 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one Jamf Pro URL per line (for multi-instance setup)")
-	cmd.Flags().StringVar(&setupScope, "scope", "", "API scope: read-only, standard, full-admin (default: standard)")
+	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope: %s (default: %s)", validScopeNames(), defaultScope))
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
 	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations")
 	cmd.MarkFlagsMutuallyExclusive("url", "from-file")

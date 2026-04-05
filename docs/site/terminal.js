@@ -4,7 +4,6 @@
   var commands = [];
   var terminalOutput = null;
   var terminalEl = null;
-  var paused = false;
   var pendingTimer = null;
 
   // Commands are grouped by product and picked in round-robin order.
@@ -21,21 +20,7 @@
   function schedule(fn, delay) {
     pendingTimer = setTimeout(function () {
       pendingTimer = null;
-      if (!paused) {
-        fn();
-      } else {
-        var waitForUnpause = function () {
-          pendingTimer = setTimeout(function () {
-            pendingTimer = null;
-            if (!paused) {
-              fn();
-            } else {
-              waitForUnpause();
-            }
-          }, 100);
-        };
-        waitForUnpause();
-      }
+      fn();
     }, delay);
   }
 
@@ -158,8 +143,6 @@
     terminalEl = document.getElementById('terminal');
     if (!terminalOutput || !terminalEl) return;
 
-    terminalEl.addEventListener('mouseenter', function () { paused = true; });
-    terminalEl.addEventListener('mouseleave', function () { paused = false; });
 
     // Try to load from commands.json (same file the catalog uses)
     fetch('commands.json')
