@@ -288,5 +288,117 @@
       "description": "Managed software update deployment status",
       "command": "jamf-cli pro report update-status"
     }
+  ],
+  "config add-profile": [
+    {
+      "description": "Add an OAuth2 profile for a Jamf Pro instance",
+      "command": "jamf-cli config add-profile production --url https://jamf.company.com --auth-method oauth2"
+    },
+    {
+      "description": "Add a platform gateway profile",
+      "command": "jamf-cli config add-profile platform-prod --url https://us.apigw.jamf.com --auth-method platform --tenant-id abc123"
+    },
+    {
+      "description": "Add a bearer token profile",
+      "command": "jamf-cli config add-profile staging --url https://staging.jamf.com --auth-method token"
+    }
+  ],
+  "config list": [
+    {
+      "description": "List all configured profiles",
+      "command": "jamf-cli config list"
+    },
+    {
+      "description": "List profiles with connectivity status",
+      "command": "jamf-cli config list --status"
+    }
+  ],
+  "config show": [
+    {
+      "description": "Show resolved config with sources",
+      "command": "jamf-cli config show"
+    },
+    {
+      "description": "Show config for a specific profile",
+      "command": "jamf-cli config show -p staging"
+    }
+  ],
+  "config set-default": [
+    {
+      "description": "Set the default profile",
+      "command": "jamf-cli config set-default production"
+    }
+  ],
+  "config remove-profile": [
+    {
+      "description": "Remove a profile",
+      "command": "jamf-cli config remove-profile staging"
+    }
+  ],
+  "config validate": [
+    {
+      "description": "Validate config file syntax and settings",
+      "command": "jamf-cli config validate"
+    },
+    {
+      "description": "Validate and test server reachability",
+      "command": "jamf-cli config validate --connectivity"
+    }
+  ],
+  "config path": [
+    {
+      "description": "Print the config file location",
+      "command": "jamf-cli config path"
+    }
+  ],
+  "completion install": [
+    {
+      "description": "Auto-detect shell and install completions",
+      "command": "jamf-cli completion install"
+    }
+  ],
+  "completion zsh": [
+    {
+      "description": "Generate zsh completions and source them",
+      "command": "jamf-cli completion zsh > ~/.zfunc/_jamf-cli"
+    }
+  ],
+  "completion bash": [
+    {
+      "description": "Generate bash completions",
+      "command": "jamf-cli completion bash > /etc/bash_completion.d/jamf-cli"
+    }
+  ],
+  "completion fish": [
+    {
+      "description": "Generate fish completions",
+      "command": "jamf-cli completion fish > ~/.config/fish/completions/jamf-cli.fish"
+    }
+  ],
+  "completion powershell": [
+    {
+      "description": "Load PowerShell completions in current session",
+      "command": "jamf-cli completion powershell | Out-String | Invoke-Expression"
+    }
+  ],
+  "version": [
+    {
+      "description": "Print version, commit, and build date",
+      "command": "jamf-cli version"
+    }
+  ],
+  "multi": [
+    {
+      "description": "Run overview across all profiles",
+      "command": "jamf-cli multi pro overview"
+    },
+    {
+      "description": "Filter profiles by glob pattern",
+      "command": "jamf-cli multi --filter 'prod-*' -- pro comp list"
+    },
+    {
+      "description": "Target specific profiles",
+      "command": "jamf-cli multi --profiles production,staging -- pro report security"
+    }
   ]
 }

@@ -34,6 +34,7 @@
   var commandExamples = {};
   var activeProduct = 'all';
   var expandedCommand = null;
+  var expandHintShown = false;
 
   // ===== Initialization =====
 
@@ -317,7 +318,8 @@
       var firstWord = cmd.command.split(' ')[0];
       var subgroup = CORE_SUBGROUPS[firstWord];
       if (subgroup) {
-        return Object.assign({}, cmd, { group: subgroup });
+        var shellOrder = cmd.command === 'completion install' ? 0 : 1;
+        return Object.assign({}, cmd, { group: subgroup, _shellOrder: shellOrder });
       }
 
       // Everything else → Utilities
@@ -325,6 +327,11 @@
     }).sort(function (a, b) {
       if (a.group === 'Getting Started' && b.group === 'Getting Started') {
         return (a._gsOrder || 99) - (b._gsOrder || 99);
+      }
+      if (a.group === 'Shell Completion' && b.group === 'Shell Completion') {
+        var diff = (a._shellOrder === undefined ? 1 : a._shellOrder) - (b._shellOrder === undefined ? 1 : b._shellOrder);
+        if (diff !== 0) return diff;
+        return a.command.localeCompare(b.command);
       }
       return 0;
     });
@@ -547,9 +554,14 @@
       var prodBadge = document.createElement('span');
       prodBadge.className = 'cmd-product-badge';
       prodBadge.setAttribute('data-product', cmd.product);
-      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product];
+      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product]; // static SVG constant, safe
       descLine.appendChild(prodBadge);
     }
+
+    var rowChevron = document.createElement('span');
+    rowChevron.className = 'row-chevron';
+    rowChevron.textContent = '\u203A';
+    descLine.appendChild(rowChevron);
 
     // Cross-product reference badge
     var relatedProduct = detectRelatedProduct(cmd);
@@ -591,6 +603,16 @@
       row.appendChild(meta);
     }
 
+    // One-time expand hint below the command row content
+    var hintEl = null;
+    if (!expandHintShown) {
+      expandHintShown = true;
+      hintEl = document.createElement('div');
+      hintEl.className = 'expand-hint';
+      hintEl.textContent = '\u2193 Click any command to expand';
+      row.appendChild(hintEl);
+    }
+
     // Detail panel (hidden by default)
     var detail = document.createElement('div');
     detail.className = 'command-expanded';
@@ -602,10 +624,20 @@
       // Close any previously expanded command
       if (expandedCommand && expandedCommand !== detail) {
         expandedCommand.classList.remove('open');
+        // Reset chevron on previously expanded row
+        var prevRow = expandedCommand.previousElementSibling;
+        if (prevRow) prevRow.classList.remove('expanded');
       }
 
       detail.classList.toggle('open');
+      row.classList.toggle('expanded');
       expandedCommand = isOpen ? null : detail;
+
+      // Remove the one-time hint after first click
+      if (hintEl && hintEl.parentNode) {
+        hintEl.parentNode.removeChild(hintEl);
+        hintEl = null;
+      }
 
       // Update URL hash for deep linking
       if (!isOpen) {
@@ -708,15 +740,15 @@
         exPre.className = 'example-command';
         exPre.textContent = '$ ' + examples[ex].command;
         exPre.title = 'Click to copy';
-        (function (text) {
-          exPre.addEventListener('click', function (e) {
+        (function (text, el) {
+          el.addEventListener('click', function (e) {
             e.stopPropagation();
             navigator.clipboard.writeText(text).then(function () {
-              exPre.classList.add('copied');
-              setTimeout(function () { exPre.classList.remove('copied'); }, 1500);
+              el.classList.add('copied');
+              setTimeout(function () { el.classList.remove('copied'); }, 1500);
             });
           });
-        })(examples[ex].command);
+        })(examples[ex].command, exPre);
         exBlock.appendChild(exPre);
         frag.appendChild(exBlock);
       }

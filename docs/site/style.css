@@ -848,6 +848,44 @@ a.stat-card:hover {
   position: relative;
 }
 
+/* Row expand chevron */
+.row-chevron {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  opacity: 0.3;
+  transition: transform 0.15s, opacity 0.15s;
+  pointer-events: none;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+
+.command-row:hover .row-chevron {
+  opacity: 0.6;
+}
+
+.command-row.expanded .row-chevron {
+  transform: rotate(90deg);
+  opacity: 0.8;
+}
+
+/* One-time expand hint */
+.expand-hint {
+  display: block;
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  animation: hint-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  padding-top: 0.25rem;
+}
+
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
 .command-row:hover,
 .command-row:focus-visible {
   border-color: var(--text-secondary);
@@ -1003,6 +1041,7 @@ a.stat-card:hover {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  position: relative;
 }
 
 .command-desc-line .command-desc {
@@ -1018,10 +1057,7 @@ a.stat-card:hover {
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   white-space: nowrap;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  right: 0.75rem;
+  flex-shrink: 0;
 }
 
 .cmd-product-badge[data-product="pro"] {
@@ -1144,7 +1180,7 @@ pre.example-command {
   border: 1px solid var(--terminal-border);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1.5;
   overflow-x: auto;
   margin: 0;
@@ -1206,7 +1242,6 @@ pre.example-command.copied::after {
   border-radius: 4px;
   margin-right: 0.25rem;
   border: none;
-  font-style: italic;
 }
 
 @media (prefers-color-scheme: dark) {
