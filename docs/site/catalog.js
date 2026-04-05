@@ -35,6 +35,7 @@
   var activeProduct = 'all';
   var expandedCommand = null;
   var expandHintShown = false;
+  var currentSearchQuery = '';
 
   // ===== Initialization =====
 
@@ -169,12 +170,35 @@
     }
   }
 
+  function highlightText(text, parent) {
+    if (!currentSearchQuery || !text) {
+      parent.textContent = text;
+      return;
+    }
+    var lower = text.toLowerCase();
+    var idx = lower.indexOf(currentSearchQuery);
+    if (idx === -1) {
+      parent.textContent = text;
+      return;
+    }
+    parent.textContent = '';
+    if (idx > 0) parent.appendChild(document.createTextNode(text.slice(0, idx)));
+    var mark = document.createElement('mark');
+    mark.className = 'search-highlight';
+    mark.textContent = text.slice(idx, idx + currentSearchQuery.length);
+    parent.appendChild(mark);
+    if (idx + currentSearchQuery.length < text.length) {
+      parent.appendChild(document.createTextNode(text.slice(idx + currentSearchQuery.length)));
+    }
+  }
+
   // ===== Rendering =====
 
   function renderCatalog(commands, searchQuery, productFilter) {
     var catalog = document.getElementById('catalog');
     if (!catalog) return;
 
+    currentSearchQuery = (searchQuery || '').trim().toLowerCase();
     var filtered = filterCommands(commands, searchQuery, productFilter);
     var groups = groupCommands(filtered);
     var sorted = sortGroups(groups);
@@ -240,7 +264,8 @@
       if (!productGroups[prod] || productGroups[prod].length === 0) continue;
       catalog.appendChild(renderProductDivider(prod));
       for (var g = 0; g < productGroups[prod].length; g++) {
-        catalog.appendChild(renderGroup(productGroups[prod][g], hasSearch));
+        var expandGroup = hasSearch || productGroups[prod][g].name === 'Getting Started';
+        catalog.appendChild(renderGroup(productGroups[prod][g], expandGroup));
       }
     }
 
@@ -508,17 +533,17 @@
     if (parts.length >= 2) {
       var prodSpan = document.createElement('span');
       prodSpan.className = 'cmd-product';
-      prodSpan.textContent = parts[0] + ' ';
+      highlightText(parts[0] + ' ', prodSpan);
       nameSpan.appendChild(prodSpan);
       if (parts.length > 2) {
         var resource = document.createElement('span');
         resource.className = 'cmd-prefix';
-        resource.textContent = parts.slice(1, -1).join(' ') + ' ';
+        highlightText(parts.slice(1, -1).join(' ') + ' ', resource);
         nameSpan.appendChild(resource);
       }
       var action = document.createElement('span');
       action.className = 'cmd-action';
-      action.textContent = parts[parts.length - 1];
+      highlightText(parts[parts.length - 1], action);
       nameSpan.appendChild(action);
     } else {
       nameSpan.textContent = cmd.command;
@@ -546,7 +571,7 @@
 
     var descSpan = document.createElement('span');
     descSpan.className = 'command-desc';
-    descSpan.textContent = cmd.description || '';
+    highlightText(cmd.description || '', descSpan);
     descLine.appendChild(descSpan);
 
     // Product badge on every command

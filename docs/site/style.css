@@ -635,6 +635,14 @@ a.stat-card:hover {
   border-color: var(--brand-blue);
 }
 
+/* Search highlights */
+.search-highlight {
+  background: rgba(0, 115, 236, 0.2);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 /* Catalog */
 #catalog-loading {
   text-align: center;
