@@ -116,7 +116,7 @@ func TestRunPolicyExecute_DryRun(t *testing.T) {
 				return 200, `<?xml version="1.0" encoding="UTF-8"?><policy><general><id>10</id><name>Deploy Chrome</name></general></policy>`, nil
 			}
 			// Device resolution by ID
-			if method == "GET" && path == "/v1/computers-inventory-detail/42" {
+			if method == "GET" && path == "/v3/computers-inventory-detail/42" {
 				return 200, `{"id":"42","general":{"name":"MacBook-Lab1"}}`, nil
 			}
 			// Any POST means we tried to execute — that's a bug in dry-run
@@ -176,7 +176,7 @@ func TestRunPolicyExecute_ExecuteSuccess(t *testing.T) {
 				return 200, `<?xml version="1.0" encoding="UTF-8"?><policy><general><id>10</id><name>Deploy Chrome</name></general></policy>`, nil
 			}
 			// Device resolution
-			if method == "GET" && path == "/v1/computers-inventory-detail/42" {
+			if method == "GET" && path == "/v3/computers-inventory-detail/42" {
 				return 200, `{"id":"42","general":{"name":"MacBook-Lab1"}}`, nil
 			}
 			// Policy execution
@@ -202,10 +202,10 @@ func TestRunPolicyExecute_PartialFailure(t *testing.T) {
 				return 200, `<?xml version="1.0" encoding="UTF-8"?><policy><general><id>10</id><name>Deploy Chrome</name></general></policy>`, nil
 			}
 			// Device resolution for both devices
-			if method == "GET" && path == "/v1/computers-inventory-detail/42" {
+			if method == "GET" && path == "/v3/computers-inventory-detail/42" {
 				return 200, `{"id":"42","general":{"name":"MacBook-Lab1"}}`, nil
 			}
-			if method == "GET" && path == "/v1/computers-inventory-detail/99" {
+			if method == "GET" && path == "/v3/computers-inventory-detail/99" {
 				return 200, `{"id":"99","general":{"name":"MacBook-Lab2"}}`, nil
 			}
 			// First device succeeds

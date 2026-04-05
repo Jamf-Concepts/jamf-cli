@@ -55,7 +55,7 @@ func runDeviceDeepDive(ctx context.Context, client registry.HTTPClient, identifi
 	}
 
 	// 2. Fetch full detail.
-	detail, err := fetchJSON(ctx, client, "/v1/computers-inventory-detail/"+deviceID)
+	detail, err := fetchJSON(ctx, client, "/v3/computers-inventory-detail/"+deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching device detail: %w", err)
 	}

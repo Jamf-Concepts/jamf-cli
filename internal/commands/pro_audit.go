@@ -155,7 +155,7 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 
 func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
 	// Fetch all computers with SECURITY section to check FileVault status locally
-	all, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=SECURITY", 100)
+	all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=SECURITY", 100)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func checkUnencryptedDevices(ctx context.Context, client registry.HTTPClient, _ 
 
 func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
 	// Fetch all computers with SECURITY section to check Gatekeeper locally
-	all, err := FetchAllPaginated(ctx, client, "/v1/computers-inventory?section=SECURITY", 100)
+	all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=SECURITY", 100)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 func checkStaleCheckin(ctx context.Context, client registry.HTTPClient, days int) (*auditResult, error) {
 	// Compute the ISO 8601 cutoff date
 	cutoff := timeNow().AddDate(0, 0, -days).UTC().Format("2006-01-02")
-	path := fmt.Sprintf("/v1/computers-inventory?section=GENERAL&page-size=1&filter=general.lastContactTime%%3C%s", cutoff)
+	path := fmt.Sprintf("/v3/computers-inventory?section=GENERAL&page-size=1&filter=general.lastContactTime%%3C%s", cutoff)
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
 		return nil, err

@@ -226,7 +226,7 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 func TestCheckUnencryptedDevices_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","security":{"fileVault2Status":"ALL_ENCRYPTED"}},
 				{"id":"2","security":{"fileVault2Status":"NOT_STARTED"}},
 				{"id":"3","security":{"fileVault2Status":"SOME_ENCRYPTED"}}
@@ -253,7 +253,7 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":2,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":2,"results":[
 				{"id":"1","security":{"fileVault2Status":"ALL_ENCRYPTED"}},
 				{"id":"2","security":{"fileVault2Status":"BOOT_ENCRYPTED"}}
 			]}`},
@@ -272,7 +272,7 @@ func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 func TestCheckUnencryptedDevices_NoSecuritySection(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","general":{"name":"Mac1"}}
 			]}`},
 		},
@@ -290,7 +290,7 @@ func TestCheckUnencryptedDevices_NoSecuritySection(t *testing.T) {
 func TestCheckGatekeeper_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}},
 				{"id":"2","security":{"gatekeeperStatus":"DISABLED"}},
 				{"id":"3","security":{"gatekeeperStatus":"Disabled"}}
@@ -317,7 +317,7 @@ func TestCheckGatekeeper_Found(t *testing.T) {
 func TestCheckGatekeeper_AllEnabled(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}}
 			]}`},
 		},
@@ -441,7 +441,7 @@ func TestRunAudit_FilterByCategory(t *testing.T) {
 	// Only set up compliance mocks
 	mock := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+			"/v3/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
 			"/v2/mdm/commands":        {200, `{"totalCount":5,"results":[]}`},
 		},
 	}
