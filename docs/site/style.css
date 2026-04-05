@@ -1077,7 +1077,7 @@ a.stat-card:hover {
 .flag-pill {
   display: inline-block;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   background: rgba(100, 116, 139, 0.15);
   color: #475569;
   padding: 0.15rem 0.5rem;
@@ -1091,7 +1091,7 @@ a.stat-card:hover {
 .alias-badge {
   display: inline-block;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   background: rgba(0, 0, 0, 0.05);
   color: #64748B;
   padding: 0.15rem 0.5rem;
