@@ -411,13 +411,7 @@ func aggregateByDevice(results []mdmCommandResult, threshold int, _ map[string]m
 		if a.count < threshold {
 			continue
 		}
-		dt := "Unknown"
-		switch a.deviceType {
-		case "COMPUTER":
-			dt = "Computer"
-		case "MOBILE_DEVICE":
-			dt = "Mobile"
-		}
+		dt := normalizeDeviceType(a.deviceType)
 		summaries = append(summaries, mdmDeviceSummary{
 			ManagementID: mgmtID,
 			DeviceType:   dt,
@@ -529,14 +523,7 @@ func aggregateMDMFailures(results []mdmCommandResult, nameLookup map[string]stri
 		switch len(acc.clientTypes) {
 		case 1:
 			for ct := range acc.clientTypes {
-				switch ct {
-				case "COMPUTER":
-					deviceType = "Computer"
-				case "MOBILE_DEVICE":
-					deviceType = "Mobile"
-				default:
-					deviceType = ct
-				}
+				deviceType = normalizeDeviceType(ct)
 			}
 		case 0:
 			// no client type info
