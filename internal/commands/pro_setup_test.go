@@ -15,33 +15,232 @@ import (
 )
 
 func TestFilterPrivileges(t *testing.T) {
-	all := []string{
-		"Read Computers",
-		"Create Computers",
-		"Update Computers",
-		"Delete Computers",
-		"Read Users",
-		"Create Users",
-	}
-
 	tests := []struct {
 		name     string
-		prefixes []string
-		want     int
+		all      []string
+		patterns []string
+		include  []string // must appear in result
+		exclude  []string // must not appear in result
 	}{
-		{"read-only", []string{"Read "}, 2},
-		{"standard", []string{"Read ", "Create ", "Update "}, 5},
-		{"no match", []string{"Assign "}, 0},
+		{
+			name:     "prefix match includes all matching, excludes others",
+			all:      []string{"Read Computers", "Read Scripts", "Create Computers", "Delete Computers"},
+			patterns: []string{"Read "},
+			include:  []string{"Read Computers", "Read Scripts"},
+			exclude:  []string{"Create Computers", "Delete Computers"},
+		},
+		{
+			name:     "exact match only matches that string, not similar ones",
+			all:      []string{"blueprints read", "blueprints create", "blueprints delete"},
+			patterns: []string{"blueprints read"},
+			include:  []string{"blueprints read"},
+			exclude:  []string{"blueprints create", "blueprints delete"},
+		},
+		{
+			name:     "multiple prefixes combined",
+			all:      []string{"Read A", "View B", "Create C", "Delete D"},
+			patterns: []string{"Read ", "View "},
+			include:  []string{"Read A", "View B"},
+			exclude:  []string{"Create C", "Delete D"},
+		},
+		{
+			name:     "no matching patterns returns nothing",
+			all:      []string{"Read Computers", "Create Computers"},
+			patterns: []string{"Delete "},
+			exclude:  []string{"Read Computers", "Create Computers"},
+		},
+		{
+			// Platform Services privileges end with " verb" (lowercase). A pattern
+			// of "Read " (trailing space) matches both "Read Computers" (prefix) and
+			// "blueprints read" (verb-suffix derived as " read"), but NOT "blueprints create".
+			// This is the verb-suffix path, distinct from the *suffix path below.
+			name:     "verb-suffix match: platform services caught by prefix pattern",
+			all:      []string{"Read Computers", "blueprints read", "compliance-benchmarks read", "blueprints create"},
+			patterns: []string{"Read "},
+			include:  []string{"Read Computers", "blueprints read", "compliance-benchmarks read"},
+			exclude:  []string{"blueprints create"},
+		},
+		{
+			// *suffix patterns match any privilege ending with the given suffix.
+			// Used in standard's exclude list to catch Remote Wipe/Lock variants
+			// ("Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command", etc.)
+			// without enumerating each combination of device type and command name.
+			name:     "*suffix match: catches all variants sharing a common ending",
+			all:      []string{"Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command", "Send MDM Check In Command"},
+			patterns: []string{"*Remote Wipe Command"},
+			include:  []string{"Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command"},
+			exclude:  []string{"Send MDM Check In Command"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterPrivileges(all, tt.prefixes)
-			if len(got) != tt.want {
-				t.Errorf("filterPrivileges(%v) returned %d results, want %d", tt.prefixes, len(got), tt.want)
+			got := filterPrivileges(tt.all, tt.patterns)
+			gotSet := make(map[string]bool, len(got))
+			for _, g := range got {
+				gotSet[g] = true
+			}
+			for _, p := range tt.include {
+				if !gotSet[p] {
+					t.Errorf("expected %q in result", p)
+				}
+			}
+			for _, p := range tt.exclude {
+				if gotSet[p] {
+					t.Errorf("unexpected %q in result", p)
+				}
 			}
 		})
 	}
+}
+
+func TestScopePresets_PrivilegeCoverage(t *testing.T) {
+	// Build a synthetic privilege set that mirrors the real API structure.
+	// Uses representative resource names so tests don't need updating when
+	// Jamf adds new resources — the invariants are checked by verb prefix.
+	resources := []string{"Computers", "Scripts", "Policies", "Buildings", "Categories"}
+
+	var all []string
+	for _, r := range resources {
+		all = append(all, "Read "+r, "Create "+r, "Update "+r, "Delete "+r)
+	}
+
+	viewItems := []string{
+		"View MDM command information in Jamf Pro API",
+		"View Disk Encryption Recovery Key",
+		"View Local Admin Password",
+		"View Event Logs",
+		"View JSS Information",
+		"View Recovery Lock",
+	}
+	// Operational privileges included in standard (non-destructive, non-audit-destroying).
+	safeOperational := []string{
+		"Edit Return To Service Configurations",
+		"Allow User to Enroll",
+		"Assign Users to Computers",
+		"Assign Users to Mobile Devices",
+		"Enroll Computers",
+		"Enroll Mobile Devices",
+		"Jamf Connect Deployment Retry",
+		"Jamf Packages Action",
+		"Jamf Protect Deployment Retry",
+		"Send Blank Pushes to Mobile Devices",
+		"Send Command to Renew MDM Profile",
+		"Send Declarative Management Command",
+		"Send Device Information Command",
+		"Send Inventory Requests to Mobile Devices",
+		"Send MDM Check In Command",
+	}
+	// Operational privileges excluded from standard: irreversible or destructive.
+	destructiveOperational := []string{
+		"Dismiss Notifications",             // irreversible
+		"Flush MDM Commands",                // destroys audit data
+		"Flush Policy Logs",                 // destroys audit data
+		"Send Computer Remote Wipe Command", // irreversible data loss
+		"Send Mobile Device Remote Wipe Command",
+		"Send Computer Remote Lock Command", // device becomes inaccessible
+		"Send Mobile Device Remote Lock Command",
+	}
+	platformItems := []string{
+		"blueprints read", "blueprints create", "blueprints update", "blueprints delete",
+		"compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update", "compliance-benchmarks delete",
+	}
+
+	all = append(all, viewItems...)
+	all = append(all, safeOperational...)
+	all = append(all, destructiveOperational...)
+	all = append(all, platformItems...)
+
+	toSet := func(privs []string) map[string]bool {
+		s := make(map[string]bool, len(privs))
+		for _, p := range privs {
+			s[p] = true
+		}
+		return s
+	}
+
+	t.Run("read-only includes all Read and View, excludes everything else", func(t *testing.T) {
+		got := toSet(applyPrivilegeFilter(all, scopeOptionByKey("read-only")))
+
+		// Every Read X and View X must be included (covers platform " read" suffix too)
+		for _, p := range all {
+			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") ||
+				strings.HasSuffix(p, " read") {
+				if !got[p] {
+					t.Errorf("read-only: missing %q", p)
+				}
+			}
+		}
+		// Write verbs must be excluded
+		for _, p := range all {
+			if strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") ||
+				strings.HasPrefix(p, "Delete ") || strings.HasPrefix(p, "Flush ") ||
+				strings.HasPrefix(p, "Dismiss ") {
+				if got[p] {
+					t.Errorf("read-only: should not contain %q", p)
+				}
+			}
+		}
+		// Platform non-read must be excluded
+		for _, p := range []string{
+			"blueprints create", "blueprints update", "blueprints delete",
+			"compliance-benchmarks create", "compliance-benchmarks update", "compliance-benchmarks delete",
+		} {
+			if got[p] {
+				t.Errorf("read-only: should not contain %q", p)
+			}
+		}
+	})
+
+	t.Run("standard excludes Delete/Flush/Dismiss, includes everything else", func(t *testing.T) {
+		got := toSet(applyPrivilegeFilter(all, scopeOptionByKey("standard")))
+
+		// Read/View/Create/Update must be included
+		for _, p := range all {
+			if strings.HasPrefix(p, "Read ") || strings.HasPrefix(p, "View ") ||
+				strings.HasPrefix(p, "Create ") || strings.HasPrefix(p, "Update ") {
+				if !got[p] {
+					t.Errorf("standard: missing %q", p)
+				}
+			}
+		}
+		// Safe operational items must be included
+		for _, p := range safeOperational {
+			if !got[p] {
+				t.Errorf("standard: missing %q", p)
+			}
+		}
+		// Platform read/create/update must be included
+		for _, p := range []string{
+			"blueprints read", "blueprints create", "blueprints update",
+			"compliance-benchmarks read", "compliance-benchmarks create", "compliance-benchmarks update",
+		} {
+			if !got[p] {
+				t.Errorf("standard: missing %q", p)
+			}
+		}
+		// Delete, Flush, Dismiss must be excluded (covers platform verb suffixes too)
+		for _, p := range all {
+			if strings.HasPrefix(p, "Delete ") || strings.HasPrefix(p, "Flush ") ||
+				strings.HasPrefix(p, "Dismiss ") {
+				if got[p] {
+					t.Errorf("standard: should not contain %q", p)
+				}
+			}
+		}
+		for _, p := range append(destructiveOperational, "blueprints delete", "compliance-benchmarks delete") {
+			if got[p] {
+				t.Errorf("standard: should not contain %q", p)
+			}
+		}
+	})
+
+	t.Run("full-admin passes all privileges through unchanged", func(t *testing.T) {
+		got := applyPrivilegeFilter(all, scopeOptionByKey("full-admin"))
+		if len(got) != len(all) {
+			t.Errorf("full-admin: got %d privileges, want %d (all)", len(got), len(all))
+		}
+	})
 }
 
 func TestFilterPrivileges_NilPrefixes(t *testing.T) {
@@ -184,17 +383,14 @@ func TestSetupClient_GenerateClientCredentials_Error(t *testing.T) {
 }
 
 func TestScopePresets(t *testing.T) {
-	if _, ok := scopePresets["read-only"]; !ok {
-		t.Error("missing read-only preset")
+	for _, key := range []string{"read-only", "standard", "full-admin"} {
+		if scopeOptionByKey(key).key == "" {
+			t.Errorf("missing scope option %q", key)
+		}
 	}
-	if _, ok := scopePresets["standard"]; !ok {
-		t.Error("missing standard preset")
-	}
-	if _, ok := scopePresets["full-admin"]; !ok {
-		t.Error("missing full-admin preset")
-	}
-	if scopePresets["full-admin"] != nil {
-		t.Error("full-admin should have nil prefixes (all privileges)")
+	opt := scopeOptionByKey("full-admin")
+	if opt.include != nil || len(opt.exclude) > 0 {
+		t.Error("full-admin should have nil include and no excludes (all privileges)")
 	}
 }
 
