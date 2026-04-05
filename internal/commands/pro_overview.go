@@ -835,29 +835,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("alert_detail", strings.Join(types, ", "), nil)
 	})
 
-	// 12. Pending MDM Commands (Modern API v2 — replaces heavy Classic calls)
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DPending%3BclientType%3D%3DCOMPUTER")
-		send("pending_computer_cmds", v, err)
-	})
-
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DPending%3BclientType%3D%3DMOBILE_DEVICE")
-		send("pending_mobile_cmds", v, err)
-	})
-
-	// 12b. Failed MDM Commands (Modern API v2 with RSQL filter)
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError")
-		send("failed_cmds", v, err)
-	})
-
 	// 13. Configuration Management (Classic API)
 	wg.Go(func() {
 		sem <- struct{}{}
@@ -1003,12 +980,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 	}
 
-	// Color failed commands red if count > 0
-	failedCmdsItem := overviewItem{"Failed Commands", get("failed_cmds"), ""}
-	if v := get("failed_cmds"); v != "0" && v != "N/A" {
-		failedCmdsItem.ColorHint = "red"
-	}
-
 	// Build Configuration section — skip items with count = 0
 	var configItems []overviewItem
 	for _, pair := range []struct {
@@ -1052,12 +1023,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	// Build Health & Alerts items
 	healthItems := []overviewItem{item("Health Status", get("health"))}
 	healthItems = append(healthItems, alertItems...)
-	healthItems = append(healthItems,
-		overviewItem{}, // blank separator
-		failedCmdsItem,
-		item("Pending Computer Commands", get("pending_computer_cmds")),
-		item("Pending Mobile Commands", get("pending_mobile_cmds")),
-	)
 
 	sections := []overviewSection{
 		{
