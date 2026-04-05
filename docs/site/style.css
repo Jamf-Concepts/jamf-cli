@@ -49,8 +49,8 @@ html {
     --page-bg: #0c101a;
     --card-bg: #151822;
     --border: #1e2740;
-    --text-primary: #E2E8F0;
-    --text-secondary: #716f8a;
+    --text-primary: #F1F5F9;
+    --text-secondary: #8b89a3;
     --tab-inactive-bg: #151822;
     --product-protect: #50DEAF;
   }
@@ -62,8 +62,8 @@ html {
   --card-bg: #151822;
   --border: #1e2740;
   --product-protect: #50DEAF;
-  --text-primary: #E2E8F0;
-  --text-secondary: #716f8a;
+  --text-primary: #F1F5F9;
+  --text-secondary: #8b89a3;
   --tab-inactive-bg: #151822;
 }
 
@@ -1720,6 +1720,43 @@ footer .footer-meta {
 
   .cmd-product-badge {
     font-size: 0.5rem;
+  }
+
+  /* Hide product badge on mobile — product is shown in the divider */
+  .command-desc-line .cmd-product-badge {
+    display: none;
+  }
+
+  .row-chevron {
+    font-size: 0.9rem;
+    padding-left: 0.25rem;
+  }
+
+  .hero-icon {
+    height: 48px;
+  }
+
+  .nav-icon {
+    height: 20px;
+  }
+
+  /* Example blocks: smaller text, horizontal scroll */
+  pre.example-command {
+    font-size: 0.65rem;
+  }
+
+  .example-desc {
+    font-size: 0.75rem;
+  }
+
+  /* Expand hint */
+  .expand-hint {
+    font-size: 0.6rem;
+  }
+
+  /* Footer links: hide external icons on mobile */
+  .footer-links .external-icon {
+    display: none;
   }
 
   .install-card {
