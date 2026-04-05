@@ -882,7 +882,7 @@ func TestRunOverview_FullMock(t *testing.T) {
 			"/v1/mobile-device-groups/smart-groups":          {200, `{"totalCount":8,"results":[]}`},
 			"/v1/scripts":                                    {200, `{"totalCount":25,"results":[]}`},
 			"/v1/ebooks":                                     {200, `{"totalCount":0,"results":[]}`},
-			"/v1/jcds/files":                                 {200, `[]`},
+			"/v1/cloud-distribution-point/files":             {200, `{"totalCount":0,"results":[]}`},
 			"/v1/device-enrollments":                         {200, `{"totalCount":1,"results":[{"id":"42","tokenExpirationDate":"2027-06-15"}]}`},
 			"/v1/device-enrollments/42/syncs/latest":         {200, `{"syncState":"SUCCESSFUL","timestamp":"2026-03-14T10:30:00.000"}`},
 			"/v3/computer-prestages":                         {200, `{"totalCount":2,"results":[]}`},
