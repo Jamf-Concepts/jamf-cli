@@ -102,6 +102,33 @@ func fetchArrayCount(ctx context.Context, client registry.HTTPClient, path strin
 	return formatCount(float64(len(arr))), nil
 }
 
+// fetchCDPFileCount paginates through the cloud-distribution-point files endpoint
+// to get an accurate total. The endpoint's totalCount field is unreliable
+// (reflects page size, not actual total), so we count by page until exhausted.
+func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string, error) {
+	const (
+		pageSize = 100
+		maxPages = 1000
+	)
+	total := 0
+	for page := 0; page < maxPages; page++ {
+		path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, pageSize)
+		data, err := fetchJSON(ctx, client, path)
+		if err != nil {
+			return "", err
+		}
+		results, ok := data["results"].([]any)
+		if !ok {
+			return "", fmt.Errorf("unexpected response: missing results array")
+		}
+		total += len(results)
+		if len(results) < pageSize {
+			break
+		}
+	}
+	return formatCount(float64(total)), nil
+}
+
 // fetchClassicCount performs a GET on a Classic API list endpoint and returns the
 // count of items. Classic API returns XML; JSON is handled as a fallback.
 func fetchClassicCount(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) (string, error) {
@@ -696,7 +723,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchArrayCount(ctx, client, "/v1/jcds/files")
+		v, err := fetchCDPFileCount(ctx, client)
 		send("jcds_files", v, err)
 	})
 
@@ -806,29 +833,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			}
 		}
 		send("alert_detail", strings.Join(types, ", "), nil)
-	})
-
-	// 12. Pending MDM Commands (Classic API)
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/computercommands", "computer_commands")
-		send("pending_computer_cmds", v, err)
-	})
-
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchClassicNestedSize(ctx, client, "/JSSResource/mobiledevicecommands", "mobile_device_commands")
-		send("pending_mobile_cmds", v, err)
-	})
-
-	// 12b. Failed MDM Commands (Modern API v2 with RSQL filter)
-	wg.Go(func() {
-		sem <- struct{}{}
-		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/mdm/commands?filter=status%3D%3DError")
-		send("failed_cmds", v, err)
 	})
 
 	// 13. Configuration Management (Classic API)
@@ -976,12 +980,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 	}
 
-	// Color failed commands red if count > 0
-	failedCmdsItem := overviewItem{"Failed Commands", get("failed_cmds"), ""}
-	if v := get("failed_cmds"); v != "0" && v != "N/A" {
-		failedCmdsItem.ColorHint = "red"
-	}
-
 	// Build Configuration section — skip items with count = 0
 	var configItems []overviewItem
 	for _, pair := range []struct {
@@ -1025,12 +1023,6 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	// Build Health & Alerts items
 	healthItems := []overviewItem{item("Health Status", get("health"))}
 	healthItems = append(healthItems, alertItems...)
-	healthItems = append(healthItems,
-		overviewItem{}, // blank separator
-		failedCmdsItem,
-		item("Pending Computer Commands", get("pending_computer_cmds")),
-		item("Pending Mobile Commands", get("pending_mobile_cmds")),
-	)
 
 	sections := []overviewSection{
 		{

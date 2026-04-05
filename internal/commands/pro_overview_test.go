@@ -882,16 +882,13 @@ func TestRunOverview_FullMock(t *testing.T) {
 			"/v1/mobile-device-groups/smart-groups":          {200, `{"totalCount":8,"results":[]}`},
 			"/v1/scripts":                                    {200, `{"totalCount":25,"results":[]}`},
 			"/v1/ebooks":                                     {200, `{"totalCount":0,"results":[]}`},
-			"/v1/jcds/files":                                 {200, `[]`},
+			"/v1/cloud-distribution-point/files":             {200, `{"totalCount":0,"results":[]}`},
 			"/v1/device-enrollments":                         {200, `{"totalCount":1,"results":[{"id":"42","tokenExpirationDate":"2027-06-15"}]}`},
 			"/v1/device-enrollments/42/syncs/latest":         {200, `{"syncState":"SUCCESSFUL","timestamp":"2026-03-14T10:30:00.000"}`},
 			"/v3/computer-prestages":                         {200, `{"totalCount":2,"results":[]}`},
 			"/v3/mobile-device-prestages":                    {200, `{"totalCount":1,"results":[]}`},
 			"/v1/static-user-groups":                         {200, `[{"id":"1"},{"id":"2"},{"id":"3"}]`},
 			"/v1/notifications":                              {200, `[]`},
-			"/v2/mdm/commands":                               {200, `{"totalCount":0,"results":[]}`},
-			"/JSSResource/computercommands":                  {200, `{"computer_commands":{"computer_command":[],"size":12}}`},
-			"/JSSResource/mobiledevicecommands":              {200, `{"mobile_device_commands":{"mobile_device_command":[],"size":3}}`},
 			"/JSSResource/policies":                          {200, `{"policies":[{"id":1}]}`},
 			"/JSSResource/osxconfigurationprofiles":          {200, `{"os_x_configuration_profiles":[{"id":1},{"id":2}]}`},
 			"/JSSResource/mobiledeviceconfigurationprofiles": {200, `{"configuration_profiles":[]}`},
@@ -929,24 +926,21 @@ func TestRunOverview_FullMock(t *testing.T) {
 
 	// Spot-check key values (matches new section layout)
 	checks := map[string]string{
-		"Active Alerts":             "None",
-		"Failed Commands":           "0",
-		"Pending Computer Commands": "12",
-		"Pending Mobile Commands":   "3",
-		"Server URL":                "https://test.jamfcloud.com",
-		"Jamf Pro Version":          "11.0.0",
-		"Managed Computers":         "500",
-		"Unmanaged Computers":       "10",
-		"Managed Devices":           "200",
-		"Check-In Frequency":        "15 min",
-		"DEP Instances":             "1",
-		"Computer Prestages":        "2",
-		"Sites":                     "2",
-		"Buildings":                 "3",
-		"Scripts":                   "25",
-		"Policies":                  "1",
-		"Packages":                  "3",
-		"Static User Groups":        "3",
+		"Active Alerts":       "None",
+		"Server URL":          "https://test.jamfcloud.com",
+		"Jamf Pro Version":    "11.0.0",
+		"Managed Computers":   "500",
+		"Unmanaged Computers": "10",
+		"Managed Devices":     "200",
+		"Check-In Frequency":  "15 min",
+		"DEP Instances":       "1",
+		"Computer Prestages":  "2",
+		"Sites":               "2",
+		"Buildings":           "3",
+		"Scripts":             "25",
+		"Policies":            "1",
+		"Packages":            "3",
+		"Static User Groups":  "3",
 	}
 
 	for resource, want := range checks {
@@ -1006,6 +1000,67 @@ func TestFetchPaginatedCount_ExistingQueryParams(t *testing.T) {
 	}
 	if got != "7" {
 		t.Errorf("got %q, want %q", got, "7")
+	}
+}
+
+func TestFetchCDPFileCount_MultiPage(t *testing.T) {
+	// 150 files = page 0 (100) + page 1 (50)
+	page0 := make([]string, 100)
+	for i := range page0 {
+		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
+	}
+	page1 := make([]string, 50)
+	for i := range page1 {
+		page1[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, 100+i)
+	}
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
+			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":50,"results":[` + strings.Join(page1, ",") + `]}`},
+		},
+	}
+
+	got, err := fetchCDPFileCount(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "150" {
+		t.Errorf("got %q, want %q", got, "150")
+	}
+}
+
+func TestFetchCDPFileCount_ExactlyOnePage(t *testing.T) {
+	// Exactly 100 files — must fetch page 1 to confirm it's empty.
+	page0 := make([]string, 100)
+	for i := range page0 {
+		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
+	}
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
+			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":0,"results":[]}`},
+		},
+	}
+
+	got, err := fetchCDPFileCount(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "100" {
+		t.Errorf("got %q, want %q", got, "100")
+	}
+}
+
+func TestFetchCDPFileCount_BadResponse(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"error":"unexpected"}`},
+		},
+	}
+
+	_, err := fetchCDPFileCount(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected error for missing results array, got nil")
 	}
 }
 
