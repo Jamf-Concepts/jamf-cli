@@ -163,5 +163,7 @@ func parseVersion(output string) string {
 			v = parts[0]
 		}
 	}
+	// Normalize: strip "v" prefix so display layer can format consistently
+	v = strings.TrimPrefix(v, "v")
 	return v
 }
