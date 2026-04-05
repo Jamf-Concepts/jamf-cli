@@ -1336,6 +1336,89 @@ footer .footer-meta {
   animation: none;
 }
 
+/* ===== Keyboard Shortcuts Modal ===== */
+.kbd-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+.kbd-modal.open {
+  display: flex;
+}
+
+.kbd-modal-content {
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.kbd-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.kbd-modal-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.kbd-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.kbd-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.kbd-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.kbd-row span {
+  margin-left: auto;
+}
+
+.kbd-row kbd,
+.footer-kbd {
+  display: inline-block;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.7rem;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  min-width: 1.4rem;
+  text-align: center;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.footer-kbd {
+  cursor: pointer;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   nav {
