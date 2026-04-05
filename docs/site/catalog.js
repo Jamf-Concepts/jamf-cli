@@ -31,6 +31,7 @@
   var allCommands = [];
   var newCommandSet = {};
   var heroExamples = {};
+  var commandExamples = {};
   var activeProduct = 'all';
   var expandedCommand = null;
 
@@ -38,6 +39,7 @@
 
   function init() {
     loadHeroExamples();
+    loadExamples();
     setupSearch();
     setupTabs();
     setupStatCards();
@@ -58,6 +60,13 @@
         heroExamples = {};
       }
     }
+  }
+
+  function loadExamples() {
+    fetch('examples.json')
+      .then(function (res) { return res.ok ? res.json() : {}; })
+      .then(function (data) { commandExamples = data || {}; })
+      .catch(function () { commandExamples = {}; });
   }
 
   function fetchCommands() {
@@ -680,6 +689,37 @@
       var promptLine = '$ ' + example.example + '\n';
       pre.textContent = promptLine + example.output;
       frag.appendChild(pre);
+    }
+
+    // Usage examples (from examples.json)
+    var examples = commandExamples[cmd.command];
+    if (examples && examples.length > 0) {
+      frag.appendChild(createDetailHeading('Examples'));
+      for (var ex = 0; ex < examples.length; ex++) {
+        var exBlock = document.createElement('div');
+        exBlock.className = 'example-block';
+        if (examples[ex].description) {
+          var exDesc = document.createElement('div');
+          exDesc.className = 'example-desc';
+          exDesc.textContent = examples[ex].description;
+          exBlock.appendChild(exDesc);
+        }
+        var exPre = document.createElement('pre');
+        exPre.className = 'example-command';
+        exPre.textContent = '$ ' + examples[ex].command;
+        exPre.title = 'Click to copy';
+        (function (text) {
+          exPre.addEventListener('click', function (e) {
+            e.stopPropagation();
+            navigator.clipboard.writeText(text).then(function () {
+              exPre.classList.add('copied');
+              setTimeout(function () { exPre.classList.remove('copied'); }, 1500);
+            });
+          });
+        })(examples[ex].command);
+        exBlock.appendChild(exPre);
+        frag.appendChild(exBlock);
+      }
     }
 
     // Related commands (siblings under same parent)

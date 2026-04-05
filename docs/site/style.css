@@ -1116,6 +1116,57 @@ a.stat-card:hover {
   letter-spacing: 0.05em;
   color: var(--text-secondary);
   margin-bottom: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.detail-heading:first-child {
+  margin-top: 0;
+}
+
+/* Example blocks */
+.example-block {
+  margin-bottom: 0.5rem;
+}
+
+.example-block:last-child {
+  margin-bottom: 0;
+}
+
+.example-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+pre.example-command {
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  border: 1px solid var(--terminal-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+pre.example-command:hover {
+  border-color: var(--brand-blue);
+}
+
+pre.example-command.copied {
+  border-color: var(--terminal-success);
+}
+
+pre.example-command.copied::after {
+  content: 'Copied!';
+  float: right;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--terminal-success);
 }
 
 .command-expanded pre {
