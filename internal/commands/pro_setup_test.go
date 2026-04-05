@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
@@ -905,5 +908,140 @@ func TestNormalizeURL(t *testing.T) {
 				t.Errorf("normalizeURL(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// setupInstanceServer builds a test HTTP server that handles the Jamf Pro API
+// calls made by setupInstance. existingIntID controls whether an existing
+// integration is returned (non-zero) or not (zero = create path).
+func setupInstanceServer(t *testing.T, existingIntID int) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/api/v1/auth/token"):
+			_ = json.NewEncoder(w).Encode(map[string]string{"token": "test-bearer"})
+
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/api-role-privileges"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"privileges": []string{"Read Computers"}})
+
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api-roles"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"totalCount": 1,
+				"results":    []map[string]any{{"id": "role-1"}},
+			})
+
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api-roles/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "role-1"})
+
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api-integrations"):
+			if existingIntID != 0 {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"totalCount": 1,
+					"results":    []map[string]any{{"id": existingIntID}},
+				})
+			} else {
+				_ = json.NewEncoder(w).Encode(map[string]any{"totalCount": 0, "results": []any{}})
+			}
+
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/api-integrations") && strings.HasSuffix(r.URL.Path, "/client-credentials"):
+			_ = json.NewEncoder(w).Encode(map[string]string{"clientId": "new-cid", "clientSecret": "new-csec"})
+
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api-integrations/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": existingIntID})
+
+		case r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/api-integrations"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 99})
+
+		case r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/client-credentials"):
+			_ = json.NewEncoder(w).Encode(map[string]string{"clientId": "new-cid", "clientSecret": "new-csec"})
+
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+// TestSetupInstance_ExistingIntegration_KeychainMissing reproduces the bug where
+// re-running setup with the same profile name after deleting the keychain items
+// results in a profile with broken keychain references. The fix detects that the
+// keychain items are absent and regenerates credentials instead of skipping.
+func TestSetupInstance_ExistingIntegration_KeychainMissing(t *testing.T) {
+	server := setupInstanceServer(t, 42) // integration ID 42 already exists
+	defer server.Close()
+
+	mock := newMockKeychainStore()
+	old := config.KeychainStore
+	config.KeychainStore = mock
+	defer func() { config.KeychainStore = old }()
+
+	cfg := &config.Config{Profiles: make(map[string]config.Profile)}
+	var out bytes.Buffer
+
+	err := setupInstance(context.Background(), &out, cfg, server.URL, "user", "pass", "standard", "my-profile", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Credentials must have been stored despite integration already existing.
+	cidKey := keychain.DefaultService + "/my-profile/client-id"
+	csecKey := keychain.DefaultService + "/my-profile/client-secret"
+	if mock.items[cidKey] == "" {
+		t.Errorf("expected client-id in keychain at %q, got nothing", cidKey)
+	}
+	if mock.items[csecKey] == "" {
+		t.Errorf("expected client-secret in keychain at %q, got nothing", csecKey)
+	}
+
+	// Config must reference the keychain items.
+	p := cfg.Profiles["my-profile"]
+	wantCID := keychain.KeychainRef("my-profile", "client-id")
+	wantCSec := keychain.KeychainRef("my-profile", "client-secret")
+	if p.ClientID != wantCID {
+		t.Errorf("ClientID = %q, want %q", p.ClientID, wantCID)
+	}
+	if p.ClientSecret != wantCSec {
+		t.Errorf("ClientSecret = %q, want %q", p.ClientSecret, wantCSec)
+	}
+
+	// The output should mention that credentials were missing and being regenerated.
+	if !strings.Contains(out.String(), "missing") && !strings.Contains(out.String(), "regenerat") {
+		t.Errorf("expected output to mention missing/regenerating credentials, got:\n%s", out.String())
+	}
+}
+
+// TestSetupInstance_ExistingIntegration_KeychainPresent verifies that when
+// credentials already exist in keychain, setup does NOT regenerate them.
+func TestSetupInstance_ExistingIntegration_KeychainPresent(t *testing.T) {
+	server := setupInstanceServer(t, 42)
+	defer server.Close()
+
+	mock := newMockKeychainStore()
+	mock.items[keychain.DefaultService+"/my-profile/client-id"] = "existing-cid"
+	mock.items[keychain.DefaultService+"/my-profile/client-secret"] = "existing-csec"
+
+	old := config.KeychainStore
+	config.KeychainStore = mock
+	defer func() { config.KeychainStore = old }()
+
+	cfg := &config.Config{Profiles: make(map[string]config.Profile)}
+	var out bytes.Buffer
+
+	err := setupInstance(context.Background(), &out, cfg, server.URL, "user", "pass", "standard", "my-profile", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Existing credentials must not have been overwritten.
+	if got := mock.items[keychain.DefaultService+"/my-profile/client-id"]; got != "existing-cid" {
+		t.Errorf("client-id overwritten: got %q, want %q", got, "existing-cid")
+	}
+	if got := mock.items[keychain.DefaultService+"/my-profile/client-secret"]; got != "existing-csec" {
+		t.Errorf("client-secret overwritten: got %q, want %q", got, "existing-csec")
+	}
+
+	if !strings.Contains(out.String(), "unchanged") {
+		t.Errorf("expected output to say credentials unchanged, got:\n%s", out.String())
 	}
 }
