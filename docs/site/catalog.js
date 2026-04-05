@@ -67,7 +67,7 @@
         return res.json();
       })
       .then(function (data) {
-        allCommands = data.commands || [];
+        allCommands = reclassifyCoreCommands(data.commands || []);
         if (data.newCommands) {
           for (var n = 0; n < data.newCommands.length; n++) {
             newCommandSet[data.newCommands[n]] = true;
@@ -166,8 +166,7 @@
     if (!catalog) return;
 
     var filtered = filterCommands(commands, searchQuery, productFilter);
-    var reclassified = reclassifyCoreCommands(filtered);
-    var groups = groupCommands(reclassified);
+    var groups = groupCommands(filtered);
     var sorted = sortGroups(groups);
 
     catalog.innerHTML = '';
@@ -489,30 +488,22 @@
 
     var nameSpan = document.createElement('span');
     nameSpan.className = 'command-name';
-    // Split: product (full color) + resource path (dimmed) + action (bold)
     var parts = cmd.command.split(' ');
-    if (parts.length > 2) {
-      var productSpan = document.createElement('span');
-      productSpan.className = 'cmd-product';
-      productSpan.textContent = parts[0] + ' ';
-      nameSpan.appendChild(productSpan);
-      var resource = document.createElement('span');
-      resource.className = 'cmd-prefix';
-      resource.textContent = parts.slice(1, -1).join(' ') + ' ';
-      nameSpan.appendChild(resource);
+    if (parts.length >= 2) {
+      var prodSpan = document.createElement('span');
+      prodSpan.className = 'cmd-product';
+      prodSpan.textContent = parts[0] + ' ';
+      nameSpan.appendChild(prodSpan);
+      if (parts.length > 2) {
+        var resource = document.createElement('span');
+        resource.className = 'cmd-prefix';
+        resource.textContent = parts.slice(1, -1).join(' ') + ' ';
+        nameSpan.appendChild(resource);
+      }
       var action = document.createElement('span');
       action.className = 'cmd-action';
       action.textContent = parts[parts.length - 1];
       nameSpan.appendChild(action);
-    } else if (parts.length === 2) {
-      var productSpan2 = document.createElement('span');
-      productSpan2.className = 'cmd-product';
-      productSpan2.textContent = parts[0] + ' ';
-      nameSpan.appendChild(productSpan2);
-      var action2 = document.createElement('span');
-      action2.className = 'cmd-action';
-      action2.textContent = parts[1];
-      nameSpan.appendChild(action2);
     } else {
       nameSpan.textContent = cmd.command;
     }
@@ -523,10 +514,7 @@
     copyIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     copyIcon.addEventListener('click', function (e) {
       e.stopPropagation();
-      navigator.clipboard.writeText('jamf-cli ' + cmd.command).then(function () {
-        nameSpan.classList.add('copied');
-        setTimeout(function () { nameSpan.classList.remove('copied'); }, 1500);
-      });
+      copyWithFeedback('jamf-cli ' + cmd.command, nameSpan);
     });
     nameSpan.appendChild(copyIcon);
     if (newCommandSet[cmd.command]) {
@@ -620,6 +608,13 @@
     });
 
     return { row: row, detail: detail };
+  }
+
+  function copyWithFeedback(text, element) {
+    navigator.clipboard.writeText(text).then(function () {
+      element.classList.add('copied');
+      setTimeout(function () { element.classList.remove('copied'); }, 1500);
+    });
   }
 
   function createDetailHeading(text) {
@@ -765,18 +760,25 @@
 
   // ===== Product Tabs =====
 
+  function activateProductTab(filter) {
+    var tabs = document.querySelectorAll('.tab');
+    for (var j = 0; j < tabs.length; j++) {
+      tabs[j].classList.remove('active');
+      if (tabs[j].getAttribute('data-filter') === filter) {
+        tabs[j].classList.add('active');
+      }
+    }
+    activeProduct = filter;
+    var search = document.getElementById('search');
+    var query = search ? search.value.trim() : '';
+    renderCatalog(allCommands, query, activeProduct);
+  }
+
   function setupTabs() {
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].addEventListener('click', function () {
-        for (var j = 0; j < tabs.length; j++) {
-          tabs[j].classList.remove('active');
-        }
-        this.classList.add('active');
-        activeProduct = this.getAttribute('data-filter');
-        var search = document.getElementById('search');
-        var query = search ? search.value.trim() : '';
-        renderCatalog(allCommands, query, activeProduct);
+        activateProductTab(this.getAttribute('data-filter'));
       });
     }
   }
@@ -808,24 +810,11 @@
   function setupStatCards() {
     var cards = document.querySelectorAll('.stat-card[data-tab]');
     for (var i = 0; i < cards.length; i++) {
-      cards[i].addEventListener('click', function (e) {
-        var tabFilter = this.getAttribute('data-tab');
-        var tabs = document.querySelectorAll('.tab');
-        for (var j = 0; j < tabs.length; j++) {
-          tabs[j].classList.remove('active');
-          if (tabs[j].getAttribute('data-filter') === tabFilter) {
-            tabs[j].classList.add('active');
-          }
-        }
-        activeProduct = tabFilter;
-        var search = document.getElementById('search');
-        var query = search ? search.value.trim() : '';
-        renderCatalog(allCommands, query, activeProduct);
+      cards[i].addEventListener('click', function () {
+        activateProductTab(this.getAttribute('data-tab'));
       });
     }
   }
-
-  // ===== Nav Scroll (IntersectionObserver) =====
 
   // ===== Deep Linking & Navigation =====
 
@@ -929,12 +918,7 @@
         var nameEl = rows[currentIndex].querySelector('.command-name');
         if (nameEl) {
           var copyText = nameEl.getAttribute('data-copy');
-          if (copyText) {
-            navigator.clipboard.writeText(copyText).then(function () {
-              nameEl.classList.add('copied');
-              setTimeout(function () { nameEl.classList.remove('copied'); }, 1500);
-            });
-          }
+          if (copyText) copyWithFeedback(copyText, nameEl);
         }
       }
     });
