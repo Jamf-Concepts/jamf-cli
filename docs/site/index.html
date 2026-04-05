@@ -117,6 +117,7 @@
         <button id="search-clear" class="search-clear" aria-label="Clear search" type="button">&times;</button>
       </div>
       <button id="toggle-all" class="toggle-all-btn" title="Expand/collapse all groups">Expand All</button>
+      <button class="kbd-hint-btn" id="kbd-hint-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button>
     </div>
     <div id="catalog-loading">Loading commands...</div>
     <div id="catalog"></div>
@@ -179,6 +180,7 @@
         <div class="kbd-row"><kbd>&darr;</kbd> <kbd>j</kbd> <span>Next command</span></div>
         <div class="kbd-row"><kbd>&uarr;</kbd> <kbd>k</kbd> <span>Previous command</span></div>
         <div class="kbd-row"><kbd>Enter</kbd> <span>Expand command</span></div>
+        <div class="kbd-row"><kbd>c</kbd> <span>Copy command</span></div>
         <div class="kbd-row"><kbd>?</kbd> <span>Toggle this guide</span></div>
       </div>
     </div>
@@ -340,6 +342,11 @@
           search.blur();
         }
       }
+    });
+
+    // Keyboard shortcuts hint button
+    document.getElementById('kbd-hint-btn').addEventListener('click', function () {
+      document.getElementById('kbd-modal').classList.toggle('open');
     });
 
     // Keyboard shortcuts modal close button

@@ -516,6 +516,7 @@
     } else {
       nameSpan.textContent = cmd.command;
     }
+    nameSpan.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
     var copyIcon = document.createElement('span');
     copyIcon.className = 'command-copy-icon';
     copyIcon.setAttribute('title', 'Copy: jamf-cli ' + cmd.command);
@@ -923,6 +924,18 @@
       } else if (e.key === 'Enter' && currentIndex >= 0) {
         e.preventDefault();
         rows[currentIndex].click();
+      } else if (e.key === 'c' && currentIndex >= 0) {
+        e.preventDefault();
+        var nameEl = rows[currentIndex].querySelector('.command-name');
+        if (nameEl) {
+          var copyText = nameEl.getAttribute('data-copy');
+          if (copyText) {
+            navigator.clipboard.writeText(copyText).then(function () {
+              nameEl.classList.add('copied');
+              setTimeout(function () { nameEl.classList.remove('copied'); }, 1500);
+            });
+          }
+        }
       }
     });
   }

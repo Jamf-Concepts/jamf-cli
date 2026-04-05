@@ -1419,6 +1419,31 @@ footer .footer-meta {
   cursor: pointer;
 }
 
+.kbd-hint-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: border-color 0.15s;
+}
+
+.kbd-hint-btn:hover {
+  border-color: var(--text-secondary);
+}
+
+.kbd-hint-btn kbd {
+  box-shadow: none;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding: 0;
+  min-width: auto;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   nav {
