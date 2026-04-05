@@ -106,15 +106,21 @@ func fetchArrayCount(ctx context.Context, client registry.HTTPClient, path strin
 // to get an accurate total. The endpoint's totalCount field is unreliable
 // (reflects page size, not actual total), so we count by page until exhausted.
 func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string, error) {
-	const pageSize = 100
+	const (
+		pageSize = 100
+		maxPages = 1000
+	)
 	total := 0
-	for page := 0; ; page++ {
+	for page := 0; page < maxPages; page++ {
 		path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, pageSize)
 		data, err := fetchJSON(ctx, client, path)
 		if err != nil {
 			return "", err
 		}
-		results, _ := data["results"].([]any)
+		results, ok := data["results"].([]any)
+		if !ok {
+			return "", fmt.Errorf("unexpected response: missing results array")
+		}
 		total += len(results)
 		if len(results) < pageSize {
 			break

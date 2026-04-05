@@ -1009,6 +1009,67 @@ func TestFetchPaginatedCount_ExistingQueryParams(t *testing.T) {
 	}
 }
 
+func TestFetchCDPFileCount_MultiPage(t *testing.T) {
+	// 150 files = page 0 (100) + page 1 (50)
+	page0 := make([]string, 100)
+	for i := range page0 {
+		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
+	}
+	page1 := make([]string, 50)
+	for i := range page1 {
+		page1[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, 100+i)
+	}
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
+			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":50,"results":[` + strings.Join(page1, ",") + `]}`},
+		},
+	}
+
+	got, err := fetchCDPFileCount(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "150" {
+		t.Errorf("got %q, want %q", got, "150")
+	}
+}
+
+func TestFetchCDPFileCount_ExactlyOnePage(t *testing.T) {
+	// Exactly 100 files — must fetch page 1 to confirm it's empty.
+	page0 := make([]string, 100)
+	for i := range page0 {
+		page0[i] = fmt.Sprintf(`{"fileName":"file%d.pkg"}`, i)
+	}
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"totalCount":100,"results":[` + strings.Join(page0, ",") + `]}`},
+			"/v1/cloud-distribution-point/files?page=1&page-size=100": {200, `{"totalCount":0,"results":[]}`},
+		},
+	}
+
+	got, err := fetchCDPFileCount(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "100" {
+		t.Errorf("got %q, want %q", got, "100")
+	}
+}
+
+func TestFetchCDPFileCount_BadResponse(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/cloud-distribution-point/files?page=0&page-size=100": {200, `{"error":"unexpected"}`},
+		},
+	}
+
+	_, err := fetchCDPFileCount(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected error for missing results array, got nil")
+	}
+}
+
 func TestOverviewToRows_WithColorHints(t *testing.T) {
 	sections := []overviewSection{
 		{
