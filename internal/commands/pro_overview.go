@@ -102,6 +102,27 @@ func fetchArrayCount(ctx context.Context, client registry.HTTPClient, path strin
 	return formatCount(float64(len(arr))), nil
 }
 
+// fetchCDPFileCount paginates through the cloud-distribution-point files endpoint
+// to get an accurate total. The endpoint's totalCount field is unreliable
+// (reflects page size, not actual total), so we count by page until exhausted.
+func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string, error) {
+	const pageSize = 100
+	total := 0
+	for page := 0; ; page++ {
+		path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, pageSize)
+		data, err := fetchJSON(ctx, client, path)
+		if err != nil {
+			return "", err
+		}
+		results, _ := data["results"].([]any)
+		total += len(results)
+		if len(results) < pageSize {
+			break
+		}
+	}
+	return formatCount(float64(total)), nil
+}
+
 // fetchClassicCount performs a GET on a Classic API list endpoint and returns the
 // count of items. Classic API returns XML; JSON is handled as a fallback.
 func fetchClassicCount(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) (string, error) {
@@ -696,11 +717,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		data, err := fetchJSON(ctx, client, "/v1/cloud-distribution-point/files")
-		var v string
-		if err == nil {
-			v = formatCount(data["totalCount"])
-		}
+		v, err := fetchCDPFileCount(ctx, client)
 		send("jcds_files", v, err)
 	})
 
