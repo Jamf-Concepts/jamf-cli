@@ -51,13 +51,25 @@ func TestFilterPrivileges(t *testing.T) {
 		},
 		{
 			// Platform Services privileges end with " verb" (lowercase). A pattern
-			// of "Read " should match both "Read Computers" (prefix) and
-			// "blueprints read" (suffix), but not "blueprints create".
+			// of "Read " (trailing space) matches both "Read Computers" (prefix) and
+			// "blueprints read" (verb-suffix derived as " read"), but NOT "blueprints create".
+			// This is the verb-suffix path, distinct from the *suffix path below.
 			name:     "verb-suffix match: platform services caught by prefix pattern",
 			all:      []string{"Read Computers", "blueprints read", "compliance-benchmarks read", "blueprints create"},
 			patterns: []string{"Read "},
 			include:  []string{"Read Computers", "blueprints read", "compliance-benchmarks read"},
 			exclude:  []string{"blueprints create"},
+		},
+		{
+			// *suffix patterns match any privilege ending with the given suffix.
+			// Used in standard's exclude list to catch Remote Wipe/Lock variants
+			// ("Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command", etc.)
+			// without enumerating each combination of device type and command name.
+			name:     "*suffix match: catches all variants sharing a common ending",
+			all:      []string{"Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command", "Send MDM Check In Command"},
+			patterns: []string{"*Remote Wipe Command"},
+			include:  []string{"Send Computer Remote Wipe Command", "Send Mobile Device Remote Wipe Command"},
+			exclude:  []string{"Send MDM Check In Command"},
 		},
 	}
 
@@ -118,16 +130,16 @@ func TestScopePresets_PrivilegeCoverage(t *testing.T) {
 		"Send Device Information Command",
 		"Send Inventory Requests to Mobile Devices",
 		"Send MDM Check In Command",
-		"Send Computer Remote Wipe Command",
-		"Send Computer Remote Lock Command",
-		"Send Mobile Device Remote Wipe Command",
-		"Send Mobile Device Remote Lock Command",
 	}
-	// Operational privileges excluded from standard: irreversible or audit-destroying.
+	// Operational privileges excluded from standard: irreversible or destructive.
 	destructiveOperational := []string{
-		"Dismiss Notifications", // irreversible
-		"Flush MDM Commands",    // destroys audit data
-		"Flush Policy Logs",     // destroys audit data
+		"Dismiss Notifications",             // irreversible
+		"Flush MDM Commands",                // destroys audit data
+		"Flush Policy Logs",                 // destroys audit data
+		"Send Computer Remote Wipe Command", // irreversible data loss
+		"Send Mobile Device Remote Wipe Command",
+		"Send Computer Remote Lock Command", // device becomes inaccessible
+		"Send Mobile Device Remote Lock Command",
 	}
 	platformItems := []string{
 		"blueprints read", "blueprints create", "blueprints update", "blueprints delete",

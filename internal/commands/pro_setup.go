@@ -340,12 +340,14 @@ var scopeOptions = []scopeOption{
 		include: []string{"Read ", "View "},
 	},
 	{
-		key: "standard", displayName: "Standard", description: "read, create, update — no destructive actions",
+		key: "standard", displayName: "Standard", description: "read, create, update — no deletes, wipes, or audit destruction",
 		// Denylist: all privileges except destructive/irreversible operations.
 		// "Delete " covers "Delete Computers" (prefix) and "blueprints delete" (verb suffix).
 		// "Flush " covers "Flush MDM Commands" / "Flush Policy Logs" (destroys audit data).
 		// "Dismiss " covers "Dismiss Notifications" (irreversible).
-		exclude: []string{"Delete ", "Flush ", "Dismiss "},
+		// "*Remote Wipe Command" / "*Remote Lock Command" use the *suffix form to match
+		// "Send Computer/Mobile Device Remote Wipe/Lock Command" without listing each variant.
+		exclude: []string{"Delete ", "Flush ", "Dismiss ", "*Remote Wipe Command", "*Remote Lock Command"},
 	},
 	{
 		key: "full-admin", displayName: "Full Admin", description: "all privileges",
@@ -385,7 +387,7 @@ func applyPrivilegeFilter(all []string, opt scopeOption) []string {
 	if len(opt.exclude) == 0 {
 		return base
 	}
-	excluded := make(map[string]bool, len(opt.exclude))
+	excluded := make(map[string]bool, len(base))
 	for _, p := range filterPrivileges(all, opt.exclude) {
 		excluded[p] = true
 	}
