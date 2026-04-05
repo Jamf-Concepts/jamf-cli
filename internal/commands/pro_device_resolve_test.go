@@ -33,7 +33,7 @@ func (m *deviceResolveMockClient) Do(_ context.Context, method, path string, _ i
 func TestResolveDeviceByIdentifier_ByID(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if path == "/v1/computers-inventory-detail/42" {
+			if path == "/v3/computers-inventory-detail/42" {
 				return 200, `{"id":"42","general":{"name":"MacBook-Lab1"}}`, nil
 			}
 			return 0, "", fmt.Errorf("unexpected path: %s", path)
@@ -55,7 +55,7 @@ func TestResolveDeviceByIdentifier_ByID(t *testing.T) {
 func TestResolveDeviceByIdentifier_BySerial(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
@@ -80,7 +80,7 @@ func TestResolveDeviceByIdentifier_BySerial(t *testing.T) {
 func TestResolveDeviceByIdentifier_ByName(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
@@ -108,7 +108,7 @@ func TestResolveDeviceByIdentifier_ByName(t *testing.T) {
 func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			// Both serial and name searches return 0 results
@@ -128,7 +128,7 @@ func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 func TestResolveDeviceByIdentifier_NameWithApostrophe(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {
@@ -160,7 +160,7 @@ func TestResolveDeviceByIdentifier_NameWithApostrophe(t *testing.T) {
 func TestResolveDeviceByIdentifier_MultipleMatches(t *testing.T) {
 	client := &deviceResolveMockClient{
 		handler: func(_, path string) (int, string, error) {
-			if strings.HasPrefix(path, "/v1/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			if strings.Contains(path, "hardware.serialNumber") {

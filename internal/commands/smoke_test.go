@@ -265,22 +265,22 @@ type tier2Check struct {
 var tier2Checks = []tier2Check{
 	{
 		Name:       "device-compliance/GENERAL+HARDWARE",
-		Path:       "/v1/computers-inventory?section=GENERAL&section=HARDWARE&page-size=1",
+		Path:       "/v3/computers-inventory?section=GENERAL&section=HARDWARE&page-size=1",
 		FieldPaths: []string{"results.0.general.name", "results.0.general.lastContactTime", "results.0.hardware.serialNumber"},
 	},
 	{
 		Name:       "inventory-summary/HARDWARE+OS",
-		Path:       "/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page-size=1",
+		Path:       "/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page-size=1",
 		FieldPaths: []string{"results.0.hardware.model", "results.0.operatingSystem.version"},
 	},
 	{
 		Name:       "software-installs/APPLICATIONS",
-		Path:       "/v1/computers-inventory?section=APPLICATIONS&page-size=1",
+		Path:       "/v3/computers-inventory?section=APPLICATIONS&page-size=1",
 		FieldPaths: []string{"results.0.applications"},
 	},
 	{
 		Name:       "ea-results/EXTENSION_ATTRIBUTES",
-		Path:       "/v1/computers-inventory?section=EXTENSION_ATTRIBUTES&page-size=1",
+		Path:       "/v3/computers-inventory?section=EXTENSION_ATTRIBUTES&page-size=1",
 		FieldPaths: []string{"results.0.extensionAttributes.0.definitionId", "results.0.extensionAttributes.0.name"},
 	},
 	{
