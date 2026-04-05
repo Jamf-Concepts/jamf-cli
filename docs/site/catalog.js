@@ -29,6 +29,7 @@
   var JAMF_ICON_SVG = '<svg class="product-icon" viewBox="0 0 43 43" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg>';
 
   var allCommands = [];
+  var newCommandSet = {};
   var heroExamples = {};
   var activeProduct = 'all';
   var expandedCommand = null;
@@ -67,6 +68,11 @@
       })
       .then(function (data) {
         allCommands = data.commands || [];
+        if (data.newCommands) {
+          for (var n = 0; n < data.newCommands.length; n++) {
+            newCommandSet[data.newCommands[n]] = true;
+          }
+        }
         populateStats(data);
         renderCatalog(allCommands, '', activeProduct);
         hideCatalogLoading();
@@ -522,6 +528,12 @@
       });
     });
     nameSpan.appendChild(copyIcon);
+    if (newCommandSet[cmd.command]) {
+      var newBadge = document.createElement('span');
+      newBadge.className = 'new-badge';
+      newBadge.textContent = 'New';
+      nameSpan.appendChild(newBadge);
+    }
     row.appendChild(nameSpan);
 
     var descLine = document.createElement('div');

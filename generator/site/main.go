@@ -16,6 +16,7 @@ type siteData struct {
 	GeneratedAt  time.Time     `json:"generatedAt"`
 	Version      string        `json:"version"`
 	CommandCount int           `json:"commandCount"`
+	NewCommands  []string      `json:"newCommands,omitempty"`
 	Commands     []siteCommand `json:"commands"`
 }
 
@@ -40,6 +41,7 @@ type rawCommand struct {
 func main() {
 	binary := flag.String("binary", "./bin/jamf-cli", "path to jamf-cli binary")
 	output := flag.String("output", "docs/site/commands.json", "output file path")
+	previous := flag.String("previous", "", "path to previous commands.json for new-command detection")
 	flag.Parse()
 
 	versionOut, err := exec.Command(*binary, "version").Output()
@@ -55,7 +57,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	result, err := transformCommands(commandsOut, version)
+	var previousCommands map[string]bool
+	if *previous != "" {
+		previousCommands, err = loadPreviousCommands(*previous)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not load previous commands: %v\n", err)
+		}
+	}
+
+	result, err := transformCommands(commandsOut, version, previousCommands)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error transforming commands: %v\n", err)
 		os.Exit(1)
@@ -72,13 +82,14 @@ func main() {
 	}
 }
 
-func transformCommands(rawJSON []byte, version string) ([]byte, error) {
+func transformCommands(rawJSON []byte, version string, previousCommands map[string]bool) ([]byte, error) {
 	var raw []rawCommand
 	if err := json.Unmarshal(rawJSON, &raw); err != nil {
 		return nil, fmt.Errorf("parsing commands JSON: %w", err)
 	}
 
 	commands := make([]siteCommand, len(raw))
+	var newCommands []string
 	for i, r := range raw {
 		commands[i] = siteCommand{
 			Command:     r.Command,
@@ -88,16 +99,36 @@ func transformCommands(rawJSON []byte, version string) ([]byte, error) {
 			Product:     r.Product,
 			Group:       r.Group,
 		}
+		if previousCommands != nil && !previousCommands[r.Command] {
+			newCommands = append(newCommands, r.Command)
+		}
 	}
 
 	data := siteData{
 		GeneratedAt:  time.Now().UTC(),
 		Version:      version,
 		CommandCount: len(commands),
+		NewCommands:  newCommands,
 		Commands:     commands,
 	}
 
 	return json.MarshalIndent(data, "", "  ")
+}
+
+func loadPreviousCommands(path string) (map[string]bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var prev siteData
+	if err := json.Unmarshal(data, &prev); err != nil {
+		return nil, err
+	}
+	m := make(map[string]bool, len(prev.Commands))
+	for _, c := range prev.Commands {
+		m[c.Command] = true
+	}
+	return m, nil
 }
 
 func splitCSV(s string) []string {

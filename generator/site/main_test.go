@@ -13,7 +13,7 @@ func TestTransformCommands(t *testing.T) {
 		{"command":"protect analytics list","description":"List analytics","aliases":"","flags":"--output","product":"protect","group":"Analytics"}
 	]`)
 
-	out, err := transformCommands(input, "1.0.0")
+	out, err := transformCommands(input, "1.0.0", nil)
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestTransformCommands_EmptyAliasesAndFlags(t *testing.T) {
 		{"command":"version","description":"Print version","aliases":"","flags":"","product":"","group":""}
 	]`)
 
-	out, err := transformCommands(input, "2.0.0")
+	out, err := transformCommands(input, "2.0.0", nil)
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -76,6 +76,56 @@ func TestTransformCommands_EmptyAliasesAndFlags(t *testing.T) {
 	}
 	if cmd.Flags != nil {
 		t.Errorf("Flags = %v, want nil", cmd.Flags)
+	}
+}
+
+func TestTransformCommands_NewCommands(t *testing.T) {
+	input := []byte(`[
+		{"command":"pro computers list","description":"List","aliases":"","flags":"","product":"pro","group":""},
+		{"command":"pro report security","description":"Security","aliases":"","flags":"","product":"pro","group":""},
+		{"command":"pro report policy-status","description":"Policy","aliases":"","flags":"","product":"pro","group":""}
+	]`)
+
+	previous := map[string]bool{
+		"pro computers list":  true,
+		"pro report security": true,
+	}
+
+	out, err := transformCommands(input, "1.1.0", previous)
+	if err != nil {
+		t.Fatalf("transformCommands returned error: %v", err)
+	}
+
+	var data siteData
+	if err := json.Unmarshal(out, &data); err != nil {
+		t.Fatalf("failed to unmarshal output: %v", err)
+	}
+
+	if len(data.NewCommands) != 1 {
+		t.Fatalf("len(NewCommands) = %d, want 1", len(data.NewCommands))
+	}
+	if data.NewCommands[0] != "pro report policy-status" {
+		t.Errorf("NewCommands[0] = %q, want %q", data.NewCommands[0], "pro report policy-status")
+	}
+}
+
+func TestTransformCommands_NoPrevious(t *testing.T) {
+	input := []byte(`[
+		{"command":"version","description":"Version","aliases":"","flags":"","product":"","group":""}
+	]`)
+
+	out, err := transformCommands(input, "1.0.0", nil)
+	if err != nil {
+		t.Fatalf("transformCommands returned error: %v", err)
+	}
+
+	var data siteData
+	if err := json.Unmarshal(out, &data); err != nil {
+		t.Fatalf("failed to unmarshal output: %v", err)
+	}
+
+	if data.NewCommands != nil {
+		t.Errorf("NewCommands should be nil when no previous, got %v", data.NewCommands)
 	}
 }
 

@@ -880,6 +880,21 @@ a.stat-card:hover {
   opacity: 1;
 }
 
+.new-badge {
+  display: inline-block;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f59e0b;
+  color: #000;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
 .command-name .cmd-product {
   font-weight: 500;
   opacity: 0.7;
