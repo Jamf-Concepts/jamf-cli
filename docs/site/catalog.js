@@ -94,8 +94,10 @@
       if (data.commands[i].product === 'pro') proCount++;
       else if (data.commands[i].product === 'protect') protectCount++;
     }
+    var coreCount = count - proCount - protectCount;
     setText('stat-pro', proCount.toLocaleString());
     setText('stat-protect', protectCount.toLocaleString());
+    setText('stat-core', coreCount.toLocaleString());
 
     // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
     var resources = {};

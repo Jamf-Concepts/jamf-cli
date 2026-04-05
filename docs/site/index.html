@@ -46,6 +46,7 @@
 
   <!-- ===== Hero ===== -->
   <section id="hero">
+    <div class="hero-brand">jamf-cli</div>
     <h1>Your fleet, one command away</h1>
     <p class="subtitle">
       Unified CLI for Jamf Pro and Jamf Protect.
@@ -53,10 +54,6 @@
     </p>
 
     <div class="stat-cards">
-      <a href="#commands" class="stat-card" data-product="total" data-tab="all">
-        <span class="stat-value" id="stat-commands">&mdash;</span>
-        <span class="stat-label">Total Commands</span>
-      </a>
       <a href="#commands" class="stat-card" data-product="pro" data-tab="pro">
         <span class="stat-value" id="stat-pro">&mdash;</span>
         <span class="stat-label">Jamf Pro</span>
@@ -64,6 +61,10 @@
       <a href="#commands" class="stat-card" data-product="protect" data-tab="protect">
         <span class="stat-value" id="stat-protect">&mdash;</span>
         <span class="stat-label">Jamf Protect</span>
+      </a>
+      <a href="#commands" class="stat-card" data-product="core" data-tab="all">
+        <span class="stat-value" id="stat-core">&mdash;</span>
+        <span class="stat-label">Core / Shared</span>
       </a>
     </div>
 
@@ -181,59 +182,14 @@
   <!-- ===== Embedded Data ===== -->
   <script type="application/json" id="terminal-data">
 [
-  {
-    "command": "jamf-cli pro overview",
-    "output": [
-      "\u001b[1mRESULTS\u001b[0m (37 parallel API calls)",
-      "Computers          1,247",
-      "Mobile Devices       892",
-      "Policies             156",
-      "Configuration Prof.  243",
-      "MDM Capable           98%"
-    ]
-  },
-  {
-    "command": "jamf-cli pro report security",
-    "output": [
-      "\u001b[1mSECURITY POSTURE\u001b[0m — 1,247 computers",
-      "FileVault Enabled    1,198  (96%)",
-      "SIP Enabled          1,240  (99%)",
-      "Gatekeeper Active    1,233  (99%)",
-      "Firewall Enabled     1,089  (87%)",
-      "Remote Login Off     1,176  (94%)"
-    ]
-  },
-  {
-    "command": "jamf-cli pro device C02X1234",
-    "output": [
-      "Name:     Keaton's MacBook Pro",
-      "Serial:   C02X1234DEFG",
-      "OS:       macOS 15.3 (24D60)",
-      "Model:    MacBook Pro 16\" (M4 Pro)",
-      "Managed:  \u2713 Yes",
-      "Last Check-in: 2 minutes ago"
-    ]
-  },
-  {
-    "command": "jamf-cli protect analytics list -o table",
-    "output": [
-      "NAME                          SEVERITY  ENABLED",
-      "Suspicious Download           High      \u2713",
-      "Unauthorized USB Mount        Medium    \u2713",
-      "Privilege Escalation          Critical  \u2713",
-      "Kernel Extension Load         Low       \u2713"
-    ]
-  },
-  {
-    "command": "jamf-cli pro comp list --filter \"osVersion>=15\" -o table",
-    "output": [
-      "NAME              OS     SERIAL         MANAGED",
-      "Keaton's MBP      15.3   H2WDT4RGQ6P0  \u25cf Yes",
-      "Admin's iMac      15.1   C02X5678DEFG   \u25cf Yes",
-      "Lab Mac Pro       15.0   F4KD7890HIJK   \u25cf Yes",
-      "Dev MacBook       15.2   MNOP1234QRST   \u25cf Yes"
-    ]
-  }
+  { "command": "jamf-cli pro overview" },
+  { "command": "jamf-cli pro report security" },
+  { "command": "jamf-cli pro device jamf-mini" },
+  { "command": "jamf-cli pro comp list -o table --filter \"osVersion>=15\"" },
+  { "command": "jamf-cli pro policy-execute 5 --target jamf-mini" },
+  { "command": "jamf-cli protect analytics list -o table" },
+  { "command": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0 --yes" },
+  { "command": "jamf-cli pro backup --output ./backup/" }
 ]
   </script>
 
@@ -241,43 +197,43 @@
 {
   "pro overview": {
     "example": "jamf-cli pro overview",
-    "output": "RESULTS (37 parallel API calls)\nComputers          1,247\nMobile Devices       892\nPolicies             156\nMDM Capable           98%"
+    "output": "  INSTANCE OVERVIEW\n\n  Health & Alerts\n  Health Status                  \u2705 Healthy\n  Pending Computer Commands             0\n\n  Fleet\n  Managed Computers                    18\n  Managed Devices                       4"
   },
   "pro device": {
-    "example": "jamf-cli pro device C02X1234",
-    "output": "Name:     Keaton's MacBook Pro\nSerial:   C02X1234DEFG\nOS:       macOS 15.3 (24D60)\nManaged:  \u2713 Yes"
+    "example": "jamf-cli pro device jamf-mini",
+    "output": "  Identity\n  Name                       jamf-mini\n  Serial Number          H2WDT4RGQ6P0\n  Managed                          Yes\n\n  Hardware & OS\n  Model              Mac mini (M1, 2020)\n  OS                       macOS 26.1.0"
   },
   "pro report security": {
     "example": "jamf-cli pro report security",
-    "output": "SECURITY POSTURE \u2014 1,247 computers\nFileVault Enabled    1,198  (96%)\nSIP Enabled          1,240  (99%)\nGatekeeper Active    1,233  (99%)"
+    "output": "\u2500\u2500 Security Summary \u2500\u2500\nRESULTS (1 total)\n\n FILEVAULT  FIREWALL  GATEKEEPER  SIP\n 0.0%       5.6%      100.0%      72.2%"
   },
   "pro computers list": {
-    "example": "jamf-cli pro comp list --filter \"osVersion>=15\" -o table",
-    "output": "NAME              OS     SERIAL         MANAGED\nKeaton's MBP      15.3   H2WDT4RGQ6P0  \u25cf Yes\nAdmin's iMac      15.1   C02X5678DEFG   \u25cf Yes"
+    "example": "jamf-cli pro comp list -o table",
+    "output": "RESULTS (18 total)\n\n NAME                    SERIAL         OS_VERSION\n admin's MacBook Air     FVFHG3AYQ6L4   26.0.0\n jamf-mini               H2WDT4RGQ6P0   26.1.0"
   },
   "pro computers apply": {
-    "example": "echo '{\"name\":\"Lab Mac\"}' | jamf-cli pro comp apply",
-    "output": "\u2713 Created computer \"Lab Mac\" (id: 1042)"
+    "example": "echo '{\"name\":\"HQ\"}' | jamf-cli pro buildings apply",
+    "output": "\u2713 Created building \"HQ\" (id: 3)"
   },
   "pro setup": {
     "example": "jamf-cli pro setup --url https://jamf.company.com",
     "output": "Jamf Pro URL: https://jamf.company.com\nAuth method: OAuth2 (Client Credentials)\n\u2713 Credentials verified\n\u2713 Profile 'default' saved to config"
   },
   "pro comp erase": {
-    "example": "jamf-cli pro comp erase --serial C02X1234 --yes",
-    "output": "[dry-run] Would erase computer C02X1234 (Keaton's MacBook Pro)\nUse --confirm-destructive to execute"
+    "example": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0",
+    "output": "[dry-run] Would erase computer H2WDT4RGQ6P0 (jamf-mini)\nUse --yes --confirm-destructive to execute."
   },
   "pro policy-execute": {
-    "example": "jamf-cli pro policy-execute 'Update Inventory' --target C02X1234",
-    "output": "[dry-run] Would execute policy \"Update Inventory\" on 1 device\nTarget: C02X1234 (Keaton's MacBook Pro)"
+    "example": "jamf-cli pro policy-execute 5 --target jamf-mini",
+    "output": "[dry-run] Would execute policy\n  \"DMG | JCDS Cloud Install Test\" (id=5)\n  on 1 device(s):\n  - jamf-mini (id=29)\nUse --yes to execute."
   },
   "protect analytics list": {
     "example": "jamf-cli protect analytics list -o table",
-    "output": "NAME                          SEVERITY  ENABLED\nSuspicious Download           High      \u2713\nUnauthorized USB Mount        Medium    \u2713\nPrivilege Escalation          Critical  \u2713"
+    "output": "RESULTS (847 total)\n\n NAME                          SEVERITY  ENABLED\n Suspicious Download           High      \u2713\n Unauthorized USB Mount        Medium    \u2713"
   },
   "protect overview": {
     "example": "jamf-cli protect overview",
-    "output": "PROTECT OVERVIEW\nPlans            12\nAnalytics       847\nAnalytic Sets     8\nComputers     1,523\nStatus:   Healthy"
+    "output": "  PROTECT OVERVIEW\n\n  Plans                          12\n  Analytics                     847\n  Analytic Sets                   8\n  Computers                   1,523"
   }
 }
   </script>

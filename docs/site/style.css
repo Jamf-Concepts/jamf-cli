@@ -106,8 +106,8 @@ nav {
 }
 
 nav.scrolled {
-  background: var(--hero-bg);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: var(--page-bg);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 .nav-brand {
@@ -116,7 +116,7 @@ nav.scrolled {
   gap: 0.5rem;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #fff;
+  color: var(--text-primary);
   text-decoration: none;
 }
 
@@ -139,7 +139,7 @@ nav.scrolled {
 }
 
 .nav-links a {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
   transition: color 0.15s;
@@ -183,10 +183,19 @@ nav.scrolled {
 
 /* ===== Hero ===== */
 #hero {
-  background: var(--hero-bg);
-  color: #fff;
+  background: var(--page-bg);
+  color: var(--text-primary);
   text-align: center;
-  padding: 7rem 2rem 4rem;
+  padding: 7rem 2rem 2rem;
+}
+
+.hero-brand {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.75rem;
 }
 
 #hero h1 {
@@ -197,7 +206,7 @@ nav.scrolled {
 }
 
 #hero .subtitle {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-size: 1.1rem;
   max-width: 700px;
   margin: 0 auto 2.5rem;
@@ -215,11 +224,13 @@ nav.scrolled {
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem 2rem;
   min-width: 150px;
+  flex: 1;
+  max-width: 200px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: transform 0.15s, box-shadow 0.15s;
@@ -237,20 +248,28 @@ a.stat-card:hover {
 }
 
 .stat-card[data-product="total"] {
-  border-color: rgba(5, 106, 230, 0.4);
-  box-shadow: 0 0 24px rgba(5, 106, 230, 0.12);
+  border-color: var(--product-pro);
+  box-shadow: 0 2px 12px rgba(5, 106, 230, 0.15);
 }
 .stat-card[data-product="total"] .stat-value { color: var(--brand-blue); }
 
 .stat-card[data-product="pro"] {
-  border-color: rgba(5, 106, 230, 0.25);
+  border-color: rgba(5, 106, 230, 0.4);
+  box-shadow: 0 2px 12px rgba(5, 106, 230, 0.08);
 }
 .stat-card[data-product="pro"] .stat-value { color: var(--product-pro); }
 
 .stat-card[data-product="protect"] {
-  border-color: rgba(80, 222, 175, 0.25);
+  border-color: rgba(80, 222, 175, 0.4);
+  box-shadow: 0 2px 12px rgba(80, 222, 175, 0.08);
 }
 .stat-card[data-product="protect"] .stat-value { color: var(--product-protect); }
+
+.stat-card[data-product="core"] {
+  border-color: var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.stat-card[data-product="core"] .stat-value { color: var(--text-secondary); }
 
 .stat-card .stat-value {
   font-size: 2rem;
@@ -261,7 +280,7 @@ a.stat-card:hover {
 
 .stat-card .stat-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -273,30 +292,30 @@ a.stat-card:hover {
   gap: 0.75rem;
   margin-bottom: 2.5rem;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary);
 }
 
 .stat-secondary strong {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .stat-dot {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--border);
 }
 
 .stat-tip {
   position: relative;
   cursor: help;
   padding: 0.3rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 999px;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .stat-tip:hover {
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--brand-blue);
+  background: var(--card-bg);
 }
 
 .stat-tip::after {
@@ -331,6 +350,12 @@ a.stat-card:hover {
   border-radius: 10px;
   overflow: hidden;
   text-align: left;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+:root[data-theme="light"] #terminal,
+:root:not([data-theme]) #terminal {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
 }
 
 .terminal-titlebar {
@@ -357,7 +382,7 @@ a.stat-card:hover {
   font-size: 0.85rem;
   line-height: 1.65;
   color: var(--terminal-text);
-  height: 180px;
+  height: 50px;
   overflow: hidden;
 }
 
@@ -405,13 +430,14 @@ a.stat-card:hover {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.85rem;
   color: var(--terminal-text);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 .hero-install .code-block code {
@@ -450,7 +476,7 @@ a.stat-card:hover {
 
 /* ===== Commands Catalog ===== */
 #commands {
-  padding: 4rem 2rem;
+  padding: 2.5rem 2rem;
   max-width: 960px;
   margin: 0 auto;
 }
@@ -1099,11 +1125,11 @@ footer .footer-meta {
 /* ===== Theme Toggle ===== */
 .theme-toggle {
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.4rem;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1112,8 +1138,8 @@ footer .footer-meta {
 }
 
 .theme-toggle:hover {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
 }
 
 .theme-toggle svg {

@@ -4,59 +4,18 @@
   var commands = [];
   var terminalOutput = null;
   var terminalEl = null;
-  var currentIndex = 0;
   var paused = false;
   var pendingTimer = null;
 
-  // Parse ANSI bold sequences into DOM nodes.
-  // Handles ESC[1m...ESC[0m as <strong>, strips other ANSI escape codes.
-  // Uses indexOf/search to walk the string without calling regex .exec().
-  function renderAnsiToDom(container, text) {
-    var pos = 0;
-
-    while (pos < text.length) {
-      var remaining = text.slice(pos);
-      var nextAnsi = remaining.search(/\u001b\[\d+m/);
-
-      if (nextAnsi === -1) {
-        // No more escape codes — emit the rest as plain text
-        container.appendChild(document.createTextNode(remaining));
-        break;
-      }
-
-      // Emit text before the escape sequence
-      if (nextAnsi > 0) {
-        container.appendChild(document.createTextNode(remaining.slice(0, nextAnsi)));
-      }
-
-      var codeStart = pos + nextAnsi;
-
-      if (text.indexOf('\u001b[1m', codeStart) === codeStart) {
-        // Bold sequence: ESC[1m...ESC[0m
-        var boldStart = codeStart + 4; // length of ESC[1m
-        var closeIdx = text.indexOf('\u001b[0m', boldStart);
-        if (closeIdx !== -1) {
-          var strong = document.createElement('strong');
-          strong.textContent = text.slice(boldStart, closeIdx);
-          container.appendChild(strong);
-          pos = closeIdx + 4; // length of ESC[0m
-        } else {
-          // No closing code — emit the rest literally
-          container.appendChild(document.createTextNode(text.slice(codeStart)));
-          break;
-        }
-      } else {
-        // Other ANSI code — strip it by advancing past ESC[Xm
-        var codeMatch = text.slice(codeStart).match(/^\u001b\[\d+m/);
-        pos = codeStart + (codeMatch ? codeMatch[0].length : 3);
-      }
-    }
-  }
+  // Commands are grouped by product and picked in round-robin order.
+  // Each product cycles through its commands sequentially, shuffled on first load.
+  var productQueues = {};  // { pro: [...], protect: [...] }
+  var productOrder = [];   // ['pro', 'protect', ...] — discovered from data
+  var productIndex = 0;    // which product to pick from next
+  var queuePositions = {}; // { pro: 0, protect: 0 }
 
   function clearOutput() {
-    while (terminalOutput.firstChild) {
-      terminalOutput.removeChild(terminalOutput.firstChild);
-    }
+    terminalOutput.textContent = '';
   }
 
   function schedule(fn, delay) {
@@ -80,10 +39,34 @@
     }, delay);
   }
 
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function nextCommand() {
+    if (productOrder.length === 0) return commands[0];
+
+    var product = productOrder[productIndex % productOrder.length];
+    productIndex++;
+
+    var queue = productQueues[product];
+    var pos = queuePositions[product] || 0;
+    var cmd = queue[pos % queue.length];
+    queuePositions[product] = pos + 1;
+
+    return { command: 'jamf-cli ' + cmd.command };
+  }
+
   // ===== Reduced-motion path =====
 
-  function showStatic(index) {
-    var item = commands[index];
+  function showStatic() {
+    var item = nextCommand();
     clearOutput();
 
     var cmdLine = document.createElement('div');
@@ -97,21 +80,13 @@
     cmdLine.appendChild(commandSpan);
     terminalOutput.appendChild(cmdLine);
 
-    item.output.forEach(function (line) {
-      var div = document.createElement('div');
-      renderAnsiToDom(div, line);
-      terminalOutput.appendChild(div);
-    });
-
-    schedule(function () {
-      showStatic((index + 1) % commands.length);
-    }, 5000);
+    schedule(showStatic, 5000);
   }
 
   // ===== Normal (animated) path =====
 
-  function startCommand(index) {
-    var item = commands[index];
+  function startCommand() {
+    var item = nextCommand();
     clearOutput();
     terminalEl.classList.add('typing');
 
@@ -125,71 +100,98 @@
     cmdLine.appendChild(commandSpan);
     terminalOutput.appendChild(cmdLine);
 
-    typeCommand(item, commandSpan, 0);
+    typeChars(item.command, commandSpan, 0);
   }
 
-  function typeCommand(item, commandSpan, charIndex) {
-    if (charIndex < item.command.length) {
-      commandSpan.textContent += item.command[charIndex];
+  function typeChars(text, commandSpan, charIndex) {
+    if (charIndex < text.length) {
+      commandSpan.textContent += text[charIndex];
       schedule(function () {
-        typeCommand(item, commandSpan, charIndex + 1);
+        typeChars(text, commandSpan, charIndex + 1);
       }, 40);
     } else {
       terminalEl.classList.remove('typing');
-      schedule(function () {
-        revealOutput(item, 0);
-      }, 300);
+      schedule(startCommand, 2000);
     }
   }
 
-  function revealOutput(item, lineIndex) {
-    if (lineIndex < item.output.length) {
-      var div = document.createElement('div');
-      renderAnsiToDom(div, item.output[lineIndex]);
-      terminalOutput.appendChild(div);
-      schedule(function () {
-        revealOutput(item, lineIndex + 1);
-      }, 200);
-    } else {
-      schedule(function () {
-        currentIndex = (currentIndex + 1) % commands.length;
-        startCommand(currentIndex);
-      }, 3000);
+  // ===== Build command queues from commands.json =====
+
+  function buildQueues(cmds) {
+    var byProduct = {};
+
+    for (var i = 0; i < cmds.length; i++) {
+      var p = cmds[i].product;
+      if (!p) continue;
+      if (!byProduct[p]) byProduct[p] = [];
+      // Only include leaf commands that have interesting names (skip generic CRUD)
+      byProduct[p].push(cmds[i]);
     }
+
+    // For each product, pick a diverse set: prefer commands with flags or short paths
+    var order = Object.keys(byProduct).sort();
+    for (var k = 0; k < order.length; k++) {
+      var product = order[k];
+      var all = byProduct[product];
+
+      // Prioritize: commands with 2-3 path segments (not deeply nested CRUD)
+      var interesting = all.filter(function (c) {
+        var depth = c.command.split(' ').length;
+        return depth <= 2;
+      });
+
+      // Fall back to all commands if not enough interesting ones
+      if (interesting.length < 5) interesting = all;
+
+      productQueues[product] = shuffle(interesting.slice());
+      queuePositions[product] = 0;
+    }
+
+    productOrder = order;
+    productIndex = 0;
   }
 
   // ===== Initialization =====
 
   function init() {
-    var dataEl = document.getElementById('terminal-data');
-    if (!dataEl) return;
-
-    try {
-      commands = JSON.parse(dataEl.textContent);
-    } catch (e) {
-      return;
-    }
-
-    if (!commands || commands.length === 0) return;
-
     terminalOutput = document.getElementById('terminal-output');
     terminalEl = document.getElementById('terminal');
     if (!terminalOutput || !terminalEl) return;
 
-    terminalEl.addEventListener('mouseenter', function () {
-      paused = true;
-    });
-    terminalEl.addEventListener('mouseleave', function () {
-      paused = false;
-    });
+    terminalEl.addEventListener('mouseenter', function () { paused = true; });
+    terminalEl.addEventListener('mouseleave', function () { paused = false; });
 
-    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) {
-      showStatic(0);
-      return;
-    }
+    // Try to load from commands.json (same file the catalog uses)
+    fetch('commands.json')
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (data.commands && data.commands.length > 0) {
+          buildQueues(data.commands);
+        }
+      })
+      .catch(function () {
+        // Fallback: use the inline terminal-data if commands.json fails
+        var dataEl = document.getElementById('terminal-data');
+        if (dataEl) {
+          try {
+            commands = JSON.parse(dataEl.textContent);
+          } catch (e) { /* ignore */ }
+        }
+      })
+      .finally(function () {
+        // If no queues were built and no fallback commands, bail
+        if (productOrder.length === 0 && commands.length === 0) return;
 
-    startCommand(0);
+        var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion) {
+          showStatic();
+        } else {
+          startCommand();
+        }
+      });
   }
 
   document.addEventListener('DOMContentLoaded', init);
