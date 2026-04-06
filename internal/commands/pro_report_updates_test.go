@@ -82,10 +82,11 @@ func TestFetchPatchDeviceFailures_Basic(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v2/patch-policies/10/logs": {200, `{
-				"totalCount": 2,
+				"totalCount": 3,
 				"results": [
 					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1, "statusEnum": "FAILED"},
-					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2, "statusEnum": "FAILED"}
+					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2, "statusEnum": "FAILED"},
+					{"deviceName": "Mac-C", "deviceId": "300", "statusDate": "2026-04-03", "attemptNumber": 1, "statusEnum": "COMPLETED"}
 				]
 			}`},
 			"/v2/patch-policies/10/logs/100/details": {200, `[
