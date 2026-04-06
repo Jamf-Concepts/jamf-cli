@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -29,22 +30,20 @@ func groupToolsMockClient() *overviewMockClient {
 					{"id": "3", "name": "Dev Machines",   "smartGroup": true,  "memberCount": 7}
 				]
 			}`},
-			// Detail for "All Computers" (id=1)
-			"/v1/computer-groups/1": {200, `{
-				"id": "1",
-				"name": "All Computers",
-				"smartGroup": true,
-				"members": [
-					{"id": "10", "name": "mac-01"},
-					{"id": "11", "name": "mac-02"}
-				]
+			// Smart group membership (id=1) — v2 returns integer IDs
+			"/v2/computer-groups/smart-group-membership/1": {200, `{
+				"members": [10, 11]
 			}`},
-			// Detail for "Empty Static" (id=2)
-			"/v1/computer-groups/2": {200, `{
+			// Smart group membership (id=3)
+			"/v2/computer-groups/smart-group-membership/3": {200, `{
+				"members": [20, 21, 22]
+			}`},
+			// Static group detail (id=2) — v2 returns assignments
+			"/v2/computer-groups/static-groups/2": {200, `{
 				"id": "2",
 				"name": "Empty Static",
-				"smartGroup": false,
-				"members": []
+				"description": "",
+				"siteId": "-1"
 			}`},
 			// Classic policy list
 			"/JSSResource/policies": {200, `{
@@ -220,34 +219,36 @@ func TestGroupToolsList_EmptyResults(t *testing.T) {
 // members
 // ─────────────────────────────────────────────────────────────────
 
-func TestGroupToolsMembers_ByName(t *testing.T) {
+func TestGroupToolsMembers_SmartGroup(t *testing.T) {
 	client := groupToolsMockClient()
 	ctx := context.Background()
 
-	// Look up group "All Computers"
+	// Look up group "All Computers" (smart)
 	groups, err := FetchAllPaginated(ctx, client, "/v1/computer-groups", 100)
 	if err != nil {
 		t.Fatalf("fetching groups: %v", err)
 	}
 
 	var groupID string
+	var isSmart bool
 	for _, g := range groups {
 		if n, _ := g["name"].(string); strings.EqualFold(n, "All Computers") {
 			groupID = extractID(g)
+			isSmart, _ = g["smartGroup"].(bool)
 			break
 		}
-	}
-	if groupID == "" {
-		t.Fatal("group 'All Computers' not found")
 	}
 	if groupID != "1" {
 		t.Errorf("group ID = %q, want %q", groupID, "1")
 	}
+	if !isSmart {
+		t.Error("expected All Computers to be a smart group")
+	}
 
-	// Fetch detail
-	detail, err := FetchJSON(ctx, client, "/v1/computer-groups/1")
+	// Fetch smart group membership via v2 endpoint
+	detail, err := FetchJSON(ctx, client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
 	if err != nil {
-		t.Fatalf("fetching group detail: %v", err)
+		t.Fatalf("fetching smart group membership: %v", err)
 	}
 
 	members, _ := detail["members"].([]any)
@@ -255,10 +256,8 @@ func TestGroupToolsMembers_ByName(t *testing.T) {
 		t.Errorf("got %d members, want 2", len(members))
 	}
 
-	// Verify member names
-	m0, _ := members[0].(map[string]any)
-	if extractName(m0) != "mac-01" {
-		t.Errorf("member[0] name = %q, want %q", extractName(m0), "mac-01")
+	if anyToIDString(members[0]) != "10" {
+		t.Errorf("member[0] ID = %q, want %q", anyToIDString(members[0]), "10")
 	}
 }
 
@@ -283,18 +282,19 @@ func TestGroupToolsMembers_NotFound(t *testing.T) {
 	}
 }
 
-func TestGroupToolsMembers_EmptyGroup(t *testing.T) {
+func TestGroupToolsMembers_EmptyStaticGroup(t *testing.T) {
 	client := groupToolsMockClient()
 	ctx := context.Background()
 
-	detail, err := FetchJSON(ctx, client, "/v1/computer-groups/2")
+	// Static group with no assignments
+	detail, err := FetchJSON(ctx, client, "/v2/computer-groups/static-groups/2")
 	if err != nil {
-		t.Fatalf("fetching group detail: %v", err)
+		t.Fatalf("fetching static group detail: %v", err)
 	}
 
-	members, _ := detail["members"].([]any)
-	if len(members) != 0 {
-		t.Errorf("got %d members, want 0", len(members))
+	assignments, _ := detail["assignments"].([]any)
+	if len(assignments) != 0 {
+		t.Errorf("got %d assignments, want 0", len(assignments))
 	}
 }
 
