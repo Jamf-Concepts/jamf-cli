@@ -388,6 +388,8 @@ func dedupeOperations(ops []*Operation) []*Operation {
 		if !seen[op.Name] {
 			seen[op.Name] = true
 			result = append(result, op)
+		} else {
+			fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — dropping %s %s\n", op.Name, op.Method, op.Path)
 		}
 	}
 	return result

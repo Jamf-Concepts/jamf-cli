@@ -345,10 +345,6 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 	return resources
 }
 
-// stripVersionPrefix removes a leading version segment (v1, v2, v3, preview,
-// etc.) from a path, leaving the leading slash intact.
-// e.g. /v1/self-service/branding → /self-service/branding
-// Paths without a version prefix are returned unchanged.
 // filterToCanonicalPrefix returns only the operations that belong to the same
 // resource family as the canonical collection path. A "collection path" is the
 // non-parameterized path that has a direct /{param} child (e.g. /v1/icon or
@@ -418,6 +414,10 @@ func filterToCanonicalPrefix(ops []*Operation) []*Operation {
 	return filtered
 }
 
+// stripVersionPrefix removes a leading version segment (v1, v2, v3, preview,
+// etc.) from a path, leaving the leading slash intact.
+// e.g. /v1/self-service/branding → /self-service/branding
+// Paths without a version prefix are returned unchanged.
 func stripVersionPrefix(path string) string {
 	trimmed := strings.TrimPrefix(path, "/")
 	if idx := strings.Index(trimmed, "/"); idx != -1 {

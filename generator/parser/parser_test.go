@@ -1234,3 +1234,223 @@ func TestParseSpec_MultiFamily_RealSpec(t *testing.T) {
 		t.Errorf("missing self-service-branding-images (parent for version-stripped upload op), got %v", resourceNames(resources))
 	}
 }
+
+func TestStripVersionPrefix(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"/v1/foo", "/foo"},
+		{"/v2/a/b", "/a/b"},
+		{"/preview/x", "/x"},
+		{"/v10/long", "/long"},
+		{"/no-version/foo", "/no-version/foo"},
+		{"/v1/self-service/branding", "/self-service/branding"},
+		{"/v2/inventory-preload/records", "/inventory-preload/records"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := stripVersionPrefix(tt.path)
+			if got != tt.want {
+				t.Errorf("stripVersionPrefix(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpHasBinaryResponse(t *testing.T) {
+	tests := []struct {
+		name string
+		op   *Operation
+		want bool
+	}{
+		{
+			name: "200 with IsBinary true",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"200": {StatusCode: "200", IsBinary: true},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "201 with IsBinary true",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"201": {StatusCode: "201", IsBinary: true},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "200 with IsBinary false",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"200": {StatusCode: "200", IsBinary: false},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "404 with IsBinary true but no 200/201",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"404": {StatusCode: "404", IsBinary: true},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "no responses",
+			op:   &Operation{},
+			want: false,
+		},
+		{
+			name: "mixed responses — only 200 is binary",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"200": {StatusCode: "200", IsBinary: true},
+					"404": {StatusCode: "404", IsBinary: false},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "200 not binary, 201 binary",
+			op: &Operation{
+				Responses: map[string]*Response{
+					"200": {StatusCode: "200", IsBinary: false},
+					"201": {StatusCode: "201", IsBinary: true},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := opHasBinaryResponse(tt.op)
+			if got != tt.want {
+				t.Errorf("opHasBinaryResponse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterToCanonicalPrefix(t *testing.T) {
+	// Helper to build an Operation with only Path and Method set.
+	op := func(method, path string) *Operation {
+		return &Operation{Method: method, Path: path}
+	}
+
+	tests := []struct {
+		name      string
+		ops       []*Operation
+		wantPaths []string
+	}{
+		{
+			name: "single collection path — excludes unrelated family",
+			ops: []*Operation{
+				op("GET", "/v1/icon"),
+				op("POST", "/v1/icon"),
+				op("GET", "/v1/icon/{id}"),
+				op("DELETE", "/v1/icon/{id}"),
+				op("GET", "/v1/icon/download/{id}"),
+				op("GET", "/v1/branding-images/download/{id}"),
+			},
+			wantPaths: []string{
+				"/v1/icon",
+				"/v1/icon/{id}",
+				"/v1/icon/download/{id}",
+			},
+		},
+		{
+			name: "multi-depth canonical path — includes sibling paths sharing base",
+			ops: []*Operation{
+				op("GET", "/v2/inventory-preload/records"),
+				op("POST", "/v2/inventory-preload/records"),
+				op("GET", "/v2/inventory-preload/records/{id}"),
+				op("PUT", "/v2/inventory-preload/records/{id}"),
+				op("GET", "/v2/inventory-preload/csv"),
+				op("POST", "/v2/inventory-preload/csv"),
+			},
+			wantPaths: []string{
+				"/v2/inventory-preload/records",
+				"/v2/inventory-preload/records/{id}",
+				"/v2/inventory-preload/csv",
+			},
+		},
+		{
+			name: "action-only spec — no collection path, all ops returned unchanged",
+			ops: []*Operation{
+				op("POST", "/v1/computers/{id}/erase"),
+				op("POST", "/v1/computers/{id}/lock"),
+			},
+			wantPaths: []string{
+				"/v1/computers/{id}/erase",
+				"/v1/computers/{id}/lock",
+			},
+		},
+		{
+			name: "two collection paths — multi-family, all ops returned unchanged",
+			ops: []*Operation{
+				op("GET", "/v1/branding/macos"),
+				op("GET", "/v1/branding/macos/{id}"),
+				op("GET", "/v1/branding/ios"),
+				op("GET", "/v1/branding/ios/{id}"),
+			},
+			wantPaths: []string{
+				"/v1/branding/macos",
+				"/v1/branding/macos/{id}",
+				"/v1/branding/ios",
+				"/v1/branding/ios/{id}",
+			},
+		},
+		{
+			name: "single-depth canonical path includes own parameterized child",
+			ops: []*Operation{
+				op("GET", "/v1/widgets"),
+				op("POST", "/v1/widgets"),
+				op("GET", "/v1/widgets/{id}"),
+				op("DELETE", "/v1/widgets/{id}"),
+			},
+			wantPaths: []string{
+				"/v1/widgets",
+				"/v1/widgets/{id}",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterToCanonicalPrefix(tt.ops)
+
+			gotPaths := make(map[string]bool, len(got))
+			for _, op := range got {
+				gotPaths[op.Path] = true
+			}
+			wantPaths := make(map[string]bool, len(tt.wantPaths))
+			for _, p := range tt.wantPaths {
+				wantPaths[p] = true
+			}
+
+			for p := range wantPaths {
+				if !gotPaths[p] {
+					t.Errorf("filterToCanonicalPrefix() missing expected path %q; got paths: %v", p, pathKeys(gotPaths))
+				}
+			}
+			for p := range gotPaths {
+				if !wantPaths[p] {
+					t.Errorf("filterToCanonicalPrefix() returned unexpected path %q; want paths: %v", p, tt.wantPaths)
+				}
+			}
+		})
+	}
+}
+
+func pathKeys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
