@@ -67,6 +67,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 		"erase", "remove-mdm", "redeploy-framework",
 		"blank-push", "ddm-sync", "renew-mdm",
 		"lock", "enable-remote-desktop", "disable-remote-desktop",
+		"restart", "shutdown", "set-recovery-lock",
 	}
 	for _, name := range wantComputer {
 		t.Run("computers/"+name, func(t *testing.T) {
@@ -151,7 +152,6 @@ func TestExecuteAction_DryRun(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -168,7 +168,7 @@ func TestExecuteAction_DryRun(t *testing.T) {
 		},
 	}
 
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -186,7 +186,6 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -205,7 +204,7 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	}
 
 	// yes=true but confirmDestructive=false → should be blocked
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,7 +222,6 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -241,7 +239,7 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	}
 
 	// yes=true, confirmDestructive=true → should proceed
-	err := executeAction(cmd, cliCtx, dt, devices, true, true, cfg)
+	err := executeAction(cmd, dt, devices, true, true, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,7 +254,6 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	cmd := newTestCmd()
 	cmd.SetErr(&bytes.Buffer{})
 	_ = cmd.Flags().Set("no-input", "true")
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -273,7 +270,7 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 
 	// yes=false, no-input=true → should error
-	err := executeAction(cmd, cliCtx, dt, devices, false, false, cfg)
+	err := executeAction(cmd, dt, devices, false, false, cfg)
 	if err == nil {
 		t.Fatal("expected error for destructive op without --yes in no-input mode")
 	}
@@ -329,6 +326,38 @@ func TestSendMobileModernMDMCommand_MissingManagementID(t *testing.T) {
 	d := &resolve.DeviceIdentifiers{ID: "7", Name: "iPad-1"} // no ManagementID
 
 	err := sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "RESTART_DEVICE"})
+	if err == nil {
+		t.Fatal("expected error for missing managementId, got nil")
+	}
+	if !strings.Contains(err.Error(), "managementId") {
+		t.Errorf("error = %q, want it to mention managementId", err.Error())
+	}
+}
+
+func TestSendComputerModernMDMCommand_Success(t *testing.T) {
+	client := &bodyCapturingClient{}
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{Client: client, Output: mockOutput{}}
+	d := &resolve.DeviceIdentifiers{ID: "42", ManagementID: "cccc-dddd", Name: "MacBook-1"}
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(client.capturedBody, `"DEVICE_LOCK"`) {
+		t.Errorf("request body = %q, want it to contain commandType", client.capturedBody)
+	}
+	if !strings.Contains(client.capturedBody, `"cccc-dddd"`) {
+		t.Errorf("request body = %q, want it to contain managementId", client.capturedBody)
+	}
+}
+
+func TestSendComputerModernMDMCommand_MissingManagementID(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{}
+	d := &resolve.DeviceIdentifiers{ID: "42", Name: "MacBook-1"} // no ManagementID
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
 	if err == nil {
 		t.Fatal("expected error for missing managementId, got nil")
 	}
