@@ -134,12 +134,14 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
-	// Find the group by exact name (case-insensitive)
+	// Find the group by exact name (case-insensitive), capturing type
 	var groupID string
+	var isSmart bool
 	for _, g := range groups {
 		n, _ := g["name"].(string)
 		if strings.EqualFold(n, name) {
 			groupID = extractID(g)
+			isSmart, _ = g["smartGroup"].(bool)
 			break
 		}
 	}
@@ -147,28 +149,55 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		return fmt.Errorf("group %q not found", name)
 	}
 
-	// Fetch group detail to get members
-	detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v1/computer-groups/%s", groupID))
-	if err != nil {
-		return fmt.Errorf("fetching group detail: %w", err)
-	}
-
-	members, _ := detail["members"].([]any)
+	// Smart groups use the v2 membership endpoint; static groups use Classic API
 	var rows []map[string]any
-	for _, m := range members {
-		member, ok := m.(map[string]any)
-		if !ok {
-			continue
+	if isSmart {
+		detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
+		if err != nil {
+			return fmt.Errorf("fetching smart group membership: %w", err)
 		}
-		row := map[string]any{
-			"id":   extractID(member),
-			"name": extractName(member),
+		members, _ := detail["members"].([]any)
+		for _, m := range members {
+			rows = append(rows, map[string]any{"id": anyToIDString(m)})
 		}
-		// Include managementId if present
-		if mid, ok := member["managementId"].(string); ok && mid != "" {
-			row["managementId"] = mid
+	} else {
+		data, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/JSSResource/computergroups/id/%s", groupID))
+		if err != nil {
+			return fmt.Errorf("fetching static group detail: %w", err)
 		}
-		rows = append(rows, row)
+		detail := unwrapClassicDetail(data)
+
+		computers, _ := detail["computers"].(map[string]any)
+		if computers == nil {
+			computers, _ = data["computers"].(map[string]any)
+		}
+
+		var members []any
+		if computers != nil {
+			members, _ = computers["computer"].([]any)
+			if members == nil {
+				// Single-item case: Classic API returns a map instead of an array
+				if single, ok := computers["computer"].(map[string]any); ok {
+					members = []any{single}
+				}
+			}
+		}
+		if members == nil {
+			flat, _ := detail["computers"].([]any)
+			members = flat
+		}
+
+		for _, m := range members {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			row := map[string]any{"id": extractID(mm)}
+			if n := extractName(mm); n != "" {
+				row["name"] = n
+			}
+			rows = append(rows, row)
+		}
 	}
 
 	if len(rows) == 0 {
@@ -177,6 +206,18 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 
 	formatter := output.New(outputFmt, noColor, wide)
 	return formatter.Print(rows)
+}
+
+// anyToIDString converts a JSON value (float64 or string) to an ID string.
+func anyToIDString(v any) string {
+	switch id := v.(type) {
+	case float64:
+		return fmt.Sprintf("%d", int(id))
+	case string:
+		return id
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────

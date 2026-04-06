@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -22,30 +23,26 @@ func groupToolsMockClient() *overviewMockClient {
 		responses: map[string]overviewMockResponse{
 			// Paginated list — single page
 			"/v1/computer-groups": {200, `{
-				"totalCount": 3,
+				"totalCount": 4,
 				"results": [
 					{"id": "1", "name": "All Computers",  "smartGroup": true,  "memberCount": 42},
 					{"id": "2", "name": "Empty Static",   "smartGroup": false, "memberCount": 0},
-					{"id": "3", "name": "Dev Machines",   "smartGroup": true,  "memberCount": 7}
+					{"id": "3", "name": "Dev Machines",   "smartGroup": true,  "memberCount": 7},
+					{"id": "4", "name": "Prod Servers",   "smartGroup": false, "memberCount": 2}
 				]
 			}`},
-			// Detail for "All Computers" (id=1)
-			"/v1/computer-groups/1": {200, `{
-				"id": "1",
-				"name": "All Computers",
-				"smartGroup": true,
-				"members": [
-					{"id": "10", "name": "mac-01"},
-					{"id": "11", "name": "mac-02"}
-				]
+			// Smart group membership (id=1) — v2 returns integer IDs
+			"/v2/computer-groups/smart-group-membership/1": {200, `{
+				"members": [10, 11]
 			}`},
-			// Detail for "Empty Static" (id=2)
-			"/v1/computer-groups/2": {200, `{
-				"id": "2",
-				"name": "Empty Static",
-				"smartGroup": false,
-				"members": []
+			// Smart group membership (id=3)
+			"/v2/computer-groups/smart-group-membership/3": {200, `{
+				"members": [20, 21, 22]
 			}`},
+			// Static group detail (id=2) — Classic API, empty group
+			"/JSSResource/computergroups/id/2": {200, `{"computer_group":{"id":2,"name":"Empty Static","is_smart":false,"computers":{"computer":[]}}}`},
+			// Static group detail (id=4) — Classic API, with members
+			"/JSSResource/computergroups/id/4": {200, `{"computer_group":{"id":4,"name":"Prod Servers","is_smart":false,"computers":{"computer":[{"id":100,"name":"mac-static-01"},{"id":101,"name":"mac-static-02"}]}}}`},
 			// Classic policy list
 			"/JSSResource/policies": {200, `{
 				"policies": [
@@ -89,8 +86,8 @@ func TestGroupToolsList_NoFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(groups) != 3 {
-		t.Errorf("got %d groups, want 3", len(groups))
+	if len(groups) != 4 {
+		t.Errorf("got %d groups, want 4", len(groups))
 	}
 }
 
@@ -127,11 +124,11 @@ func TestGroupToolsList_FilterStatic(t *testing.T) {
 			static = append(static, g)
 		}
 	}
-	if len(static) != 1 {
-		t.Errorf("got %d static groups, want 1", len(static))
+	if len(static) != 2 {
+		t.Errorf("got %d static groups, want 2", len(static))
 	}
 	if n, _ := static[0]["name"].(string); n != "Empty Static" {
-		t.Errorf("static group name = %q, want %q", n, "Empty Static")
+		t.Errorf("static group[0] name = %q, want %q", n, "Empty Static")
 	}
 }
 
@@ -220,34 +217,36 @@ func TestGroupToolsList_EmptyResults(t *testing.T) {
 // members
 // ─────────────────────────────────────────────────────────────────
 
-func TestGroupToolsMembers_ByName(t *testing.T) {
+func TestGroupToolsMembers_SmartGroup(t *testing.T) {
 	client := groupToolsMockClient()
 	ctx := context.Background()
 
-	// Look up group "All Computers"
+	// Look up group "All Computers" (smart)
 	groups, err := FetchAllPaginated(ctx, client, "/v1/computer-groups", 100)
 	if err != nil {
 		t.Fatalf("fetching groups: %v", err)
 	}
 
 	var groupID string
+	var isSmart bool
 	for _, g := range groups {
 		if n, _ := g["name"].(string); strings.EqualFold(n, "All Computers") {
 			groupID = extractID(g)
+			isSmart, _ = g["smartGroup"].(bool)
 			break
 		}
-	}
-	if groupID == "" {
-		t.Fatal("group 'All Computers' not found")
 	}
 	if groupID != "1" {
 		t.Errorf("group ID = %q, want %q", groupID, "1")
 	}
+	if !isSmart {
+		t.Error("expected All Computers to be a smart group")
+	}
 
-	// Fetch detail
-	detail, err := FetchJSON(ctx, client, "/v1/computer-groups/1")
+	// Fetch smart group membership via v2 endpoint
+	detail, err := FetchJSON(ctx, client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
 	if err != nil {
-		t.Fatalf("fetching group detail: %v", err)
+		t.Fatalf("fetching smart group membership: %v", err)
 	}
 
 	members, _ := detail["members"].([]any)
@@ -255,10 +254,8 @@ func TestGroupToolsMembers_ByName(t *testing.T) {
 		t.Errorf("got %d members, want 2", len(members))
 	}
 
-	// Verify member names
-	m0, _ := members[0].(map[string]any)
-	if extractName(m0) != "mac-01" {
-		t.Errorf("member[0] name = %q, want %q", extractName(m0), "mac-01")
+	if anyToIDString(members[0]) != "10" {
+		t.Errorf("member[0] ID = %q, want %q", anyToIDString(members[0]), "10")
 	}
 }
 
@@ -283,18 +280,32 @@ func TestGroupToolsMembers_NotFound(t *testing.T) {
 	}
 }
 
-func TestGroupToolsMembers_EmptyGroup(t *testing.T) {
-	client := groupToolsMockClient()
-	ctx := context.Background()
+func TestGroupToolsMembers_EmptyStaticGroup(t *testing.T) {
+	mock := groupToolsMockClient()
+	cliCtx := &registry.CLIContext{Client: mock}
 
-	detail, err := FetchJSON(ctx, client, "/v1/computer-groups/2")
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	err := runGroupToolsMembers(context.Background(), cliCtx, "Empty Static")
 	if err != nil {
-		t.Fatalf("fetching group detail: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
+}
 
-	members, _ := detail["members"].([]any)
-	if len(members) != 0 {
-		t.Errorf("got %d members, want 0", len(members))
+func TestGroupToolsMembers_StaticGroupWithMembers(t *testing.T) {
+	mock := groupToolsMockClient()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	oldFmt := outputFmt
+	outputFmt = "json"
+	defer func() { outputFmt = oldFmt }()
+
+	// Run the full members command for a static group with members
+	err := runGroupToolsMembers(context.Background(), cliCtx, "Prod Servers")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -398,7 +409,7 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 		}
 	}
 
-	// "All Computers" and "Dev Machines" are referenced; "Empty Static" is not
+	// "All Computers" and "Dev Machines" are referenced; "Empty Static" and "Prod Servers" are not
 	if !referenced["All Computers"] {
 		t.Error("expected 'All Computers' to be referenced")
 	}
@@ -407,6 +418,9 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 	}
 	if referenced["Empty Static"] {
 		t.Error("expected 'Empty Static' to be unreferenced")
+	}
+	if referenced["Prod Servers"] {
+		t.Error("expected 'Prod Servers' to be unreferenced")
 	}
 
 	// Count unreferenced groups
@@ -417,11 +431,8 @@ func TestGroupToolsAnalyze_UnusedDetection(t *testing.T) {
 			unused = append(unused, g)
 		}
 	}
-	if len(unused) != 1 {
-		t.Errorf("got %d unused groups, want 1", len(unused))
-	}
-	if n, _ := unused[0]["name"].(string); n != "Empty Static" {
-		t.Errorf("unused group = %q, want %q", n, "Empty Static")
+	if len(unused) != 2 {
+		t.Errorf("got %d unused groups, want 2", len(unused))
 	}
 }
 
@@ -541,8 +552,8 @@ func TestGroupToolsExport_JSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetching groups: %v", err)
 	}
-	if len(groups) != 3 {
-		t.Errorf("got %d groups, want 3", len(groups))
+	if len(groups) != 4 {
+		t.Errorf("got %d groups, want 4", len(groups))
 	}
 
 	data, err := marshalGroupsJSON(groups)
