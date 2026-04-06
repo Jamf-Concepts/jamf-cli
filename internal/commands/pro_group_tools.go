@@ -149,7 +149,7 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		return fmt.Errorf("group %q not found", name)
 	}
 
-	// Smart and static groups use different v2 endpoints
+	// Smart groups use the v2 membership endpoint; static groups use Classic API
 	var rows []map[string]any
 	if isSmart {
 		detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
@@ -161,13 +161,42 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 			rows = append(rows, map[string]any{"id": anyToIDString(m)})
 		}
 	} else {
-		detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v2/computer-groups/static-groups/%s", groupID))
+		data, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/JSSResource/computergroups/id/%s", groupID))
 		if err != nil {
 			return fmt.Errorf("fetching static group detail: %w", err)
 		}
-		assignments, _ := detail["assignments"].([]any)
-		for _, a := range assignments {
-			rows = append(rows, map[string]any{"id": anyToIDString(a)})
+		detail := unwrapClassicDetail(data)
+
+		computers, _ := detail["computers"].(map[string]any)
+		if computers == nil {
+			computers, _ = data["computers"].(map[string]any)
+		}
+
+		var members []any
+		if computers != nil {
+			members, _ = computers["computer"].([]any)
+			if members == nil {
+				// Single-item case: Classic API returns a map instead of an array
+				if single, ok := computers["computer"].(map[string]any); ok {
+					members = []any{single}
+				}
+			}
+		}
+		if members == nil {
+			flat, _ := detail["computers"].([]any)
+			members = flat
+		}
+
+		for _, m := range members {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			row := map[string]any{"id": extractID(mm)}
+			if n := extractName(mm); n != "" {
+				row["name"] = n
+			}
+			rows = append(rows, row)
 		}
 	}
 
