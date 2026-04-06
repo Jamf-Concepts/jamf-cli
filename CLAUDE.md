@@ -75,6 +75,8 @@ bin/jamf-cli pro setup                    # Interactive first-time config (creat
 bin/jamf-cli protect setup                # Interactive first-time config (creates Jamf Protect profile)
 JAMF_URL=https://... JAMF_TOKEN=... bin/jamf-cli pro computers list  # One-off with env vars
 bin/jamf-cli -p my-protect-profile protect overview                 # Use a named protect profile
+JAMF_CLI_ARGS='--quiet --no-input' bin/jamf-cli pro computers list  # Prepend default flags (CI/CD)
+JAMF_CLI_ARGS='--profile "My CI Profile"' bin/jamf-cli pro computers list  # Quoted values supported
 ```
 
 ## Architecture

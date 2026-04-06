@@ -56,6 +56,18 @@ func TestInjectEnvArgs(t *testing.T) {
 			env:  "   ",
 			want: []string{"jamf-cli", "pro", "computers", "list"},
 		},
+		{
+			name: "quoted value is treated as single token",
+			args: []string{"jamf-cli", "pro", "computers", "list"},
+			env:  `--profile "My CI Profile"`,
+			want: []string{"jamf-cli", "--profile", "My CI Profile", "pro", "computers", "list"},
+		},
+		{
+			name: "invalid shlex leaves args unchanged",
+			args: []string{"jamf-cli", "pro", "computers", "list"},
+			env:  `--profile "unterminated`,
+			want: []string{"jamf-cli", "pro", "computers", "list"},
+		},
 	}
 
 	for _, tt := range tests {

@@ -5,10 +5,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/google/shlex"
 )
 
 var (
@@ -18,10 +18,17 @@ var (
 )
 
 // injectEnvArgs prepends flags from JAMF_CLI_ARGS into args (after the program name).
-// Quoted values are not supported — use simple flags only (e.g. --quiet --no-input).
+// Supports shell-word splitting so quoted values (e.g. --profile "My Profile") work correctly.
 // Caller must guarantee len(args) >= 1 (os.Args always satisfies this).
 func injectEnvArgs(args []string, env string) []string {
-	extra := strings.Fields(env)
+	if env == "" {
+		return args
+	}
+	extra, err := shlex.Split(env)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid JAMF_CLI_ARGS: %v\n", err)
+		return args
+	}
 	if len(extra) == 0 {
 		return args
 	}
