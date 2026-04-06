@@ -106,7 +106,7 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 			continue
 		}
 
-		path := fmt.Sprintf("/v2/patch-policies/%s/logs?filter=statusEnum%%3D%%3DFAILED", policyID)
+		path := fmt.Sprintf("/v2/patch-policies/%s/logs", policyID)
 		logs, err := FetchAllPaginated(ctx, client, path, 200)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch logs for policy %s: %v\n", policyID, err)
@@ -114,18 +114,60 @@ func fetchPatchDeviceFailures(ctx context.Context, client registry.HTTPClient, p
 		}
 
 		for _, l := range logs {
+			if strVal(l, "statusEnum") != "FAILED" {
+				continue
+			}
+			deviceID := strVal(l, "deviceId")
 			deviceRows = append(deviceRows, map[string]any{
 				"policy":      policyName,
 				"policy_id":   policyID,
 				"device":      strVal(l, "deviceName"),
-				"device_id":   strVal(l, "deviceId"),
+				"device_id":   deviceID,
 				"status_date": strVal(l, "statusDate"),
 				"attempt":     extractField(l, "attemptNumber"),
+				"last_action": fetchPatchLogLastAction(ctx, client, policyID, deviceID),
 			})
 		}
 	}
 
 	return deviceRows, nil
+}
+
+// fetchPatchLogLastAction returns the last action string from the most recent
+// attempt in the per-device details log for a given policy+device pair.
+// Returns empty string if the endpoint is unavailable or returns no actions.
+func fetchPatchLogLastAction(ctx context.Context, client registry.HTTPClient, policyID, deviceID string) string {
+	path := fmt.Sprintf("/v2/patch-policies/%s/logs/%s/details", policyID, deviceID)
+	details, err := FetchAllPaginated(ctx, client, path, 0)
+	if err != nil || len(details) == 0 {
+		return ""
+	}
+	// Find the attempt with the highest attemptNumber.
+	var lastAttempt map[string]any
+	var maxAttempt float64
+	for _, d := range details {
+		n, _ := d["attemptNumber"].(float64)
+		if n >= maxAttempt {
+			maxAttempt = n
+			lastAttempt = d
+		}
+	}
+	if lastAttempt == nil {
+		return ""
+	}
+	// Find the action with the highest actionOrder within that attempt.
+	actions, _ := lastAttempt["actions"].([]any)
+	var lastAction string
+	var maxOrder float64
+	for _, a := range actions {
+		am, _ := a.(map[string]any)
+		order, _ := am["actionOrder"].(float64)
+		if order >= maxOrder {
+			maxOrder = order
+			lastAction, _ = am["action"].(string)
+		}
+	}
+	return lastAction
 }
 
 // runReportPatchPolicyFailures fetches patch policies and returns those

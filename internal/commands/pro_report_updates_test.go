@@ -82,12 +82,29 @@ func TestFetchPatchDeviceFailures_Basic(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v2/patch-policies/10/logs": {200, `{
-				"totalCount": 2,
+				"totalCount": 3,
 				"results": [
-					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1},
-					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2}
+					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1, "statusEnum": "FAILED"},
+					{"deviceName": "Mac-B", "deviceId": "200", "statusDate": "2026-04-02", "attemptNumber": 2, "statusEnum": "FAILED"},
+					{"deviceName": "Mac-C", "deviceId": "300", "statusDate": "2026-04-03", "attemptNumber": 1, "statusEnum": "COMPLETED"}
 				]
 			}`},
+			"/v2/patch-policies/10/logs/100/details": {200, `[
+				{"attemptNumber": 1, "deviceId": "100", "actions": [
+					{"actionOrder": 1, "action": "Downloading..."},
+					{"actionOrder": 2, "action": "Install failed: exit code 1"}
+				]}
+			]`},
+			"/v2/patch-policies/10/logs/200/details": {200, `[
+				{"attemptNumber": 1, "deviceId": "200", "actions": [
+					{"actionOrder": 1, "action": "Downloading..."}
+				]},
+				{"attemptNumber": 2, "deviceId": "200", "actions": [
+					{"actionOrder": 1, "action": "Downloading..."},
+					{"actionOrder": 2, "action": "Installing..."},
+					{"actionOrder": 3, "action": "Reboot required"}
+				]}
+			]`},
 		},
 	}
 
@@ -107,6 +124,42 @@ func TestFetchPatchDeviceFailures_Basic(t *testing.T) {
 	}
 	if rows[0]["policy"] != "Chrome Update" {
 		t.Errorf("policy = %q, want Chrome Update", rows[0]["policy"])
+	}
+	// last_action: last action from the only attempt for Mac-A
+	if rows[0]["last_action"] != "Install failed: exit code 1" {
+		t.Errorf("last_action = %q, want Install failed: exit code 1", rows[0]["last_action"])
+	}
+	// last_action: last action from attempt 2 (highest attemptNumber) for Mac-B
+	if rows[1]["last_action"] != "Reboot required" {
+		t.Errorf("last_action = %q, want Reboot required", rows[1]["last_action"])
+	}
+}
+
+func TestFetchPatchDeviceFailures_NoDetails(t *testing.T) {
+	// Details endpoint unavailable — last_action should be empty, not an error.
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v2/patch-policies/10/logs": {200, `{
+				"totalCount": 1,
+				"results": [
+					{"deviceName": "Mac-A", "deviceId": "100", "statusDate": "2026-04-01", "attemptNumber": 1, "statusEnum": "FAILED"}
+				]
+			}`},
+			"/v2/patch-policies/10/logs/100/details": {404, `{}`},
+		},
+	}
+
+	rows, err := fetchPatchDeviceFailures(context.Background(), client, []map[string]any{
+		{"policy": "Chrome Update", "policy_id": "10"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	if rows[0]["last_action"] != "" {
+		t.Errorf("last_action = %q, want empty when details unavailable", rows[0]["last_action"])
 	}
 }
 
