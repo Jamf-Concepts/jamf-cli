@@ -152,7 +152,6 @@ func TestExecuteAction_DryRun(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -169,7 +168,7 @@ func TestExecuteAction_DryRun(t *testing.T) {
 		},
 	}
 
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,7 +186,6 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -206,7 +204,7 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	}
 
 	// yes=true but confirmDestructive=false → should be blocked
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +222,6 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -242,7 +239,7 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	}
 
 	// yes=true, confirmDestructive=true → should proceed
-	err := executeAction(cmd, cliCtx, dt, devices, true, true, cfg)
+	err := executeAction(cmd, dt, devices, true, true, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -257,7 +254,6 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	cmd := newTestCmd()
 	cmd.SetErr(&bytes.Buffer{})
 	_ = cmd.Flags().Set("no-input", "true")
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -274,7 +270,7 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 
 	// yes=false, no-input=true → should error
-	err := executeAction(cmd, cliCtx, dt, devices, false, false, cfg)
+	err := executeAction(cmd, dt, devices, false, false, cfg)
 	if err == nil {
 		t.Fatal("expected error for destructive op without --yes in no-input mode")
 	}

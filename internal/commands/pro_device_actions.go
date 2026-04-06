@@ -427,7 +427,7 @@ func runDeviceAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *device
 	if err != nil {
 		return err
 	}
-	return executeAction(cmd, cliCtx, dt, devices, yes, confirmDestructive, cfg)
+	return executeAction(cmd, dt, devices, yes, confirmDestructive, cfg)
 }
 
 func runMobileAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *deviceTarget, yes, confirmDestructive bool, cfg deviceActionConfig) error {
@@ -438,10 +438,10 @@ func runMobileAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *device
 	if err != nil {
 		return err
 	}
-	return executeAction(cmd, cliCtx, dt, devices, yes, confirmDestructive, cfg)
+	return executeAction(cmd, dt, devices, yes, confirmDestructive, cfg)
 }
 
-func executeAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *deviceTarget, devices []*resolve.DeviceIdentifiers, yes, confirmDestructive bool, cfg deviceActionConfig) error {
+func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.DeviceIdentifiers, yes, confirmDestructive bool, cfg deviceActionConfig) error {
 	stderr := cmd.ErrOrStderr()
 
 	// Reject --body-file with bulk targeting (body can't be reused per device
