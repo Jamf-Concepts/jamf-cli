@@ -139,7 +139,6 @@ var proGroupMap = map[string]string{
 	// Inventory & Search
 	"inventory-informations":          groupInventory,
 	"inventory-preloads":              groupInventory,
-	"inventory-preload-v-2s":          groupInventory,
 	"advanced-mobile-device-searches": groupInventory,
 	"advanced-user-content-searches":  groupInventory,
 
