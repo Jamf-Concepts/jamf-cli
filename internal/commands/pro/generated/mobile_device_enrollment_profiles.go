@@ -48,6 +48,7 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *registry.CLIContext) *cobra.Co
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v1/mobile-device-enrollment-profile/{id}/download-profile"

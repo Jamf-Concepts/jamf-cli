@@ -130,6 +130,7 @@ func newCertificateAuthoritiesActiveDerCmd(ctx *registry.CLIContext) *cobra.Comm
   jamf-cli pro certificate-authorities active-der > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/active/der"
@@ -186,6 +187,7 @@ func newCertificateAuthoritiesActivePemCmd(ctx *registry.CLIContext) *cobra.Comm
   jamf-cli pro certificate-authorities active-pem > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/active/pem"
@@ -243,6 +245,7 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}/der"
@@ -301,6 +304,7 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}/pem"

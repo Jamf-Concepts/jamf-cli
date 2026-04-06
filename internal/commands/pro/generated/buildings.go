@@ -703,6 +703,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli buildings export --out-file buildings.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -817,6 +818,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

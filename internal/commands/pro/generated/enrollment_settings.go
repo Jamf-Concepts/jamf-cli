@@ -608,6 +608,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
   jamf-cli pro enrollment-settings history-export > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

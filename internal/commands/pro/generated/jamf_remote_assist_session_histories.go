@@ -219,6 +219,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
   jamf-cli jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

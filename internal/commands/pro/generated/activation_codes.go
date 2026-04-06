@@ -288,6 +288,7 @@ func newActivationCodesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command
   jamf-cli pro activation-codes history-export > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

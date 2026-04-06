@@ -369,6 +369,7 @@ func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro sso-settings download > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v3/sso/metadata/download"

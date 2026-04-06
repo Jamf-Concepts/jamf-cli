@@ -734,6 +734,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+{{- if opHasBinaryResponse . }}
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+{{- end }}
 {{- if opHasScaffold . }}
 
 			if flagScaffold {

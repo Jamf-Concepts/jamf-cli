@@ -220,6 +220,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
   jamf-cli cloud-id-p-configurations export --out-file cloud-id-p-configurations.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

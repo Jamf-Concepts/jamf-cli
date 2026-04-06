@@ -61,6 +61,7 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli inventory-preloads list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v2/inventory-preload/csv"
@@ -572,6 +573,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli inventory-preloads export --out-file inventory-preloads.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{

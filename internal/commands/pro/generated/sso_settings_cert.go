@@ -236,6 +236,7 @@ func newSsoSettingsCertDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro sso-settings-cert download > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v2/sso/cert/download"
