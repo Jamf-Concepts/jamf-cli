@@ -671,21 +671,7 @@ func runPolicyFailureScan(ctx context.Context, client registry.HTTPClient, days,
 
 	totalActive := len(computerIDs)
 
-	// Apply sample limit:
-	//   limit < 0:  smart default — max(100, 10% of active fleet)
-	//   limit == 0: scan all active computers
-	//   limit > 0:  explicit cap
-	sampleSize := totalActive
-	switch {
-	case limit > 0:
-		sampleSize = limit
-	case limit < 0:
-		tenPct := totalActive / 10
-		sampleSize = tenPct
-		if sampleSize < 100 {
-			sampleSize = 100
-		}
-	}
+	sampleSize := reportSampleSize(totalActive, limit)
 
 	if sampleSize < totalActive {
 		rand.Shuffle(len(computerIDs), func(i, j int) {

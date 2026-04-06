@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"sort"
 	"strings"
@@ -36,18 +37,37 @@ type updateDeviceMeta struct {
 }
 
 func newReportUpdateStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		scanFailures bool
+		limit        int
+	)
+
 	cmd := &cobra.Command{
 		Use:   "update-status",
 		Short: "Managed software update deployment status",
 		Long: `Reports on managed software update statuses across the fleet.
 
-Queries /v1/managed-software-updates/update-statuses for all active
-update statuses and aggregates by status type. Flags devices in error
-states with device details (name, serial, OS version, username).
+Queries /v1/managed-software-updates/update-statuses and /v1/managed-software-updates/plans,
+then aggregates by status and plan state.
+
+Use --scan-failures to also enrich error devices and failed plans with
+inventory details (name, serial, OS, username) and per-plan events.
+This is API-expensive — it fetches full computer and mobile inventory,
+then one events call per failed plan. Use --limit to cap the sample size.
+
+  --limit -1: smart default — max(10% of failures, 100)
+  --limit  0: enrich all failures (no cap)
+  --limit  N: enrich at most N failures (random sample)
 
 Examples:
-  # Update deployment status
+  # Status and plan summaries only (fast)
   jamf-cli pro report update-status
+
+  # Include per-device failure details
+  jamf-cli pro report update-status --scan-failures
+
+  # Cap enrichment sample to 50 devices/plans
+  jamf-cli pro report update-status --scan-failures --limit 50
 
   # JSON output for scripting
   jamf-cli pro report update-status -o json`,
@@ -55,14 +75,21 @@ Examples:
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
 			}
-			return runReportUpdateStatus(cmd.Context(), cliCtx.Client)
+			// -1 means "user didn't set --limit, use smart default"
+			effectiveLimit := limit
+			if !cmd.Flags().Changed("limit") {
+				effectiveLimit = -1
+			}
+			return runReportUpdateStatus(cmd.Context(), cliCtx.Client, scanFailures, effectiveLimit)
 		},
 	}
 
+	cmd.Flags().BoolVar(&scanFailures, "scan-failures", false, "enrich error devices and failed plans with inventory details and plan events (API-expensive)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max failures to enrich per table (0 = all, default: max(10%, 100))")
 	return cmd
 }
 
-func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) error {
+func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scanFailures bool, limit int) error {
 	// Fetch both update statuses and update plans
 	fmt.Fprintf(os.Stderr, "Fetching managed software update statuses...\n")
 
@@ -139,39 +166,6 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		}
 	}
 
-	// Enrich error devices with inventory data (lookup fetched lazily below)
-	var lookup map[string]updateDeviceMeta
-	var errorRows []map[string]any
-	if len(errors) > 0 {
-		lookup = fetchUpdateDeviceLookup(ctx, client)
-		for _, e := range errors {
-			meta := lookup[e.deviceID]
-			dt := meta.deviceType
-			if dt == "" {
-				switch e.deviceType {
-				case "COMPUTER":
-					dt = "Computer"
-				case "MOBILE_DEVICE":
-					dt = "Mobile"
-				case "APPLE_TV":
-					dt = "Apple TV"
-				default:
-					dt = e.deviceType
-				}
-			}
-			errorRows = append(errorRows, map[string]any{
-				"name":        meta.name,
-				"serial":      meta.serial,
-				"device_type": dt,
-				"os_version":  meta.osVersion,
-				"username":    meta.username,
-				"status":      e.status,
-				"product_key": e.productKey,
-				"updated":     e.updated,
-			})
-		}
-	}
-
 	// Aggregate plans by state
 	planStateCounts := make(map[string]int)
 	type failedPlan struct {
@@ -196,7 +190,9 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		}
 		planStateCounts[state]++
 
-		if state == "PlanFailed" {
+		// PlanFailed: structured failure with errorReasons.
+		// PlanException: unexpected exception in update orchestration — no errorReasons.
+		if state == "PlanFailed" || state == "PlanException" {
 			device, _ := p["device"].(map[string]any)
 			deviceID := ""
 			deviceType := ""
@@ -252,7 +248,87 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		planStateMaps[i] = map[string]any{"state": r.state, "count": r.count}
 	}
 
-	// Fetch last event for each failed plan in parallel
+	formatter := output.New(outputFmt, noColor, wide)
+
+	// Without --scan-failures: print summary tables only and return early.
+	// This avoids the expensive inventory fetch and per-plan events calls.
+	if !scanFailures {
+		if outputFmt == "json" || outputFmt == "yaml" {
+			combined := map[string]any{
+				"total":              len(results),
+				"status_summary":     summaryMaps,
+				"plan_total":         len(plans),
+				"plan_state_summary": planStateMaps,
+			}
+			return formatter.Print([]map[string]any{combined})
+		}
+
+		if len(summaryMaps) > 0 {
+			fmt.Printf("── Managed Software Update Status (%d total) ──\n", len(results))
+			if err := formatter.Print(summaryMaps); err != nil {
+				return err
+			}
+		}
+		if len(planStateMaps) > 0 {
+			fmt.Printf("\n── Update Plan Status (%d total) ──\n", len(plans))
+			if err := formatter.Print(planStateMaps); err != nil {
+				return err
+			}
+		}
+		if len(errors) > 0 || len(failedPlans) > 0 {
+			fmt.Fprintf(os.Stderr, "\n%d error device(s), %d failed plan(s) — use --scan-failures for per-device details.\n",
+				len(errors), len(failedPlans))
+		}
+		return nil
+	}
+
+	// --scan-failures: apply random sample limit before the expensive fetches.
+	//
+	//   limit < 0: smart default — max(10% of failures, 100)
+	//   limit == 0: enrich all
+	//   limit > 0: explicit cap
+	totalErrors := len(errors)
+	totalFailed := len(failedPlans)
+
+	errorSample := reportSampleSize(totalErrors, limit)
+	if errorSample < totalErrors {
+		rand.Shuffle(totalErrors, func(i, j int) { errors[i], errors[j] = errors[j], errors[i] })
+		errors = errors[:errorSample]
+		fmt.Fprintf(os.Stderr, "Randomly sampling %d of %d update error devices (use --limit to override).\n", errorSample, totalErrors)
+	}
+
+	planSample := reportSampleSize(totalFailed, limit)
+	if planSample < totalFailed {
+		rand.Shuffle(totalFailed, func(i, j int) { failedPlans[i], failedPlans[j] = failedPlans[j], failedPlans[i] })
+		failedPlans = failedPlans[:planSample]
+		fmt.Fprintf(os.Stderr, "Randomly sampling %d of %d failed update plans (use --limit to override).\n", planSample, totalFailed)
+	}
+
+	// Enrich error devices with inventory data.
+	var lookup map[string]updateDeviceMeta
+	var errorRows []map[string]any
+	if len(errors) > 0 {
+		lookup = fetchUpdateDeviceLookup(ctx, client)
+		for _, e := range errors {
+			meta := lookup[e.deviceID]
+			dt := meta.deviceType
+			if dt == "" {
+				dt = normalizeDeviceType(e.deviceType)
+			}
+			errorRows = append(errorRows, map[string]any{
+				"name":        meta.name,
+				"serial":      meta.serial,
+				"device_type": dt,
+				"os_version":  meta.osVersion,
+				"username":    meta.username,
+				"status":      e.status,
+				"product_key": e.productKey,
+				"updated":     e.updated,
+			})
+		}
+	}
+
+	// Fetch last event for each sampled failed plan in parallel.
 	type eventResult struct {
 		planUUID  string
 		lastEvent string
@@ -279,7 +355,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 		}
 	}
 
-	// Enrich failed plans with device details
+	// Enrich failed plans with device details.
 	var failedPlanRows []map[string]any
 	if len(failedPlans) > 0 {
 		if lookup == nil {
@@ -289,14 +365,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 			meta := lookup[fp.deviceID]
 			dt := meta.deviceType
 			if dt == "" {
-				switch fp.deviceType {
-				case "COMPUTER":
-					dt = "Computer"
-				case "MOBILE_DEVICE":
-					dt = "Mobile"
-				default:
-					dt = fp.deviceType
-				}
+				dt = normalizeDeviceType(fp.deviceType)
 			}
 			lastEvt := lastEvents[fp.planUUID]
 			failedPlanRows = append(failedPlanRows, map[string]any{
@@ -305,6 +374,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 				"device_type": dt,
 				"os_version":  meta.osVersion,
 				"username":    meta.username,
+				"state":       fp.state,
 				"action":      fp.action,
 				"version":     fp.version,
 				"error":       fp.errors,
@@ -312,8 +382,6 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 			})
 		}
 	}
-
-	formatter := output.New(outputFmt, noColor, wide)
 
 	if outputFmt == "json" || outputFmt == "yaml" {
 		combined := map[string]any{
@@ -337,7 +405,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 
 	// Table: error devices
 	if len(errorRows) > 0 {
-		fmt.Printf("\n── Devices With Update Errors (%d) ──\n", len(errorRows))
+		fmt.Printf("\n── Devices With Update Errors (%d) ──\n", errorSample)
 		if err := formatter.Print(errorRows); err != nil {
 			return err
 		}
@@ -353,7 +421,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient) erro
 
 	// Table: failed plans
 	if len(failedPlanRows) > 0 {
-		fmt.Printf("\n── Failed Update Plans (%d) ──\n", len(failedPlanRows))
+		fmt.Printf("\n── Failed Update Plans (%d) ──\n", planSample)
 		if err := formatter.Print(failedPlanRows); err != nil {
 			return err
 		}

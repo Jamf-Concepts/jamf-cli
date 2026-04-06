@@ -407,3 +407,39 @@ func TestBoundedParallelFetch_Empty(t *testing.T) {
 		t.Errorf("expected no errors, got %d", len(errs))
 	}
 }
+
+// --- reportSampleSize ---
+
+func TestReportSampleSize(t *testing.T) {
+	tests := []struct {
+		name  string
+		total int
+		limit int
+		want  int
+	}{
+		// Smart default (limit < 0): max(10%, 100), clamped to total
+		{"smart default large fleet", 2000, -1, 200},
+		{"smart default small fleet", 50, -1, 50}, // 10%=5 < 100, but 100 > 50, so clamp to 50
+		{"smart default 1000", 1000, -1, 100},     // 10%=100 == 100
+		{"smart default 500", 500, -1, 100},       // 10%=50 < 100
+		{"smart default 1001", 1001, -1, 100},     // 10%=100 rounds down
+
+		// Explicit limit (limit > 0)
+		{"explicit limit under total", 500, 50, 50},
+		{"explicit limit over total", 50, 500, 50},
+		{"explicit limit equals total", 100, 100, 100},
+
+		// No limit (limit == 0): all
+		{"no limit", 1234, 0, 1234},
+		{"no limit zero total", 0, 0, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := reportSampleSize(tt.total, tt.limit)
+			if got != tt.want {
+				t.Errorf("reportSampleSize(%d, %d) = %d, want %d", tt.total, tt.limit, got, tt.want)
+			}
+		})
+	}
+}

@@ -527,17 +527,23 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 	}
 	_, _ = fmt.Fprintln(w, "✓")
 
-	// Generate client credentials (skip if integration already existed and --rotate-credentials not set)
+	// Generate client credentials (skip if integration already existed and --rotate-credentials not set,
+	// but only if both keychain items are actually present — if they were deleted the profile would be
+	// saved with broken keychain references, so fall through to regenerate in that case).
 	store := config.GetKeychainStore()
 	var clientID string
 
-	if existingIntID != 0 && !rotateCreds {
+	existingCID, cidErr := store.Get(keychain.DefaultService, profileName+"/client-id")
+	_, csErr := store.Get(keychain.DefaultService, profileName+"/client-secret")
+	keychainPresent := cidErr == nil && csErr == nil
+
+	if existingIntID != 0 && !rotateCreds && keychainPresent {
 		_, _ = fmt.Fprintln(w, "  Credentials unchanged (use --rotate-credentials to regenerate)")
-		// Retrieve existing client ID for the status message
-		if cid, err := store.Get(keychain.DefaultService, profileName+"/client-id"); err == nil {
-			clientID = cid
-		}
+		clientID = existingCID
 	} else {
+		if existingIntID != 0 && !keychainPresent {
+			_, _ = fmt.Fprintln(w, "  Keychain credentials missing — regenerating...")
+		}
 		_, _ = fmt.Fprint(w, "  Generating client credentials... ")
 		var clientSecret string
 		clientID, clientSecret, err = client.generateClientCredentials(ctx, integrationID)

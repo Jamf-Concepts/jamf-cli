@@ -175,7 +175,7 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -251,7 +251,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -267,7 +267,7 @@ func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "42"}]
 			}`,
@@ -291,11 +291,11 @@ func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 }
 
 func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
-	// overviewMockClient strips query params, so /v1/computers-inventory
+	// overviewMockClient strips query params, so /v3/computers-inventory
 	// will match and return HTTP 500, triggering an error in FetchAllPaginated.
 	errClient := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {500, `{}`},
+			"/v3/computers-inventory": {500, `{}`},
 		},
 	}
 	_, err := runReportDeviceCompliance(context.Background(), errClient, 14)
@@ -311,7 +311,7 @@ func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
 func TestRunReportInventorySummary_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -376,7 +376,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "1"}]
 			}`,
@@ -398,7 +398,7 @@ func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 func TestRunReportInventorySummary_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -418,7 +418,7 @@ func TestRunReportInventorySummary_Empty(t *testing.T) {
 func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -471,7 +471,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -501,7 +501,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -522,7 +522,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v1/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -548,7 +548,7 @@ func TestRunReportEAResults_Basic(t *testing.T) {
 					{"id": 2, "name": "Department"}
 				]
 			}`},
-			"/v1/computers-inventory": {200, `{
+			"/v3/computers-inventory": {200, `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -602,7 +602,7 @@ func TestRunReportEAResults_NameFilter(t *testing.T) {
 					{"id": 2, "name": "Department"}
 				]
 			}`},
-			"/v1/computers-inventory": {200, `{
+			"/v3/computers-inventory": {200, `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -684,7 +684,7 @@ func TestRunReportEAResults_EAFetchError(t *testing.T) {
 func TestRunReportSecurity_Basic(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{
+			"/v3/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -693,10 +693,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02A"},
 						"operatingSystem": {"version": "15.3"},
 						"security": {
-							"fileVault2Status": "ALL_ENCRYPTED",
 							"gatekeeperStatus": "ENABLED",
 							"sipStatus": "ENABLED",
 							"firewallEnabled": true
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": true,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "ENCRYPTED"}
 						}
 					},
 					{
@@ -705,10 +708,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02B"},
 						"operatingSystem": {"version": "14.1"},
 						"security": {
-							"fileVault2Status": "NOT_STARTED",
 							"gatekeeperStatus": "DISABLED",
 							"sipStatus": "ENABLED",
 							"firewallEnabled": false
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": false,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "UNENCRYPTED"}
 						}
 					},
 					{
@@ -717,10 +723,13 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 						"hardware": {"serialNumber": "C02C"},
 						"operatingSystem": {"version": "15.3"},
 						"security": {
-							"fileVault2Status": "ALL_ENCRYPTED",
 							"gatekeeperStatus": "ENABLED",
 							"sipStatus": "DISABLED",
 							"firewallEnabled": true
+						},
+						"diskEncryption": {
+							"fileVault2Enabled": true,
+							"bootPartitionEncryptionDetails": {"partitionFileVault2State": "ENCRYPTED"}
 						}
 					}
 				]
@@ -755,7 +764,7 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 		t.Errorf("firewall pct = %q, want 66.7%%", result.Summary["firewall_enabled_pct"])
 	}
 
-	// Check that Mac-B is flagged
+	// Check that Mac-B is flagged with UNENCRYPTED status
 	var macB map[string]any
 	for _, d := range result.Devices {
 		if d["name"] == "Mac-B" {
@@ -766,15 +775,15 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 	if macB == nil {
 		t.Fatal("missing Mac-B row")
 	}
-	if macB["filevault"] != "NOT_STARTED" {
-		t.Errorf("Mac-B filevault = %q, want NOT_STARTED", macB["filevault"])
+	if macB["filevault"] != "UNENCRYPTED" {
+		t.Errorf("Mac-B filevault = %q, want UNENCRYPTED", macB["filevault"])
 	}
 }
 
 func TestRunReportSecurity_Empty(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+			"/v3/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -790,7 +799,7 @@ func TestRunReportSecurity_Empty(t *testing.T) {
 func TestRunReportSecurity_FetchError(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {500, `{}`},
+			"/v3/computers-inventory": {500, `{}`},
 		},
 	}
 
@@ -803,12 +812,12 @@ func TestRunReportSecurity_FetchError(t *testing.T) {
 func TestRunReportSecurity_OSDistribution(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{
+			"/v3/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
-					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
-					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}},
-					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"fileVault2Status":"ALL_ENCRYPTED","gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true}}
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+					{"id":"3","general":{"name":"C"},"hardware":{"serialNumber":"S3"},"operatingSystem":{"version":"14.1"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}}
 				]
 			}`},
 		},

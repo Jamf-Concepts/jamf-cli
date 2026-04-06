@@ -56,7 +56,7 @@ type inventoryKey struct {
 // runReportInventorySummary fetches computer inventory and aggregates counts.
 // groupBy controls the bucketing: "model", "os", or "both" (default).
 func runReportInventorySummary(ctx context.Context, client registry.HTTPClient, groupFilter, groupBy string) ([]map[string]any, error) {
-	basePath := "/v1/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM"
+	basePath := "/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM"
 	if groupFilter != "" {
 		basePath = fmt.Sprintf("%s&filter=general.groupMemberships.groupName%%3D%%3D\"%s\"",
 			basePath, groupFilter)

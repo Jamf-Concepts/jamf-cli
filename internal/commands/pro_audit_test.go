@@ -226,10 +226,10 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 func TestCheckUnencryptedDevices_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":3,"results":[
-				{"id":"1","security":{"fileVault2Status":"ALL_ENCRYPTED"}},
-				{"id":"2","security":{"fileVault2Status":"NOT_STARTED"}},
-				{"id":"3","security":{"fileVault2Status":"SOME_ENCRYPTED"}}
+			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
+				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"UNENCRYPTED"}}},
+				{"id":"3","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"DECRYPTED"}}}
 			]}`},
 		},
 	}
@@ -243,7 +243,7 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 		return
 	}
 	if result.AffectedCount != 2 {
-		t.Errorf("affected = %d, want 2 (NOT_STARTED + SOME_ENCRYPTED)", result.AffectedCount)
+		t.Errorf("affected = %d, want 2 (UNENCRYPTED + DECRYPTED)", result.AffectedCount)
 	}
 	if result.Severity != severityCritical {
 		t.Errorf("severity = %q, want %q", result.Severity, severityCritical)
@@ -253,9 +253,9 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":2,"results":[
-				{"id":"1","security":{"fileVault2Status":"ALL_ENCRYPTED"}},
-				{"id":"2","security":{"fileVault2Status":"BOOT_ENCRYPTED"}}
+			"/v3/computers-inventory": {200, `{"totalCount":2,"results":[
+				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
+				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}}
 			]}`},
 		},
 	}
@@ -269,10 +269,10 @@ func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 	}
 }
 
-func TestCheckUnencryptedDevices_NoSecuritySection(t *testing.T) {
+func TestCheckUnencryptedDevices_NoDiskEncryptionSection(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","general":{"name":"Mac1"}}
 			]}`},
 		},
@@ -283,14 +283,34 @@ func TestCheckUnencryptedDevices_NoSecuritySection(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result != nil {
-		t.Error("expected nil when security section missing (graceful skip)")
+		t.Error("expected nil when diskEncryption section missing (graceful skip)")
+	}
+}
+
+func TestCheckUnencryptedDevices_EmptyDiskEncryptionSection(t *testing.T) {
+	// diskEncryption present but bootPartitionEncryptionDetails absent — fileVaultStatus
+	// returns "" which must not be counted as unencrypted.
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
+				{"id":"1","diskEncryption":{}}
+			]}`},
+		},
+	}
+
+	result, err := checkUnencryptedDevices(context.Background(), client, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Error("expected nil when bootPartitionEncryptionDetails absent (graceful skip, not counted as unencrypted)")
 	}
 }
 
 func TestCheckGatekeeper_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}},
 				{"id":"2","security":{"gatekeeperStatus":"DISABLED"}},
 				{"id":"3","security":{"gatekeeperStatus":"Disabled"}}
@@ -317,7 +337,7 @@ func TestCheckGatekeeper_Found(t *testing.T) {
 func TestCheckGatekeeper_AllEnabled(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}}
 			]}`},
 		},
@@ -441,7 +461,7 @@ func TestRunAudit_FilterByCategory(t *testing.T) {
 	// Only set up compliance mocks
 	mock := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v1/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+			"/v3/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
 			"/v2/mdm/commands":        {200, `{"totalCount":5,"results":[]}`},
 		},
 	}

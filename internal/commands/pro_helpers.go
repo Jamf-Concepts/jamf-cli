@@ -274,6 +274,37 @@ func StripServerFields(obj map[string]any) map[string]any {
 	return result
 }
 
+// normalizeDeviceType converts a Jamf Pro API device type string to a display label.
+// Unknown types pass through as-is.
+func normalizeDeviceType(apiType string) string {
+	switch apiType {
+	case "COMPUTER":
+		return "Computer"
+	case "MOBILE_DEVICE":
+		return "Mobile"
+	case "APPLE_TV":
+		return "Apple TV"
+	default:
+		return apiType
+	}
+}
+
+// reportSampleSize computes the effective sample size for failure-scan report commands.
+//
+//	limit < 0: smart default — max(10% of total, 100), clamped to total
+//	limit == 0: all items
+//	limit > 0: explicit cap, clamped to total
+func reportSampleSize(total, limit int) int {
+	switch {
+	case limit > 0:
+		return min(limit, total)
+	case limit < 0:
+		return min(max(total/10, 100), total)
+	default: // limit == 0: all
+		return total
+	}
+}
+
 // DeduplicateSlug appends a numeric suffix if slug already exists in the set.
 // Returns the unique slug and adds it to the set.
 func DeduplicateSlug(slug string, seen map[string]bool) string {

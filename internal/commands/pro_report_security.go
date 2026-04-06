@@ -15,12 +15,11 @@ import (
 
 // Security status constants used across multiple commands.
 const (
-	statusFVAllEncrypted  = "ALL_ENCRYPTED"
-	statusFVBootEncrypted = "BOOT_ENCRYPTED"
-	statusGKDisabled      = "DISABLED"
-	statusGKDisabledAlt   = "Disabled" // Some API versions use mixed case
-	statusSIPEnabled      = "ENABLED"
-	statusSIPEnabledAlt   = "Enabled"
+	statusFVEncrypted   = "ENCRYPTED"
+	statusGKDisabled    = "DISABLED"
+	statusGKDisabledAlt = "Disabled" // Some API versions use mixed case
+	statusSIPEnabled    = "ENABLED"
+	statusSIPEnabledAlt = "Enabled"
 )
 
 // securityReport holds all sections of the security posture report.
@@ -56,7 +55,7 @@ all three sections.`,
 
 func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securityReport, error) {
 	computers, err := FetchAllPaginated(ctx, client,
-		"/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY", 100)
+		"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY&section=DISK_ENCRYPTION", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}
@@ -78,6 +77,7 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		hardware, _ := c["hardware"].(map[string]any)
 		osInfo, _ := c["operatingSystem"].(map[string]any)
 		security, _ := c["security"].(map[string]any)
+		diskEnc, _ := c["diskEncryption"].(map[string]any)
 
 		name := strVal(general, "name")
 		if name == "" {
@@ -86,12 +86,15 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 		serial := strVal(hardware, "serialNumber")
 		osVersion := strVal(osInfo, "version")
 
-		fvStatus := strVal(security, "fileVault2Status")
+		// v3 moved FileVault from security to diskEncryption section.
+		// Use partition state as ground truth — fileVault2Enabled has narrower
+		// semantics (MDM-managed) and under-reports actual encryption.
+		fvStatus := fileVaultStatus(diskEnc)
 		gkStatus := strVal(security, "gatekeeperStatus")
 		sipStatus := strVal(security, "sipStatus")
 		firewall := boolVal(security, "firewallEnabled")
 
-		if fvStatus == statusFVAllEncrypted || fvStatus == statusFVBootEncrypted {
+		if fvStatus == statusFVEncrypted {
 			fvEncrypted++
 		}
 		if gkStatus != statusGKDisabled && gkStatus != statusGKDisabledAlt && gkStatus != "" {
@@ -184,7 +187,7 @@ func printSecurityReport(report *securityReport) error {
 		gk, _ := d["gatekeeper"].(string)
 		sip, _ := d["sip"].(string)
 		fw, _ := d["firewall"].(bool)
-		if (fv != statusFVAllEncrypted && fv != statusFVBootEncrypted && fv != "") ||
+		if (fv != statusFVEncrypted && fv != "") ||
 			gk == statusGKDisabled || gk == statusGKDisabledAlt ||
 			(sip != statusSIPEnabled && sip != statusSIPEnabledAlt && sip != "") ||
 			!fw {
@@ -232,4 +235,19 @@ func boolVal(m map[string]any, key string) bool {
 	}
 	v, _ := m[key].(bool)
 	return v
+}
+
+// fileVaultStatus extracts the boot partition FileVault state from the
+// v3 diskEncryption section. Returns the partition state string
+// (e.g. "ENCRYPTED", "UNENCRYPTED") or empty string if unavailable.
+func fileVaultStatus(diskEnc map[string]any) string {
+	if diskEnc == nil {
+		return ""
+	}
+	boot, _ := diskEnc["bootPartitionEncryptionDetails"].(map[string]any)
+	if boot == nil {
+		return ""
+	}
+	state, _ := boot["partitionFileVault2State"].(string)
+	return state
 }

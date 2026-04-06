@@ -197,7 +197,7 @@ func TestRunReportUpdateStatus_WithErrors(t *testing.T) {
 		},
 	}
 
-	err := runReportUpdateStatus(context.Background(), client)
+	err := runReportUpdateStatus(context.Background(), client, true, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestRunReportUpdateStatus_NoStatuses(t *testing.T) {
 		},
 	}
 
-	err := runReportUpdateStatus(context.Background(), client)
+	err := runReportUpdateStatus(context.Background(), client, false, -1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -225,7 +225,31 @@ func TestRunReportUpdateStatus_BothFetchesFail(t *testing.T) {
 	}
 
 	// Both failures are warnings, not fatal — returns nil with "no data found" message
-	err := runReportUpdateStatus(context.Background(), client)
+	err := runReportUpdateStatus(context.Background(), client, false, -1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunReportUpdateStatus_SummaryOnly(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/managed-software-updates/update-statuses": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"status": "IDLE", "device": {"deviceId": "1", "objectType": "COMPUTER"}},
+					{"status": "ERROR", "device": {"deviceId": "2", "objectType": "COMPUTER"}, "productKey": "macOS15", "updated": "2026-04-01"}
+				]
+			}`},
+			"/v1/managed-software-updates/plans": {200, `{"totalCount": 0, "results": []}`},
+		},
+	}
+
+	// Without --scan-failures the inventory endpoints must not be called.
+	// The mock has no inventory routes — any call to them would return 500 and
+	// cause fetchUpdateDeviceLookup to silently fail, but the real guard is
+	// that runReportUpdateStatus should return before reaching that code path.
+	err := runReportUpdateStatus(context.Background(), client, false, -1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
