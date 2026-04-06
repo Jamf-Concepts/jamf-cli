@@ -184,11 +184,11 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Replace all Form Input Fields",
 		Long:  "Replace all form input fields. Will delete, update, and create all input fields accordingly.",
-		Example: `  # Update a app-request from JSON
-  echo '{"name":"Updated"}' | jamf-cli app-requests update 1
+		Example: `  # Update app-requests
+  jamf-cli app-requests get -o json | jq '.field = "value"' | jamf-cli app-requests update
 
-  # Get a app-request, modify, and update
-  jamf-cli app-requests get 1 -o json | jq '.name = "New Name"' | jamf-cli app-requests update 1`,
+  # Update from a file
+  jamf-cli app-requests update --from-file app-requests.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

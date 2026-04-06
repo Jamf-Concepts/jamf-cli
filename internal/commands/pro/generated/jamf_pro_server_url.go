@@ -15,40 +15,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewReenrollmentsCmd creates the reenrollments command group
-func NewReenrollmentsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProServerUrlCmd creates the jamf-pro-server-url command group
+func NewJamfProServerUrlCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reenrollments",
-		Short: "Manage reenrollments",
-		Long:  `Manage reenrollments in Jamf Pro.`,
+		Use:   "jamf-pro-server-url",
+		Short: "Manage jamf-pro-server-url",
+		Long:  `Manage jamf-pro-server-url in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newReenrollmentsListCmd(ctx))
-	cmd.AddCommand(newReenrollmentsUpdateCmd(ctx))
-	cmd.AddCommand(newReenrollmentsHistoryCmd(ctx))
-	cmd.AddCommand(newReenrollmentsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newReenrollmentsHistoryExportCmd(ctx))
+	cmd.AddCommand(newJamfProServerUrlGetCmd(ctx))
+	cmd.AddCommand(newJamfProServerUrlUpdateCmd(ctx))
+	cmd.AddCommand(newJamfProServerUrlHistoryCmd(ctx))
+	cmd.AddCommand(newJamfProServerUrlAddHistoryNoteCmd(ctx))
 
 	return cmd
 }
 
-func newReenrollmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProServerUrlGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get Re-enrollment object",
-		Long:  "Gets Re-enrollment object",
-		Example: `  # List all reenrollments
-  jamf-cli reenrollments list
+		Use:   "get",
+		Short: "Get Jamf Pro Server URL settings",
+		Long:  "Get Jamf Pro Server URL settings",
+		Example: `  # Get jamf-pro-server-url
+  jamf-cli jamf-pro-server-url get
 
-  # List reenrollments and extract IDs
-  jamf-cli reenrollments list --field id`,
+  # Get jamf-pro-server-url and output as YAML
+  jamf-cli jamf-pro-server-url get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/reenrollment"
+			path := "/v1/jamf-pro-server-url"
 
 			// Build query string
 			var queryParts []string
@@ -70,37 +69,32 @@ func newReenrollmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProServerUrlUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update the Re-enrollment object",
-		Long:  "Update the Re-enrollment object",
-		Example: `  # Update a reenrollment from JSON
-  echo '{"name":"Updated"}' | jamf-cli reenrollments update 1
+		Short: "Update Jamf Pro Server URL settings",
+		Long:  "Update Jamf Pro Server URL settings",
+		Example: `  # Update jamf-pro-server-url
+  jamf-cli jamf-pro-server-url get -o json | jq '.field = "value"' | jamf-cli jamf-pro-server-url update
 
-  # Get a reenrollment, modify, and update
-  jamf-cli reenrollments get 1 -o json | jq '.name = "New Name"' | jamf-cli reenrollments update 1`,
+  # Update from a file
+  jamf-cli jamf-pro-server-url update --from-file jamf-pro-server-url.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "flushMDMQueue": "DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED",
-  "isFlushExtensionAttributesEnabled": false,
-  "isFlushLocationInformationEnabled": false,
-  "isFlushLocationInformationHistoryEnabled": false,
-  "isFlushPolicyHistoryEnabled": false,
-  "isFlushSoftwareUpdatePlansEnabled": false
+  "url": "https://example.com:8443"
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/reenrollment"
+			path := "/v1/jamf-pro-server-url"
 
 			// Build query string
 			var queryParts []string
@@ -130,7 +124,7 @@ func newReenrollmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProServerUrlHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagSize     int
@@ -143,15 +137,15 @@ func newReenrollmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "history",
-		Short: "Get Re-enrollment history object",
-		Long:  "Gets Re-enrollment history object",
-		Example: `  # Get history for a reenrollment
-  jamf-cli reenrollments history 1`,
+		Short: "Get Jamf Pro Server URL settings history",
+		Long:  "Gets Jamf Pro Server URL settings history",
+		Example: `  # Get history for a jamf-pro-server-url
+  jamf-cli jamf-pro-server-url history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/reenrollment/history"
+			path := "/v1/jamf-pro-server-url/history"
 
 			// Build query string
 			var queryParts []string
@@ -182,7 +176,7 @@ func newReenrollmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/reenrollment/history"
+					pagePath := "/v1/jamf-pro-server-url/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -261,15 +255,15 @@ func newReenrollmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProServerUrlAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
-		Short: "Add specified Re-enrollment history object notes",
-		Long:  "Adds specified Re-enrollment history object notes",
+		Short: "Add Jamf Pro Server URL settings history notes",
+		Long:  "Adds Jamf Pro Server URL settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -281,7 +275,7 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			// Build request path
-			path := "/v1/reenrollment/history"
+			path := "/v1/jamf-pro-server-url/history"
 
 			// Build query string
 			var queryParts []string
@@ -306,98 +300,6 @@ func newReenrollmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newReenrollmentsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagExportFields []string
-		flagExportLabels []string
-		flagPage         int
-		flagPageSize     int
-		flagSort         []string
-		flagFilter       string
-		flagScaffold     bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "history-export",
-		Short: "Export reenrollment history collection",
-		Long:  "Export reenrollment history collection",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				fmt.Println(`{
-  "fields": [],
-  "filter": "id\u003e=100",
-  "page": 0,
-  "pageSize": 100,
-  "sort": [
-    "id:asc"
-  ]
-}`)
-				return nil
-			}
-
-			// Build request path
-			path := "/v1/reenrollment/history/export"
-
-			// Build query string
-			var queryParts []string
-			if len(flagExportFields) > 0 {
-				for _, v := range flagExportFields {
-					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if len(flagExportLabels) > 0 {
-				for _, v := range flagExportLabels {
-					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if flagFilter != "" {
-				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringSliceVar(&flagExportFields, "export-fields", nil, "Export fields parameter, used to change default order or ignore some of the response properties. Default is empty array, which means that all fields of the response entity will be serialized. Example: export-fields=id,username")
-	cmd.Flags().StringSliceVar(&flagExportLabels, "export-labels", nil, "Export labels parameter, used to customize fieldnames/columns in the exported file. Default is empty array, which means that response properties names will be used. Number of the provided labels must match the number of export-fields Example: export-labels=identifier,name with matching: export-fields=id,username")
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd

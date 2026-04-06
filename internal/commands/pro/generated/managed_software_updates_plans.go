@@ -284,11 +284,11 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "update",
 		Short: "Updates Feature Toggle Value",
 		Long:  "Updates the value of the Feature Toggle - This endpoint is asynchronous, the provided value will not be immediately updated. Please use the following endpoint to track the status of your toggle request. /v1/managed-software-updates/plans/feature-toggle/status:",
-		Example: `  # Update a managed-software-updates-plan from JSON
-  echo '{"name":"Updated"}' | jamf-cli managed-software-updates-plans update 1
+		Example: `  # Update managed-software-updates-plans
+  jamf-cli managed-software-updates-plans get -o json | jq '.field = "value"' | jamf-cli managed-software-updates-plans update
 
-  # Get a managed-software-updates-plan, modify, and update
-  jamf-cli managed-software-updates-plans get 1 -o json | jq '.name = "New Name"' | jamf-cli managed-software-updates-plans update 1`,
+  # Update from a file
+  jamf-cli managed-software-updates-plans update --from-file managed-software-updates-plans.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

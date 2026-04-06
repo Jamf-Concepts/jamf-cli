@@ -179,14 +179,15 @@ paths:
 		t.Fatal(err)
 	}
 
-	resource, err := ParseSpec(specPath)
+	resources, err := ParseSpec(specPath)
 	if err != nil {
 		t.Fatalf("ParseSpec() error = %v", err)
 	}
-	if resource == nil {
-		t.Fatal("ParseSpec() returned nil resource")
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec() returned no resources")
 		return
 	}
+	resource := resources[0]
 
 	if resource.Name != "widgets" {
 		t.Errorf("Name = %q, want %q", resource.Name, "widgets")
@@ -254,11 +255,11 @@ paths: {}
 			t.Fatal(err)
 		}
 
-		resource, err := ParseSpec(specPath)
+		resources, err := ParseSpec(specPath)
 		if err != nil {
 			t.Fatalf("ParseSpec(%q) error = %v", name, err)
 		}
-		if resource != nil {
+		if len(resources) != 0 {
 			t.Errorf("ParseSpec(%q) should return nil for library file", name)
 		}
 	}
@@ -278,14 +279,15 @@ func TestParseSpec_RealBuildingSpec(t *testing.T) {
 		t.Skip("specs/Building.yaml not found, skipping integration test")
 	}
 
-	resource, err := ParseSpec(specPath)
+	resources, err := ParseSpec(specPath)
 	if err != nil {
 		t.Fatalf("ParseSpec(Building.yaml) error = %v", err)
 	}
-	if resource == nil {
+	if len(resources) == 0 {
 		t.Fatal("ParseSpec(Building.yaml) returned nil")
 		return
 	}
+	resource := resources[0]
 
 	if resource.Name != "buildings" {
 		t.Errorf("Name = %q, want %q", resource.Name, "buildings")
@@ -366,10 +368,14 @@ components:
 		t.Fatal(err)
 	}
 
-	resource, err := ParseSpec(specPath)
+	resources, err := ParseSpec(specPath)
 	if err != nil {
 		t.Fatalf("ParseSpec() error = %v", err)
 	}
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec() returned no resources")
+	}
+	resource := resources[0]
 
 	if len(resource.Schemas) != 1 {
 		t.Fatalf("expected 1 schema, got %d", len(resource.Schemas))
@@ -552,5 +558,490 @@ func TestDetectNameField(t *testing.T) {
 				t.Errorf("detectNameField() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDetectSingleton(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			name: "regular collection — GET+POST with {id}",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/widgets", IsList: true},
+				{Name: "get", Method: "GET", Path: "/v1/widgets/{id}"},
+				{Name: "create", Method: "POST", Path: "/v1/widgets"},
+				{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/widgets/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "singleton settings — GET+PUT on same path, no path params",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/cache-settings", IsList: false},
+				{Name: "update", Method: "PUT", Path: "/v1/cache-settings"},
+			},
+			want: true,
+		},
+		{
+			name: "singleton with history pagination — still a singleton",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/jamf-protect", IsList: false},
+				{Name: "update", Method: "PUT", Path: "/v1/jamf-protect"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/jamf-protect"},
+				{Name: "create", Method: "POST", Path: "/v1/jamf-protect/register"},
+				{Name: "history", Method: "GET", Path: "/v1/jamf-protect/history", IsList: true},
+				{Name: "add-history-note", Method: "POST", Path: "/v1/jamf-protect/history"},
+			},
+			want: true,
+		},
+		{
+			name: "read-only collection — GET only, no PUT",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/computer-groups", IsList: false},
+			},
+			want: false,
+		},
+		{
+			name: "paginated list — not a singleton even with no {id}",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+				{Name: "update", Method: "PUT", Path: "/v1/things"},
+			},
+			want: false,
+		},
+		{
+			name: "mixed resource — has {id} in a sub-path",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/jamf-connect", IsList: false},
+				{Name: "update", Method: "PUT", Path: "/v1/jamf-connect/config-profiles/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "empty operations",
+			ops:  []*Operation{},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectSingleton(tt.ops)
+			if got != tt.want {
+				t.Errorf("detectSingleton() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseSpec_SingletonSpec(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "CacheSettings.yaml")
+
+	spec := `openapi: 3.0.1
+info:
+  title: Cache Settings
+  description: Manage cache settings
+  version: 1.0.0
+paths:
+  /v1/cache-settings:
+    get:
+      summary: Get cache settings
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update cache settings
+      requestBody:
+        required: true
+      responses:
+        200:
+          description: Updated
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec() error = %v", err)
+	}
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec() returned no resources")
+	}
+	resource := resources[0]
+
+	if !resource.IsSingleton {
+		t.Error("expected IsSingleton = true for GET+PUT settings resource")
+	}
+	if resource.Name != "cache-settings" {
+		t.Errorf("Name = %q, want %q (no pluralization for singletons)", resource.Name, "cache-settings")
+	}
+	if resource.NameSingular != "cache-settings" {
+		t.Errorf("NameSingular = %q, want %q", resource.NameSingular, "cache-settings")
+	}
+	if resource.GoName != "CacheSettings" {
+		t.Errorf("GoName = %q, want %q", resource.GoName, "CacheSettings")
+	}
+
+	// Verify "list" was renamed to "get"
+	opNames := make(map[string]bool)
+	for _, op := range resource.Operations {
+		opNames[op.Name] = true
+	}
+	if opNames["list"] {
+		t.Error("singleton resource should not have a 'list' operation (should be renamed to 'get')")
+	}
+	if !opNames["get"] {
+		t.Error("singleton resource should have a 'get' operation (renamed from 'list')")
+	}
+	if !opNames["update"] {
+		t.Error("singleton resource should have an 'update' operation")
+	}
+}
+
+func TestParseSpec_NonSingleton_CollectionUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "Widget.yaml")
+
+	spec := `openapi: 3.0.1
+info:
+  title: Widgets
+  version: 1.0.0
+paths:
+  /v1/widgets:
+    get:
+      summary: List widgets
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+    post:
+      summary: Create a widget
+      responses:
+        201:
+          description: Created
+  /v1/widgets/{id}:
+    get:
+      summary: Get a widget
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update a widget
+      responses:
+        200:
+          description: OK
+    delete:
+      summary: Delete a widget
+      responses:
+        204:
+          description: Deleted
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec() error = %v", err)
+	}
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec() returned no resources")
+	}
+	resource := resources[0]
+
+	if resource.IsSingleton {
+		t.Error("expected IsSingleton = false for collection resource with {id} paths")
+	}
+	if resource.Name != "widgets" {
+		t.Errorf("Name = %q, want %q", resource.Name, "widgets")
+	}
+
+	opNames := make(map[string]bool)
+	for _, op := range resource.Operations {
+		opNames[op.Name] = true
+	}
+	if !opNames["list"] {
+		t.Error("non-singleton should keep 'list' operation")
+	}
+}
+
+func TestParseSpec_RealJamfProtectSpec(t *testing.T) {
+	specPath := filepath.Join("..", "..", "specs", "JamfProtect.yaml")
+	if _, err := os.Stat(specPath); os.IsNotExist(err) {
+		t.Skip("specs/JamfProtect.yaml not found, skipping integration test")
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec(JamfProtect.yaml) error = %v", err)
+	}
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec(JamfProtect.yaml) returned no resources")
+	}
+	resource := resources[0]
+
+	if !resource.IsSingleton {
+		t.Error("JamfProtect should be detected as a singleton")
+	}
+	if resource.Name != "jamf-protect" {
+		t.Errorf("Name = %q, want %q", resource.Name, "jamf-protect")
+	}
+	if resource.GoName != "JamfProtect" {
+		t.Errorf("GoName = %q, want %q", resource.GoName, "JamfProtect")
+	}
+
+	opNames := make(map[string]bool)
+	for _, op := range resource.Operations {
+		opNames[op.Name] = true
+	}
+	if opNames["list"] {
+		t.Error("jamf-protect should not have 'list' (should be 'get')")
+	}
+	if !opNames["get"] {
+		t.Error("jamf-protect should have 'get' operation")
+	}
+	if !opNames["update"] {
+		t.Error("jamf-protect should have 'update' operation")
+	}
+	if !opNames["delete"] {
+		t.Error("jamf-protect should have 'delete' operation")
+	}
+	if !opNames["history"] {
+		t.Error("jamf-protect should have 'history' operation")
+	}
+}
+
+func TestParseSpec_ReadOnlyEndpoint_NotSingleton(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "ComputerGroups.yaml")
+
+	spec := `openapi: 3.0.1
+info:
+  title: Computer Groups
+  version: 1.0.0
+paths:
+  /v1/computer-groups:
+    get:
+      summary: Returns all computer groups
+      responses:
+        200:
+          description: OK
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec() error = %v", err)
+	}
+	if len(resources) == 0 {
+		t.Fatal("ParseSpec() returned no resources")
+	}
+	resource := resources[0]
+
+	if resource.IsSingleton {
+		t.Error("read-only GET-only endpoint should not be a singleton (no PUT)")
+	}
+	if resource.Name != "computer-groups" {
+		t.Errorf("Name = %q, want %q", resource.Name, "computer-groups")
+	}
+}
+
+func TestParseSpec_MultiFamily_Synthetic(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "SelfServiceBranding.yaml")
+
+	spec := `openapi: 3.0.1
+info:
+  title: Self Service Branding
+  version: 1.0.0
+paths:
+  /v1/self-service/branding/macos:
+    get:
+      summary: List macOS branding configurations
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+    post:
+      summary: Create a macOS branding configuration
+      responses:
+        201:
+          description: Created
+  /v1/self-service/branding/macos/{id}:
+    get:
+      summary: Get a macOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update a macOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    delete:
+      summary: Delete a macOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Deleted
+  /v1/self-service/branding/ios:
+    get:
+      summary: List iOS branding configurations
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+    post:
+      summary: Create an iOS branding configuration
+      responses:
+        201:
+          description: Created
+  /v1/self-service/branding/ios/{id}:
+    get:
+      summary: Get an iOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update an iOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    delete:
+      summary: Delete an iOS branding configuration
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Deleted
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec() error = %v", err)
+	}
+	if len(resources) != 2 {
+		t.Fatalf("ParseSpec() returned %d resources, want 2 (one per branding family)", len(resources))
+	}
+
+	names := make(map[string]*Resource)
+	for _, r := range resources {
+		names[r.Name] = r
+	}
+
+	macos, ok := names["self-service-branding-macos"]
+	if !ok {
+		t.Errorf("expected resource named %q, got %v", "self-service-branding-macos", resourceNames(resources))
+	} else {
+		if macos.NameSingular != "self-service-branding-macos" {
+			t.Errorf("macos NameSingular = %q, want %q", macos.NameSingular, "self-service-branding-macos")
+		}
+		if macos.GoName != "SelfServiceBrandingMacos" {
+			t.Errorf("macos GoName = %q, want %q", macos.GoName, "SelfServiceBrandingMacos")
+		}
+		if macos.IsSingleton {
+			t.Error("macos branding should not be a singleton (it has {id} paths)")
+		}
+		opNames := make(map[string]bool)
+		for _, op := range macos.Operations {
+			opNames[op.Name] = true
+		}
+		if !opNames["list"] {
+			t.Error("macos branding should have a 'list' operation")
+		}
+	}
+
+	ios, ok := names["self-service-branding-ios"]
+	if !ok {
+		t.Errorf("expected resource named %q, got %v", "self-service-branding-ios", resourceNames(resources))
+	} else {
+		if ios.NameSingular != "self-service-branding-ios" {
+			t.Errorf("ios NameSingular = %q, want %q", ios.NameSingular, "self-service-branding-ios")
+		}
+		if ios.IsSingleton {
+			t.Error("ios branding should not be a singleton (it has {id} paths)")
+		}
+	}
+}
+
+func TestParseSpec_MultiFamily_RealSpec(t *testing.T) {
+	specPath := filepath.Join("..", "..", "specs", "SelfServiceBranding.yaml")
+	if _, err := os.Stat(specPath); os.IsNotExist(err) {
+		t.Skip("specs/SelfServiceBranding.yaml not found, skipping integration test")
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec(SelfServiceBranding.yaml) error = %v", err)
+	}
+	if len(resources) != 2 {
+		t.Fatalf("ParseSpec() returned %d resources, want 2 (macos + ios)", len(resources))
+	}
+
+	names := make(map[string]bool)
+	for _, r := range resources {
+		names[r.Name] = true
+	}
+	if !names["self-service-branding-macos"] {
+		t.Errorf("missing self-service-branding-macos, got %v", resourceNames(resources))
+	}
+	if !names["self-service-branding-ios"] {
+		t.Errorf("missing self-service-branding-ios, got %v", resourceNames(resources))
 	}
 }

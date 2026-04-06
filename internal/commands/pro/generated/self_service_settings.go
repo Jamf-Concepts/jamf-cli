@@ -23,7 +23,7 @@ func NewSelfServiceSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage self-service-settings in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSelfServiceSettingsListCmd(ctx))
+	cmd.AddCommand(newSelfServiceSettingsGetCmd(ctx))
 	cmd.AddCommand(newSelfServiceSettingsUpdateCmd(ctx))
 	cmd.AddCommand(newSelfServiceSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSelfServiceSettingsAddHistoryNoteCmd(ctx))
@@ -31,18 +31,18 @@ func NewSelfServiceSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServiceSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Get an object representation of Self Service settings",
 		Long:  "gets an object representation of Self Service settings",
-		Example: `  # List all self-service-settings
-  jamf-cli self-service-settings list
+		Example: `  # Get self-service-settings
+  jamf-cli self-service-settings get
 
-  # List self-service-settings and extract IDs
-  jamf-cli self-service-settings list --field id`,
+  # Get self-service-settings and output as YAML
+  jamf-cli self-service-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -78,11 +78,11 @@ func newSelfServiceSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Put an object representation of Self Service settings",
 		Long:  "puts an object representation of Self Service settings",
-		Example: `  # Update a self-service-setting from JSON
-  echo '{"name":"Updated"}' | jamf-cli self-service-settings update 1
+		Example: `  # Update self-service-settings
+  jamf-cli self-service-settings get -o json | jq '.field = "value"' | jamf-cli self-service-settings update
 
-  # Get a self-service-setting, modify, and update
-  jamf-cli self-service-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-settings update 1`,
+  # Update from a file
+  jamf-cli self-service-settings update --from-file self-service-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -140,7 +140,7 @@ func newSelfServiceSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get a page of Self Service settings history",
 		Long:  "Get a page of Self Service settings history",
-		Example: `  # Get history for a self-service-setting
+		Example: `  # Get history for a self-service-settings
   jamf-cli self-service-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

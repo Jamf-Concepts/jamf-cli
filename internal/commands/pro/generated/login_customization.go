@@ -13,37 +13,37 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewSelfServicePlussCmd creates the self-service-pluss command group
-func NewSelfServicePlussCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewLoginCustomizationCmd creates the login-customization command group
+func NewLoginCustomizationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "self-service-pluss",
-		Short: "Manage self-service-pluss",
-		Long:  `Manage self-service-pluss in Jamf Pro.`,
+		Use:   "login-customization",
+		Short: "Manage login-customization",
+		Long:  `Manage login-customization in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSelfServicePlussListCmd(ctx))
-	cmd.AddCommand(newSelfServicePlussUpdateCmd(ctx))
+	cmd.AddCommand(newLoginCustomizationGetCmd(ctx))
+	cmd.AddCommand(newLoginCustomizationUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newSelfServicePlussListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLoginCustomizationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Determines if Self Service Plus feature toggle is enabled.",
-		Long:  "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
-		Example: `  # List all self-service-pluss
-  jamf-cli self-service-pluss list
+		Use:   "get",
+		Short: "Get current login disclaimer settings",
+		Long:  "Returns knob whether disclaimer is enabled and if saved, its contents.",
+		Example: `  # Get login-customization
+  jamf-cli login-customization get
 
-  # List self-service-pluss and extract IDs
-  jamf-cli self-service-pluss list --field id`,
+  # Get login-customization and output as YAML
+  jamf-cli login-customization get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/self-service-plus/feature-toggle/enabled"
+			path := "/v1/login-customization"
 
 			// Build query string
 			var queryParts []string
@@ -65,32 +65,35 @@ func newSelfServicePlussListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServicePlussUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Save Self Service Plus settings.",
-		Long:  "Save Self Service Plus settings.",
-		Example: `  # Update a self-service-plus from JSON
-  echo '{"name":"Updated"}' | jamf-cli self-service-pluss update 1
+		Short: "Update current login disclaimer settings.",
+		Long:  "Update current login disclaimer settings.",
+		Example: `  # Update login-customization
+  jamf-cli login-customization get -o json | jq '.field = "value"' | jamf-cli login-customization update
 
-  # Get a self-service-plus, modify, and update
-  jamf-cli self-service-pluss get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-pluss update 1`,
+  # Update from a file
+  jamf-cli login-customization update --from-file login-customization.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "enabled": true
+  "actionText": "Accept",
+  "disclaimerHeading": "Disclaimer header",
+  "disclaimerMainText": "Login disclaimer main text",
+  "includeCustomDisclaimer": true
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/self-service-plus/settings"
+			path := "/v1/login-customization"
 
 			// Build query string
 			var queryParts []string

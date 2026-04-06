@@ -18,8 +18,10 @@ var commandAliases = map[string][]string{
 	"api-integrations": {"ai"},
 	"device":           {"dev"},
 	"policy-execute":   {"pe"},
-	"jamf-protects":    {"jamf-protect"},
-	"jamf-connects":    {"jamf-connect"},
+	// jamf-protect is now generated with the correct singular name (singleton detection).
+	// jamf-connects still needs an alias since JamfConnect.yaml has {id} paths (config-profiles)
+	// so it isn't detected as a singleton and retains the plural generated name.
+	"jamf-connects": {"jamf-connect"},
 }
 
 // rootAliases maps root-level command names to short aliases.

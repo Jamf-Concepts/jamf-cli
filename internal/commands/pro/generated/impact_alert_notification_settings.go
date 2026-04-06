@@ -21,24 +21,24 @@ func NewImpactAlertNotificationSettingsCmd(ctx *registry.CLIContext) *cobra.Comm
 		Long:  `Manage impact-alert-notification-settings in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newImpactAlertNotificationSettingsListCmd(ctx))
+	cmd.AddCommand(newImpactAlertNotificationSettingsGetCmd(ctx))
 	cmd.AddCommand(newImpactAlertNotificationSettingsUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newImpactAlertNotificationSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newImpactAlertNotificationSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Get Impact Alert Notification Settings",
 		Long:  "Get Impact Alert Notification Settings",
-		Example: `  # List all impact-alert-notification-settings
-  jamf-cli impact-alert-notification-settings list
+		Example: `  # Get impact-alert-notification-settings
+  jamf-cli impact-alert-notification-settings get
 
-  # List impact-alert-notification-settings and extract IDs
-  jamf-cli impact-alert-notification-settings list --field id`,
+  # Get impact-alert-notification-settings and output as YAML
+  jamf-cli impact-alert-notification-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,11 +74,11 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 		Use:   "update",
 		Short: "Update Impact Alert Notification Settings",
 		Long:  "Update Impact Alert Notification Settings",
-		Example: `  # Update a impact-alert-notification-setting from JSON
-  echo '{"name":"Updated"}' | jamf-cli impact-alert-notification-settings update 1
+		Example: `  # Update impact-alert-notification-settings
+  jamf-cli impact-alert-notification-settings get -o json | jq '.field = "value"' | jamf-cli impact-alert-notification-settings update
 
-  # Get a impact-alert-notification-setting, modify, and update
-  jamf-cli impact-alert-notification-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli impact-alert-notification-settings update 1`,
+  # Update from a file
+  jamf-cli impact-alert-notification-settings update --from-file impact-alert-notification-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

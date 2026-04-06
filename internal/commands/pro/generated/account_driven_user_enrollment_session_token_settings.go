@@ -21,24 +21,24 @@ func NewAccountDrivenUserEnrollmentSessionTokenSettingsCmd(ctx *registry.CLICont
 		Long:  `Manage account-driven-user-enrollment-session-token-settings in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx))
+	cmd.AddCommand(newAccountDrivenUserEnrollmentSessionTokenSettingsGetCmd(ctx))
 	cmd.AddCommand(newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newAccountDrivenUserEnrollmentSessionTokenSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAccountDrivenUserEnrollmentSessionTokenSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Retrieve the Account Driven User Enrollment Session Token Settings",
 		Long:  "Retrieve the Account Driven User Enrollment Session Token Settings",
-		Example: `  # List all account-driven-user-enrollment-session-token-settings
-  jamf-cli account-driven-user-enrollment-session-token-settings list
+		Example: `  # Get account-driven-user-enrollment-session-token-settings
+  jamf-cli account-driven-user-enrollment-session-token-settings get
 
-  # List account-driven-user-enrollment-session-token-settings and extract IDs
-  jamf-cli account-driven-user-enrollment-session-token-settings list --field id`,
+  # Get account-driven-user-enrollment-session-token-settings and output as YAML
+  jamf-cli account-driven-user-enrollment-session-token-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,11 +74,11 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *registry.C
 		Use:   "update",
 		Short: "Update Account Driven User Enrollment Session Token Settings.",
 		Long:  "Update the Account Driven User Enrollment Session Token Settings object.",
-		Example: `  # Update a account-driven-user-enrollment-session-token-setting from JSON
-  echo '{"name":"Updated"}' | jamf-cli account-driven-user-enrollment-session-token-settings update 1
+		Example: `  # Update account-driven-user-enrollment-session-token-settings
+  jamf-cli account-driven-user-enrollment-session-token-settings get -o json | jq '.field = "value"' | jamf-cli account-driven-user-enrollment-session-token-settings update
 
-  # Get a account-driven-user-enrollment-session-token-setting, modify, and update
-  jamf-cli account-driven-user-enrollment-session-token-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli account-driven-user-enrollment-session-token-settings update 1`,
+  # Update from a file
+  jamf-cli account-driven-user-enrollment-session-token-settings update --from-file account-driven-user-enrollment-session-token-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

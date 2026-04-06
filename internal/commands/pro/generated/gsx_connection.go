@@ -15,39 +15,41 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewParentAppsCmd creates the parent-apps command group
-func NewParentAppsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewGsxConnectionCmd creates the gsx-connection command group
+func NewGsxConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "parent-apps",
-		Short: "Manage parent-apps",
-		Long:  `Manage parent-apps in Jamf Pro.`,
+		Use:   "gsx-connection",
+		Short: "Manage gsx-connection",
+		Long:  `Manage gsx-connection in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newParentAppsListCmd(ctx))
-	cmd.AddCommand(newParentAppsUpdateCmd(ctx))
-	cmd.AddCommand(newParentAppsHistoryCmd(ctx))
-	cmd.AddCommand(newParentAppsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newGsxConnectionGetCmd(ctx))
+	cmd.AddCommand(newGsxConnectionUpdateCmd(ctx))
+	cmd.AddCommand(newGsxConnectionHistoryCmd(ctx))
+	cmd.AddCommand(newGsxConnectionAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newGsxConnectionPatchCmd(ctx))
+	cmd.AddCommand(newGsxConnectionTestCmd(ctx))
 
 	return cmd
 }
 
-func newParentAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get the current Jamf Parent app settings",
-		Long:  "Get the current Jamf Parent app settings",
-		Example: `  # List all parent-apps
-  jamf-cli parent-apps list
+		Use:   "get",
+		Short: "Finds the Jamf Pro GSX Connection information",
+		Long:  "Finds the Jamf Pro GSX Connection information",
+		Example: `  # Get gsx-connection
+  jamf-cli gsx-connection get
 
-  # List parent-apps and extract IDs
-  jamf-cli parent-apps list --field id`,
+  # Get gsx-connection and output as YAML
+  jamf-cli gsx-connection get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/parent-app"
+			path := "/v1/gsx-connection"
 
 			// Build query string
 			var queryParts []string
@@ -69,44 +71,23 @@ func newParentAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newParentAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
+func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update Jamf Parent app settings",
-		Long:  "Update Jamf Parent app settings",
-		Example: `  # Update a parent-app from JSON
-  echo '{"name":"Updated"}' | jamf-cli parent-apps update 1
+		Short: "Updates Jamf Pro GSX Connection information",
+		Long:  "Updates Jamf Pro GSX Connection information",
+		Example: `  # Update gsx-connection
+  jamf-cli gsx-connection get -o json | jq '.field = "value"' | jamf-cli gsx-connection update
 
-  # Get a parent-app, modify, and update
-  jamf-cli parent-apps get 1 -o json | jq '.name = "New Name"' | jamf-cli parent-apps update 1`,
+  # Update from a file
+  jamf-cli gsx-connection update --from-file gsx-connection.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			if flagScaffold {
-				fmt.Println(`{
-  "allowClearPasscode": true,
-  "allowTemplates": true,
-  "deviceGroupId": 1,
-  "disassociateOnWipeAndReEnroll": true,
-  "isEnabled": true,
-  "restrictedTimes": {
-    "SUNDAY": {
-      "beginTime": "08:30:00",
-      "endTime": "15:45:00"
-    }
-  },
-  "safelistedApps": [],
-  "timezoneId": "Europe/Paris"
-}`)
-				return nil
-			}
-
 			// Build request path
-			path := "/v1/parent-app"
+			path := "/v1/gsx-connection"
 
 			// Build query string
 			var queryParts []string
@@ -131,32 +112,30 @@ func newParentAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
-func newParentAppsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newGsxConnectionHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
+		flagSort     []string
 		flagFilter   string
-		flagSort     string
 		flagAll      bool
 		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
-		Short: "Get Jamf Parent app settings history",
-		Long:  "Gets Jamf Parent app settings history",
-		Example: `  # Get history for a parent-app
-  jamf-cli parent-apps history 1`,
+		Short: "Get specified GSX Connection History object",
+		Long:  "Gets specified GSX Connection history object",
+		Example: `  # Get history for a gsx-connection
+  jamf-cli gsx-connection history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/parent-app/history"
+			path := "/v1/gsx-connection/history"
 
 			// Build query string
 			var queryParts []string
@@ -166,11 +145,13 @@ func newParentAppsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagPageSize != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
 			if flagFilter != "" {
 				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
-			if flagSort != "" {
-				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -184,7 +165,7 @@ func newParentAppsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/parent-app/history"
+					pagePath := "/v1/gsx-connection/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -254,23 +235,23 @@ func newParentAppsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
-	cmd.Flags().StringVar(&flagSort, "sort", "date:desc", "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
 	return cmd
 }
 
-func newParentAppsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newGsxConnectionAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
-		Short: "Add Jamf Parent app settings history notes",
-		Long:  "Adds Jamf Parent app settings history notes",
+		Short: "Add specified GSX Connection history object notes",
+		Long:  "Adds specified GSX Connection history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -282,7 +263,7 @@ func newParentAppsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/parent-app/history"
+			path := "/v1/gsx-connection/history"
 
 			// Build query string
 			var queryParts []string
@@ -308,6 +289,84 @@ func newParentAppsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "patch",
+		Short: "Updates Jamf Pro GSX Connection information",
+		Long:  "Updates Jamf Pro GSX Connection information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/gsx-connection"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newGsxConnectionTestCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Test functionality of an GSX Connection",
+		Long:  "Test functionality of an GSX Connection",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/gsx-connection/test"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

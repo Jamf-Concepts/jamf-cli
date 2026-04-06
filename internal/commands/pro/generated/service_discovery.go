@@ -13,32 +13,32 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewServiceDiscoveriesCmd creates the service-discoveries command group
-func NewServiceDiscoveriesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewServiceDiscoveryCmd creates the service-discovery command group
+func NewServiceDiscoveryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "service-discoveries",
-		Short: "Manage service-discoveries",
-		Long:  `Manage service-discoveries in Jamf Pro.`,
+		Use:   "service-discovery",
+		Short: "Manage service-discovery",
+		Long:  `Manage service-discovery in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newServiceDiscoveriesListCmd(ctx))
-	cmd.AddCommand(newServiceDiscoveriesUpdateCmd(ctx))
+	cmd.AddCommand(newServiceDiscoveryGetCmd(ctx))
+	cmd.AddCommand(newServiceDiscoveryUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newServiceDiscoveriesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newServiceDiscoveryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Get service discovery well-known settings for all organizations",
 		Long:  "Returns current settings for all AxM organizations.",
-		Example: `  # List all service-discoveries
-  jamf-cli service-discoveries list
+		Example: `  # Get service-discovery
+  jamf-cli service-discovery get
 
-  # List service-discoveries and extract IDs
-  jamf-cli service-discoveries list --field id`,
+  # Get service-discovery and output as YAML
+  jamf-cli service-discovery get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -65,7 +65,7 @@ func newServiceDiscoveriesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newServiceDiscoveriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -74,11 +74,11 @@ func newServiceDiscoveriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Update service discovery well-known settings",
 		Long:  "Accepts JSON payload to update enrollment types for AxM organizations. Requires \"Update User-Initiated Enrollment\" privilege.",
-		Example: `  # Update a service-discovery from JSON
-  echo '{"name":"Updated"}' | jamf-cli service-discoveries update 1
+		Example: `  # Update service-discovery
+  jamf-cli service-discovery get -o json | jq '.field = "value"' | jamf-cli service-discovery update
 
-  # Get a service-discovery, modify, and update
-  jamf-cli service-discoveries get 1 -o json | jq '.name = "New Name"' | jamf-cli service-discoveries update 1`,
+  # Update from a file
+  jamf-cli service-discovery update --from-file service-discovery.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
