@@ -4,6 +4,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -231,6 +232,21 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 	if len(resources) == 0 {
 		return nil
 	}
+
+	// Warn about operations not assigned to any family. These are silently
+	// excluded from code generation — surface them so spec authors can act.
+	assignedPaths := make(map[string]bool)
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			assignedPaths[op.Path] = true
+		}
+	}
+	for _, op := range ops {
+		if !assignedPaths[op.Path] {
+			fmt.Fprintf(os.Stderr, "  Warning: %s %s not assigned to any resource family (orphaned — will not be generated)\n", op.Method, op.Path)
+		}
+	}
+
 	return resources
 }
 
