@@ -15,34 +15,34 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewComputerPrestageScopeV2SCmd creates the computer-prestage-scope-v-2s command group
-func NewComputerPrestageScopeV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewComputerPrestageScopesCmd creates the computer-prestage-scopes command group
+func NewComputerPrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computer-prestage-scope-v-2s",
-		Short: "Manage computer-prestage-scope-v-2s",
-		Long:  `Manage computer-prestage-scope-v-2s in Jamf Pro.`,
+		Use:   "computer-prestage-scopes",
+		Short: "Manage computer-prestage-scopes",
+		Long:  `Manage computer-prestage-scopes in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newComputerPrestageScopeV2SListCmd(ctx))
-	cmd.AddCommand(newComputerPrestageScopeV2SUpdateCmd(ctx))
-	cmd.AddCommand(newComputerPrestageScopeV2SDeleteMultipleCmd(ctx))
-	cmd.AddCommand(newComputerPrestageScopeV2SScopeCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesListCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesUpdateCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesScopeCmd(ctx))
 
 	return cmd
 }
 
-func newComputerPrestageScopeV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all device Scope for all Computer Prestages",
 		Long:  "Get all device scope for all computer prestages",
-		Example: `  # List all computer-prestage-scope-v-2s
-  jamf-cli computer-prestage-scope-v-2s list
+		Example: `  # List all computer-prestage-scopes
+  jamf-cli computer-prestage-scopes list
 
-  # List computer-prestage-scope-v-2s and extract IDs
-  jamf-cli computer-prestage-scope-v-2s list --field id`,
+  # List computer-prestage-scopes and extract IDs
+  jamf-cli computer-prestage-scopes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -69,7 +69,7 @@ func newComputerPrestageScopeV2SListCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newComputerPrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestageScopesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -78,11 +78,11 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "update <id>",
 		Short: "Replace device Scope for a specific Computer Prestage",
 		Long:  "Replace device scope for a specific computer prestage",
-		Example: `  # Update a computer-prestage-scope-v-2 from JSON
-  echo '{"name":"Updated"}' | jamf-cli computer-prestage-scope-v-2s update 1
+		Example: `  # Update a computer-prestage-scope from JSON
+  echo '{"name":"Updated"}' | jamf-cli computer-prestage-scopes update 1
 
-  # Get a computer-prestage-scope-v-2, modify, and update
-  jamf-cli computer-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestage-scope-v-2s update 1`,
+  # Get a computer-prestage-scope, modify, and update
+  jamf-cli computer-prestage-scopes get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestage-scopes update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -130,7 +130,7 @@ func newComputerPrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
@@ -142,8 +142,8 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cob
 		Use:   "delete-multiple <id>",
 		Short: "Remove device Scope for a specific Computer Prestage",
 		Long:  "Remove device scope for a specific computer prestage",
-		Example: `  # Delete multiple computer-prestage-scope-v-2s by IDs
-  jamf-cli computer-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
+		Example: `  # Delete multiple computer-prestage-scopes by IDs
+  jamf-cli computer-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -224,7 +224,7 @@ func newComputerPrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newComputerPrestageScopeV2SScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

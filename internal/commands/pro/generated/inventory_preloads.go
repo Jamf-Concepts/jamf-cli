@@ -32,7 +32,9 @@ func NewInventoryPreloadsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadsDeleteCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsHistoryCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newInventoryPreloadsValidateCsvCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadsExportCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadsCsvValidateCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadsDeleteAllCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsGetByNameCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsApplyCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsDeleteByNameCmd(ctx))
@@ -41,19 +43,12 @@ func NewInventoryPreloadsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagPage     int
-		flagPagesize int
-		flagSort     string
-		flagSortBy   string
-		flagAll      bool
-		flagLimit    int
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Return all Inventory Preload records",
-		Long:  "Returns all Inventory Preload records.",
+		Short: "Download all Inventory Preload records",
+		Long:  "Returns all Inventory Preload records as a CSV file.",
 		Example: `  # List all inventory-preloads
   jamf-cli inventory-preloads list
 
@@ -63,89 +58,12 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/inventory-preload"
+			path := "/v2/inventory-preload/csv"
 
 			// Build query string
 			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPagesize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("pagesize=%d", flagPagesize))
-			}
-			if flagSort != "" {
-				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
-			}
-			if flagSortBy != "" {
-				queryParts = append(queryParts, "sortBy="+url.QueryEscape(flagSortBy))
-			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
-			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
-				pageNum := 0
-				pageSize := 100
-
-				for {
-					// Build page-specific query
-					pagePath := "/inventory-preload"
-					var pageQuery []string
-					// Carry forward non-pagination query params
-					for _, qp := range queryParts {
-						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
-							pageQuery = append(pageQuery, qp)
-						}
-					}
-					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
-					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
-					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
-
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
-					if err != nil {
-						return err
-					}
-
-					body, err := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if err != nil {
-						return err
-					}
-
-					// Parse pagination response: {"totalCount": N, "results": [...]}
-					var pageResp struct {
-						TotalCount int               `json:"totalCount"`
-						Results    []json.RawMessage `json:"results"`
-					}
-					if err := json.Unmarshal(body, &pageResp); err != nil {
-						// Not a paginated response; output as-is
-						return ctx.Output.PrintRaw(body)
-					}
-
-					allResults = append(allResults, pageResp.Results...)
-
-					// Check limit
-					if flagLimit > 0 && len(allResults) >= flagLimit {
-						allResults = allResults[:flagLimit]
-						break
-					}
-
-					// Check if we've fetched everything
-					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
-						break
-					}
-
-					pageNum++
-				}
-
-				// Output combined results as JSON array
-				combined, err := json.MarshalIndent(allResults, "", "  ")
-				if err != nil {
-					return err
-				}
-				return ctx.Output.PrintRaw(combined)
 			}
 
 			// Make request
@@ -158,13 +76,6 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPagesize, "pagesize", 100, "")
-	cmd.Flags().StringVar(&flagSort, "sort", "ASC", "")
-	cmd.Flags().StringVar(&flagSortBy, "sort-by", "id", "")
-	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
 	return cmd
 }
@@ -189,7 +100,7 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/inventory-preload/{id}"
+			path := "/v2/inventory-preload/records/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -213,14 +124,12 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a new Inventory Preload record using JSON or CSV",
-		Long:  "Create a new Inventory Preload record using JSON or CSV. A CSV template can be downloaded from /api/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the /inventory-preload/validate-csv endpoint first.",
+		Short: "Create one or more new Inventory Preload records using CSV",
+		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
 		Example: `  # Show the JSON template for creating a inventory-preload
   jamf-cli inventory-preloads create --scaffold
 
@@ -232,38 +141,8 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			if flagScaffold {
-				fmt.Println(`{
-  "appleCareId": 5678,
-  "assetTag": "ABCDEFG12345",
-  "barCode1": 123456789,
-  "barCode2": 123456789,
-  "building": "Eau Claire",
-  "department": "IT",
-  "deviceType": "Computer",
-  "emailAddress": "ITBob@jamf.com",
-  "extensionAttributes": [],
-  "fullName": "Name",
-  "leaseExpiration": "2015-06-19T00:00:00Z",
-  "lifeExpectancy": "5 years",
-  "phoneNumber": "555-555-5555",
-  "poDate": "2019-02-04T21:09:31.661Z",
-  "poNumber": 8675309,
-  "position": "IT Team Lead",
-  "purchasePrice": "$399",
-  "purchasingAccount": "IT Budget",
-  "purchasingContact": "Nick in IT",
-  "room": "4th Floor - Quad 3",
-  "serialNumber": "C02L29ECF8J1",
-  "username": "admin",
-  "vendor": "Apple",
-  "warrantyExpiration": "2012-07-21T00:00:00Z"
-}`)
-				return nil
-			}
-
 			// Build request path
-			path := "/inventory-preload"
+			path := "/v2/inventory-preload/csv"
 
 			// Build query string
 			var queryParts []string
@@ -287,8 +166,6 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -342,7 +219,7 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/inventory-preload/{id}"
+			path := "/v2/inventory-preload/records/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -380,20 +257,21 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete all Inventory Preload records",
-		Long:  "Deletes all Inventory Preload records.",
+		Use:   "delete <id>",
+		Short: "Delete an Inventory Preload record",
+		Long:  "Deletes an Inventory Preload record.",
 		Example: `  # Delete a inventory-preload (with confirmation)
   jamf-cli inventory-preloads delete 1
 
   # Delete without confirmation prompt
   jamf-cli inventory-preloads delete 1 --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete\n")
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
 				return nil
 			}
 			if !flagYes {
@@ -401,7 +279,7 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete. Type 'yes' to confirm: ")
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -410,7 +288,8 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/inventory-preload"
+			path := "/v2/inventory-preload/records/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -443,10 +322,9 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
-		flagSize     int
-		flagPagesize int
 		flagPageSize int
-		flagSort     string
+		flagSort     []string
+		flagFilter   string
 		flagAll      bool
 		flagLimit    int
 	)
@@ -461,24 +339,23 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/inventory-preload/history"
+			path := "/v2/inventory-preload/history"
 
 			// Build query string
 			var queryParts []string
 			if flagPage != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
 			}
-			if flagSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("size=%d", flagSize))
-			}
-			if flagPagesize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("pagesize=%d", flagPagesize))
-			}
 			if flagPageSize != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
-			if flagSort != "" {
-				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -492,7 +369,7 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/inventory-preload/history"
+					pagePath := "/v2/inventory-preload/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -561,10 +438,9 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagSize, "size", 100, "")
-	cmd.Flags().IntVar(&flagPagesize, "pagesize", 100, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringVar(&flagSort, "sort", "date:desc", "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'date:desc'. Multiple sort criteria are supported and must be separated with a comma.  Example: 'sort=date:desc,name:asc'. ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allows filtering inventory preload history records. Default search is empty query - returning all results for the requested page. All inventory preload history fields are supported.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=username==\"admin\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
@@ -591,7 +467,7 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 
 			// Build request path
-			path := "/v1/inventory-preload/history"
+			path := "/v2/inventory-preload/history"
 
 			// Build query string
 			var queryParts []string
@@ -621,18 +497,112 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newInventoryPreloadsValidateCsvCmd(ctx *registry.CLIContext) *cobra.Command {
+func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagExportFields []string
+		flagExportLabels []string
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export a collection of inventory preload records",
+		Long:  "Export a collection of inventory preload records",
+		Example: `  # Export inventory-preloads to CSV
+  jamf-cli inventory-preloads export --out-file inventory-preloads.csv`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/inventory-preload/export"
+
+			// Build query string
+			var queryParts []string
+			if len(flagExportFields) > 0 {
+				for _, v := range flagExportFields {
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if len(flagExportLabels) > 0 {
+				for _, v := range flagExportLabels {
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringSliceVar(&flagExportFields, "export-fields", nil, "Export fields parameter, used to change default order or ignore some of the response properties. Default is empty array, which means that all fields of the response entity will be serialized. Example: export-fields=id,username")
+	cmd.Flags().StringSliceVar(&flagExportLabels, "export-labels", nil, "Export labels parameter, used to customize fieldnames/columns in the exported file. Default is empty array, which means that response properties names will be used. Number of the provided labels must match the number of export-fields Example: export-labels=identifier,name with matching: export-fields=id,username")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'id:asc'. Multiple sort criteria are supported and must be separated with a comma. All inventory preload fields are supported, however fields added by extension attributes are not supported. If sorting by deviceType, use '0' for Computer and '1' for Mobile Device.  Example: 'sort=date:desc,name:asc'. ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=categoryName==\"Category\"' ")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "validate-csv",
+		Use:   "csv-validate",
 		Short: "Validate a given CSV file",
-		Long:  "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from /api/inventory-preload/csv-template.",
+		Long:  "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from '/v2/inventory-preload/csv-template'.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/inventory-preload/validate-csv"
+			path := "/v2/inventory-preload/csv-validate"
 
 			// Build query string
 			var queryParts []string
@@ -660,6 +630,69 @@ func newInventoryPreloadsValidateCsvCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
+func newInventoryPreloadsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-all",
+		Short: "Delete all Inventory Preload records",
+		Long:  "Deletes all Inventory Preload records.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Confirmation for destructive action
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "Would delete-all\n")
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete-all. Type 'yes' to confirm: ")
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Build request path
+			path := "/v2/inventory-preload/records/delete-all"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
 func newInventoryPreloadsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -672,11 +705,11 @@ func newInventoryPreloadsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/inventory-preload", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/inventory-preload/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -708,7 +741,7 @@ func newInventoryPreloadsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/inventory-preload", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -732,7 +765,7 @@ func newInventoryPreloadsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 				}
 			}
 
-			path := strings.Replace("/inventory-preload", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -796,7 +829,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/inventory-preload", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -807,7 +840,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create inventory-preload %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/inventory-preload", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/inventory-preload/csv", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -833,7 +866,7 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/inventory-preload/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v2/inventory-preload/records/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err

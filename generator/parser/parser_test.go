@@ -398,6 +398,105 @@ components:
 	}
 }
 
+func makeResource(name string) *Resource {
+	return &Resource{Name: name}
+}
+
+func resourceNames(rs []*Resource) []string {
+	names := make([]string, len(rs))
+	for i, r := range rs {
+		names[i] = r.Name
+	}
+	return names
+}
+
+func TestDeduplicateVersioned(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     []*Resource
+		wantNames []string
+	}{
+		{
+			name:      "no versioned resources — no-op",
+			input:     []*Resource{makeResource("buildings"), makeResource("computers"), makeResource("policies")},
+			wantNames: []string{"buildings", "computers", "policies"},
+		},
+		{
+			name:      "single versioned resource — renamed to canonical",
+			input:     []*Resource{makeResource("buildings"), makeResource("inventory-preload-v-2s")},
+			wantNames: []string{"buildings", "inventory-preloads"},
+		},
+		{
+			name: "multiple versions — highest wins, lower dropped",
+			input: []*Resource{
+				makeResource("mobile-device-prestages-v-2s"),
+				makeResource("mobile-device-prestages-v-3s"),
+				makeResource("computers"),
+			},
+			wantNames: []string{"mobile-device-prestages", "computers"},
+		},
+		{
+			name: "base resource suppressed when versioned family exists",
+			input: []*Resource{
+				makeResource("inventory-preloads"),
+				makeResource("inventory-preload-v-2s"),
+				makeResource("buildings"),
+			},
+			wantNames: []string{"inventory-preloads", "buildings"},
+		},
+		{
+			name: "multiple independent version families",
+			input: []*Resource{
+				makeResource("computer-prestages-v-2s"),
+				makeResource("computer-prestages-v-3s"),
+				makeResource("inventory-preload-v-2s"),
+				makeResource("unrelated"),
+			},
+			wantNames: []string{"computer-prestages", "inventory-preloads", "unrelated"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeduplicateVersioned(tt.input)
+			gotNames := resourceNames(got)
+
+			if len(gotNames) != len(tt.wantNames) {
+				t.Fatalf("DeduplicateVersioned() returned %v, want %v", gotNames, tt.wantNames)
+			}
+			for i, name := range gotNames {
+				if name != tt.wantNames[i] {
+					t.Errorf("DeduplicateVersioned()[%d] = %q, want %q", i, name, tt.wantNames[i])
+				}
+			}
+
+			// Winner must have correct derived fields set.
+			for _, r := range got {
+				if versionedName.MatchString(r.Name) {
+					t.Errorf("output still contains versioned name %q — winner not renamed", r.Name)
+				}
+			}
+		})
+	}
+}
+
+func TestDeduplicateVersioned_WinnerFieldsRenamed(t *testing.T) {
+	r := makeResource("mobile-device-prestages-v-3s")
+	result := DeduplicateVersioned([]*Resource{r})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(result))
+	}
+	if result[0].Name != "mobile-device-prestages" {
+		t.Errorf("Name = %q, want %q", result[0].Name, "mobile-device-prestages")
+	}
+	if result[0].NameSingular != "mobile-device-prestage" {
+		t.Errorf("NameSingular = %q, want %q", result[0].NameSingular, "mobile-device-prestage")
+	}
+	if result[0].GoName != "MobileDevicePrestages" {
+		t.Errorf("GoName = %q, want %q", result[0].GoName, "MobileDevicePrestages")
+	}
+}
+
 func TestDetectNameField(t *testing.T) {
 	tests := []struct {
 		name    string

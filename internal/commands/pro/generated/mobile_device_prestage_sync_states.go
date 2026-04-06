@@ -11,33 +11,33 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewMobileDevicePrestageSyncStateV2SCmd creates the mobile-device-prestage-sync-state-v-2s command group
-func NewMobileDevicePrestageSyncStateV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewMobileDevicePrestageSyncStatesCmd creates the mobile-device-prestage-sync-states command group
+func NewMobileDevicePrestageSyncStatesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-prestage-sync-state-v-2s",
-		Short: "Manage mobile-device-prestage-sync-state-v-2s",
-		Long:  `Manage mobile-device-prestage-sync-state-v-2s in Jamf Pro.`,
+		Use:   "mobile-device-prestage-sync-states",
+		Short: "Manage mobile-device-prestage-sync-states",
+		Long:  `Manage mobile-device-prestage-sync-states in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SGetCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageSyncStateV2SGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStatesListCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStatesGetCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStatesGetByNameCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDevicePrestageSyncStateV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageSyncStatesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all Prestage sync States for all prestages",
 		Long:  "Get all prestage sync states for all prestages",
-		Example: `  # List all mobile-device-prestage-sync-state-v-2s
-  jamf-cli mobile-device-prestage-sync-state-v-2s list
+		Example: `  # List all mobile-device-prestage-sync-states
+  jamf-cli mobile-device-prestage-sync-states list
 
-  # List mobile-device-prestage-sync-state-v-2s and extract IDs
-  jamf-cli mobile-device-prestage-sync-state-v-2s list --field id`,
+  # List mobile-device-prestage-sync-states and extract IDs
+  jamf-cli mobile-device-prestage-sync-states list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -64,21 +64,21 @@ func newMobileDevicePrestageSyncStateV2SListCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageSyncStatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get all prestage sync states for a single prestage",
 		Long:  "Get all prestage sync states for a single prestage",
-		Example: `  # Get a mobile-device-prestage-sync-state-v-2 by ID
-  jamf-cli mobile-device-prestage-sync-state-v-2s get 1
+		Example: `  # Get a mobile-device-prestage-sync-state by ID
+  jamf-cli mobile-device-prestage-sync-states get 1
 
-  # Get a mobile-device-prestage-sync-state-v-2 by name
-  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example"
+  # Get a mobile-device-prestage-sync-state by name
+  jamf-cli mobile-device-prestage-sync-states get-by-name "Example"
 
-  # Get a mobile-device-prestage-sync-state-v-2 and output as YAML
-  jamf-cli mobile-device-prestage-sync-state-v-2s get 1 -o yaml`,
+  # Get a mobile-device-prestage-sync-state and output as YAML
+  jamf-cli mobile-device-prestage-sync-states get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -107,15 +107,15 @@ func newMobileDevicePrestageSyncStateV2SGetCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
-func newMobileDevicePrestageSyncStateV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageSyncStatesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestage-sync-state-v-2 by name",
-		Example: `  # Get a mobile-device-prestage-sync-state-v-2 by name
-  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example"
+		Short: "Get a mobile-device-prestage-sync-state by name",
+		Example: `  # Get a mobile-device-prestage-sync-state by name
+  jamf-cli mobile-device-prestage-sync-states get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli mobile-device-prestage-sync-state-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli mobile-device-prestage-sync-states get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

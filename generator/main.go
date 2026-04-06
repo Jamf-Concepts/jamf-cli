@@ -84,6 +84,15 @@ func main() {
 	}
 	resources = validResources
 
+	// Consolidate multi-version resources: keep only the highest version per resource
+	// family, renamed to its clean canonical name (e.g. "mobile-device-prestages-v-3s"
+	// becomes "mobile-device-prestages"). This also suppresses any older non-versioned
+	// base resource that a versioned sibling supersedes.
+	resources = parser.DeduplicateVersioned(resources)
+
+	// Track every file we write so we can delete stale files from previous generator runs.
+	generatedFiles := make(map[string]bool)
+
 	// Generate code
 	gen := parser.NewGenerator(outputDir)
 	for _, resource := range resources {
@@ -93,6 +102,7 @@ func main() {
 			continue
 		}
 		fmt.Printf("Generated: %s\n", outPath)
+		generatedFiles[filepath.Base(outPath)] = true
 	}
 
 	// Generate registry file
@@ -102,6 +112,7 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Generated: %s\n", registryPath)
+	generatedFiles[filepath.Base(registryPath)] = true
 
 	fmt.Println()
 	fmt.Printf("Successfully generated %d resource command(s)\n", len(resources))
@@ -129,6 +140,7 @@ func main() {
 				continue
 			}
 			fmt.Printf("Generated: %s\n", outPath)
+			generatedFiles[filepath.Base(outPath)] = true
 		}
 
 		classicRegistryPath, err := classicGen.GenerateRegistry(classicResources)
@@ -137,6 +149,7 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Generated: %s\n", classicRegistryPath)
+		generatedFiles[filepath.Base(classicRegistryPath)] = true
 
 		fmt.Println()
 		fmt.Printf("Successfully generated %d classic resource command(s)\n", len(classicResources))
@@ -149,6 +162,20 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("\nGenerated: %s\n", smokeRegistryPath)
+	generatedFiles[filepath.Base(smokeRegistryPath)] = true
+
+	// ── Clean up stale generated files ────────────────────────────
+	// Remove any .go files in the output directory that were not produced by this
+	// run. This handles cases where a versioned resource (e.g. mobile_device_prestages_v_3s.go)
+	// has been superseded by a renamed canonical file (mobile_device_prestages.go).
+	existing, _ := filepath.Glob(filepath.Join(outputDir, "*.go"))
+	for _, f := range existing {
+		if !generatedFiles[filepath.Base(f)] {
+			if err := os.Remove(f); err == nil {
+				fmt.Printf("Removed stale: %s\n", filepath.Base(f))
+			}
+		}
+	}
 }
 
 // generateSmokeRegistry collects all GET endpoints from both modern and classic

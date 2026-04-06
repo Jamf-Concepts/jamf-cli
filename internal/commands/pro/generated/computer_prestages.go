@@ -17,27 +17,27 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewComputerPrestagesV3SCmd creates the computer-prestages-v-3s command group
-func NewComputerPrestagesV3SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewComputerPrestagesCmd creates the computer-prestages command group
+func NewComputerPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computer-prestages-v-3s",
-		Short: "Manage computer-prestages-v-3s",
-		Long:  `Manage computer-prestages-v-3s in Jamf Pro.`,
+		Use:   "computer-prestages",
+		Short: "Manage computer-prestages",
+		Long:  `Manage computer-prestages in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newComputerPrestagesV3SListCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SGetCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SCreateCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SUpdateCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SDeleteCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SGetByNameCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SApplyCmd(ctx))
-	cmd.AddCommand(newComputerPrestagesV3SDeleteByNameCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesListCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesGetCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesCreateCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesUpdateCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesDeleteCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesGetByNameCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesApplyCmd(ctx))
+	cmd.AddCommand(newComputerPrestagesDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
-func newComputerPrestagesV3SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -50,11 +50,11 @@ func newComputerPrestagesV3SListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Get sorted and paged Computer Prestages",
 		Long:  "Gets sorted and paged computer prestages",
-		Example: `  # List all computer-prestages-v-3s
-  jamf-cli computer-prestages-v-3s list
+		Example: `  # List all computer-prestages
+  jamf-cli computer-prestages list
 
-  # List computer-prestages-v-3s and extract IDs
-  jamf-cli computer-prestages-v-3s list --field id`,
+  # List computer-prestages and extract IDs
+  jamf-cli computer-prestages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -163,21 +163,21 @@ func newComputerPrestagesV3SListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputerPrestagesV3SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Computer Prestage with the supplied id",
 		Long:  "Retrieves a Computer Prestage with the supplied id",
-		Example: `  # Get a computer-prestages-v-3 by ID
-  jamf-cli computer-prestages-v-3s get 1
+		Example: `  # Get a computer-prestage by ID
+  jamf-cli computer-prestages get 1
 
-  # Get a computer-prestages-v-3 by name
-  jamf-cli computer-prestages-v-3s get-by-name "Example"
+  # Get a computer-prestage by name
+  jamf-cli computer-prestages get-by-name "Example"
 
-  # Get a computer-prestages-v-3 and output as YAML
-  jamf-cli computer-prestages-v-3s get 1 -o yaml`,
+  # Get a computer-prestage and output as YAML
+  jamf-cli computer-prestages get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -206,21 +206,21 @@ func newComputerPrestagesV3SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputerPrestagesV3SCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Computer Prestage",
 		Long:  "Create a computer prestage",
-		Example: `  # Show the JSON template for creating a computer-prestages-v-3
-  jamf-cli computer-prestages-v-3s create --scaffold
+		Example: `  # Show the JSON template for creating a computer-prestage
+  jamf-cli computer-prestages create --scaffold
 
-  # Create a computer-prestages-v-3 from JSON
-  echo '{"name":"Example"}' | jamf-cli computer-prestages-v-3s create
+  # Create a computer-prestage from JSON
+  echo '{"name":"Example"}' | jamf-cli computer-prestages create
 
-  # Get a computer-prestages-v-3, modify it, and create a copy
-  jamf-cli computer-prestages-v-3s get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-prestages-v-3s create`,
+  # Get a computer-prestage, modify it, and create a copy
+  jamf-cli computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-prestages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -253,18 +253,18 @@ func newComputerPrestagesV3SCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputerPrestagesV3SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Computer Prestage",
 		Long:  "Updates a Computer Prestage",
-		Example: `  # Update a computer-prestages-v-3 from JSON
-  echo '{"name":"Updated"}' | jamf-cli computer-prestages-v-3s update 1
+		Example: `  # Update a computer-prestage from JSON
+  echo '{"name":"Updated"}' | jamf-cli computer-prestages update 1
 
-  # Get a computer-prestages-v-3, modify, and update
-  jamf-cli computer-prestages-v-3s get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestages-v-3s update 1`,
+  # Get a computer-prestage, modify, and update
+  jamf-cli computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestages update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -299,7 +299,7 @@ func newComputerPrestagesV3SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputerPrestagesV3SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -309,11 +309,11 @@ func newComputerPrestagesV3SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Computer Prestage with the supplied id",
 		Long:  "Deletes a Computer Prestage with the supplied id",
-		Example: `  # Delete a computer-prestages-v-3 (with confirmation)
-  jamf-cli computer-prestages-v-3s delete 1
+		Example: `  # Delete a computer-prestage (with confirmation)
+  jamf-cli computer-prestages delete 1
 
   # Delete without confirmation prompt
-  jamf-cli computer-prestages-v-3s delete 1 --yes`,
+  jamf-cli computer-prestages delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -368,15 +368,15 @@ func newComputerPrestagesV3SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputerPrestagesV3SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a computer-prestages-v-3 by name",
-		Example: `  # Get a computer-prestages-v-3 by name
-  jamf-cli computer-prestages-v-3s get-by-name "Example"
+		Short: "Get a computer-prestage by name",
+		Example: `  # Get a computer-prestage by name
+  jamf-cli computer-prestages get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli computer-prestages-v-3s get-by-name "Example" -o yaml`,
+  jamf-cli computer-prestages get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -395,7 +395,7 @@ func newComputerPrestagesV3SGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 }
 
-func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -403,12 +403,12 @@ func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a computer-prestages-v-3 by name",
-		Example: `  # Delete a computer-prestages-v-3 by name (with confirmation)
-  jamf-cli computer-prestages-v-3s delete-by-name "Example"
+		Short: "Delete a computer-prestage by name",
+		Example: `  # Delete a computer-prestage by name (with confirmation)
+  jamf-cli computer-prestages delete-by-name "Example"
 
   # Delete without confirmation prompt
-  jamf-cli computer-prestages-v-3s delete-by-name "Example" --yes`,
+  jamf-cli computer-prestages delete-by-name "Example" --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,18 +421,18 @@ func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no computer-prestages-v-3 found with name %q", name)
+				return fmt.Errorf("no computer-prestage found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-prestages-v-3 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete computer-prestages-v-3 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete computer-prestage %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -448,7 +448,7 @@ func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted computer-prestages-v-3 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted computer-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
@@ -461,7 +461,7 @@ func newComputerPrestagesV3SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newComputerPrestagesV3SApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerPrestagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile   string
 		flagYes    bool
@@ -470,23 +470,23 @@ func newComputerPrestagesV3SApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a computer-prestages-v-3 by name",
-		Long: `Create or replace a computer-prestages-v-3. Reads JSON from --from-file or stdin.
+		Short: "Create or replace a computer-prestage by name",
+		Long: `Create or replace a computer-prestage. Reads JSON from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a computer-prestages-v-3 from a file
-  jamf-cli computer-prestages-v-3s apply --from-file computer-prestages-v-3.json
+		Example: `  # Apply a computer-prestage from a file
+  jamf-cli computer-prestages apply --from-file computer-prestage.json
 
   # Apply from stdin
-  cat computer-prestages-v-3.json | jamf-cli computer-prestages-v-3s apply
+  cat computer-prestage.json | jamf-cli computer-prestages apply
 
   # Apply without replacement confirmation
-  jamf-cli computer-prestages-v-3s apply --from-file computer-prestages-v-3.json --yes
+  jamf-cli computer-prestages apply --from-file computer-prestage.json --yes
 
   # Preview what would happen
-  jamf-cli computer-prestages-v-3s apply --from-file computer-prestages-v-3.json --dry-run`,
+  jamf-cli computer-prestages apply --from-file computer-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -512,7 +512,7 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-prestages-v-3 %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-prestage %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/computer-prestages", bytes.NewReader(data))
@@ -520,20 +520,20 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created computer-prestages-v-3 %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created computer-prestage %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace computer-prestages-v-3 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace computer-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("computer-prestages-v-3 %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("computer-prestage %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "computer-prestages-v-3 %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "computer-prestage %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -547,7 +547,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced computer-prestages-v-3 %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced computer-prestage %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

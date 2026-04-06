@@ -17,30 +17,30 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewMobileDevicePrestagesV2SCmd creates the mobile-device-prestages-v-2s command group
-func NewMobileDevicePrestagesV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewMobileDevicePrestagesCmd creates the mobile-device-prestages command group
+func NewMobileDevicePrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-prestages-v-2s",
-		Short: "Manage mobile-device-prestages-v-2s",
-		Long:  `Manage mobile-device-prestages-v-2s in Jamf Pro.`,
+		Use:   "mobile-device-prestages",
+		Short: "Manage mobile-device-prestages",
+		Long:  `Manage mobile-device-prestages in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDevicePrestagesV2SListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SGetCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SCreateCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SUpdateCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SDeleteCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SHistoryCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SGetByNameCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SApplyCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesV2SDeleteByNameCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesListCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesGetCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesCreateCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesUpdateCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesDeleteCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesHistoryCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesApplyCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -53,16 +53,16 @@ func newMobileDevicePrestagesV2SListCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "list",
 		Short: "Get sorted and paged Mobile Device Prestages",
 		Long:  "Gets sorted and paged mobile device prestages",
-		Example: `  # List all mobile-device-prestages-v-2s
-  jamf-cli mobile-device-prestages-v-2s list
+		Example: `  # List all mobile-device-prestages
+  jamf-cli mobile-device-prestages list
 
-  # List mobile-device-prestages-v-2s and extract IDs
-  jamf-cli mobile-device-prestages-v-2s list --field id`,
+  # List mobile-device-prestages and extract IDs
+  jamf-cli mobile-device-prestages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages"
+			path := "/v3/mobile-device-prestages"
 
 			// Build query string
 			var queryParts []string
@@ -89,7 +89,7 @@ func newMobileDevicePrestagesV2SListCmd(ctx *registry.CLIContext) *cobra.Command
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/mobile-device-prestages"
+					pagePath := "/v3/mobile-device-prestages"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -166,27 +166,27 @@ func newMobileDevicePrestagesV2SListCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Mobile Device Prestage with the supplied id",
 		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
-		Example: `  # Get a mobile-device-prestages-v-2 by ID
-  jamf-cli mobile-device-prestages-v-2s get 1
+		Example: `  # Get a mobile-device-prestage by ID
+  jamf-cli mobile-device-prestages get 1
 
-  # Get a mobile-device-prestages-v-2 by name
-  jamf-cli mobile-device-prestages-v-2s get-by-name "Example"
+  # Get a mobile-device-prestage by name
+  jamf-cli mobile-device-prestages get-by-name "Example"
 
-  # Get a mobile-device-prestages-v-2 and output as YAML
-  jamf-cli mobile-device-prestages-v-2s get 1 -o yaml`,
+  # Get a mobile-device-prestage and output as YAML
+  jamf-cli mobile-device-prestages get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}"
+			path := "/v3/mobile-device-prestages/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -209,26 +209,26 @@ func newMobileDevicePrestagesV2SGetCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Mobile Device Prestage",
 		Long:  "Create a mobile device prestage",
-		Example: `  # Show the JSON template for creating a mobile-device-prestages-v-2
-  jamf-cli mobile-device-prestages-v-2s create --scaffold
+		Example: `  # Show the JSON template for creating a mobile-device-prestage
+  jamf-cli mobile-device-prestages create --scaffold
 
-  # Create a mobile-device-prestages-v-2 from JSON
-  echo '{"name":"Example"}' | jamf-cli mobile-device-prestages-v-2s create
+  # Create a mobile-device-prestage from JSON
+  echo '{"name":"Example"}' | jamf-cli mobile-device-prestages create
 
-  # Get a mobile-device-prestages-v-2, modify it, and create a copy
-  jamf-cli mobile-device-prestages-v-2s get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-prestages-v-2s create`,
+  # Get a mobile-device-prestage, modify it, and create a copy
+  jamf-cli mobile-device-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-prestages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages"
+			path := "/v3/mobile-device-prestages"
 
 			// Build query string
 			var queryParts []string
@@ -256,24 +256,24 @@ func newMobileDevicePrestagesV2SCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a Mobile Device Prestage",
 		Long:  "Updates a Mobile Device Prestage",
-		Example: `  # Update a mobile-device-prestages-v-2 from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestages-v-2s update 1
+		Example: `  # Update a mobile-device-prestage from JSON
+  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestages update 1
 
-  # Get a mobile-device-prestages-v-2, modify, and update
-  jamf-cli mobile-device-prestages-v-2s get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestages-v-2s update 1`,
+  # Get a mobile-device-prestage, modify, and update
+  jamf-cli mobile-device-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestages update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}"
+			path := "/v3/mobile-device-prestages/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -302,7 +302,7 @@ func newMobileDevicePrestagesV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -312,11 +312,11 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "delete <id>",
 		Short: "Delete a Mobile Device Prestage with the supplied id",
 		Long:  "Deletes a Mobile Device Prestage with the supplied id",
-		Example: `  # Delete a mobile-device-prestages-v-2 (with confirmation)
-  jamf-cli mobile-device-prestages-v-2s delete 1
+		Example: `  # Delete a mobile-device-prestage (with confirmation)
+  jamf-cli mobile-device-prestages delete 1
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-prestages-v-2s delete 1 --yes`,
+  jamf-cli mobile-device-prestages delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -340,7 +340,7 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}"
+			path := "/v3/mobile-device-prestages/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -371,7 +371,7 @@ func newMobileDevicePrestagesV2SDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
@@ -383,8 +383,8 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cob
 		Use:   "delete-multiple <id>",
 		Short: "Remove an attachment for a Mobile Device Prestage",
 		Long:  "Remove an attachment for a Mobile Device Prestage",
-		Example: `  # Delete multiple mobile-device-prestages-v-2s by IDs
-  jamf-cli mobile-device-prestages-v-2s delete-multiple --ids 1,2,3 --yes`,
+		Example: `  # Delete multiple mobile-device-prestages by IDs
+  jamf-cli mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -415,7 +415,7 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cob
 			}
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/attachments/delete-multiple"
+			path := "/v3/mobile-device-prestages/{id}/attachments/delete-multiple"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -461,7 +461,7 @@ func newMobileDevicePrestagesV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -474,14 +474,14 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "history <id>",
 		Short: "Get sorted and paged Mobile Device Prestage history objects",
 		Long:  "Gets sorted and paged mobile device prestage history objects",
-		Example: `  # Get history for a mobile-device-prestages-v-2
-  jamf-cli mobile-device-prestages-v-2s history 1`,
+		Example: `  # Get history for a mobile-device-prestage
+  jamf-cli mobile-device-prestages history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/history"
+			path := "/v3/mobile-device-prestages/{id}/history"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -509,7 +509,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/mobile-device-prestages/{id}/history"
+					pagePath := "/v3/mobile-device-prestages/{id}/history"
 					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
@@ -587,7 +587,7 @@ func newMobileDevicePrestagesV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -608,7 +608,7 @@ func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 			}
 
 			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/history"
+			path := "/v3/mobile-device-prestages/{id}/history"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -639,23 +639,23 @@ func newMobileDevicePrestagesV2SAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestages-v-2 by name",
-		Example: `  # Get a mobile-device-prestages-v-2 by name
-  jamf-cli mobile-device-prestages-v-2s get-by-name "Example"
+		Short: "Get a mobile-device-prestage by name",
+		Example: `  # Get a mobile-device-prestage by name
+  jamf-cli mobile-device-prestages get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli mobile-device-prestages-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli mobile-device-prestages get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v2/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -666,7 +666,7 @@ func newMobileDevicePrestagesV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 }
 
-func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -674,12 +674,12 @@ func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a mobile-device-prestages-v-2 by name",
-		Example: `  # Delete a mobile-device-prestages-v-2 by name (with confirmation)
-  jamf-cli mobile-device-prestages-v-2s delete-by-name "Example"
+		Short: "Delete a mobile-device-prestage by name",
+		Example: `  # Delete a mobile-device-prestage by name (with confirmation)
+  jamf-cli mobile-device-prestages delete-by-name "Example"
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-prestages-v-2s delete-by-name "Example" --yes`,
+  jamf-cli mobile-device-prestages delete-by-name "Example" --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -687,23 +687,23 @@ func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no mobile-device-prestages-v-2 found with name %q", name)
+				return fmt.Errorf("no mobile-device-prestage found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-prestages-v-2 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete mobile-device-prestages-v-2 %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete mobile-device-prestage %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -711,7 +711,7 @@ func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 				}
 			}
 
-			path := strings.Replace("/v2/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -719,7 +719,7 @@ func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestages-v-2 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
@@ -732,7 +732,7 @@ func newMobileDevicePrestagesV2SDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newMobileDevicePrestagesV2SApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile   string
 		flagYes    bool
@@ -741,23 +741,23 @@ func newMobileDevicePrestagesV2SApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a mobile-device-prestages-v-2 by name",
-		Long: `Create or replace a mobile-device-prestages-v-2. Reads JSON from --from-file or stdin.
+		Short: "Create or replace a mobile-device-prestage by name",
+		Long: `Create or replace a mobile-device-prestage. Reads JSON from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a mobile-device-prestages-v-2 from a file
-  jamf-cli mobile-device-prestages-v-2s apply --from-file mobile-device-prestages-v-2.json
+		Example: `  # Apply a mobile-device-prestage from a file
+  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json
 
   # Apply from stdin
-  cat mobile-device-prestages-v-2.json | jamf-cli mobile-device-prestages-v-2s apply
+  cat mobile-device-prestage.json | jamf-cli mobile-device-prestages apply
 
   # Apply without replacement confirmation
-  jamf-cli mobile-device-prestages-v-2s apply --from-file mobile-device-prestages-v-2.json --yes
+  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json --yes
 
   # Preview what would happen
-  jamf-cli mobile-device-prestages-v-2s apply --from-file mobile-device-prestages-v-2.json --dry-run`,
+  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -775,7 +775,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -783,28 +783,28 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-prestages-v-2 %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-prestage %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/mobile-device-prestages", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/mobile-device-prestages", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created mobile-device-prestages-v-2 %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created mobile-device-prestage %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-prestages-v-2 %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-prestage %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("mobile-device-prestages-v-2 %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("mobile-device-prestage %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "mobile-device-prestages-v-2 %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "mobile-device-prestage %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -812,13 +812,13 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/v2/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced mobile-device-prestages-v-2 %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced mobile-device-prestage %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

@@ -5,7 +5,9 @@ package parser
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -353,6 +355,78 @@ func detectNameField(schemas map[string]*Schema) string {
 		return "displayName"
 	}
 	return "name"
+}
+
+// versionedName matches CLI resource names with a version suffix, e.g. "inventory-preload-v-2s"
+// or "mobile-device-prestages-v-3s". Captures the base part and the version number.
+var versionedName = regexp.MustCompile(`^(.*)-v-(\d+)s?$`)
+
+// DeduplicateVersioned consolidates multi-version resources so each resource group
+// surfaces as a single command using the latest API version.
+//
+// When multiple spec files cover the same resource at different API versions
+// (e.g. MobileDevicePrestagesV2.yaml + MobileDevicePrestagesV3.yaml), the generator
+// produces commands like "mobile-device-prestages-v-2s" and "mobile-device-prestages-v-3s".
+// This function:
+//   - Detects versioned resource names via the "-v-{N}s" suffix pattern
+//   - For each version family, keeps only the highest version
+//   - Renames the winning resource to the clean canonical name (no version suffix)
+//   - Suppresses any non-versioned base resource that the versioned family supersedes
+func DeduplicateVersioned(resources []*Resource) []*Resource {
+	type entry struct {
+		res     *Resource
+		version int
+	}
+
+	// First pass: find each version family's highest version.
+	latest := make(map[string]entry) // canonical name → highest version entry
+	for _, r := range resources {
+		m := versionedName.FindStringSubmatch(r.Name)
+		if m == nil {
+			continue
+		}
+		base := m[1]
+		ver, _ := strconv.Atoi(m[2])
+		canonical := pluralize(base)
+		if cur, ok := latest[canonical]; !ok || ver > cur.version {
+			latest[canonical] = entry{res: r, version: ver}
+		}
+	}
+
+	if len(latest) == 0 {
+		return resources
+	}
+
+	// Build set of canonical names that have at least one versioned sibling.
+	hasVersioned := make(map[string]bool, len(latest))
+	for name := range latest {
+		hasVersioned[name] = true
+	}
+
+	// Second pass: emit only keepers, renaming the winner to the canonical name.
+	result := make([]*Resource, 0, len(resources))
+	for _, r := range resources {
+		m := versionedName.FindStringSubmatch(r.Name)
+		if m != nil {
+			canonical := pluralize(m[1])
+			win := latest[canonical]
+			if win.res != r {
+				continue // older version — drop
+			}
+			// Rename winner to clean canonical name (strip version suffix).
+			r.Name = canonical
+			r.NameSingular = singularize(canonical)
+			r.GoName = strcase.ToCamel(canonical)
+			result = append(result, r)
+			continue
+		}
+		// Non-versioned resource: suppress if a versioned family covers the same name.
+		if hasVersioned[r.Name] {
+			continue
+		}
+		result = append(result, r)
+	}
+	return result
 }
 
 // isDestructiveAction returns true for operations that modify/delete data
