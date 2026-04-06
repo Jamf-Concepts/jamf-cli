@@ -3,7 +3,11 @@
 package generated
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,13 +25,21 @@ func NewJamfRemoteAssistSessionHistoriesCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesListCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesExportCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx))
 
 	return cmd
 }
 
 func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -42,12 +54,91 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/jamf-remote-assist/session"
+			path := "/v2/jamf-remote-assist/session"
 
 			// Build query string
 			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/jamf-remote-assist/session"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
 			}
 
 			// Make request
@@ -60,6 +151,13 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is sessionId:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=sessionId:desc,deviceId:asc ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter session history items collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: sessionId, deviceId, sessionAdminId. This param can be combined with paging and sorting. Example: sessionAdminId==\"*Andrzej*\"")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
 	return cmd
 }
@@ -84,7 +182,7 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/jamf-remote-assist/session/{id}"
+			path := "/v2/jamf-remote-assist/session/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -107,6 +205,64 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
+func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export Jamf Remote Assist sessions history",
+		Long:  "Export Jamf Remote Assist sessions history",
+		Example: `  # Export jamf-remote-assist-session-histories to CSV
+  jamf-cli jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "fields": [],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/jamf-remote-assist/session/export"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
 func newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -119,11 +275,11 @@ func newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx *registry.CLIContext) *
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jamf-remote-assist/session", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/jamf-remote-assist/session/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/jamf-remote-assist/session/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

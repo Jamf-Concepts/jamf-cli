@@ -14,35 +14,35 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewLocalAdminPasswordV2SCmd creates the local-admin-password-v-2s command group
-func NewLocalAdminPasswordV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewLocalAdminPasswordsCmd creates the local-admin-passwords command group
+func NewLocalAdminPasswordsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "local-admin-password-v-2s",
-		Short: "Manage local-admin-password-v-2s",
-		Long:  `Manage local-admin-password-v-2s in Jamf Pro.`,
+		Use:   "local-admin-passwords",
+		Short: "Manage local-admin-passwords",
+		Long:  `Manage local-admin-passwords in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newLocalAdminPasswordV2SListCmd(ctx))
-	cmd.AddCommand(newLocalAdminPasswordV2SGetCmd(ctx))
-	cmd.AddCommand(newLocalAdminPasswordV2SUpdateCmd(ctx))
-	cmd.AddCommand(newLocalAdminPasswordV2SHistoryCmd(ctx))
-	cmd.AddCommand(newLocalAdminPasswordV2SGetByNameCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsListCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsGetCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsUpdateCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsHistoryCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsGetByNameCmd(ctx))
 
 	return cmd
 }
 
-func newLocalAdminPasswordV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLocalAdminPasswordsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
 		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
-		Example: `  # List all local-admin-password-v-2s
-  jamf-cli local-admin-password-v-2s list
+		Example: `  # List all local-admin-passwords
+  jamf-cli local-admin-passwords list
 
-  # List local-admin-password-v-2s and extract IDs
-  jamf-cli local-admin-password-v-2s list --field id`,
+  # List local-admin-passwords and extract IDs
+  jamf-cli local-admin-passwords list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -69,21 +69,21 @@ func newLocalAdminPasswordV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newLocalAdminPasswordV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLocalAdminPasswordsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get LAPS password viewed history.",
 		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
-		Example: `  # Get a local-admin-password-v-2 by ID
-  jamf-cli local-admin-password-v-2s get 1
+		Example: `  # Get a local-admin-password by ID
+  jamf-cli local-admin-passwords get 1
 
-  # Get a local-admin-password-v-2 by name
-  jamf-cli local-admin-password-v-2s get-by-name "Example"
+  # Get a local-admin-password by name
+  jamf-cli local-admin-passwords get-by-name "Example"
 
-  # Get a local-admin-password-v-2 and output as YAML
-  jamf-cli local-admin-password-v-2s get 1 -o yaml`,
+  # Get a local-admin-password and output as YAML
+  jamf-cli local-admin-passwords get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -113,7 +113,7 @@ func newLocalAdminPasswordV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newLocalAdminPasswordV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -122,11 +122,11 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "update",
 		Short: "Update settings for LAPS.",
 		Long:  "Update settings for LAPS.",
-		Example: `  # Update a local-admin-password-v-2 from JSON
-  echo '{"name":"Updated"}' | jamf-cli local-admin-password-v-2s update 1
+		Example: `  # Update a local-admin-password from JSON
+  echo '{"name":"Updated"}' | jamf-cli local-admin-passwords update 1
 
-  # Get a local-admin-password-v-2, modify, and update
-  jamf-cli local-admin-password-v-2s get 1 -o json | jq '.name = "New Name"' | jamf-cli local-admin-password-v-2s update 1`,
+  # Get a local-admin-password, modify, and update
+  jamf-cli local-admin-passwords get 1 -o json | jq '.name = "New Name"' | jamf-cli local-admin-passwords update 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -171,15 +171,15 @@ func newLocalAdminPasswordV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newLocalAdminPasswordV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "history <id>",
 		Short: "Get LAPS historical records for target device and username.",
 		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
-		Example: `  # Get history for a local-admin-password-v-2
-  jamf-cli local-admin-password-v-2s history 1`,
+		Example: `  # Get history for a local-admin-password
+  jamf-cli local-admin-passwords history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -209,15 +209,15 @@ func newLocalAdminPasswordV2SHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newLocalAdminPasswordV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLocalAdminPasswordsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a local-admin-password-v-2 by name",
-		Example: `  # Get a local-admin-password-v-2 by name
-  jamf-cli local-admin-password-v-2s get-by-name "Example"
+		Short: "Get a local-admin-password by name",
+		Example: `  # Get a local-admin-password by name
+  jamf-cli local-admin-passwords get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli local-admin-password-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli local-admin-passwords get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

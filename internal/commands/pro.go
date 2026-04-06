@@ -40,6 +40,15 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
 	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
 
+	// Suppress generated commands duplicated by richer handwritten versions (see #39)
+	// Handwritten counterparts support --serial/--name/--group/--from-file targeting and bulk ops.
+	removeSubcommand(cmd, []string{}, "erase-device-computers")              // → pro comp erase
+	removeSubcommand(cmd, []string{}, "erase-device-mobiles")                // → pro md erase
+	removeSubcommand(cmd, []string{}, "renew-mdm-profiles")                  // → pro comp renew-mdm
+	removeSubcommand(cmd, []string{}, "redeploy-jamf-management-frameworks") // → pro comp redeploy-framework
+	removeSubcommand(cmd, []string{}, "remove-computer-mdm-profiles")        // → pro comp remove-mdm
+	removeSubcommand(cmd, []string{}, "remove-mobile-device-mdm-profiles")   // → pro md unmanage
+
 	// Replace broken generated upload with handwritten streaming upload
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 

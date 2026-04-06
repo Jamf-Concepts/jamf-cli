@@ -15,36 +15,36 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewMobileDevicePrestageScopeV2SCmd creates the mobile-device-prestage-scope-v-2s command group
-func NewMobileDevicePrestageScopeV2SCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewMobileDevicePrestageScopesCmd creates the mobile-device-prestage-scopes command group
+func NewMobileDevicePrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-prestage-scope-v-2s",
-		Short: "Manage mobile-device-prestage-scope-v-2s",
-		Long:  `Manage mobile-device-prestage-scope-v-2s in Jamf Pro.`,
+		Use:   "mobile-device-prestage-scopes",
+		Short: "Manage mobile-device-prestage-scopes",
+		Long:  `Manage mobile-device-prestage-scopes in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SGetCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SUpdateCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SScopeCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopeV2SGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesListCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesGetCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesUpdateCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesGetByNameCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all Device Scope for all Mobile Device Prestages",
 		Long:  "Get all device scope for all mobile device prestages",
-		Example: `  # List all mobile-device-prestage-scope-v-2s
-  jamf-cli mobile-device-prestage-scope-v-2s list
+		Example: `  # List all mobile-device-prestage-scopes
+  jamf-cli mobile-device-prestage-scopes list
 
-  # List mobile-device-prestage-scope-v-2s and extract IDs
-  jamf-cli mobile-device-prestage-scope-v-2s list --field id`,
+  # List mobile-device-prestage-scopes and extract IDs
+  jamf-cli mobile-device-prestage-scopes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -71,21 +71,21 @@ func newMobileDevicePrestageScopeV2SListCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get Device Scope for a specific Mobile Device Prestage",
 		Long:  "Get device scope for a specific mobile device prestage",
-		Example: `  # Get a mobile-device-prestage-scope-v-2 by ID
-  jamf-cli mobile-device-prestage-scope-v-2s get 1
+		Example: `  # Get a mobile-device-prestage-scope by ID
+  jamf-cli mobile-device-prestage-scopes get 1
 
-  # Get a mobile-device-prestage-scope-v-2 by name
-  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example"
+  # Get a mobile-device-prestage-scope by name
+  jamf-cli mobile-device-prestage-scopes get-by-name "Example"
 
-  # Get a mobile-device-prestage-scope-v-2 and output as YAML
-  jamf-cli mobile-device-prestage-scope-v-2s get 1 -o yaml`,
+  # Get a mobile-device-prestage-scope and output as YAML
+  jamf-cli mobile-device-prestage-scopes get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -114,7 +114,7 @@ func newMobileDevicePrestageScopeV2SGetCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -123,11 +123,11 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "update <id>",
 		Short: "Replace Device Scope for a specific Mobile Device Prestage",
 		Long:  "Replace device scope for a specific mobile device prestage",
-		Example: `  # Update a mobile-device-prestage-scope-v-2 from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestage-scope-v-2s update 1
+		Example: `  # Update a mobile-device-prestage-scope from JSON
+  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestage-scopes update 1
 
-  # Get a mobile-device-prestage-scope-v-2, modify, and update
-  jamf-cli mobile-device-prestage-scope-v-2s get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestage-scope-v-2s update 1`,
+  # Get a mobile-device-prestage-scope, modify, and update
+  jamf-cli mobile-device-prestage-scopes get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestage-scopes update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -175,7 +175,7 @@ func newMobileDevicePrestageScopeV2SUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
@@ -187,8 +187,8 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) 
 		Use:   "delete-multiple <id>",
 		Short: "Remove Device Scope for a specific Mobile Device Prestage",
 		Long:  "Remove device scope for a specific mobile device prestage",
-		Example: `  # Delete multiple mobile-device-prestage-scope-v-2s by IDs
-  jamf-cli mobile-device-prestage-scope-v-2s delete-multiple --ids 1,2,3 --yes`,
+		Example: `  # Delete multiple mobile-device-prestage-scopes by IDs
+  jamf-cli mobile-device-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -269,7 +269,7 @@ func newMobileDevicePrestageScopeV2SDeleteMultipleCmd(ctx *registry.CLIContext) 
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -325,15 +325,15 @@ func newMobileDevicePrestageScopeV2SScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 
-func newMobileDevicePrestageScopeV2SGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageScopesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestage-scope-v-2 by name",
-		Example: `  # Get a mobile-device-prestage-scope-v-2 by name
-  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example"
+		Short: "Get a mobile-device-prestage-scope by name",
+		Example: `  # Get a mobile-device-prestage-scope by name
+  jamf-cli mobile-device-prestage-scopes get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli mobile-device-prestage-scope-v-2s get-by-name "Example" -o yaml`,
+  jamf-cli mobile-device-prestage-scopes get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
