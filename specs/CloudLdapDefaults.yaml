@@ -24,19 +24,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
           description: Files cannot be loaded.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: The provider name in the URL is invalid or not supported.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v2/cloud-ldaps/defaults/{provider}/server-configuration:
@@ -60,19 +60,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapServerResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapServerResponse'
         400:
           description: Default server configuration cannot be loaded.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: The provider name in the URL is invalid or not supported.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
-components: {}
+components:
+  schemas: {}

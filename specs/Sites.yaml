@@ -85,4 +85,5 @@ paths:
       - Bearer: []
       x-required-privileges:
       - Read Sites
-components: {}
+components:
+  schemas: {}

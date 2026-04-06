@@ -10,6 +10,8 @@ components:
       allOf:
         - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
         - type: object
+          required:
+            - queries
           properties:
             queries:
               type: array
@@ -23,5 +25,4 @@ components:
                 - DeviceName
                 - BatteryLevel
                 - IsSupervised
-              required: true
               minItems: 1

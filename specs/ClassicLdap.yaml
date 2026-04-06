@@ -22,19 +22,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ClassicLdapMappings'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/ClassicLdapMappings'
         400:
           description: Id can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified OnPrem Ldap configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Read LDAP Servers
-components: {}
+components:
+  schemas: {}

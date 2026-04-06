@@ -3,7 +3,10 @@
 package generated
 
 import (
+	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +29,9 @@ func NewMobileDeviceEnrollmentProfilesCmd(ctx *registry.CLIContext) *cobra.Comma
 }
 
 func newMobileDeviceEnrollmentProfilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagSaveTo string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
@@ -61,9 +66,25 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *registry.CLIContext) *cobra.Co
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

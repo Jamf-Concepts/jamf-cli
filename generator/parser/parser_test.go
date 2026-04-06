@@ -1213,8 +1213,11 @@ func TestParseSpec_MultiFamily_RealSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseSpec(SelfServiceBranding.yaml) error = %v", err)
 	}
-	if len(resources) != 2 {
-		t.Fatalf("ParseSpec() returned %d resources, want 2 (macos + ios)", len(resources))
+	// 2 sibling families (macos + ios) + 1 parent resource holding the version-stripped
+	// orphan POST /self-service/branding/images.
+	if len(resources) != 3 {
+		t.Fatalf("ParseSpec() returned %d resources, want 3 (macos + ios + parent), got %v",
+			len(resources), resourceNames(resources))
 	}
 
 	names := make(map[string]bool)
@@ -1226,5 +1229,8 @@ func TestParseSpec_MultiFamily_RealSpec(t *testing.T) {
 	}
 	if !names["self-service-branding-ios"] {
 		t.Errorf("missing self-service-branding-ios, got %v", resourceNames(resources))
+	}
+	if !names["self-service-branding-images"] {
+		t.Errorf("missing self-service-branding-images (parent for version-stripped upload op), got %v", resourceNames(resources))
 	}
 }

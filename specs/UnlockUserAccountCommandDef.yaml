@@ -10,9 +10,10 @@ components:
       allOf:
         - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
         - type: object
+          required:
+            - userName
           properties:
             userName:
               type: string
               description: The username of the user account to unlock
               example: 'user123'
-              required: true

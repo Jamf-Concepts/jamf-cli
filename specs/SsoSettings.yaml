@@ -17,7 +17,7 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/SsoSettingsV3'
+                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
             x-required-privileges:
                 - Read SSO Settings
         put:
@@ -30,21 +30,21 @@ paths:
                 content:
                     'application/json':
                         schema:
-                            $ref: '#/components/schemas/SsoSettingsV3'
+                            $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
             responses:
                 200:
                     description: The update was successful and the newly updated object is returned.
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/SsoSettingsV3'
+                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
                 400:
                     description: Bad Request. Either required fields are missing or there was
                         a validation exception.
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/ApiError'
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
             x-required-privileges:
                 - Update SSO Settings
     /v3/sso/history:
@@ -86,7 +86,7 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/HistorySearchResults'
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
             x-required-privileges:
                 - Read SSO Settings
         post:
@@ -100,7 +100,7 @@ paths:
                 content:
                     'application/json':
                         schema:
-                            $ref: '#/components/schemas/ObjectHistoryNote'
+                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
                 required: true
             responses:
                 201:
@@ -114,7 +114,7 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/ApiError'
+                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
             x-required-privileges:
                 - Update SSO Settings
     /v3/sso/metadata/download:
@@ -162,6 +162,6 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/EnrollmentCustomizationDependencies'
+                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/EnrollmentCustomizationDependencies'
             x-required-privileges:
                 - Read SSO Settings

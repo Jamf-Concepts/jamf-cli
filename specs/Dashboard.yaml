@@ -23,7 +23,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiErrorCause'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiErrorCause'
       x-authentication-required: true
   /v1/dashboard/toggle:
     post:

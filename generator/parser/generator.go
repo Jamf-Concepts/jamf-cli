@@ -97,6 +97,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get-by-name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
 			case "create":
+				if op.RequestBody != nil && op.RequestBody.IsMultipart {
+					return fmt.Sprintf("  # Upload a file\n  %s pro %s create --file /path/to/file",
+						bin, resourceName)
+				}
 				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "update":
@@ -120,6 +124,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Export %s to CSV\n  %s %s export --out-file %s.csv",
 					resourceName, bin, resourceName, resourceName)
 			default:
+				if opHasBinaryResponse(op) {
+					idArg := ""
+					if hasPathParam(op.Path) {
+						idArg = " <id>"
+					}
+					return fmt.Sprintf(
+						"  # Save to file\n  %s pro %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s pro %s %s%s > output.bin",
+						bin, resourceName, op.Name, idArg,
+						bin, resourceName, op.Name, idArg)
+				}
 				return ""
 			}
 		},
@@ -191,6 +205,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasScaffold":  hasScaffold,
 		"scaffoldJSON": scaffoldJSON,
 		"opHasScaffold": func(op *Operation) bool {
+			// Multipart uploads use --file, not a JSON scaffold.
+			if op.RequestBody != nil && op.RequestBody.IsMultipart {
+				return false
+			}
 			return op.RequestBody != nil && op.RequestBody.Schema != nil &&
 				len(op.RequestBody.Schema.Properties) > 0 &&
 				(op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH")
@@ -201,10 +219,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return scaffoldJSON(op.RequestBody.Schema)
 		},
-		"needsFmt":            needsFmt,
-		"needsURL":            needsURL,
-		"shouldGenerateApply": shouldGenerateApply,
-		"hasDeleteMultiple":   hasDeleteMultiple,
+		"needsFmt":             needsFmt,
+		"needsURL":             needsURL,
+		"needsMultipart":       needsMultipart,
+		"hasAnyBinaryResponse": hasAnyBinaryResponse,
+		"opIsMultipart":        func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
+		"opHasBinaryResponse":  opHasBinaryResponse,
+		"shouldGenerateApply":  shouldGenerateApply,
+		"hasDeleteMultiple":    hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
@@ -413,8 +435,35 @@ func hasQueryParams(ops []*Operation) bool {
 
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
-	// delete success message, scaffold output, apply status messages
-	return hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r)
+	// delete success message, scaffold output, apply status messages, multipart error wrapping
+	return hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r)
+}
+
+func needsMultipart(r *Resource) bool {
+	for _, op := range r.Operations {
+		if op.RequestBody != nil && op.RequestBody.IsMultipart {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnyBinaryResponse(r *Resource) bool {
+	for _, op := range r.Operations {
+		if opHasBinaryResponse(op) {
+			return true
+		}
+	}
+	return false
+}
+
+func opHasBinaryResponse(op *Operation) bool {
+	for _, resp := range op.Responses {
+		if resp.IsBinary && (resp.StatusCode == "200" || resp.StatusCode == "201") {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDeleteMultiple(ops []*Operation) bool {
@@ -581,7 +630,7 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if shouldGenerateApply . }}
+{{- if or (shouldGenerateApply .) (needsMultipart .) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
@@ -590,8 +639,11 @@ import (
 {{- if or (needsFmt .) (hasList .Operations) }}
 	"fmt"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasList .Operations) }}
+{{- if or (hasPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
 	"io"
+{{- end }}
+{{- if needsMultipart . }}
+	"mime/multipart"
 {{- end }}
 {{- if hasDelete .Operations }}
 	"net/http"
@@ -599,8 +651,11 @@ import (
 {{- if needsURL . }}
 	"net/url"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) }}
+{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) (hasAnyBinaryResponse .) }}
 	"os"
+{{- end }}
+{{- if needsMultipart . }}
+	"path/filepath"
 {{- end }}
 	"strings"
 
@@ -654,6 +709,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if opHasScaffold . }}
 		flagScaffold bool
+{{- end }}
+{{- if opIsMultipart . }}
+		flagFile string
+{{- end }}
+{{- if opHasBinaryResponse . }}
+		flagSaveTo string
 {{- end }}
 	)
 
@@ -804,7 +865,27 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 
 			// Make request
-{{- if eq .Method "GET" "DELETE" }}
+{{- if opIsMultipart . }}
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
+			}
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("{{ .RequestBody.FileField }}", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
+{{- else if eq .Method "GET" "DELETE" }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, nil)
 {{- else }}
 			// Read body from stdin if available
@@ -845,7 +926,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return nil
 			}
 {{ end }}
+{{- if opHasBinaryResponse . }}
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+{{- else }}
 			return ctx.Output.PrintResponse(resp)
+{{- end }}
 		},
 	}
 {{ range queryParams .Parameters }}
@@ -868,6 +967,13 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if opHasScaffold . }}
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+{{- end }}
+{{- if opIsMultipart . }}
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
+{{- end }}
+{{- if opHasBinaryResponse . }}
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 {{- end }}
 
 	return cmd

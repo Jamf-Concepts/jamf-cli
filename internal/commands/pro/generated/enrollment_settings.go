@@ -594,12 +594,18 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history-export",
 		Short: "Export enrollment history collection",
 		Long:  "Export enrollment history collection",
+		Example: `  # Save to file
+  jamf-cli pro enrollment-settings history-export -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro enrollment-settings history-export > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -662,7 +668,21 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -673,6 +693,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

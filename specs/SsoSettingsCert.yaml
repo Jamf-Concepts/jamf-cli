@@ -44,7 +44,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update SSO Settings
     post:
@@ -119,7 +119,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-action: true
       x-required-privileges:
         - Update SSO Settings

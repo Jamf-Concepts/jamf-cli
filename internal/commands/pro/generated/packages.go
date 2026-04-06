@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -743,6 +745,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
@@ -813,7 +816,21 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -824,6 +841,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
@@ -837,13 +855,19 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history-export <id>",
 		Short: "Export history object collection in specified format for specified Packages",
 		Long:  "Export history object collection in specified format for specified Packages",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Save to file
+  jamf-cli pro packages history-export <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro packages history-export <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -907,7 +931,21 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -918,23 +956,26 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
 
 func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "upload <id>",
-		Short: "Upload package",
-		Long:  "Uploads a package",
+		Short: "Add a manifest to a package",
+		Long:  "Add a manifest to a package",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/packages/{id}/upload"
+			path := "/v1/packages/{id}/manifest"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -944,13 +985,25 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
 			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
 			if err != nil {
 				return err
 			}
@@ -959,6 +1012,9 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
 }

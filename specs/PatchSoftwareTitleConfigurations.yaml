@@ -679,7 +679,7 @@ components:
           readOnly: true
     PatchSoftwareTitleConfiguration:
       allOf:
-        - $ref: 'PatchSoftwareTitleConfigurationBase'
+        - $ref: '#/components/schemas/PatchSoftwareTitleConfigurationBase'
         - type: object
           properties:
             id:

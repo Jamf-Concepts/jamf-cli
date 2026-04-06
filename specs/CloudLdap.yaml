@@ -15,7 +15,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/LdapConfigurationRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationRequest'
         required: true
       responses:
         201:
@@ -23,13 +23,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/HrefResponse'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
           description: Cloud Identity Provider configuration cannot be saved.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Create LDAP Servers
   /v2/cloud-ldaps/{id}:
@@ -51,19 +51,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/LdapConfigurationResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationResponse'
         400:
           description: Id can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
     put:
@@ -84,7 +84,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/LdapConfigurationUpdate'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationUpdate'
         required: true
       responses:
         200:
@@ -92,25 +92,25 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/LdapConfigurationResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationResponse'
         400:
           description: One or more parameters were invalid.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: The request URL configuration id value does not match the id value in the request body.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update LDAP Servers
     delete:
@@ -133,13 +133,14 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Delete LDAP Servers
-components: {}
+components:
+  schemas: {}

@@ -10,14 +10,15 @@ components:
       allOf:
         - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
         - type: object
+          required:
+            - identifier
+            - redemptionCode
           properties:
             identifier:
               type: string
               example: com.example.app
-              required: true
               description: The bundle identifier of the app
             redemptionCode:
               type: string
               example: SB56LT7YX8RH
-              required: true
               description: The redemption code that applies to the app pending installation

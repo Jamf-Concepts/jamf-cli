@@ -692,6 +692,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
@@ -762,7 +763,21 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -773,6 +788,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*buildings*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
@@ -786,13 +802,19 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history-export <id>",
 		Short: "Export history object collection in specified format for specified Buildings",
 		Long:  "Export history object collection in specified format for specified Buildings",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Save to file
+  jamf-cli pro buildings history-export <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro buildings history-export <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -856,7 +878,21 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -867,6 +903,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

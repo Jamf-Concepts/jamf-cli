@@ -41,7 +41,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-authentication-required: true
   /v1/icon/{id}:
     get:

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -33,6 +35,7 @@ func NewMobileDevicePrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicePrestagesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesHistoryCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesUploadCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesGetByNameCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesApplyCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesDeleteByNameCmd(ctx))
@@ -635,6 +638,64 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagFile string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "upload <id>",
+		Short: "Add an attachment to a Mobile Device Prestage",
+		Long:  "Add an attachment to a Mobile Device prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
+			}
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
 }

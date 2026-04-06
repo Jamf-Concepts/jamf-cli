@@ -21,7 +21,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/UserTestSearchRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/UserTestSearchRequest'
         required: true
       responses:
         200:
@@ -29,13 +29,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/UserTestSearchResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/UserTestSearchResponse'
         404:
           description: Cloud Identity Provider does not exist or is not active.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-action: true
       x-required-privileges:
         - Read LDAP Servers
@@ -58,7 +58,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/GroupTestSearchRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/GroupTestSearchRequest'
         required: true
       responses:
         200:
@@ -66,13 +66,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/GroupTestSearchResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/GroupTestSearchResponse'
         404:
           description: Cloud Identity Provider does not exist or is not active.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-action: true
       x-required-privileges:
         - Read LDAP Servers
@@ -95,7 +95,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/MembershipTestSearchRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/MembershipTestSearchRequest'
         required: true
       responses:
         200:
@@ -103,14 +103,15 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/MembershipTestSearchResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/MembershipTestSearchResponse'
         404:
           description: Cloud Identity Provider does not exist or is not active.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-action: true
       x-required-privileges:
         - Read LDAP Servers
-components: {}
+components:
+  schemas: {}

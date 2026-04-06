@@ -47,6 +47,8 @@ type RequestBody struct {
 	Description string
 	Required    bool
 	Schema      *Schema
+	IsMultipart bool   // true when content type is multipart/form-data
+	FileField   string // schema property that holds the binary file (e.g. "file")
 }
 
 // Response represents an API response
@@ -54,6 +56,7 @@ type Response struct {
 	StatusCode  string
 	Description string
 	Schema      *Schema
+	IsBinary    bool // true for image/* content types, text/csv, or format:binary schemas
 }
 
 // Schema represents a JSON schema

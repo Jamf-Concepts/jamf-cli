@@ -29,7 +29,7 @@ paths:
             content:
                 'application/json':
                     schema:
-                        $ref: '#/components/schemas/ApiError'
+                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Create Dock Items
   /v1/dock-items/{id}:
@@ -58,7 +58,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Read Dock Items
     put:
@@ -94,13 +94,13 @@ paths:
           content:
               'application/json':
                   schema:
-                      $ref: '#/components/schemas/ApiError'
+                      $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
             description: Duplicate
             content:
                 'application/json':
                     schema:
-                        $ref: '#/components/schemas/ApiError'
+                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Update Dock Items
     delete:
@@ -124,7 +124,7 @@ paths:
           content:
               'application/json':
                   schema:
-                      $ref: '#/components/schemas/ApiError'
+                      $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
       - Delete Dock Items
 components:

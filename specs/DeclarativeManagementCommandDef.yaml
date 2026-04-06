@@ -10,9 +10,10 @@ components:
       allOf:
         - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
         - type: object
+          required:
+            - data
           properties:
             data:
               type: string
               example: TWFkZSB5YSBsb29r
-              required: true
               description: Base64 encoded data to be sent with the command

@@ -122,7 +122,7 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/SmtpServerV2'
+                                $ref: 'SmtpServerDefinitionsLibrary.yaml#/components/schemas/SmtpServerV2'
             x-required-privileges:
                 - Read SMTP Server
         put:
@@ -137,7 +137,7 @@ paths:
                 content:
                     'application/merge-patch+json':
                         schema:
-                            $ref: '#/components/schemas/SmtpServerV2'
+                            $ref: 'SmtpServerDefinitionsLibrary.yaml#/components/schemas/SmtpServerV2'
                 required: true
             parameters:
                 -   name: oauth-state
@@ -154,7 +154,7 @@ paths:
                     content:
                         'application/json':
                             schema:
-                                $ref: '#/components/schemas/SmtpServerV2'
+                                $ref: 'SmtpServerDefinitionsLibrary.yaml#/components/schemas/SmtpServerV2'
                 400:
                     description: Bad Request
                     content:

@@ -14,7 +14,6 @@ components:
             rebuildKernelCache:
               type: boolean
               example: true
-              required: false
             kextPaths:
               type: array
               items:
@@ -22,9 +21,7 @@ components:
               example:
                 - extension1
                 - extension2
-              required: false
               description: Only used if RebuildKernelCache is true
             notifyUser:
               type: boolean
               example: true
-              required: false

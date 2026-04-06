@@ -15,7 +15,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/AzureConfigurationRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfigurationRequest'
         required: true
       responses:
         201:
@@ -23,19 +23,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/HrefResponse'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
           description: Azure Cloud Identity Provider configuration cannot be saved.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Create LDAP Servers
   /v1/cloud-azure/{id}:
@@ -57,20 +57,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AzureConfiguration'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfiguration'
         400:
           description: ID can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
             specified Azure Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
     put:
@@ -91,7 +91,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/AzureConfigurationUpdate'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfigurationUpdate'
         required: true
       responses:
         200:
@@ -99,26 +99,26 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AzureConfiguration'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfiguration'
         400:
           description: One or more parameters were invalid.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
             Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: The request URL configuration id value does not match the id value in the request body.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update LDAP Servers
     delete:
@@ -141,14 +141,15 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
             Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Delete LDAP Servers
-components: {}
+components:
+  schemas: {}

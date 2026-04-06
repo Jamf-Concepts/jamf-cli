@@ -15,56 +15,56 @@ components:
           example: 45436edf-864e-4364-982a-330b01d39e65
           nullable: true
         general:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerGeneralCreate'
+          $ref: '#/components/schemas/ComputerGeneralCreate'
         applications:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerApplicationCreate'
+            $ref: '#/components/schemas/ComputerApplicationCreate'
           nullable: true
         storage:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerStorageCreate'
+          $ref: '#/components/schemas/ComputerStorageCreate'
         security:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSecurityCreate'
+          $ref: '#/components/schemas/ComputerSecurityCreate'
         configurationProfiles:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerConfigurationProfileCreate'
+            $ref: '#/components/schemas/ComputerConfigurationProfileCreate'
           nullable: true
         printers:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPrinterCreate'
+            $ref: '#/components/schemas/ComputerPrinterCreate'
           nullable: true
         services:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerServiceCreate'
+            $ref: '#/components/schemas/ComputerServiceCreate'
           nullable: true
         localUserAccounts:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerLocalUserAccountCreate'
+            $ref: '#/components/schemas/ComputerLocalUserAccountCreate'
           nullable: true
         certificates:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerCertificateCreate'
+            $ref: '#/components/schemas/ComputerCertificateCreate'
           nullable: true
         packageReceipts:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPackageReceiptsCreate'
+          $ref: '#/components/schemas/ComputerPackageReceiptsCreate'
         softwareUpdates:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSoftwareUpdateCreate'
+            $ref: '#/components/schemas/ComputerSoftwareUpdateCreate'
           nullable: true
         purchasing:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPurchaseCreate'
+          $ref: '#/components/schemas/ComputerPurchaseCreate'
         userAndLocation:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerUserAndLocationCreate'
+          $ref: '#/components/schemas/ComputerUserAndLocationCreate'
         hardware:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerHardwareCreate'
+          $ref: '#/components/schemas/ComputerHardwareCreate'
         operatingSystem:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerOperatingSystemCreate'
+          $ref: '#/components/schemas/ComputerOperatingSystemCreate'
     ComputerGeneral:
       type: object
       properties:

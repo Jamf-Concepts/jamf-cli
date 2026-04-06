@@ -133,6 +133,11 @@ components:
           description: The collection of user accounts for the requested page
     UserAccount:
       type: object
+      required:
+        - username
+        - realname
+        - email
+        - accountStatus
       properties:
         id:
           type: string
@@ -146,15 +151,12 @@ components:
         username:
           type: string
           example: "testusername"
-          required: true
         realname:
           type: string
           example: "Bob Jones"
-          required: true
         email:
           type: string
           example: "bob@jamf.com"
-          required: true
         phone:
           type: string
           example: "715-999-9999"
@@ -194,7 +196,6 @@ components:
         changePasswordOnNextLogin:
           type: boolean
           example: true
-          required: false
         failedLoginAttempts:
           type: integer
           example: 0
@@ -206,7 +207,6 @@ components:
             - Enabled
             - Disabled
           default: Enabled
-          required: true
         accountType:
           type: string
           description: Type of the account

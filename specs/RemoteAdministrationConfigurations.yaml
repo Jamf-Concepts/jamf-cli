@@ -18,14 +18,15 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/RemoteAdministrationSearchResults'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/RemoteAdministrationSearchResults'
         404:
           description: Remote Administration feature is not available.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read Remote Administration
 
-components: {}
+components:
+  schemas: {}

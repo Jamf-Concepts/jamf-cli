@@ -53,4 +53,5 @@ paths:
                                 $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
             x-required-privileges:
                 - Read Remote Assist
-components: {}
+components:
+  schemas: {}
