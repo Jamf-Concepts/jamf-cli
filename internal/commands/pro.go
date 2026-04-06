@@ -67,15 +67,24 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
 
-	// Classic API computer MDM commands (no modern API equivalent)
+	// Modern API computer MDM commands
 	addSubcommand(cmd, []string{"computers"}, newComputerLockCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerEnableRemoteDesktopCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerDisableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerSetRecoveryLockCmd(cliCtx))
 
-	// Classic API mobile device MDM commands (no modern API equivalent)
-	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRestartCmd(cliCtx))
-	addSubcommand(cmd, []string{"mobile-devices"}, newMobileShutdownCmd(cliCtx))
-	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUpdateInventoryCmd(cliCtx))
+	// Mobile device MDM commands (modern API where available, Classic where not)
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRestartCmd(cliCtx))         // modern: RESTART_DEVICE
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileShutdownCmd(cliCtx))        // modern: SHUT_DOWN_DEVICE
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUpdateInventoryCmd(cliCtx)) // classic: no modern equivalent
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileClearPasscodeCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEnableLostModeCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileDisableLostModeCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobilePlayLostModeSoundCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileClearRestrictionsPasswordCmd(cliCtx))
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)

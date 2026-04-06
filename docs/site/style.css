@@ -516,13 +516,59 @@ a.stat-card:hover {
   margin: 0 auto;
 }
 
+.commands-sticky {
+  position: sticky;
+  top: 57px;
+  z-index: 10;
+  background: var(--page-bg);
+  padding-bottom: 0.75rem;
+  margin-left: -2rem;
+  margin-right: -2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  transition: box-shadow 0.2s;
+}
+
+/* Bleed mask — covers gap between sticky bar and content below */
+.commands-sticky::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.5rem;
+  height: 0.5rem;
+  background: var(--page-bg);
+  pointer-events: none;
+}
+
+/* Bottom border — appears when stuck */
+.commands-sticky::after {
+  content: '';
+  position: absolute;
+  left: 2rem;
+  right: 2rem;
+  bottom: 0;
+  height: 1px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.commands-sticky.stuck {
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.06);
+}
+
+.commands-sticky.stuck::after {
+  opacity: 1;
+}
+
 .commands-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .commands-header h2 {
@@ -568,7 +614,6 @@ a.stat-card:hover {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  margin-bottom: 1.5rem;
 }
 
 .search-wrap {
@@ -662,22 +707,22 @@ a.stat-card:hover {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin: 2rem 0 0.75rem;
+  margin: 1.25rem 0 0.75rem;
   padding: 0.75rem 0.25rem;
   position: sticky;
-  top: 57px;
+  top: 158px;
   z-index: 7;
   background: var(--page-bg);
 }
 
 .product-divider:first-child {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .product-divider-label {
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -751,7 +796,7 @@ a.stat-card:hover {
   border-left: 3px solid var(--brand-blue);
   border-radius: 4px;
   position: sticky;
-  top: 100px;
+  top: 196px;
   z-index: 5;
 }
 
@@ -1670,6 +1715,14 @@ footer .footer-meta {
     padding: 2rem 1rem;
   }
 
+  .commands-sticky {
+    top: 50px;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
   .commands-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1697,11 +1750,11 @@ footer .footer-meta {
   }
 
   .product-divider {
-    top: 50px;
+    top: 248px;
   }
 
   .catalog-group-header {
-    top: 88px;
+    top: 286px;
     font-size: 0.7rem;
     padding: 0.6rem 0.75rem;
   }
@@ -1847,6 +1900,9 @@ footer .footer-meta {
 }
 :root[data-theme="dark"] .group-count-badge {
   background: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .commands-sticky.stuck {
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
 }
 
 /* Manual Light Mode — reset dark media query overrides */

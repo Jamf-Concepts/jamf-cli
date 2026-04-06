@@ -287,6 +287,7 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 }
 
 // sendMDMCommand posts a Classic API MDM command to a single computer.
+// Used by the bulk send-command operation; individual action commands use sendComputerModernMDMCommand.
 func sendMDMCommand(ctx context.Context, client registry.HTTPClient, computerID, command string) error {
 	path := fmt.Sprintf("/JSSResource/computercommands/command/%s/id/%s", command, computerID)
 	resp, err := client.Do(ctx, "POST", path, nil)

@@ -4,7 +4,9 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -65,6 +67,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 		"erase", "remove-mdm", "redeploy-framework",
 		"blank-push", "ddm-sync", "renew-mdm",
 		"lock", "enable-remote-desktop", "disable-remote-desktop",
+		"restart", "shutdown", "set-recovery-lock",
 	}
 	for _, name := range wantComputer {
 		t.Run("computers/"+name, func(t *testing.T) {
@@ -80,7 +83,12 @@ func TestMobileActionSubcommands_Exist(t *testing.T) {
 	resetGlobals()
 	root := NewRootCmd("test", "abc", "2024-01-01")
 
-	wantMobile := []string{"erase", "unmanage", "restart", "shutdown", "update-inventory"}
+	wantMobile := []string{
+		"erase", "unmanage",
+		"restart", "shutdown", "update-inventory",
+		"lock", "clear-passcode", "enable-lost-mode", "disable-lost-mode",
+		"play-lost-mode-sound", "clear-restrictions-password",
+	}
 	for _, name := range wantMobile {
 		t.Run("mobile-devices/"+name, func(t *testing.T) {
 			root.SetArgs([]string{"pro", "mobile-devices", name, "--help"})
@@ -144,7 +152,6 @@ func TestExecuteAction_DryRun(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -161,7 +168,7 @@ func TestExecuteAction_DryRun(t *testing.T) {
 		},
 	}
 
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +186,6 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -198,7 +204,7 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	}
 
 	// yes=true but confirmDestructive=false → should be blocked
-	err := executeAction(cmd, cliCtx, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -216,7 +222,6 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd := newTestCmd()
 	cmd.SetErr(&stderr)
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1", SerialNumber: "C02X1"},
@@ -234,7 +239,7 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	}
 
 	// yes=true, confirmDestructive=true → should proceed
-	err := executeAction(cmd, cliCtx, dt, devices, true, true, cfg)
+	err := executeAction(cmd, dt, devices, true, true, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,7 +254,6 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	cmd := newTestCmd()
 	cmd.SetErr(&bytes.Buffer{})
 	_ = cmd.Flags().Set("no-input", "true")
-	cliCtx := &registry.CLIContext{}
 
 	devices := []*resolve.DeviceIdentifiers{
 		{ID: "1", Name: "Mac-1"},
@@ -266,7 +270,7 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 
 	// yes=false, no-input=true → should error
-	err := executeAction(cmd, cliCtx, dt, devices, false, false, cfg)
+	err := executeAction(cmd, dt, devices, false, false, cfg)
 	if err == nil {
 		t.Fatal("expected error for destructive op without --yes in no-input mode")
 	}
@@ -275,39 +279,89 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 }
 
-func TestSendMobileMDMCommand_Success(t *testing.T) {
-	client := &deviceResolveMockClient{
-		handler: func(method, path string) (int, string, error) {
-			if method == "POST" && path == "/JSSResource/mobiledevicecommands/command/RestartDevice/id/7" {
-				return 201, `<mobile_device_command/>`, nil
-			}
-			t.Fatalf("unexpected request: %s %s", method, path)
-			return 0, "", nil
-		},
-	}
+// mockOutput is a no-op OutputFormatter for tests that don't need output assertions.
+type mockOutput struct{}
 
-	err := sendMobileMDMCommand(t.Context(), client, "7", "RestartDevice")
+func (mockOutput) PrintResponse(_ *http.Response) error { return nil }
+func (mockOutput) PrintRaw(_ []byte) error              { return nil }
+
+// bodyCapturingClient captures the request body for assertion in tests.
+type bodyCapturingClient struct {
+	capturedBody string
+}
+
+func (c *bodyCapturingClient) Do(_ context.Context, _, _ string, body io.Reader) (*http.Response, error) {
+	if body != nil {
+		b, _ := io.ReadAll(body)
+		c.capturedBody = string(b)
+	}
+	return &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(`{}`)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func TestSendMobileModernMDMCommand_Success(t *testing.T) {
+	client := &bodyCapturingClient{}
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{Client: client, Output: mockOutput{}}
+	d := &resolve.DeviceIdentifiers{ID: "7", ManagementID: "aaaa-bbbb", Name: "iPad-1"}
+
+	err := sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "RESTART_DEVICE"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if !strings.Contains(client.capturedBody, `"RESTART_DEVICE"`) {
+		t.Errorf("request body = %q, want it to contain commandType", client.capturedBody)
+	}
+	if !strings.Contains(client.capturedBody, `"aaaa-bbbb"`) {
+		t.Errorf("request body = %q, want it to contain managementId", client.capturedBody)
+	}
 }
 
-func TestSendMobileMDMCommand_HTTPError(t *testing.T) {
-	client := &deviceResolveMockClient{
-		handler: func(method, path string) (int, string, error) {
-			if method == "POST" {
-				return 400, `<error>Device not eligible</error>`, nil
-			}
-			t.Fatalf("unexpected request: %s %s", method, path)
-			return 0, "", nil
-		},
-	}
+func TestSendMobileModernMDMCommand_MissingManagementID(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{}
+	d := &resolve.DeviceIdentifiers{ID: "7", Name: "iPad-1"} // no ManagementID
 
-	err := sendMobileMDMCommand(t.Context(), client, "7", "RestartDevice")
+	err := sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "RESTART_DEVICE"})
 	if err == nil {
-		t.Fatal("expected error for 400 response, got nil")
+		t.Fatal("expected error for missing managementId, got nil")
 	}
-	if !strings.Contains(err.Error(), "400") {
-		t.Errorf("error = %q, want it to contain status code", err.Error())
+	if !strings.Contains(err.Error(), "managementId") {
+		t.Errorf("error = %q, want it to mention managementId", err.Error())
+	}
+}
+
+func TestSendComputerModernMDMCommand_Success(t *testing.T) {
+	client := &bodyCapturingClient{}
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{Client: client, Output: mockOutput{}}
+	d := &resolve.DeviceIdentifiers{ID: "42", ManagementID: "cccc-dddd", Name: "MacBook-1"}
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(client.capturedBody, `"DEVICE_LOCK"`) {
+		t.Errorf("request body = %q, want it to contain commandType", client.capturedBody)
+	}
+	if !strings.Contains(client.capturedBody, `"cccc-dddd"`) {
+		t.Errorf("request body = %q, want it to contain managementId", client.capturedBody)
+	}
+}
+
+func TestSendComputerModernMDMCommand_MissingManagementID(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{}
+	d := &resolve.DeviceIdentifiers{ID: "42", Name: "MacBook-1"} // no ManagementID
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
+	if err == nil {
+		t.Fatal("expected error for missing managementId, got nil")
+	}
+	if !strings.Contains(err.Error(), "managementId") {
+		t.Errorf("error = %q, want it to mention managementId", err.Error())
 	}
 }
