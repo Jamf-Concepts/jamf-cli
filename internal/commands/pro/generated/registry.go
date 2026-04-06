@@ -94,6 +94,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewMobileDeviceAppsCmd(ctx))
 	root.AddCommand(NewMobileDeviceEnrollmentProfilesCmd(ctx))
 	root.AddCommand(NewMobileDeviceExtensionAttributesCmd(ctx))
+	root.AddCommand(NewMobileDeviceGroupsCmd(ctx))
 	root.AddCommand(NewMobileDeviceGroupsSmartGroupsCmd(ctx))
 	root.AddCommand(NewMobileDeviceGroupsStaticGroupsCmd(ctx))
 	root.AddCommand(NewMobileDeviceInventoryDetailsCmd(ctx))

@@ -1020,6 +1020,189 @@ paths:
 	}
 }
 
+func TestParseSpec_MultiFamily_CreatesParentForOrphans(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "Groups.yaml")
+
+	// Spec with two sibling CRUD families AND cross-cutting parent-level endpoints.
+	// /v1/groups/smart and /v1/groups/static are the sibling families.
+	// GET /v1/groups (list all) and POST /v1/groups/{id}/erase are orphaned parent ops.
+	spec := `openapi: 3.0.1
+info:
+  title: Groups
+  version: 1.0.0
+paths:
+  /v1/groups:
+    get:
+      summary: List all groups
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+  /v1/groups/{id}/erase:
+    post:
+      summary: Erase all devices in group
+      x-action: true
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Erased
+  /v1/groups/smart:
+    get:
+      summary: List smart groups
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+    post:
+      summary: Create a smart group
+      responses:
+        201:
+          description: Created
+  /v1/groups/smart/{id}:
+    get:
+      summary: Get a smart group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update a smart group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    delete:
+      summary: Delete a smart group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Deleted
+  /v1/groups/static:
+    get:
+      summary: List static groups
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        200:
+          description: OK
+    post:
+      summary: Create a static group
+      responses:
+        201:
+          description: Created
+  /v1/groups/static/{id}:
+    get:
+      summary: Get a static group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    put:
+      summary: Update a static group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: OK
+    delete:
+      summary: Delete a static group
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Deleted
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec() error = %v", err)
+	}
+
+	// Expect 3 resources: groups/smart, groups/static, and the parent groups.
+	if len(resources) != 3 {
+		t.Fatalf("ParseSpec() returned %d resources, want 3 (smart + static + parent)", len(resources))
+	}
+
+	byName := make(map[string]*Resource)
+	for _, r := range resources {
+		byName[r.Name] = r
+	}
+
+	if _, ok := byName["groups-smart"]; !ok {
+		t.Errorf("missing groups-smart, got %v", resourceNames(resources))
+	}
+	if _, ok := byName["groups-static"]; !ok {
+		t.Errorf("missing groups-static, got %v", resourceNames(resources))
+	}
+
+	parent, ok := byName["groups"]
+	if !ok {
+		t.Fatalf("missing parent resource 'groups' for orphaned ops, got %v", resourceNames(resources))
+	}
+
+	parentOpNames := make(map[string]bool)
+	for _, op := range parent.Operations {
+		parentOpNames[op.Name] = true
+	}
+	if !parentOpNames["list"] {
+		t.Error("parent resource should have 'list' operation (GET /v1/groups)")
+	}
+	if !parentOpNames["erase"] {
+		t.Error("parent resource should have 'erase' operation (POST /v1/groups/{id}/erase)")
+	}
+	if parent.IsSingleton {
+		t.Error("parent resource should not be a singleton")
+	}
+}
+
 func TestParseSpec_MultiFamily_RealSpec(t *testing.T) {
 	specPath := filepath.Join("..", "..", "specs", "SelfServiceBranding.yaml")
 	if _, err := os.Stat(specPath); os.IsNotExist(err) {

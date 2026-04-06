@@ -233,14 +233,65 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 		return nil
 	}
 
-	// Warn about operations not assigned to any family. These are silently
-	// excluded from code generation — surface them so spec authors can act.
+	// Collect orphaned operations (not assigned to any sibling family).
 	assignedPaths := make(map[string]bool)
 	for _, r := range resources {
 		for _, op := range r.Operations {
 			assignedPaths[op.Path] = true
 		}
 	}
+
+	// For each multi-family parent path, collect its orphaned operations and
+	// build an additional resource to hold them. This preserves cross-cutting
+	// endpoints like GET /v1/mobile-device-groups (list all) and
+	// POST /v1/mobile-device-groups/{id}/erase.
+	for _, siblings := range siblingGroups {
+		// Derive parent path from the first sibling — everything before the last /.
+		parentPath := siblings[0][:strings.LastIndex(siblings[0], "/")]
+
+		var parentOps []*Operation
+		for _, op := range ops {
+			if assignedPaths[op.Path] {
+				continue
+			}
+			if op.Path == parentPath || strings.HasPrefix(op.Path, parentPath+"/") {
+				parentOps = append(parentOps, op)
+			}
+		}
+		if len(parentOps) == 0 {
+			continue
+		}
+
+		name := pluralize(pathToResourceName(parentPath))
+		r := &Resource{
+			Name:         name,
+			NameSingular: singularize(name),
+			GoName:       strcase.ToCamel(name),
+			Description:  description,
+			Operations:   parentOps,
+			Schemas:      schemas,
+			NameField:    nameField,
+		}
+		if detectSingleton(parentOps) {
+			r.IsSingleton = true
+			r.Name = pathToResourceName(parentPath)
+			r.NameSingular = r.Name
+			r.GoName = strcase.ToCamel(r.Name)
+			for _, op := range parentOps {
+				if op.Name == "list" {
+					op.Name = "get"
+				}
+			}
+		}
+		resources = append(resources, r)
+
+		for _, op := range parentOps {
+			assignedPaths[op.Path] = true
+		}
+	}
+
+	// Warn about any operations that still aren't assigned (e.g. paths with a
+	// different version prefix that don't fall under any detected family parent).
 	for _, op := range ops {
 		if !assignedPaths[op.Path] {
 			fmt.Fprintf(os.Stderr, "  Warning: %s %s not assigned to any resource family (orphaned — will not be generated)\n", op.Method, op.Path)

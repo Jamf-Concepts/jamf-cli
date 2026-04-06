@@ -113,6 +113,7 @@ var proGroupMap = map[string]string{
 
 	// Mobile Device Management
 	"mobile-devices":                     groupMobile,
+	"mobile-device-groups":               groupMobile,
 	"mobile-device-groups-smart-groups":  groupMobile,
 	"mobile-device-groups-static-groups": groupMobile,
 	"mobile-device-smart-groups":         groupMobile,
