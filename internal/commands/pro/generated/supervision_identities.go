@@ -31,6 +31,7 @@ func NewSupervisionIdentitiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSupervisionIdentitiesUpdateCmd(ctx))
 	cmd.AddCommand(newSupervisionIdentitiesDeleteCmd(ctx))
 	cmd.AddCommand(newSupervisionIdentitiesUploadCmd(ctx))
+	cmd.AddCommand(newSupervisionIdentitiesDownloadCmd(ctx))
 	cmd.AddCommand(newSupervisionIdentitiesGetByNameCmd(ctx))
 	cmd.AddCommand(newSupervisionIdentitiesApplyCmd(ctx))
 	cmd.AddCommand(newSupervisionIdentitiesDeleteByNameCmd(ctx))
@@ -448,6 +449,64 @@ func newSupervisionIdentitiesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newSupervisionIdentitiesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download <id>",
+		Short: "Download the Supervision Identity .p12 file",
+		Long:  "Download the Supervision Identity .p12 file",
+		Example: `  # Save to file
+  jamf-cli pro supervision-identities download <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro supervision-identities download <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/supervision-identities/{id}/download"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

@@ -28,6 +28,7 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
 
 	return cmd
 }
@@ -348,6 +349,62 @@ func newSsoSettingsDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download",
+		Short: "Download the Jamf Pro SAML metadata file",
+		Long:  "Download the Jamf Pro SAML metadata file",
+		Example: `  # Save to file
+  jamf-cli pro sso-settings download -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro sso-settings download > output.bin`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/sso/metadata/download"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

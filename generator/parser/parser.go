@@ -484,6 +484,14 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	opName := inferOperationName(path, method, isAction)
+	// Allow spec authors to override the inferred operation name via x-operation-name.
+	// Useful for disambiguating endpoints that would otherwise collide
+	// (e.g. /active/pem → "active-pem" vs /{id}/pem → "pem").
+	if nameOverride, ok := op.Extensions["x-operation-name"]; ok {
+		if s, ok := nameOverride.(string); ok && s != "" {
+			opName = s
+		}
+	}
 	operation := &Operation{
 		Name:          opName,
 		Method:        strings.ToUpper(method),

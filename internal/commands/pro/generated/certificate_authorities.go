@@ -3,7 +3,10 @@
 package generated
 
 import (
+	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,6 +24,10 @@ func NewCertificateAuthoritiesCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newCertificateAuthoritiesListCmd(ctx))
 	cmd.AddCommand(newCertificateAuthoritiesGetCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesActiveDerCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesActivePemCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesDerCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesPemCmd(ctx))
 	cmd.AddCommand(newCertificateAuthoritiesGetByNameCmd(ctx))
 
 	return cmd
@@ -103,6 +110,234 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newCertificateAuthoritiesActiveDerCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "active-der",
+		Short: "Returns X.509 of active Certificate Authority (CA) in DER format",
+		Long:  "Returns X.509 of active Certificate Authority (CA) in DER format",
+		Example: `  # Save to file
+  jamf-cli pro certificate-authorities active-der -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro certificate-authorities active-der > output.bin`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/certificate-authority/active/der"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newCertificateAuthoritiesActivePemCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "active-pem",
+		Short: "Returns active Certificate Authority (CA) in PEM format",
+		Long:  "Returns active Certificate Authority (CA) in PEM format",
+		Example: `  # Save to file
+  jamf-cli pro certificate-authorities active-pem -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro certificate-authorities active-pem > output.bin`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/certificate-authority/active/pem"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "der <id>",
+		Short: "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
+		Long:  "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
+		Example: `  # Save to file
+  jamf-cli pro certificate-authorities der <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro certificate-authorities der <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/certificate-authority/{id}/der"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "pem <id>",
+		Short: "Returns current Certificate Authority (CA) with provided ID in PEM format",
+		Long:  "Returns current Certificate Authority (CA) with provided ID in PEM format",
+		Example: `  # Save to file
+  jamf-cli pro certificate-authorities pem <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro certificate-authorities pem <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/certificate-authority/{id}/pem"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

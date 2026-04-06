@@ -26,6 +26,7 @@ func NewSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSsoSettingsCertUpdateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertDeleteCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCertDownloadCmd(ctx))
 	cmd.AddCommand(newSsoSettingsCertParseCmd(ctx))
 
 	return cmd
@@ -215,6 +216,62 @@ func newSsoSettingsCertCertCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newSsoSettingsCertDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download",
+		Short: "Download the certificate currently configured for use with Jamf Pro's SSO configuration",
+		Long:  "Downloads the certificate currently configured for use with Jamf Pro's SSO configuration",
+		Example: `  # Save to file
+  jamf-cli pro sso-settings-cert download -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro sso-settings-cert download > output.bin`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/sso/cert/download"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }

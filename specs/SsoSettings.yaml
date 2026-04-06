@@ -132,6 +132,7 @@ paths:
                             schema:
                                 type: string
                                 format: binary
+            x-action: true
             x-required-privileges:
                 - Read SSO Settings
     /v3/sso/disable:

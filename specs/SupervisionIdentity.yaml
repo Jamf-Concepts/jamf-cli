@@ -180,6 +180,7 @@ paths:
             'application/json':
               schema:
                 $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
       x-required-privileges:
       - Read Apple Configurator Enrollment
   /v1/supervision-identities/upload:

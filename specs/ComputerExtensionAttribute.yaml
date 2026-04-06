@@ -455,6 +455,7 @@ paths:
             'application/xml':
               schema:
                 type: string
+                format: binary
                 example: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><extensionAttribute><displayName>Testing</displayName></extensionAttribute>"
         400:
           description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
@@ -464,6 +465,7 @@ paths:
             'application/json':
               schema:
                 $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
       x-required-privileges:
         - Read Computer Extension Attributes
 components:
