@@ -691,24 +691,32 @@ func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newComputerSetRecoveryLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		dt          deviceTarget
-		yes         bool
-		newPassword string
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		newPassword        string
 	)
 	cmd := &cobra.Command{
 		Use:   "set-recovery-lock",
 		Short: "Set or clear the Recovery Lock password on a computer",
 		Long: `Set the Recovery Lock password on an Apple Silicon or Apple T2 computer.
-Omit --new-password or pass an empty string to clear the existing password.`,
+Omit --new-password or pass an empty string to clear the existing password.
+
+This is a destructive operation: setting an unknown password can permanently
+lock a user out of their machine.`,
 		Example: `  # Set a recovery lock password
-  jamf-cli pro comp set-recovery-lock --serial C02X1234 --new-password "S3cur3P@ss"
+  jamf-cli pro comp set-recovery-lock --serial C02X1234 --new-password "S3cur3P@ss" --yes
 
   # Clear the recovery lock password
-  jamf-cli pro comp set-recovery-lock --serial C02X1234`,
+  jamf-cli pro comp set-recovery-lock --serial C02X1234 --yes
+
+  # Bulk (requires both --yes and --confirm-destructive)
+  jamf-cli pro comp set-recovery-lock --group "Lab Macs" --new-password "S3cur3" --yes --confirm-destructive`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
-				actionName: "set-recovery-lock",
-				deviceType: "computer",
+			return runDeviceAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "set-recovery-lock",
+				deviceType:  "computer",
+				destructive: true,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
 					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
 						"commandType": "SET_RECOVERY_LOCK",
@@ -719,7 +727,8 @@ Omit --new-password or pass an empty string to clear the existing password.`,
 		},
 	}
 	dt.addFlags(cmd)
-	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	cmd.Flags().StringVar(&newPassword, "new-password", "", "Recovery Lock password (omit to clear)")
 	return cmd
 }
