@@ -3,7 +3,6 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -626,32 +625,35 @@ func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comm
 	)
 }
 
-// --- Classic API mobile device MDM commands ---
+// --- Modern API mobile device MDM commands ---
 
-// sendMobileMDMCommand posts a Classic API MDM command to a single mobile device.
-func sendMobileMDMCommand(ctx context.Context, client registry.HTTPClient, deviceID, command string) error {
-	path := fmt.Sprintf("/JSSResource/mobiledevicecommands/command/%s/id/%s", command, deviceID)
-	resp, err := client.Do(ctx, "POST", path, nil)
+// sendMobileModernMDMCommand sends a single MDM command to a mobile device via
+// POST /v2/mdm/commands using the management ID (UUID).
+func sendMobileModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, d *resolve.DeviceIdentifiers, commandData map[string]any) error {
+	if d.ManagementID == "" {
+		return fmt.Errorf("mobile device %s has no managementId — cannot send MDM command", resolve.FormatDeviceDesc(d))
+	}
+	body := map[string]any{
+		"clientData": []map[string]any{
+			{"managementId": d.ManagementID},
+		},
+		"commandData": commandData,
+	}
+	data, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	return nil
+	return doPostAction(cmd, cliCtx, "/v2/mdm/commands", strings.NewReader(string(data)))
 }
 
-// newClassicMobileMDMCmd creates a mobile-device subcommand that sends a
-// Classic API MDM command via /JSSResource/mobiledevicecommands/.
-func newClassicMobileMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long, example string, destructive bool) *cobra.Command {
+// newModernMobileMDMCmd creates a mobile-device subcommand that sends a
+// modern API MDM command via POST /v2/mdm/commands with no additional body fields.
+func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
 		confirmDestructive bool
 	)
-
 	cmd := &cobra.Command{
 		Use:     name,
 		Short:   short,
@@ -663,12 +665,13 @@ func newClassicMobileMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short
 				deviceType:  "mobile device",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					return sendMobileMDMCommand(cmd.Context(), cliCtx.Client, d.ID, apiCommand)
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": commandType,
+					})
 				},
 			})
 		},
 	}
-
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	if destructive {
@@ -678,30 +681,215 @@ func newClassicMobileMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMobileMDMCmd(cliCtx, "restart", "RestartDevice",
+	return newModernMobileMDMCmd(cliCtx, "restart", "RESTART_DEVICE",
 		"Restart a mobile device",
 		"Restart a mobile device by serial number, name, or ID.",
-		`  jamf-cli pro md restart --serial F4GH5678 --yes
+		`  jamf-cli pro md restart --serial F4GH5678
   jamf-cli pro md restart --group "Lab iPads" --yes`,
 		false,
 	)
 }
 
 func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMobileMDMCmd(cliCtx, "shutdown", "ShutDownDevice",
+	return newModernMobileMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a mobile device",
 		"Shut down a mobile device by serial number, name, or ID.",
-		`  jamf-cli pro md shutdown --serial F4GH5678 --yes`,
+		`  jamf-cli pro md shutdown --serial F4GH5678`,
 		false,
 	)
 }
 
+// newMobileUpdateInventoryCmd uses the Classic API — UpdateInventory has no modern equivalent.
 func newMobileUpdateInventoryCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMobileMDMCmd(cliCtx, "update-inventory", "UpdateInventory",
-		"Request an inventory update from a mobile device",
-		"Request a mobile device to submit an updated inventory report.",
-		`  jamf-cli pro md update-inventory --serial F4GH5678 --yes
+	var (
+		dt  deviceTarget
+		yes bool
+	)
+	cmd := &cobra.Command{
+		Use:   "update-inventory",
+		Short: "Request an inventory update from a mobile device",
+		Long:  "Request a mobile device to submit an updated inventory report.",
+		Example: `  jamf-cli pro md update-inventory --serial F4GH5678
   jamf-cli pro md update-inventory --group "All iPads" --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "update-inventory",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					path := fmt.Sprintf("/JSSResource/mobiledevicecommands/command/UpdateInventory/id/%s", url.PathEscape(d.ID))
+					resp, err := cliCtx.Client.Do(cmd.Context(), "POST", path, nil)
+					if err != nil {
+						return err
+					}
+					defer func() { _ = resp.Body.Close() }()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						body, _ := io.ReadAll(resp.Body)
+						return fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+					}
+					return nil
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	return cmd
+}
+
+func newMobileLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		message            string
+		phoneNumber        string
+		pin                string
+	)
+	cmd := &cobra.Command{
+		Use:   "lock",
+		Short: "Lock a mobile device",
+		Long:  "Lock a supervised mobile device by serial number, name, or ID. This is a destructive operation.",
+		Example: `  jamf-cli pro md lock --serial F4GH5678 --yes
+  jamf-cli pro md lock --serial F4GH5678 --message "Call IT" --phone-number "555-1234" --yes
+  jamf-cli pro md lock --group "Lost Devices" --yes --confirm-destructive`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "lock",
+				deviceType:  "mobile device",
+				destructive: true,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					commandData := map[string]any{"commandType": "DEVICE_LOCK"}
+					if message != "" {
+						commandData["message"] = message
+					}
+					if phoneNumber != "" {
+						commandData["phoneNumber"] = phoneNumber
+					}
+					if pin != "" {
+						commandData["pin"] = pin
+					}
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	cmd.Flags().StringVar(&message, "message", "", "message to display on the locked screen")
+	cmd.Flags().StringVar(&phoneNumber, "phone-number", "", "phone number to display on the locked screen")
+	cmd.Flags().StringVar(&pin, "pin", "", "6-digit PIN required to unlock (supervised devices)")
+	return cmd
+}
+
+func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		unlockToken        string
+	)
+	cmd := &cobra.Command{
+		Use:     "clear-passcode",
+		Short:   "Clear the passcode on a mobile device",
+		Long:    "Clear the passcode on a supervised mobile device by serial number, name, or ID.",
+		Example: `  jamf-cli pro md clear-passcode --serial F4GH5678 --unlock-token VU5MT0NLVE9LRU4= --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "clear-passcode",
+				deviceType:  "mobile device",
+				destructive: true,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": "CLEAR_PASSCODE",
+						"unlockToken": unlockToken,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	cmd.Flags().StringVar(&unlockToken, "unlock-token", "", "base64-encoded unlock token (required for supervised devices)")
+	_ = cmd.MarkFlagRequired("unlock-token")
+	return cmd
+}
+
+func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		message            string
+		phone              string
+		footnote           string
+	)
+	cmd := &cobra.Command{
+		Use:   "enable-lost-mode",
+		Short: "Enable Lost Mode on a supervised mobile device",
+		Long:  "Enable Lost Mode on a supervised mobile device. At least one of --message or --phone is required.",
+		Example: `  jamf-cli pro md enable-lost-mode --serial F4GH5678 --message "Lost device" --phone "555-1234" --yes
+  jamf-cli pro md enable-lost-mode --group "Lost iPads" --message "Contact IT" --yes --confirm-destructive`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if message == "" && phone == "" {
+				return fmt.Errorf("at least one of --message or --phone is required")
+			}
+			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "enable-lost-mode",
+				deviceType:  "mobile device",
+				destructive: true,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					commandData := map[string]any{"commandType": "ENABLE_LOST_MODE"}
+					if message != "" {
+						commandData["lostModeMessage"] = message
+					}
+					if phone != "" {
+						commandData["lostModePhone"] = phone
+					}
+					if footnote != "" {
+						commandData["lostModeFootnote"] = footnote
+					}
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	cmd.Flags().StringVar(&message, "message", "", "message to display in Lost Mode")
+	cmd.Flags().StringVar(&phone, "phone", "", "phone number to display in Lost Mode")
+	cmd.Flags().StringVar(&footnote, "footnote", "", "footnote to display in Lost Mode")
+	return cmd
+}
+
+func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernMobileMDMCmd(cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
+		"Disable Lost Mode on a mobile device",
+		"Disable Lost Mode on a supervised mobile device that is currently in Lost Mode.",
+		`  jamf-cli pro md disable-lost-mode --serial F4GH5678 --yes
+  jamf-cli pro md disable-lost-mode --group "Recovered iPads" --yes --confirm-destructive`,
+		true,
+	)
+}
+
+func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernMobileMDMCmd(cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
+		"Play a sound on a device in Lost Mode",
+		"Play a sound on a supervised mobile device that is currently in Lost Mode.",
+		`  jamf-cli pro md play-lost-mode-sound --serial F4GH5678
+  jamf-cli pro md play-lost-mode-sound --group "Lost Devices" --yes`,
+		false,
+	)
+}
+
+func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernMobileMDMCmd(cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
+		"Clear the restrictions password on a mobile device",
+		"Clear the restrictions password on a supervised mobile device.",
+		`  jamf-cli pro md clear-restrictions-password --serial F4GH5678
+  jamf-cli pro md clear-restrictions-password --group "Managed iPads" --yes`,
 		false,
 	)
 }
