@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.1.1-0.20260328164440-d8f7800c5983
 	github.com/getkin/kin-openapi v0.134.0
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/iancoleman/strcase v0.3.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -18,7 +19,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
