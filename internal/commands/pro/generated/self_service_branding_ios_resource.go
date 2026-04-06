@@ -17,27 +17,27 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewSelfServiceBrandingsCmd creates the self-service-brandings command group
-func NewSelfServiceBrandingsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewSelfServiceBrandingIosCmd creates the self-service-branding-ios command group
+func NewSelfServiceBrandingIosCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "self-service-brandings",
-		Short: "Manage self-service-brandings",
-		Long:  `Manage self-service-brandings in Jamf Pro.`,
+		Use:   "self-service-branding-ios",
+		Short: "Manage self-service-branding-ios",
+		Long:  `Manage self-service-branding-ios in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSelfServiceBrandingsListCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsGetCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsCreateCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsUpdateCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsDeleteCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsGetByNameCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsApplyCmd(ctx))
-	cmd.AddCommand(newSelfServiceBrandingsDeleteByNameCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosListCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosGetCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosCreateCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosUpdateCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosDeleteCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosGetByNameCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosApplyCmd(ctx))
+	cmd.AddCommand(newSelfServiceBrandingIosDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
-func newSelfServiceBrandingsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -50,11 +50,11 @@ func newSelfServiceBrandingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Search for sorted and paged iOS branding configurations",
 		Long:  "Search for sorted and paged iOS branding configurations",
-		Example: `  # List all self-service-brandings
-  jamf-cli self-service-brandings list
+		Example: `  # List all self-service-branding-ios
+  jamf-cli self-service-branding-ios list
 
-  # List self-service-brandings and extract IDs
-  jamf-cli self-service-brandings list --field id`,
+  # List self-service-branding-ios and extract IDs
+  jamf-cli self-service-branding-ios list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -163,21 +163,21 @@ func newSelfServiceBrandingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServiceBrandingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Read a single Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Read a single Self Service iOS branding configuration indicated by the provided id.",
-		Example: `  # Get a self-service-branding by ID
-  jamf-cli self-service-brandings get 1
+		Example: `  # Get a self-service-branding-ios by ID
+  jamf-cli self-service-branding-ios get 1
 
-  # Get a self-service-branding by name
-  jamf-cli self-service-brandings get-by-name "Example"
+  # Get a self-service-branding-ios by name
+  jamf-cli self-service-branding-ios get-by-name "Example"
 
-  # Get a self-service-branding and output as YAML
-  jamf-cli self-service-brandings get 1 -o yaml`,
+  # Get a self-service-branding-ios and output as YAML
+  jamf-cli self-service-branding-ios get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -206,26 +206,40 @@ func newSelfServiceBrandingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServiceBrandingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+func newSelfServiceBrandingIosCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Upload an image",
-		Long:  "Uploads an image",
-		Example: `  # Show the JSON template for creating a self-service-branding
-  jamf-cli self-service-brandings create --scaffold
+		Short: "Create a Self Service iOS branding configuration with the supplied",
+		Long:  "Create a Self Service iOS branding configuration with the supplied details",
+		Example: `  # Show the JSON template for creating a self-service-branding-ios
+  jamf-cli self-service-branding-ios create --scaffold
 
-  # Create a self-service-branding from JSON
-  echo '{"name":"Example"}' | jamf-cli self-service-brandings create
+  # Create a self-service-branding-ios from JSON
+  echo '{"name":"Example"}' | jamf-cli self-service-branding-ios create
 
-  # Get a self-service-branding, modify it, and create a copy
-  jamf-cli self-service-brandings get 1 -o json | jq '.name = "Copy"' | jamf-cli self-service-brandings create`,
+  # Get a self-service-branding-ios, modify it, and create a copy
+  jamf-cli self-service-branding-ios get 1 -o json | jq '.name = "Copy"' | jamf-cli self-service-branding-ios create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				fmt.Println(`{
+  "brandingName": "Self Service",
+  "brandingNameColorCode": "000000",
+  "headerBackgroundColorCode": "FFFFFF",
+  "iconId": 1,
+  "menuIconColorCode": "000001",
+  "statusBarTextColor": "dark"
+}`)
+				return nil
+			}
+
 			// Build request path
-			path := "/self-service/branding/images"
+			path := "/v1/self-service/branding/ios"
 
 			// Build query string
 			var queryParts []string
@@ -250,10 +264,12 @@ func newSelfServiceBrandingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
 
-func newSelfServiceBrandingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -262,11 +278,11 @@ func newSelfServiceBrandingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a Self Service iOS branding configuration with the supplied details",
 		Long:  "Update a Self Service iOS branding configuration with the supplied details",
-		Example: `  # Update a self-service-branding from JSON
-  echo '{"name":"Updated"}' | jamf-cli self-service-brandings update 1
+		Example: `  # Update a self-service-branding-ios from JSON
+  echo '{"name":"Updated"}' | jamf-cli self-service-branding-ios update 1
 
-  # Get a self-service-branding, modify, and update
-  jamf-cli self-service-brandings get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-brandings update 1`,
+  # Get a self-service-branding-ios, modify, and update
+  jamf-cli self-service-branding-ios get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-branding-ios update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -315,7 +331,7 @@ func newSelfServiceBrandingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServiceBrandingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -325,11 +341,11 @@ func newSelfServiceBrandingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete the Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Delete the Self Service iOS branding configuration indicated by the provided id.",
-		Example: `  # Delete a self-service-branding (with confirmation)
-  jamf-cli self-service-brandings delete 1
+		Example: `  # Delete a self-service-branding-ios (with confirmation)
+  jamf-cli self-service-branding-ios delete 1
 
   # Delete without confirmation prompt
-  jamf-cli self-service-brandings delete 1 --yes`,
+  jamf-cli self-service-branding-ios delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -384,15 +400,15 @@ func newSelfServiceBrandingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSelfServiceBrandingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
-		Short: "Get a self-service-branding by name",
-		Example: `  # Get a self-service-branding by name
-  jamf-cli self-service-brandings get-by-name "Example"
+		Short: "Get a self-service-branding-ios by name",
+		Example: `  # Get a self-service-branding-ios by name
+  jamf-cli self-service-branding-ios get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli self-service-brandings get-by-name "Example" -o yaml`,
+  jamf-cli self-service-branding-ios get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -411,7 +427,7 @@ func newSelfServiceBrandingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 }
 
-func newSelfServiceBrandingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -419,12 +435,12 @@ func newSelfServiceBrandingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:   "delete-by-name <name>",
-		Short: "Delete a self-service-branding by name",
-		Example: `  # Delete a self-service-branding by name (with confirmation)
-  jamf-cli self-service-brandings delete-by-name "Example"
+		Short: "Delete a self-service-branding-ios by name",
+		Example: `  # Delete a self-service-branding-ios by name (with confirmation)
+  jamf-cli self-service-branding-ios delete-by-name "Example"
 
   # Delete without confirmation prompt
-  jamf-cli self-service-brandings delete-by-name "Example" --yes`,
+  jamf-cli self-service-branding-ios delete-by-name "Example" --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -437,18 +453,18 @@ func newSelfServiceBrandingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no self-service-branding found with name %q", name)
+				return fmt.Errorf("no self-service-branding-ios found with name %q", name)
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-ios %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete self-service-branding %q (id: %s). Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "This will delete self-service-branding-ios %q (id: %s). Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -464,7 +480,7 @@ func newSelfServiceBrandingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted self-service-branding %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "Deleted self-service-branding-ios %q (id: %s)\n", name, id)
 				return nil
 			}
 			return ctx.Output.PrintResponse(resp)
@@ -477,7 +493,7 @@ func newSelfServiceBrandingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newSelfServiceBrandingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServiceBrandingIosApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile   string
 		flagYes    bool
@@ -486,23 +502,23 @@ func newSelfServiceBrandingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a self-service-branding by name",
-		Long: `Create or replace a self-service-branding. Reads JSON from --from-file or stdin.
+		Short: "Create or replace a self-service-branding-ios by name",
+		Long: `Create or replace a self-service-branding-ios. Reads JSON from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a self-service-branding from a file
-  jamf-cli self-service-brandings apply --from-file self-service-branding.json
+		Example: `  # Apply a self-service-branding-ios from a file
+  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json
 
   # Apply from stdin
-  cat self-service-branding.json | jamf-cli self-service-brandings apply
+  cat self-service-branding-ios.json | jamf-cli self-service-branding-ios apply
 
   # Apply without replacement confirmation
-  jamf-cli self-service-brandings apply --from-file self-service-branding.json --yes
+  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json --yes
 
   # Preview what would happen
-  jamf-cli self-service-brandings apply --from-file self-service-branding.json --dry-run`,
+  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -528,28 +544,28 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create self-service-branding %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create self-service-branding-ios %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/self-service/branding/images", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/self-service/branding/ios", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created self-service-branding %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created self-service-branding-ios %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace self-service-branding %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace self-service-branding-ios %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("self-service-branding %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("self-service-branding-ios %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "self-service-branding %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "self-service-branding-ios %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -563,7 +579,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced self-service-branding %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced self-service-branding-ios %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

@@ -62,12 +62,12 @@ func main() {
 	var resources []*parser.Resource
 	for _, specPath := range specs {
 		fmt.Printf("Parsing: %s\n", filepath.Base(specPath))
-		resource, err := parser.ParseSpec(specPath)
+		parsed, err := parser.ParseSpec(specPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
 			continue
 		}
-		if resource != nil {
+		for _, resource := range parsed {
 			resources = append(resources, resource)
 			fmt.Printf("  Resource: %s (%d operations)\n", resource.Name, len(resource.Operations))
 		}

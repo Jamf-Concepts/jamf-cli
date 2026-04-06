@@ -13,37 +13,37 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewCachesCmd creates the caches command group
-func NewCachesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewSelfServicePlusCmd creates the self-service-plus command group
+func NewSelfServicePlusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "caches",
-		Short: "Manage caches",
-		Long:  `Manage caches in Jamf Pro.`,
+		Use:   "self-service-plus",
+		Short: "Manage self-service-plus",
+		Long:  `Manage self-service-plus in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCachesListCmd(ctx))
-	cmd.AddCommand(newCachesUpdateCmd(ctx))
+	cmd.AddCommand(newSelfServicePlusGetCmd(ctx))
+	cmd.AddCommand(newSelfServicePlusUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newCachesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServicePlusGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get Cache Settings",
-		Long:  "gets cache settings",
-		Example: `  # List all caches
-  jamf-cli caches list
+		Use:   "get",
+		Short: "Determines if Self Service Plus feature toggle is enabled.",
+		Long:  "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
+		Example: `  # Get self-service-plus
+  jamf-cli self-service-plus get
 
-  # List caches and extract IDs
-  jamf-cli caches list --field id`,
+  # Get self-service-plus and output as YAML
+  jamf-cli self-service-plus get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/cache-settings"
+			path := "/v1/self-service-plus/feature-toggle/enabled"
 
 			// Build query string
 			var queryParts []string
@@ -65,40 +65,32 @@ func newCachesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCachesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update Cache Settings",
-		Long:  "updates cache settings",
-		Example: `  # Update a cache from JSON
-  echo '{"name":"Updated"}' | jamf-cli caches update 1
+		Short: "Save Self Service Plus settings.",
+		Long:  "Save Self Service Plus settings.",
+		Example: `  # Update self-service-plus
+  jamf-cli self-service-plus get -o json | jq '.field = "value"' | jamf-cli self-service-plus update
 
-  # Get a cache, modify, and update
-  jamf-cli caches get 1 -o json | jq '.name = "New Name"' | jamf-cli caches update 1`,
+  # Update from a file
+  jamf-cli self-service-plus update --from-file self-service-plus.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "cacheType": "ehcache",
-  "cacheUniqueId": "24864549-94ea-4cc1-bb80-d7fb392c6556",
-  "directoryTimeToLiveSeconds": 120,
-  "ehcacheMaxBytesLocalHeap": "",
-  "elasticache": false,
-  "memcachedEndpoints": [],
-  "name": "",
-  "timeToIdleSeconds": 120,
-  "timeToLiveSeconds": 120
+  "enabled": true
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/cache-settings"
+			path := "/v1/self-service-plus/settings"
 
 			// Build query string
 			var queryParts []string

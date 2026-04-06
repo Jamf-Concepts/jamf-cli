@@ -15,41 +15,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewGsxConnectionsCmd creates the gsx-connections command group
-func NewGsxConnectionsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClientCheckInCmd creates the client-check-in command group
+func NewClientCheckInCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gsx-connections",
-		Short: "Manage gsx-connections",
-		Long:  `Manage gsx-connections in Jamf Pro.`,
+		Use:   "client-check-in",
+		Short: "Manage client-check-in",
+		Long:  `Manage client-check-in in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newGsxConnectionsListCmd(ctx))
-	cmd.AddCommand(newGsxConnectionsUpdateCmd(ctx))
-	cmd.AddCommand(newGsxConnectionsHistoryCmd(ctx))
-	cmd.AddCommand(newGsxConnectionsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newGsxConnectionsPatchCmd(ctx))
-	cmd.AddCommand(newGsxConnectionsTestCmd(ctx))
+	cmd.AddCommand(newClientCheckInGetCmd(ctx))
+	cmd.AddCommand(newClientCheckInUpdateCmd(ctx))
+	cmd.AddCommand(newClientCheckInHistoryCmd(ctx))
+	cmd.AddCommand(newClientCheckInAddHistoryNoteCmd(ctx))
 
 	return cmd
 }
 
-func newGsxConnectionsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Finds the Jamf Pro GSX Connection information",
-		Long:  "Finds the Jamf Pro GSX Connection information",
-		Example: `  # List all gsx-connections
-  jamf-cli gsx-connections list
+		Use:   "get",
+		Short: "Get Client Check-In settings",
+		Long:  "Gets 'Client Check-In' object.",
+		Example: `  # Get client-check-in
+  jamf-cli client-check-in get
 
-  # List gsx-connections and extract IDs
-  jamf-cli gsx-connections list --field id`,
+  # Get client-check-in and output as YAML
+  jamf-cli client-check-in get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/gsx-connection"
+			path := "/v3/check-in"
 
 			// Build query string
 			var queryParts []string
@@ -71,23 +69,40 @@ func newGsxConnectionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newGsxConnectionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Updates Jamf Pro GSX Connection information",
-		Long:  "Updates Jamf Pro GSX Connection information",
-		Example: `  # Update a gsx-connection from JSON
-  echo '{"name":"Updated"}' | jamf-cli gsx-connections update 1
+		Short: "Update Client Check-In object",
+		Long:  "Update Client Check-In object",
+		Example: `  # Update client-check-in
+  jamf-cli client-check-in get -o json | jq '.field = "value"' | jamf-cli client-check-in update
 
-  # Get a gsx-connection, modify, and update
-  jamf-cli gsx-connections get 1 -o json | jq '.name = "New Name"' | jamf-cli gsx-connections update 1`,
+  # Update from a file
+  jamf-cli client-check-in update --from-file client-check-in.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				fmt.Println(`{
+  "checkInFrequency": 0,
+  "createHooks": false,
+  "createStartupScript": false,
+  "enableLocalConfigurationProfiles": false,
+  "hookLog": false,
+  "hookPolicies": false,
+  "startupLog": false,
+  "startupPolicies": false,
+  "startupSsh": false
+}`)
+				return nil
+			}
+
 			// Build request path
-			path := "/v1/gsx-connection"
+			path := "/v3/check-in"
 
 			// Build query string
 			var queryParts []string
@@ -112,10 +127,12 @@ func newGsxConnectionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
 
-func newGsxConnectionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -127,15 +144,15 @@ func newGsxConnectionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "history",
-		Short: "Get specified GSX Connection History object",
-		Long:  "Gets specified GSX Connection history object",
-		Example: `  # Get history for a gsx-connection
-  jamf-cli gsx-connections history 1`,
+		Short: "Get Client Check-In history object",
+		Long:  "Gets Client Check-In history object",
+		Example: `  # Get history for a client-check-in
+  jamf-cli client-check-in history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/gsx-connection/history"
+			path := "/v3/check-in/history"
 
 			// Build query string
 			var queryParts []string
@@ -165,7 +182,7 @@ func newGsxConnectionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/gsx-connection/history"
+					pagePath := "/v3/check-in/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -235,7 +252,7 @@ func newGsxConnectionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,username:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
@@ -243,15 +260,15 @@ func newGsxConnectionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newGsxConnectionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
-		Short: "Add specified GSX Connection history object notes",
-		Long:  "Adds specified GSX Connection history object notes",
+		Short: "Add a Note to Client Check-In History",
+		Long:  "Adds Client Check-In history object notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -263,7 +280,7 @@ func newGsxConnectionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 
 			// Build request path
-			path := "/v1/gsx-connection/history"
+			path := "/v3/check-in/history"
 
 			// Build query string
 			var queryParts []string
@@ -289,84 +306,6 @@ func newGsxConnectionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newGsxConnectionsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "patch",
-		Short: "Updates Jamf Pro GSX Connection information",
-		Long:  "Updates Jamf Pro GSX Connection information",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/gsx-connection"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newGsxConnectionsTestCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "test",
-		Short: "Test functionality of an GSX Connection",
-		Long:  "Test functionality of an GSX Connection",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/gsx-connection/test"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 
 	return cmd
 }

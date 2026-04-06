@@ -41,11 +41,11 @@ func newActivationCodesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Updates Activation Code",
 		Long:  "Updates Activation Code in Jamf Pro.",
-		Example: `  # Update a activation-code from JSON
-  echo '{"name":"Updated"}' | jamf-cli activation-codes update 1
+		Example: `  # Update activation-codes
+  jamf-cli activation-codes get -o json | jq '.field = "value"' | jamf-cli activation-codes update
 
-  # Get a activation-code, modify, and update
-  jamf-cli activation-codes get 1 -o json | jq '.name = "New Name"' | jamf-cli activation-codes update 1`,
+  # Update from a file
+  jamf-cli activation-codes update --from-file activation-codes.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

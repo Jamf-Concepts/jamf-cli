@@ -122,11 +122,11 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Update settings for LAPS.",
 		Long:  "Update settings for LAPS.",
-		Example: `  # Update a local-admin-password from JSON
-  echo '{"name":"Updated"}' | jamf-cli local-admin-passwords update 1
+		Example: `  # Update local-admin-passwords
+  jamf-cli local-admin-passwords get -o json | jq '.field = "value"' | jamf-cli local-admin-passwords update
 
-  # Get a local-admin-password, modify, and update
-  jamf-cli local-admin-passwords get 1 -o json | jq '.name = "New Name"' | jamf-cli local-admin-passwords update 1`,
+  # Update from a file
+  jamf-cli local-admin-passwords update --from-file local-admin-passwords.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -11,6 +11,7 @@ type Resource struct {
 	Operations   []*Operation
 	Schemas      map[string]*Schema
 	NameField    string // Filter field for name lookups (default "name", some use "displayName")
+	IsSingleton  bool   // True for settings-style resources: single object, GET+PUT, no {id} in any path
 }
 
 // Operation represents an API operation (endpoint)

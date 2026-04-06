@@ -4,6 +4,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -14,7 +15,6 @@ import (
 	"github.com/iancoleman/strcase"
 )
 
-// ParseSpec parses an OpenAPI spec file and returns a Resource
 // singularize converts a plural resource name to singular.
 // Handles: -ies → -y (policies → policy), -sses → -ss (statuses → status),
 // -s → "" (buildings → building).
@@ -28,7 +28,11 @@ func singularize(name string) string {
 	return strings.TrimSuffix(name, "s")
 }
 
-func ParseSpec(specPath string) (*Resource, error) {
+// ParseSpec parses an OpenAPI spec file and returns one or more Resources.
+// Most specs produce a single resource, but specs with multiple sibling
+// collection paths (e.g. /v1/foo/macos and /v1/foo/ios in the same file)
+// produce one resource per family. Returns nil when the file should be skipped.
+func ParseSpec(specPath string) ([]*Resource, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
 
@@ -48,19 +52,10 @@ func ParseSpec(specPath string) (*Resource, error) {
 		return nil, nil
 	}
 
-	resourceName := strcase.ToKebab(baseName)
-	resourceName = pluralize(resourceName)
-
-	resource := &Resource{
-		Name:         resourceName,
-		NameSingular: singularize(resourceName),
-		GoName:       strcase.ToCamel(resourceName),
-		Description:  doc.Info.Description,
-		Operations:   make([]*Operation, 0),
-		Schemas:      make(map[string]*Schema),
-	}
+	kebabName := strcase.ToKebab(baseName)
 
 	// Parse paths into operations (sorted for deterministic output)
+	var allOps []*Operation
 	pathsMap := doc.Paths.Map()
 	sortedPaths := make([]string, 0, len(pathsMap))
 	for p := range pathsMap {
@@ -86,26 +81,269 @@ func ParseSpec(specPath string) (*Resource, error) {
 			if op == nil {
 				continue
 			}
-
-			operation := parseOperation(path, method, op)
-			resource.Operations = append(resource.Operations, operation)
+			allOps = append(allOps, parseOperation(path, method, op))
 		}
 	}
 
-	// Parse schemas
+	// Parse schemas (shared across all resources from this spec)
+	schemas := make(map[string]*Schema)
 	if doc.Components != nil {
 		for name, schemaRef := range doc.Components.Schemas {
 			if schemaRef != nil && schemaRef.Value != nil {
-				resource.Schemas[name] = parseSchema(name, schemaRef.Value)
+				schemas[name] = parseSchema(name, schemaRef.Value)
+			}
+		}
+	}
+	nameField := detectNameField(schemas)
+
+	// Check for multi-family spec: multiple sibling collection paths in one file.
+	// Example: SelfServiceBranding.yaml has both /v1/.../branding/macos and
+	// /v1/.../branding/ios — each needs its own resource and command group.
+	if families := splitByPathFamilies(doc.Info.Description, allOps, schemas, nameField); families != nil {
+		return families, nil
+	}
+
+	// Single-family spec: build one resource using the filename-derived name.
+	resource := &Resource{
+		Description: doc.Info.Description,
+		Operations:  allOps,
+		Schemas:     schemas,
+		NameField:   nameField,
+	}
+
+	// Detect singleton before naming: a singleton has no {id} in any path and
+	// has a non-paginated GET + PUT on the same path (settings/configuration pattern).
+	if detectSingleton(allOps) {
+		resource.IsSingleton = true
+		// Singletons use the exact kebab name — no pluralization.
+		resource.Name = kebabName
+		resource.NameSingular = kebabName
+		resource.GoName = strcase.ToCamel(kebabName)
+		// Rename "list" → "get": a non-paginated GET on the root path is a get, not a list.
+		for _, op := range resource.Operations {
+			if op.Name == "list" {
+				op.Name = "get"
+			}
+		}
+	} else {
+		resourceName := pluralize(kebabName)
+		resource.Name = resourceName
+		resource.NameSingular = singularize(resourceName)
+		resource.GoName = strcase.ToCamel(resourceName)
+	}
+
+	return []*Resource{resource}, nil
+}
+
+// splitByPathFamilies detects specs with multiple sibling collection paths
+// (e.g. /v1/foo/macos and /v1/foo/ios both having full CRUD under the same
+// parent prefix). Returns nil for normal single-family specs.
+func splitByPathFamilies(description string, ops []*Operation, schemas map[string]*Schema, nameField string) []*Resource {
+	// Find "collection paths": non-parameterized paths that have a /{param}
+	// child path — i.e., they serve as the list/create endpoint for a CRUD family.
+	collectionPaths := make(map[string]bool)
+	for _, op := range ops {
+		if hasPathParam(op.Path) {
+			continue
+		}
+		for _, other := range ops {
+			if hasPathParam(other.Path) && strings.HasPrefix(other.Path, op.Path+"/") {
+				// The remainder after op.Path must be a single /{param} segment.
+				remainder := other.Path[len(op.Path):]
+				parts := strings.SplitN(remainder, "/", 3)
+				if len(parts) == 2 && strings.HasPrefix(parts[1], "{") {
+					collectionPaths[op.Path] = true
+					break
+				}
 			}
 		}
 	}
 
-	// Detect the name field for filter lookups by inspecting request schemas.
-	// Most resources use "name", but some (e.g., API Roles, API Integrations) use "displayName".
-	resource.NameField = detectNameField(resource.Schemas)
+	if len(collectionPaths) < 2 {
+		return nil // single family or no collection paths
+	}
 
-	return resource, nil
+	// Group collection paths by their parent prefix (everything before the last /).
+	parents := make(map[string][]string) // parent → sibling collection paths
+	for cp := range collectionPaths {
+		idx := strings.LastIndex(cp, "/")
+		if idx < 0 {
+			continue
+		}
+		parent := cp[:idx]
+		parents[parent] = append(parents[parent], cp)
+	}
+
+	// Find parent groups with 2+ siblings — those are the multi-family specs.
+	var siblingGroups [][]string
+	for _, siblings := range parents {
+		if len(siblings) >= 2 {
+			sort.Strings(siblings) // deterministic order
+			siblingGroups = append(siblingGroups, siblings)
+		}
+	}
+	if len(siblingGroups) == 0 {
+		return nil
+	}
+
+	// Build one Resource per sibling family.
+	var resources []*Resource
+	for _, siblings := range siblingGroups {
+		for _, cp := range siblings {
+			// Collect only the operations that belong to this family.
+			var familyOps []*Operation
+			for _, op := range ops {
+				if op.Path == cp || strings.HasPrefix(op.Path, cp+"/") {
+					familyOps = append(familyOps, op)
+				}
+			}
+			if len(familyOps) == 0 {
+				continue
+			}
+
+			// Derive the resource name from the collection path rather than the
+			// filename — e.g. /v1/self-service/branding/macos → self-service-branding-macos.
+			name := pathToResourceName(cp)
+
+			r := &Resource{
+				Name:         name,
+				NameSingular: name, // path-derived names are already singular; don't strip trailing chars
+				GoName:       strcase.ToCamel(name),
+				Description:  description,
+				Operations:   familyOps,
+				Schemas:      schemas,
+				NameField:    nameField,
+			}
+
+			// Apply singleton detection to each family independently.
+			if detectSingleton(familyOps) {
+				r.IsSingleton = true
+				for _, op := range familyOps {
+					if op.Name == "list" {
+						op.Name = "get"
+					}
+				}
+			}
+
+			resources = append(resources, r)
+		}
+	}
+
+	if len(resources) == 0 {
+		return nil
+	}
+
+	// Collect orphaned operations (not assigned to any sibling family).
+	assignedPaths := make(map[string]bool)
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			assignedPaths[op.Path] = true
+		}
+	}
+
+	// For each multi-family parent path, collect its orphaned operations and
+	// build an additional resource to hold them. This preserves cross-cutting
+	// endpoints like GET /v1/mobile-device-groups (list all) and
+	// POST /v1/mobile-device-groups/{id}/erase.
+	for _, siblings := range siblingGroups {
+		// Derive parent path from the first sibling — everything before the last /.
+		parentPath := siblings[0][:strings.LastIndex(siblings[0], "/")]
+
+		var parentOps []*Operation
+		for _, op := range ops {
+			if assignedPaths[op.Path] {
+				continue
+			}
+			if op.Path == parentPath || strings.HasPrefix(op.Path, parentPath+"/") {
+				parentOps = append(parentOps, op)
+			}
+		}
+		if len(parentOps) == 0 {
+			continue
+		}
+
+		name := pluralize(pathToResourceName(parentPath))
+		r := &Resource{
+			Name:         name,
+			NameSingular: singularize(name),
+			GoName:       strcase.ToCamel(name),
+			Description:  description,
+			Operations:   parentOps,
+			Schemas:      schemas,
+			NameField:    nameField,
+		}
+		if detectSingleton(parentOps) {
+			r.IsSingleton = true
+			r.Name = pathToResourceName(parentPath)
+			r.NameSingular = r.Name
+			r.GoName = strcase.ToCamel(r.Name)
+			for _, op := range parentOps {
+				if op.Name == "list" {
+					op.Name = "get"
+				}
+			}
+		}
+		resources = append(resources, r)
+
+		for _, op := range parentOps {
+			assignedPaths[op.Path] = true
+		}
+	}
+
+	// Warn about any operations that still aren't assigned (e.g. paths with a
+	// different version prefix that don't fall under any detected family parent).
+	for _, op := range ops {
+		if !assignedPaths[op.Path] {
+			fmt.Fprintf(os.Stderr, "  Warning: %s %s not assigned to any resource family (orphaned — will not be generated)\n", op.Method, op.Path)
+		}
+	}
+
+	return resources
+}
+
+// pathToResourceName converts an API path to a kebab-case resource name.
+// Strips the version prefix and replaces slashes with dashes.
+// e.g. /v1/self-service/branding/macos → self-service-branding-macos
+func pathToResourceName(path string) string {
+	path = strings.TrimPrefix(path, "/")
+	// Strip version prefix (v1, v2, v3, preview, etc.)
+	if idx := strings.Index(path, "/"); idx != -1 {
+		prefix := path[:idx]
+		if strings.HasPrefix(prefix, "v") || prefix == "preview" {
+			path = path[idx+1:]
+		}
+	}
+	return strings.ReplaceAll(path, "/", "-")
+}
+
+// detectSingleton returns true if the operations describe a singleton resource:
+// a settings-style object accessible via a single path with no {id} parameter,
+// identified by a non-paginated GET and a PUT on the same path.
+func detectSingleton(ops []*Operation) bool {
+	// Any path parameter means this is a collection or keyed resource, not a singleton.
+	for _, op := range ops {
+		if hasPathParam(op.Path) {
+			return false
+		}
+	}
+
+	// Must have a non-paginated GET and a PUT sharing the same path.
+	getNonList := make(map[string]bool)
+	hasPUT := make(map[string]bool)
+	for _, op := range ops {
+		if op.Method == "GET" && !op.IsList {
+			getNonList[op.Path] = true
+		}
+		if op.Method == "PUT" {
+			hasPUT[op.Path] = true
+		}
+	}
+	for path := range getNonList {
+		if hasPUT[path] {
+			return true
+		}
+	}
+	return false
 }
 
 func parseOperation(path, method string, op *openapi3.Operation) *Operation {

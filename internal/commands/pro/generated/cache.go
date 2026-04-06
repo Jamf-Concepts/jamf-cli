@@ -13,37 +13,37 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewOnboardingConfigurationsCmd creates the onboarding-configurations command group
-func NewOnboardingConfigurationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewCacheCmd creates the cache command group
+func NewCacheCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "onboarding-configurations",
-		Short: "Manage onboarding-configurations",
-		Long:  `Manage onboarding-configurations in Jamf Pro.`,
+		Use:   "cache",
+		Short: "Manage cache",
+		Long:  `Manage cache in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newOnboardingConfigurationsListCmd(ctx))
-	cmd.AddCommand(newOnboardingConfigurationsUpdateCmd(ctx))
+	cmd.AddCommand(newCacheGetCmd(ctx))
+	cmd.AddCommand(newCacheUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newOnboardingConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCacheGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get the current onboarding settings configuration.",
-		Long:  "Get the current onboarding settings configuration.",
-		Example: `  # List all onboarding-configurations
-  jamf-cli onboarding-configurations list
+		Use:   "get",
+		Short: "Get Cache Settings",
+		Long:  "gets cache settings",
+		Example: `  # Get cache
+  jamf-cli cache get
 
-  # List onboarding-configurations and extract IDs
-  jamf-cli onboarding-configurations list --field id`,
+  # Get cache and output as YAML
+  jamf-cli cache get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/onboarding"
+			path := "/v1/cache-settings"
 
 			// Build query string
 			var queryParts []string
@@ -65,33 +65,40 @@ func newOnboardingConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newOnboardingConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update the onboarding configuration.",
-		Long:  "Update the onboarding configuration.",
-		Example: `  # Update a onboarding-configuration from JSON
-  echo '{"name":"Updated"}' | jamf-cli onboarding-configurations update 1
+		Short: "Update Cache Settings",
+		Long:  "updates cache settings",
+		Example: `  # Update cache
+  jamf-cli cache get -o json | jq '.field = "value"' | jamf-cli cache update
 
-  # Get a onboarding-configuration, modify, and update
-  jamf-cli onboarding-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli onboarding-configurations update 1`,
+  # Update from a file
+  jamf-cli cache update --from-file cache.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "enabled": true,
-  "onboardingItems": []
+  "cacheType": "ehcache",
+  "cacheUniqueId": "24864549-94ea-4cc1-bb80-d7fb392c6556",
+  "directoryTimeToLiveSeconds": 120,
+  "ehcacheMaxBytesLocalHeap": "",
+  "elasticache": false,
+  "memcachedEndpoints": [],
+  "name": "",
+  "timeToIdleSeconds": 120,
+  "timeToLiveSeconds": 120
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/onboarding"
+			path := "/v1/cache-settings"
 
 			// Build query string
 			var queryParts []string

@@ -15,39 +15,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewClientCheckInsCmd creates the client-check-ins command group
-func NewClientCheckInsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewParentAppCmd creates the parent-app command group
+func NewParentAppCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "client-check-ins",
-		Short: "Manage client-check-ins",
-		Long:  `Manage client-check-ins in Jamf Pro.`,
+		Use:   "parent-app",
+		Short: "Manage parent-app",
+		Long:  `Manage parent-app in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newClientCheckInsListCmd(ctx))
-	cmd.AddCommand(newClientCheckInsUpdateCmd(ctx))
-	cmd.AddCommand(newClientCheckInsHistoryCmd(ctx))
-	cmd.AddCommand(newClientCheckInsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newParentAppGetCmd(ctx))
+	cmd.AddCommand(newParentAppUpdateCmd(ctx))
+	cmd.AddCommand(newParentAppHistoryCmd(ctx))
+	cmd.AddCommand(newParentAppAddHistoryNoteCmd(ctx))
 
 	return cmd
 }
 
-func newClientCheckInsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newParentAppGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get Client Check-In settings",
-		Long:  "Gets 'Client Check-In' object.",
-		Example: `  # List all client-check-ins
-  jamf-cli client-check-ins list
+		Use:   "get",
+		Short: "Get the current Jamf Parent app settings",
+		Long:  "Get the current Jamf Parent app settings",
+		Example: `  # Get parent-app
+  jamf-cli parent-app get
 
-  # List client-check-ins and extract IDs
-  jamf-cli client-check-ins list --field id`,
+  # Get parent-app and output as YAML
+  jamf-cli parent-app get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v3/check-in"
+			path := "/v1/parent-app"
 
 			// Build query string
 			var queryParts []string
@@ -69,40 +69,44 @@ func newClientCheckInsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newClientCheckInsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update Client Check-In object",
-		Long:  "Update Client Check-In object",
-		Example: `  # Update a client-check-in from JSON
-  echo '{"name":"Updated"}' | jamf-cli client-check-ins update 1
+		Short: "Update Jamf Parent app settings",
+		Long:  "Update Jamf Parent app settings",
+		Example: `  # Update parent-app
+  jamf-cli parent-app get -o json | jq '.field = "value"' | jamf-cli parent-app update
 
-  # Get a client-check-in, modify, and update
-  jamf-cli client-check-ins get 1 -o json | jq '.name = "New Name"' | jamf-cli client-check-ins update 1`,
+  # Update from a file
+  jamf-cli parent-app update --from-file parent-app.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "checkInFrequency": 0,
-  "createHooks": false,
-  "createStartupScript": false,
-  "enableLocalConfigurationProfiles": false,
-  "hookLog": false,
-  "hookPolicies": false,
-  "startupLog": false,
-  "startupPolicies": false,
-  "startupSsh": false
+  "allowClearPasscode": true,
+  "allowTemplates": true,
+  "deviceGroupId": 1,
+  "disassociateOnWipeAndReEnroll": true,
+  "isEnabled": true,
+  "restrictedTimes": {
+    "SUNDAY": {
+      "beginTime": "08:30:00",
+      "endTime": "15:45:00"
+    }
+  },
+  "safelistedApps": [],
+  "timezoneId": "Europe/Paris"
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v3/check-in"
+			path := "/v1/parent-app"
 
 			// Build query string
 			var queryParts []string
@@ -132,27 +136,27 @@ func newClientCheckInsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newClientCheckInsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newParentAppHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
-		flagSort     []string
 		flagFilter   string
+		flagSort     string
 		flagAll      bool
 		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "history",
-		Short: "Get Client Check-In history object",
-		Long:  "Gets Client Check-In history object",
-		Example: `  # Get history for a client-check-in
-  jamf-cli client-check-ins history 1`,
+		Short: "Get Jamf Parent app settings history",
+		Long:  "Gets Jamf Parent app settings history",
+		Example: `  # Get history for a parent-app
+  jamf-cli parent-app history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v3/check-in/history"
+			path := "/v1/parent-app/history"
 
 			// Build query string
 			var queryParts []string
@@ -162,13 +166,11 @@ func newClientCheckInsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagPageSize != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
 			if flagFilter != "" {
 				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if flagSort != "" {
+				queryParts = append(queryParts, "sort="+url.QueryEscape(flagSort))
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -182,7 +184,7 @@ func newClientCheckInsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v3/check-in/history"
+					pagePath := "/v1/parent-app/history"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -252,23 +254,23 @@ func newClientCheckInsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,username:asc ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.Flags().StringVar(&flagSort, "sort", "date:desc", "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
 	return cmd
 }
 
-func newClientCheckInsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newParentAppAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "add-history-note",
-		Short: "Add a Note to Client Check-In History",
-		Long:  "Adds Client Check-In history object notes",
+		Short: "Add Jamf Parent app settings history notes",
+		Long:  "Adds Jamf Parent app settings history notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -280,7 +282,7 @@ func newClientCheckInsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 
 			// Build request path
-			path := "/v3/check-in/history"
+			path := "/v1/parent-app/history"
 
 			// Build query string
 			var queryParts []string

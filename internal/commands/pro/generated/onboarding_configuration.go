@@ -13,37 +13,37 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewLoginCustomizationsCmd creates the login-customizations command group
-func NewLoginCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewOnboardingConfigurationCmd creates the onboarding-configuration command group
+func NewOnboardingConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "login-customizations",
-		Short: "Manage login-customizations",
-		Long:  `Manage login-customizations in Jamf Pro.`,
+		Use:   "onboarding-configuration",
+		Short: "Manage onboarding-configuration",
+		Long:  `Manage onboarding-configuration in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newLoginCustomizationsListCmd(ctx))
-	cmd.AddCommand(newLoginCustomizationsUpdateCmd(ctx))
+	cmd.AddCommand(newOnboardingConfigurationGetCmd(ctx))
+	cmd.AddCommand(newOnboardingConfigurationUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newLoginCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newOnboardingConfigurationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get current login disclaimer settings",
-		Long:  "Returns knob whether disclaimer is enabled and if saved, its contents.",
-		Example: `  # List all login-customizations
-  jamf-cli login-customizations list
+		Use:   "get",
+		Short: "Get the current onboarding settings configuration.",
+		Long:  "Get the current onboarding settings configuration.",
+		Example: `  # Get onboarding-configuration
+  jamf-cli onboarding-configuration get
 
-  # List login-customizations and extract IDs
-  jamf-cli login-customizations list --field id`,
+  # Get onboarding-configuration and output as YAML
+  jamf-cli onboarding-configuration get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/login-customization"
+			path := "/v1/onboarding"
 
 			// Build query string
 			var queryParts []string
@@ -65,35 +65,33 @@ func newLoginCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newLoginCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update current login disclaimer settings.",
-		Long:  "Update current login disclaimer settings.",
-		Example: `  # Update a login-customization from JSON
-  echo '{"name":"Updated"}' | jamf-cli login-customizations update 1
+		Short: "Update the onboarding configuration.",
+		Long:  "Update the onboarding configuration.",
+		Example: `  # Update onboarding-configuration
+  jamf-cli onboarding-configuration get -o json | jq '.field = "value"' | jamf-cli onboarding-configuration update
 
-  # Get a login-customization, modify, and update
-  jamf-cli login-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli login-customizations update 1`,
+  # Update from a file
+  jamf-cli onboarding-configuration update --from-file onboarding-configuration.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				fmt.Println(`{
-  "actionText": "Accept",
-  "disclaimerHeading": "Disclaimer header",
-  "disclaimerMainText": "Login disclaimer main text",
-  "includeCustomDisclaimer": true
+  "enabled": true,
+  "onboardingItems": []
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/login-customization"
+			path := "/v1/onboarding"
 
 			// Build query string
 			var queryParts []string

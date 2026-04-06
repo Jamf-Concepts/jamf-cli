@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,37 +16,36 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewJamfProtectsCmd creates the jamf-protects command group
-func NewJamfProtectsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProtectCmd creates the jamf-protect command group
+func NewJamfProtectCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-protects",
-		Short: "Manage jamf-protects",
-		Long:  `Manage jamf-protects in Jamf Pro.`,
+		Use:   "jamf-protect",
+		Short: "Manage jamf-protect",
+		Long:  `Manage jamf-protect in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newJamfProtectsListCmd(ctx))
-	cmd.AddCommand(newJamfProtectsCreateCmd(ctx))
-	cmd.AddCommand(newJamfProtectsUpdateCmd(ctx))
-	cmd.AddCommand(newJamfProtectsDeleteCmd(ctx))
-	cmd.AddCommand(newJamfProtectsHistoryCmd(ctx))
-	cmd.AddCommand(newJamfProtectsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newJamfProtectsApplyCmd(ctx))
+	cmd.AddCommand(newJamfProtectGetCmd(ctx))
+	cmd.AddCommand(newJamfProtectCreateCmd(ctx))
+	cmd.AddCommand(newJamfProtectUpdateCmd(ctx))
+	cmd.AddCommand(newJamfProtectDeleteCmd(ctx))
+	cmd.AddCommand(newJamfProtectHistoryCmd(ctx))
+	cmd.AddCommand(newJamfProtectAddHistoryNoteCmd(ctx))
 
 	return cmd
 }
 
-func newJamfProtectsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Jamf Protect integration settings",
 		Long:  "Jamf Protect integration settings",
-		Example: `  # List all jamf-protects
-  jamf-cli jamf-protects list
+		Example: `  # Get jamf-protect
+  jamf-cli jamf-protect get
 
-  # List jamf-protects and extract IDs
-  jamf-cli jamf-protects list --field id`,
+  # Get jamf-protect and output as YAML
+  jamf-cli jamf-protect get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,7 +72,7 @@ func newJamfProtectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -84,13 +82,13 @@ func newJamfProtectsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Register a Jamf Protect API configuration with Jamf Pro",
 		Long:  "Register a Jamf Protect API configuration with Jamf Pro",
 		Example: `  # Show the JSON template for creating a jamf-protect
-  jamf-cli jamf-protects create --scaffold
+  jamf-cli jamf-protect create --scaffold
 
   # Create a jamf-protect from JSON
-  echo '{"name":"Example"}' | jamf-cli jamf-protects create
+  echo '{"name":"Example"}' | jamf-cli jamf-protect create
 
   # Get a jamf-protect, modify it, and create a copy
-  jamf-cli jamf-protects get 1 -o json | jq '.name = "Copy"' | jamf-cli jamf-protects create`,
+  jamf-cli jamf-protect get 1 -o json | jq '.name = "Copy"' | jamf-cli jamf-protect create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -134,7 +132,7 @@ func newJamfProtectsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -143,11 +141,11 @@ func newJamfProtectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Jamf Protect integration settings",
 		Long:  "Jamf Protect integration settings",
-		Example: `  # Update a jamf-protect from JSON
-  echo '{"name":"Updated"}' | jamf-cli jamf-protects update 1
+		Example: `  # Update jamf-protect
+  jamf-cli jamf-protect get -o json | jq '.field = "value"' | jamf-cli jamf-protect update
 
-  # Get a jamf-protect, modify, and update
-  jamf-cli jamf-protects get 1 -o json | jq '.name = "New Name"' | jamf-cli jamf-protects update 1`,
+  # Update from a file
+  jamf-cli jamf-protect update --from-file jamf-protect.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -189,7 +187,7 @@ func newJamfProtectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -200,10 +198,10 @@ func newJamfProtectsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Jamf Protect API registration.",
 		Long:  "Deletes an existing Jamf Protect API registration if present. Jamf Protect API integration will be disabled.",
 		Example: `  # Delete a jamf-protect (with confirmation)
-  jamf-cli jamf-protects delete 1
+  jamf-cli jamf-protect delete 1
 
   # Delete without confirmation prompt
-  jamf-cli jamf-protects delete 1 --yes`,
+  jamf-cli jamf-protect delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -256,7 +254,7 @@ func newJamfProtectsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -271,7 +269,7 @@ func newJamfProtectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Protect history",
 		Long:  "Get Jamf Protect history",
 		Example: `  # Get history for a jamf-protect
-  jamf-cli jamf-protects history 1`,
+  jamf-cli jamf-protect history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -384,7 +382,7 @@ func newJamfProtectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJamfProtectsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -430,104 +428,6 @@ func newJamfProtectsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newJamfProtectsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a jamf-protect by name",
-		Long: `Create or replace a jamf-protect. Reads JSON from --from-file or stdin.
-
-The name field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a jamf-protect from a file
-  jamf-cli jamf-protects apply --from-file jamf-protect.json
-
-  # Apply from stdin
-  cat jamf-protect.json | jamf-cli jamf-protects apply
-
-  # Apply without replacement confirmation
-  jamf-cli jamf-protects apply --from-file jamf-protect.json --yes
-
-  # Preview what would happen
-  jamf-cli jamf-protects apply --from-file jamf-protect.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
-
-			// Read input
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
-			}
-
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "", "name", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create jamf-protect %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/jamf-protect/register", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created jamf-protect %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace jamf-protect %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("jamf-protect %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "jamf-protect %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/v1/jamf-protect", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced jamf-protect %q (id: %s)\n", name, id)
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

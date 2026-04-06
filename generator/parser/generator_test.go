@@ -252,7 +252,8 @@ func TestNeedsFmt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := needsFmt(tt.ops); got != tt.want {
+			r := &Resource{Operations: tt.ops}
+			if got := needsFmt(r); got != tt.want {
 				t.Errorf("needsFmt() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1283,21 +1284,25 @@ func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
 }
 
 func TestNeedsFmt_WithApply(t *testing.T) {
-	ops := []*Operation{
-		{Name: "create", Method: "POST"},
-		{Name: "update", Method: "PUT"},
+	r := &Resource{
+		Operations: []*Operation{
+			{Name: "create", Method: "POST"},
+			{Name: "update", Method: "PUT"},
+		},
 	}
-	if !needsFmt(ops) {
+	if !needsFmt(r) {
 		t.Error("needsFmt should return true when hasApply is true")
 	}
 }
 
 func TestNeedsURL_WithApply(t *testing.T) {
-	ops := []*Operation{
-		{Name: "create", Method: "POST"},
-		{Name: "update", Method: "PUT"},
+	r := &Resource{
+		Operations: []*Operation{
+			{Name: "create", Method: "POST"},
+			{Name: "update", Method: "PUT"},
+		},
 	}
-	if !needsURL(ops) {
+	if !needsURL(r) {
 		t.Error("needsURL should return true when hasApply is true")
 	}
 }
@@ -1346,4 +1351,237 @@ func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
 		t.Skip("no .go files found in generated directory")
 	}
 	t.Logf("verified %d generated files have correct headers", checked)
+}
+
+// --- shouldGenerateApply tests ---
+
+func TestShouldGenerateApply(t *testing.T) {
+	tests := []struct {
+		name        string
+		isSingleton bool
+		ops         []*Operation
+		want        bool
+	}{
+		{
+			name:        "non-singleton with create+update — apply generated",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/widgets"},
+				{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
+			},
+			want: true,
+		},
+		{
+			name:        "singleton with create+update — apply suppressed",
+			isSingleton: true,
+			ops: []*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/settings"},
+				{Name: "create", Method: "POST", Path: "/v1/settings/register"},
+				{Name: "update", Method: "PUT", Path: "/v1/settings"},
+			},
+			want: false,
+		},
+		{
+			name:        "non-singleton with only update — no apply",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
+			},
+			want: false,
+		},
+		{
+			name:        "non-singleton with only create — no apply",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/widgets"},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Resource{IsSingleton: tt.isSingleton, Operations: tt.ops}
+			got := shouldGenerateApply(r)
+			if got != tt.want {
+				t.Errorf("shouldGenerateApply() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerate_SingletonResource(t *testing.T) {
+	dir := t.TempDir()
+
+	r := &Resource{
+		Name:         "cache-settings",
+		NameSingular: "cache-settings",
+		GoName:       "CacheSettings",
+		IsSingleton:  true,
+		Operations: []*Operation{
+			{Name: "get", Method: "GET", Path: "/v1/cache-settings"},
+			{
+				Name: "update", Method: "PUT", Path: "/v1/cache-settings",
+				RequestBody: &RequestBody{Schema: &Schema{
+					Properties: map[string]*Property{
+						"name": {Name: "name", Type: "string"},
+					},
+				}},
+			},
+		},
+		Schemas:   map[string]*Schema{},
+		NameField: "name",
+	}
+
+	g := NewGenerator(dir)
+	outPath, err := g.Generate(r)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("reading output file: %v", err)
+	}
+	code := string(content)
+
+	// Should have get command, not list
+	if !strings.Contains(code, `Use:   "get"`) {
+		t.Error("singleton should generate 'get' command, not 'list'")
+	}
+	if strings.Contains(code, `Use:   "list"`) {
+		t.Error("singleton should not generate 'list' command")
+	}
+
+	// Should NOT generate apply command
+	if strings.Contains(code, "ApplyCmd") {
+		t.Error("singleton should not generate apply command")
+	}
+	if strings.Contains(code, `Use:   "apply"`) {
+		t.Error("singleton should not have apply subcommand")
+	}
+
+	// Should NOT import "bytes" (only used by apply)
+	if strings.Contains(code, `"bytes"`) {
+		t.Error("singleton without apply should not import 'bytes'")
+	}
+
+	// Should still have update command
+	if !strings.Contains(code, `Use:   "update"`) {
+		t.Error("singleton should still generate 'update' command")
+	}
+
+	// Command group should use the singleton name
+	if !strings.Contains(code, `Use:   "cache-settings"`) {
+		t.Error("singleton command group should use unsuffixed name 'cache-settings'")
+	}
+}
+
+func TestGenerate_SingletonResource_NoGetByName(t *testing.T) {
+	dir := t.TempDir()
+
+	r := &Resource{
+		Name:         "jamf-protect",
+		NameSingular: "jamf-protect",
+		GoName:       "JamfProtect",
+		IsSingleton:  true,
+		Operations: []*Operation{
+			{Name: "get", Method: "GET", Path: "/v1/jamf-protect"},
+			{Name: "update", Method: "PUT", Path: "/v1/jamf-protect"},
+			{Name: "delete", Method: "DELETE", Path: "/v1/jamf-protect"},
+			{Name: "create", Method: "POST", Path: "/v1/jamf-protect/register"},
+		},
+		Schemas:   map[string]*Schema{},
+		NameField: "name",
+	}
+
+	g := NewGenerator(dir)
+	outPath, err := g.Generate(r)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("reading output file: %v", err)
+	}
+	code := string(content)
+
+	// Should not have get-by-name (no ID path param)
+	if strings.Contains(code, "GetByNameCmd") {
+		t.Error("singleton should not generate get-by-name command")
+	}
+	// Should not have delete-by-name (no ID path param on get)
+	if strings.Contains(code, "DeleteByNameCmd") {
+		t.Error("singleton should not generate delete-by-name command")
+	}
+	// Should not have apply (IsSingleton)
+	if strings.Contains(code, "ApplyCmd") {
+		t.Error("singleton should not generate apply command")
+	}
+}
+
+func TestNeedsURL_SingletonSkipsApply(t *testing.T) {
+	// A singleton resource with create+update: needsURL should return false
+	// because shouldGenerateApply is false (no apply = no url.PathEscape in apply code)
+	// and there are no path params or string query params.
+	r := &Resource{
+		IsSingleton: true,
+		Operations: []*Operation{
+			{Name: "get", Method: "GET", Path: "/v1/settings"},
+			{Name: "update", Method: "PUT", Path: "/v1/settings"},
+			{Name: "create", Method: "POST", Path: "/v1/settings/register"},
+		},
+	}
+	if needsURL(r) {
+		t.Error("singleton with no path params/query params should not need net/url import")
+	}
+
+	// A non-singleton with create+update: needsURL should return true (apply uses url.PathEscape)
+	rNormal := &Resource{
+		IsSingleton: false,
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+			{Name: "create", Method: "POST", Path: "/v1/things"},
+			{Name: "update", Method: "PUT", Path: "/v1/things/{id}"},
+		},
+	}
+	if !needsURL(rNormal) {
+		t.Error("non-singleton with apply should need net/url import")
+	}
+}
+
+func TestSafeFilename(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		// GOOS collisions — must get _resource suffix
+		{"self-service-branding-ios", "self_service_branding_ios_resource.go"},
+		{"self-service-branding-darwin", "self_service_branding_darwin_resource.go"},
+		{"self-service-branding-windows", "self_service_branding_windows_resource.go"},
+		{"self-service-branding-linux", "self_service_branding_linux_resource.go"},
+		{"self-service-branding-android", "self_service_branding_android_resource.go"},
+		// GOARCH collisions — must get _resource suffix
+		{"device-arm64", "device_arm64_resource.go"},
+		{"device-amd64", "device_amd64_resource.go"},
+		{"device-wasm", "device_wasm_resource.go"},
+		// Normal names — no suffix added
+		{"buildings", "buildings.go"},
+		{"self-service-settings", "self_service_settings.go"},
+		{"mobile-device-prestages", "mobile_device_prestages.go"},
+		{"cache", "cache.go"},
+		// Names that merely contain an OS word mid-name — no suffix
+		{"ios-apps", "ios_apps.go"},
+		{"linux-agents", "linux_agents.go"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := safeFilename(tt.name)
+			if got != tt.want {
+				t.Errorf("safeFilename(%q) = %q, want %q", tt.name, got, tt.want)
+			}
+		})
+	}
 }
