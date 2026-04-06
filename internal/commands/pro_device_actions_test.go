@@ -67,6 +67,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 		"erase", "remove-mdm", "redeploy-framework",
 		"blank-push", "ddm-sync", "renew-mdm",
 		"lock", "enable-remote-desktop", "disable-remote-desktop",
+		"restart", "shutdown", "set-recovery-lock",
 	}
 	for _, name := range wantComputer {
 		t.Run("computers/"+name, func(t *testing.T) {
@@ -329,6 +330,38 @@ func TestSendMobileModernMDMCommand_MissingManagementID(t *testing.T) {
 	d := &resolve.DeviceIdentifiers{ID: "7", Name: "iPad-1"} // no ManagementID
 
 	err := sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "RESTART_DEVICE"})
+	if err == nil {
+		t.Fatal("expected error for missing managementId, got nil")
+	}
+	if !strings.Contains(err.Error(), "managementId") {
+		t.Errorf("error = %q, want it to mention managementId", err.Error())
+	}
+}
+
+func TestSendComputerModernMDMCommand_Success(t *testing.T) {
+	client := &bodyCapturingClient{}
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{Client: client, Output: mockOutput{}}
+	d := &resolve.DeviceIdentifiers{ID: "42", ManagementID: "cccc-dddd", Name: "MacBook-1"}
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(client.capturedBody, `"DEVICE_LOCK"`) {
+		t.Errorf("request body = %q, want it to contain commandType", client.capturedBody)
+	}
+	if !strings.Contains(client.capturedBody, `"cccc-dddd"`) {
+		t.Errorf("request body = %q, want it to contain managementId", client.capturedBody)
+	}
+}
+
+func TestSendComputerModernMDMCommand_MissingManagementID(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cliCtx := &registry.CLIContext{}
+	d := &resolve.DeviceIdentifiers{ID: "42", Name: "MacBook-1"} // no ManagementID
+
+	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
 	if err == nil {
 		t.Fatal("expected error for missing managementId, got nil")
 	}

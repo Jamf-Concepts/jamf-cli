@@ -561,17 +561,35 @@ func readActionBody(bodyFile string) (io.Reader, error) {
 	return nil, nil
 }
 
-// --- Classic API MDM commands (no modern API equivalent) ---
+// --- Modern API computer MDM commands ---
 
-// newClassicMDMCmd creates a computer subcommand that sends a Classic API MDM
-// command. This is the shared factory for lock, restart, shutdown, etc.
-func newClassicMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long, example string, destructive bool) *cobra.Command {
+// sendComputerModernMDMCommand sends a single MDM command to a computer via
+// POST /v2/mdm/commands using the management ID (UUID).
+func sendComputerModernMDMCommand(cmd *cobra.Command, cliCtx *registry.CLIContext, d *resolve.DeviceIdentifiers, commandData map[string]any) error {
+	if d.ManagementID == "" {
+		return fmt.Errorf("computer %s has no managementId — cannot send MDM command", resolve.FormatDeviceDesc(d))
+	}
+	body := map[string]any{
+		"clientData": []map[string]any{
+			{"managementId": d.ManagementID},
+		},
+		"commandData": commandData,
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	return doPostAction(cmd, cliCtx, "/v2/mdm/commands", strings.NewReader(string(data)))
+}
+
+// newModernComputerMDMCmd creates a computer subcommand that sends a
+// modern API MDM command via POST /v2/mdm/commands with no additional body fields.
+func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, short, long, example string, destructive bool) *cobra.Command {
 	var (
 		dt                 deviceTarget
 		yes                bool
 		confirmDestructive bool
 	)
-
 	cmd := &cobra.Command{
 		Use:     name,
 		Short:   short,
@@ -583,12 +601,13 @@ func newClassicMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long
 				deviceType:  "computer",
 				destructive: destructive,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					return sendMDMCommand(cmd.Context(), cliCtx.Client, d.ID, apiCommand)
+					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": commandType,
+					})
 				},
 			})
 		},
 	}
-
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	if destructive {
@@ -598,31 +617,111 @@ func newClassicMDMCmd(cliCtx *registry.CLIContext, name, apiCommand, short, long
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "lock", "DeviceLock",
+	return newModernComputerMDMCmd(cliCtx, "lock", "DEVICE_LOCK",
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
-		`  jamf-cli pro comp lock --serial C02X1234 --yes --confirm-destructive
+		`  jamf-cli pro comp lock --serial C02X1234 --yes
   jamf-cli pro comp lock --group "Lost Devices" --yes --confirm-destructive`,
 		true,
 	)
 }
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "enable-remote-desktop", "EnableRemoteDesktop",
+	return newModernComputerMDMCmd(cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
 		"Enable Remote Desktop on a computer",
-		"Enable the Remote Desktop agent on a computer.",
-		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234 --yes`,
+		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
+		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
+  jamf-cli pro comp enable-remote-desktop --group "Lab Macs" --yes`,
 		false,
 	)
 }
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newClassicMDMCmd(cliCtx, "disable-remote-desktop", "DisableRemoteDesktop",
+	return newModernComputerMDMCmd(cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
 		"Disable Remote Desktop on a computer",
-		"Disable the Remote Desktop agent on a computer.",
-		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234 --yes`,
+		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
+		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
+  jamf-cli pro comp disable-remote-desktop --group "Lab Macs" --yes`,
 		false,
 	)
+}
+
+func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		rebuildKernelCache bool
+	)
+	cmd := &cobra.Command{
+		Use:   "restart",
+		Short: "Restart a computer",
+		Long:  "Restart a supervised computer by serial number, name, or ID.",
+		Example: `  jamf-cli pro comp restart --serial C02X1234
+  jamf-cli pro comp restart --serial C02X1234 --rebuild-kernel-cache
+  jamf-cli pro comp restart --group "Lab Macs" --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "restart",
+				deviceType: "computer",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					commandData := map[string]any{"commandType": "RESTART_DEVICE"}
+					if rebuildKernelCache {
+						commandData["rebuildKernelCache"] = true
+					}
+					return sendComputerModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting")
+	return cmd
+}
+
+func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernComputerMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+		"Shut down a computer",
+		"Shut down a supervised computer by serial number, name, or ID.",
+		`  jamf-cli pro comp shutdown --serial C02X1234
+  jamf-cli pro comp shutdown --group "Lab Macs" --yes`,
+		false,
+	)
+}
+
+func newComputerSetRecoveryLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt          deviceTarget
+		yes         bool
+		newPassword string
+	)
+	cmd := &cobra.Command{
+		Use:   "set-recovery-lock",
+		Short: "Set or clear the Recovery Lock password on a computer",
+		Long: `Set the Recovery Lock password on an Apple Silicon or Apple T2 computer.
+Omit --new-password or pass an empty string to clear the existing password.`,
+		Example: `  # Set a recovery lock password
+  jamf-cli pro comp set-recovery-lock --serial C02X1234 --new-password "S3cur3P@ss"
+
+  # Clear the recovery lock password
+  jamf-cli pro comp set-recovery-lock --serial C02X1234`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "set-recovery-lock",
+				deviceType: "computer",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": "SET_RECOVERY_LOCK",
+						"newPassword": newPassword,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&newPassword, "new-password", "", "Recovery Lock password (omit to clear)")
+	return cmd
 }
 
 // --- Modern API mobile device MDM commands ---
