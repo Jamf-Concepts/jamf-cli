@@ -16,4 +16,5 @@ paths:
       x-required-privileges:
       - Update Apache Tomcat Settings
       x-action: true
-components: {}
+components:
+  schemas: {}

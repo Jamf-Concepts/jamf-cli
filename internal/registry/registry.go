@@ -17,6 +17,23 @@ type HTTPClient interface {
 	Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error)
 }
 
+// acceptKey is the unexported context key for the Accept header override.
+type acceptKey struct{}
+
+// WithAccept returns a new context that overrides the HTTP Accept header for the request.
+// Use this for binary/non-JSON endpoints where the default "application/json" causes a 406.
+func WithAccept(ctx context.Context, accept string) context.Context {
+	return context.WithValue(ctx, acceptKey{}, accept)
+}
+
+// AcceptFromContext returns the Accept header override from the context, or "" if not set.
+func AcceptFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(acceptKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
 // FileUploader interface for streaming file uploads with custom Content-Type.
 type FileUploader interface {
 	Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error)

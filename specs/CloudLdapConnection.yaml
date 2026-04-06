@@ -36,20 +36,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapConnectionPoolStatistics'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionPoolStatistics'
         400:
           description: Search connection pool statistics data is not available.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Cloud Identity Provider search connection pool statistics does not
             exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v2/cloud-ldaps/{id}/connection/bind:
@@ -85,20 +85,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapConnectionPoolStatistics'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionPoolStatistics'
         400:
           description: Bind connection pool statistics data is not available.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Cloud Identity Provider bind connection pool statistics does not
             exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v2/cloud-ldaps/{id}/connection/status:
@@ -122,19 +122,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapConnectionStatus'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionStatus'
         400:
           description: One or more parameters were invalid.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Cloud Identity Provider does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
-components: {}
+components:
+  schemas: {}

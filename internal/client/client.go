@@ -15,6 +15,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // Client is the HTTP client for Jamf Pro API
@@ -98,15 +99,19 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
 
 	// Classic API endpoints use XML; modern API uses JSON.
+	// An explicit Accept override in the context takes precedence (used by binary download commands).
 	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
-	if isClassic {
+	if override := registry.AcceptFromContext(ctx); override != "" {
+		req.Header.Set("Accept", override)
+	} else if isClassic {
 		req.Header.Set("Accept", "application/xml")
-		if bodyData != nil {
-			req.Header.Set("Content-Type", "application/xml")
-		}
 	} else {
 		req.Header.Set("Accept", "application/json")
-		if bodyData != nil {
+	}
+	if bodyData != nil {
+		if isClassic {
+			req.Header.Set("Content-Type", "application/xml")
+		} else {
 			req.Header.Set("Content-Type", "application/json")
 		}
 	}

@@ -36,6 +36,8 @@ paths:
                 type: string
                 format: binary
       x-authentication-required: false
+      x-action: true
+      x-operation-name: active-pem
   /v1/pki/certificate-authority/active/der:
     get:
       tags:
@@ -53,6 +55,8 @@ paths:
                 type: string
                 format: binary
       x-authentication-required: false
+      x-action: true
+      x-operation-name: active-der
   /v1/pki/certificate-authority/{id}:
     get:
       tags:
@@ -124,6 +128,7 @@ paths:
            application/json:
               schema:
                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
       x-required-privileges:
         - Read PKI
   /v1/pki/certificate-authority/{id}/der:
@@ -161,6 +166,7 @@ paths:
             application/json:
               schema:
                 $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-action: true
       x-required-privileges:
         - Read PKI
 components:

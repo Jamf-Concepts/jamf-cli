@@ -44,19 +44,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/HistorySearchResults'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
         400:
           description: Id can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified Cloud Identity Provider object does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
     post:
@@ -77,7 +77,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/ObjectHistoryNote'
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
         required: true
       responses:
         201:
@@ -85,19 +85,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ObjectHistory'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
         404:
           description: Specified Cloud Identity Provider object does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
           description: Notes of Cloud Identity Provider can not be saved
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update LDAP Servers
-components: {}
+components:
+  schemas: {}

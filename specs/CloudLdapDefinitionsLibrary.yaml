@@ -17,7 +17,7 @@ components:
       properties:
         id:
           type: string
-          minimum: "1001"
+          minimum: 1001
           example: "1001"
         displayName:
           type: string
@@ -695,7 +695,7 @@ components:
       properties:
         id:
           type: string
-          minimum: "1001"
+          minimum: 1001
           example: "1001"
           readOnly: true
         tenantId:
@@ -756,7 +756,7 @@ components:
       properties:
         id:
           type: string
-          minimum: "1001"
+          minimum: 1001
           example: "1001"
         tenantId:
           type: string
@@ -815,7 +815,7 @@ components:
       properties:
         id:
           type: string
-          minimum: "1001"
+          minimum: 1001
           example: "1001"
         enabled:
           type: boolean

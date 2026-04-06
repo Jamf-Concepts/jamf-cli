@@ -14,7 +14,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/ConnectionConfigurationCandidateRequest'
+              $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/ConnectionConfigurationCandidateRequest'
         required: true
       responses:
         201:
@@ -28,19 +28,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         403:
           description: Insufficient privileges or site not found for Team Viewer connection configuration
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: Site limit exceeded for Team Viewer connection configuration
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Create Remote Administration
 
@@ -63,13 +63,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ConnectionConfigurationResponse'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/ConnectionConfigurationResponse'
         404:
           description: Team Viewer connection configuration does not exist
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read Remote Administration
     patch:
@@ -89,7 +89,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/ConnectionConfigurationUpdateRequest'
+              $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/ConnectionConfigurationUpdateRequest'
         required: true
       responses:
         200:
@@ -97,19 +97,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ConnectionConfigurationResponse'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/ConnectionConfigurationResponse'
         400:
           description: Invalid field for Team Viewer connection configuration update request
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Team Viewer connection configuration does not exist
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update Remote Administration
     delete:
@@ -149,7 +149,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ConnectionConfigurationStatusResponse'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/ConnectionConfigurationStatusResponse'
       x-required-privileges:
         - Read Remote Administration
 
@@ -188,13 +188,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/SessionDetailsSearchResults'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/SessionDetailsSearchResults'
         403:
           description: Insufficient privileges
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read Remote Administration
     post:
@@ -214,7 +214,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/SessionCandidateRequest'
+              $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/SessionCandidateRequest'
         required: true
       responses:
         201:
@@ -228,19 +228,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         403:
           description: Insufficient privileges
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: Connection configuration is not active or there is an active session for the device
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Create Remote Administration
 
@@ -270,13 +270,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/SessionDetails'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/SessionDetails'
         403:
           description: Insufficient privileges
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read Remote Administration
   /preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status:
@@ -305,19 +305,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/SessionStatus'
+                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/SessionStatus'
         403:
           description: Insufficient privileges
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Team Viewer session status not found
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read Remote Administration
 
@@ -348,13 +348,13 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: Connection configuration is not active
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update Remote Administration
       x-action: true
@@ -386,16 +386,17 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: Connection configuration is not active or session is already closed
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update Remote Administration
       x-action: true
 
-components: {}
+components:
+  schemas: {}
 

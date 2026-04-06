@@ -162,7 +162,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryCreateRequestV2'
+              $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryCreateRequestV2'
       responses:
         201:
           description: Successful response - Computer Inventory record created
@@ -221,7 +221,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryUpdateRequest'
+              $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryUpdateRequest'
       responses:
         204:
           description: Details of computer were updated
@@ -366,7 +366,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryRecoveryLockPasswordResponse'
+                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryRecoveryLockPasswordResponse'
         404:
           description: Specified computer object does not exist.
           content:
@@ -396,7 +396,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryDeviceLockPinResponse'
+                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryDeviceLockPinResponse'
         404:
           description: Specified computer object does not exist.
           content:
@@ -422,7 +422,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVaultSearchResults'
+                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVaultSearchResults'
       x-required-privileges:
         - View Disk Encryption Recovery Key
   /v2/computers-inventory/{id}/filevault:
@@ -446,7 +446,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVault'
+                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVault'
         404:
           description: FileVault information for specified computer does not exist
           content:
@@ -495,73 +495,73 @@ components:
           type: string
           example: 123
         general:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerGeneral'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerGeneral'
         diskEncryption:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerDiskEncryption'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerDiskEncryption'
         purchasing:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPurchase'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPurchase'
         applications:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerApplication'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerApplication'
         storage:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerStorage'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerStorage'
         userAndLocation:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerUserAndLocation'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerUserAndLocation'
         configurationProfiles:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerConfigurationProfile'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerConfigurationProfile'
         printers:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPrinter'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPrinter'
         services:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerService'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerService'
         hardware:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerHardware'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerHardware'
         localUserAccounts:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerLocalUserAccount'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerLocalUserAccount'
         certificates:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerCertificate'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerCertificate'
         attachments:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerAttachment'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerAttachment'
         packageReceipts:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerPackageReceipts'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPackageReceipts'
         security:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSecurity'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerSecurity'
         operatingSystem:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerOperatingSystem'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerOperatingSystem'
         licensedSoftware:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerLicensedSoftware'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerLicensedSoftware'
         ibeacons:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerIbeacon'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerIbeacon'
         softwareUpdates:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerSoftwareUpdate'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerSoftwareUpdate'
         extensionAttributes:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerExtensionAttribute'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerExtensionAttribute'
         contentCaching:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ComputerContentCaching'
+          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerContentCaching'
         groupMemberships:
           type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/GroupMembership'
+            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/GroupMembership'
     ComputerInventorySearchResultsV2:
       type: object
       properties:

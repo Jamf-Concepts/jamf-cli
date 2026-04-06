@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -33,6 +35,7 @@ func NewInventoryPreloadsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newInventoryPreloadsHistoryCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsExportCmd(ctx))
+	cmd.AddCommand(newInventoryPreloadsUploadCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsCsvValidateCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsDeleteAllCmd(ctx))
 	cmd.AddCommand(newInventoryPreloadsGetByNameCmd(ctx))
@@ -43,7 +46,9 @@ func NewInventoryPreloadsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagSaveTo string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -56,6 +61,7 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli inventory-preloads list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Build request path
 			path := "/v2/inventory-preload/csv"
@@ -73,9 +79,25 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
@@ -124,12 +146,14 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create one or more new Inventory Preload records using CSV",
-		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
+		Short: "Create a new Inventory Preload record using JSON",
+		Long:  "Create a new Inventory Preload record using JSON.",
 		Example: `  # Show the JSON template for creating a inventory-preload
   jamf-cli inventory-preloads create --scaffold
 
@@ -141,8 +165,38 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				fmt.Println(`{
+  "appleCareId": 5678,
+  "assetTag": "ABCDEFG12345",
+  "barCode1": 123456789,
+  "barCode2": 123456789,
+  "building": "Eau Claire",
+  "department": "IT",
+  "deviceType": "Computer",
+  "emailAddress": "ITBob@jamf.com",
+  "extensionAttributes": [],
+  "fullName": "Name",
+  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "lifeExpectancy": "5 years",
+  "phoneNumber": "555-555-5555",
+  "poDate": "2019-02-04T21:09:31.661Z",
+  "poNumber": 8675309,
+  "position": "IT Team Lead",
+  "purchasePrice": "$399",
+  "purchasingAccount": "IT Budget",
+  "purchasingContact": "Nick in IT",
+  "room": "4th Floor - Quad 3",
+  "serialNumber": "C02L29ECF8J1",
+  "username": "admin",
+  "vendor": "Apple",
+  "warrantyExpiration": "2012-07-21T00:00:00Z"
+}`)
+				return nil
+			}
+
 			// Build request path
-			path := "/v2/inventory-preload/csv"
+			path := "/v2/inventory-preload/records"
 
 			// Build query string
 			var queryParts []string
@@ -166,6 +220,8 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -506,6 +562,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSort         []string
 		flagFilter       string
 		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
@@ -516,6 +573,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli inventory-preloads export --out-file inventory-preloads.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
 				fmt.Println(`{
@@ -576,7 +634,21 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
 		},
 	}
 
@@ -587,12 +659,71 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'id:asc'. Multiple sort criteria are supported and must be separated with a comma. All inventory preload fields are supported, however fields added by extension attributes are not supported. If sorting by deviceType, use '0' for Computer and '1' for Mobile Device.  Example: 'sort=date:desc,name:asc'. ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=categoryName==\"Category\"' ")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newInventoryPreloadsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagFile string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "upload",
+		Short: "Create one or more new Inventory Preload records using CSV",
+		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/inventory-preload/csv"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
+			}
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
 }
 
 func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "csv-validate",
@@ -611,13 +742,25 @@ func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
 			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
 			if err != nil {
 				return err
 			}
@@ -626,6 +769,9 @@ func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
 }
@@ -840,7 +986,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create inventory-preload %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/inventory-preload/csv", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/inventory-preload/records", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}

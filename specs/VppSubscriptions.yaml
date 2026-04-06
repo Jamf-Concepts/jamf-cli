@@ -307,7 +307,7 @@ components:
           default: '-1'
     VolumePurchasingSubscription:
       allOf:
-        - $ref: 'VolumePurchasingSubscriptionBase'
+        - $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
         - type: object
           properties:
             id:

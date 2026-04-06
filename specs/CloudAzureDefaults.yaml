@@ -17,19 +17,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AzureMappings'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureMappings'
         400:
           description: Files cannot be loaded.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v1/cloud-azure/defaults/server-configuration:
@@ -44,19 +44,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AzureServerConfiguration'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureServerConfiguration'
         400:
           description: Default server configuration cannot be loaded.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: This endpoint is not available for your environment.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
-components: {}
+components:
+  schemas: {}

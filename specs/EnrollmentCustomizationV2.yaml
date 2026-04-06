@@ -164,7 +164,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/BrandingImageUrl'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/BrandingImageUrl'
       x-required-privileges:
         - Update Enrollment Customizations
   /v2/enrollment-customizations/images/{id}:

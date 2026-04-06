@@ -10,6 +10,8 @@ components:
       allOf:
         - $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandBase'
         - type: object
+          required:
+            - password
           properties:
             password:
               type: string
@@ -17,5 +19,4 @@ components:
               format: password
               minLength: 1
               writeOnly: true
-              required: true
               description: The password to verify.

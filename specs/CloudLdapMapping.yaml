@@ -22,20 +22,20 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
           description: Id can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified mappings settings for Cloud Identity Provider configuration
             do not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
     put:
@@ -56,7 +56,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/CloudLdapMappingsRequest'
+              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsRequest'
         required: true
       responses:
         200:
@@ -64,26 +64,27 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudLdapMappingsResponse'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
           description: One or more parameters were invalid.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
           description: Cloud Identity Provider id from request path do not match id
             in request body.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update LDAP Servers
-components: {}
+components:
+  schemas: {}

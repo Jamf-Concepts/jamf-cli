@@ -28,7 +28,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ConfigurationSearchResults'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/ConfigurationSearchResults'
       x-required-privileges:
         - Read LDAP Servers
   /v1/cloud-idp/{id}:
@@ -50,19 +50,19 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/CloudIdPCommon'
+                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudIdPCommon'
         400:
           description: ID can only be a number.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
           description: Specified Cloud Identity Provider configuration does not exist.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v1/cloud-idp/export:
@@ -133,4 +133,5 @@ paths:
         - Read LDAP Servers
       x-action: true
 
-components: {}
+components:
+  schemas: {}

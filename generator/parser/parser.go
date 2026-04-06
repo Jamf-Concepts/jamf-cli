@@ -104,6 +104,24 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 	}
 
 	// Single-family spec: build one resource using the filename-derived name.
+	// Filter out operations that don't belong to the canonical collection prefix to
+	// avoid polluting a resource with unrelated endpoints from the same spec file
+	// (e.g. /v1/branding-images/download/{id} appearing in Icon.yaml alongside /v1/icon).
+	filteredOps := filterToCanonicalPrefix(allOps)
+	for _, op := range allOps {
+		found := false
+		for _, fop := range filteredOps {
+			if fop == op {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Fprintf(os.Stderr, "  Warning: %s %s not in canonical prefix family — skipped\n", op.Method, op.Path)
+		}
+	}
+	allOps = filteredOps
+
 	resource := &Resource{
 		Description: doc.Info.Description,
 		Operations:  allOps,
@@ -254,7 +272,10 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			if assignedPaths[op.Path] {
 				continue
 			}
-			if op.Path == parentPath || strings.HasPrefix(op.Path, parentPath+"/") {
+			strippedParent := stripVersionPrefix(parentPath)
+			strippedOp := stripVersionPrefix(op.Path)
+			if op.Path == parentPath || strings.HasPrefix(op.Path, parentPath+"/") ||
+				(strippedParent != parentPath && (strippedOp == strippedParent || strings.HasPrefix(strippedOp, strippedParent+"/"))) {
 				parentOps = append(parentOps, op)
 			}
 		}
@@ -262,7 +283,30 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			continue
 		}
 
-		name := pluralize(pathToResourceName(parentPath))
+		// When all collected ops have version-stripped paths (none are at the canonical
+		// parent path), name the resource from the common stripped prefix of those ops
+		// rather than the versioned parent path — this gives more specific names like
+		// "self-service-branding-images" instead of the generic "self-service-brandings".
+		namePath := parentPath
+		strippedParent := stripVersionPrefix(parentPath)
+		if strippedParent != parentPath {
+			allStripped := true
+			for _, op := range parentOps {
+				if strings.HasPrefix(op.Path, parentPath) {
+					allStripped = false
+					break
+				}
+			}
+			if allStripped && len(parentOps) > 0 {
+				// Use the stripped path of the first op as the name source.
+				namePath = stripVersionPrefix(parentOps[0].Path)
+				// Strip trailing path parameter if present.
+				if idx := strings.LastIndex(namePath, "/{"); idx != -1 {
+					namePath = namePath[:idx]
+				}
+			}
+		}
+		name := pluralize(pathToResourceName(namePath))
 		r := &Resource{
 			Name:         name,
 			NameSingular: singularize(name),
@@ -299,6 +343,90 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 	}
 
 	return resources
+}
+
+// filterToCanonicalPrefix returns only the operations that belong to the same
+// resource family as the canonical collection path. A "collection path" is the
+// non-parameterized path that has a direct /{param} child (e.g. /v1/icon or
+// /v2/inventory-preload/records). Unrelated endpoints in the same spec file
+// (e.g. /v1/branding-images/download/{id} in Icon.yaml) are excluded.
+//
+// Matching is based on the version-stripped resource base so that sibling paths
+// like /v2/inventory-preload/csv are included when the canonical path is
+// /v2/inventory-preload/records (both share the /inventory-preload base).
+//
+// If no clear canonical prefix is found, all ops are returned unchanged.
+func filterToCanonicalPrefix(ops []*Operation) []*Operation {
+	// Find all non-parameterized paths that have a direct /{param} child.
+	var collectionPaths []string
+	seen := make(map[string]bool)
+	for _, op := range ops {
+		if hasPathParam(op.Path) {
+			continue
+		}
+		for _, other := range ops {
+			if !hasPathParam(other.Path) {
+				continue
+			}
+			if !strings.HasPrefix(other.Path, op.Path+"/") {
+				continue
+			}
+			remainder := other.Path[len(op.Path):]
+			parts := strings.SplitN(remainder, "/", 3)
+			if len(parts) == 2 && strings.HasPrefix(parts[1], "{") {
+				if !seen[op.Path] {
+					seen[op.Path] = true
+					collectionPaths = append(collectionPaths, op.Path)
+				}
+				break
+			}
+		}
+	}
+
+	if len(collectionPaths) != 1 {
+		// 0 = no collection path (e.g. action-only spec), 2+ = multi-family (handled upstream).
+		// In both cases return all ops unfiltered.
+		return ops
+	}
+
+	cp := collectionPaths[0]
+
+	// Compute the version-stripped resource base: the canonical path with the
+	// version segment removed and (if it has depth) the last component removed too.
+	// Examples:
+	//   /v1/icon                      → stripped=/icon         → base=/icon
+	//   /v2/inventory-preload/records → stripped=/inventory-preload/records → base=/inventory-preload
+	stripped := stripVersionPrefix(cp)
+	var strippedBase string
+	if idx := strings.LastIndex(stripped, "/"); idx > 0 {
+		strippedBase = stripped[:idx]
+	} else {
+		strippedBase = stripped
+	}
+
+	var filtered []*Operation
+	for _, op := range ops {
+		opStripped := stripVersionPrefix(op.Path)
+		if opStripped == strippedBase || strings.HasPrefix(opStripped, strippedBase+"/") {
+			filtered = append(filtered, op)
+		}
+	}
+	return filtered
+}
+
+// stripVersionPrefix removes a leading version segment (v1, v2, v3, preview,
+// etc.) from a path, leaving the leading slash intact.
+// e.g. /v1/self-service/branding → /self-service/branding
+// Paths without a version prefix are returned unchanged.
+func stripVersionPrefix(path string) string {
+	trimmed := strings.TrimPrefix(path, "/")
+	if idx := strings.Index(trimmed, "/"); idx != -1 {
+		prefix := trimmed[:idx]
+		if strings.HasPrefix(prefix, "v") || prefix == "preview" {
+			return "/" + trimmed[idx+1:]
+		}
+	}
+	return path
 }
 
 // pathToResourceName converts an API path to a kebab-case resource name.
@@ -356,6 +484,14 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	opName := inferOperationName(path, method, isAction)
+	// Allow spec authors to override the inferred operation name via x-operation-name.
+	// Useful for disambiguating endpoints that would otherwise collide
+	// (e.g. /active/pem → "active-pem" vs /{id}/pem → "pem").
+	if nameOverride, ok := op.Extensions["x-operation-name"]; ok {
+		if s, ok := nameOverride.(string); ok && s != "" {
+			opName = s
+		}
+	}
 	operation := &Operation{
 		Name:          opName,
 		Method:        strings.ToUpper(method),
@@ -413,8 +549,21 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			Description: rb.Description,
 			Required:    rb.Required,
 		}
-		// Resolve request body schema for scaffold generation
-		if content, ok := rb.Content["application/json"]; ok && content.Schema != nil && content.Schema.Value != nil {
+		if content, ok := rb.Content["multipart/form-data"]; ok && content.Schema != nil && content.Schema.Value != nil {
+			operation.RequestBody.IsMultipart = true
+			// Find the file field: prefer a property with format:binary, fall back to "file".
+			operation.RequestBody.FileField = "file"
+			for propName, propRef := range content.Schema.Value.Properties {
+				if propRef != nil && propRef.Value != nil && propRef.Value.Format == "binary" {
+					operation.RequestBody.FileField = propName
+					break
+				}
+			}
+			// Non-x-action multipart POSTs get "upload" rather than the generic "create".
+			if operation.Name == "create" {
+				operation.Name = "upload"
+			}
+		} else if content, ok := rb.Content["application/json"]; ok && content.Schema != nil && content.Schema.Value != nil {
 			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
 		}
 	}
@@ -433,10 +582,24 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			if respRef == nil || respRef.Value == nil {
 				continue
 			}
-			operation.Responses[code] = &Response{
+			resp := &Response{
 				StatusCode:  code,
 				Description: *respRef.Value.Description,
 			}
+			// Detect binary responses: image/*, text/csv, or format:binary schema.
+			for ctType, mediaType := range respRef.Value.Content {
+				if strings.HasPrefix(ctType, "image/") || ctType == "text/csv" {
+					resp.IsBinary = true
+					break
+				}
+				if mediaType != nil && mediaType.Schema != nil && mediaType.Schema.Value != nil {
+					if mediaType.Schema.Value.Format == "binary" {
+						resp.IsBinary = true
+						break
+					}
+				}
+			}
+			operation.Responses[code] = resp
 		}
 	}
 
@@ -518,6 +681,15 @@ func inferOperationName(path, method string, isAction bool) string {
 			return "history"
 		}
 		return "add-history-note"
+	}
+	// Paths ending in /download/{param} are download (binary) operations, not generic gets.
+	if method == "get" && strings.Contains(path, "{") {
+		parts := strings.Split(path, "/")
+		for i, p := range parts {
+			if strings.HasPrefix(p, "{") && i > 0 && parts[i-1] == "download" {
+				return "download"
+			}
+		}
 	}
 
 	// Extract action verb from path for x-action endpoints

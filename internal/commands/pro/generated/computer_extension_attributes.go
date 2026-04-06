@@ -3,12 +3,15 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -33,6 +36,7 @@ func NewComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newComputerExtensionAttributesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesUploadCmd(ctx))
+	cmd.AddCommand(newComputerExtensionAttributesDownloadCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesGetByNameCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDeleteByNameCmd(ctx))
 
@@ -639,7 +643,9 @@ func newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx *registry.
 }
 
 func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "upload",
@@ -658,13 +664,25 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			if ctx.Uploader == nil {
+				return fmt.Errorf("file upload not supported in this context")
 			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			f, err := os.Open(flagFile)
+			if err != nil {
+				return fmt.Errorf("opening %s: %w", flagFile, err)
+			}
+			defer f.Close()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			if err != nil {
+				return fmt.Errorf("creating form file: %w", err)
+			}
+			if _, err := io.Copy(fw, f); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			mw.Close()
+			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
 			if err != nil {
 				return err
 			}
@@ -673,6 +691,68 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	_ = cmd.MarkFlagRequired("file")
+
+	return cmd
+}
+
+func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download <id>",
+		Short: "Download the specified Computer Extension Attribute.",
+		Long:  "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
+		Example: `  # Save to file
+  jamf-cli pro computer-extension-attributes download <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro computer-extension-attributes download <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v1/computer-extension-attributes/{id}/download"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
