@@ -3,6 +3,8 @@ name: Deploy Site
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +26,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Checkout latest release tag for binary build
+        if: github.event_name != 'release'
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          git checkout "$LATEST_TAG"
+          git checkout ${{ github.sha }} -- docs/site
 
       - uses: actions/setup-go@v6
         with:
