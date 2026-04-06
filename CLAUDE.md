@@ -32,6 +32,8 @@ After modifying a template: `make generate && make test`
 | Change behavior of all modern API commands | `generator/parser/generator.go` (`resourceTemplate`) |
 | Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
+| Change singleton detection logic | `generator/parser/parser.go` → `detectSingleton()` |
+| Change multi-family spec splitting | `generator/parser/parser.go` → `splitByPathFamilies()` |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
@@ -126,9 +128,13 @@ Entrypoint: generator/main.go (runs both generators)
 ```
 
 Key types available in templates:
-- **`parser.Resource`** — `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`
+- **`parser.Resource`** — `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`, `IsSingleton`
 - **`parser.Operation`** — `Name`, `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsDestructive`
 - **`classic.ClassicResource`** — `Name`, `Path`, `CLIName`, `GoName`, `Singular`, `Operations`, `Lookups`
+
+`ParseSpec` returns `[]*Resource` — most specs produce one resource, but specs with multiple sibling CRUD families (e.g. `SelfServiceBranding.yaml` → macos + ios) produce one per family.
+
+`IsSingleton` is true for settings-style resources (GET+PUT, no `{id}` in any path). Singletons get a `get` command instead of `list`, use a singular CLI name, and skip `apply`/`delete-by-name`.
 
 See `generator/README.md` for full template function reference and testing workflow.
 
@@ -193,7 +199,7 @@ Generated commands depend on shared interfaces defined in `internal/registry/`:
 
 ### Generated Apply (Upsert) Commands
 
-Resources with both `create` (POST) and `update` (PUT) operations automatically get an `apply` subcommand. Classic API resources additionally require `name` in their lookups. Apply performs a name-based upsert:
+Resources with both `create` (POST) and `update` (PUT) operations automatically get an `apply` subcommand, **unless they are singletons** (no `{id}` path — upsert by name makes no sense when there is only one instance). Classic API resources additionally require `name` in their lookups. Apply performs a name-based upsert:
 
 1. Reads input from `--from-file` or stdin (JSON for modern API, XML for classic API)
 2. Extracts the name field from input (uses `NameField` — either `name` or `displayName` for modern; searches `<name>` or `<general><name>` for classic XML)
