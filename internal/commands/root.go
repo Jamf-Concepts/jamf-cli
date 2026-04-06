@@ -372,7 +372,11 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
 configuration, reporting, and API automation).
 Use "jamf-cli protect" for Jamf Protect commands (endpoint security,
-analytics, threat prevention, and configuration).`,
+analytics, threat prevention, and configuration).
+
+Set JAMF_CLI_ARGS to prepend default flags to every invocation:
+  export JAMF_CLI_ARGS='--quiet --no-input'
+  export JAMF_CLI_ARGS='--profile "My CI Profile"'`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
