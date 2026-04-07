@@ -187,6 +187,7 @@ func TestCollectCommands_ProductAndGroup(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("expected 'pro computers list' in entries")
+		return
 	}
 	if found.Product != "pro" {
 		t.Errorf("product = %q, want %q", found.Product, "pro")
@@ -209,6 +210,7 @@ func TestCollectCommands_ProtectProductAndGroup(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("expected 'protect analytics list' in entries")
+		return
 	}
 	if found.Product != "protect" {
 		t.Errorf("product = %q, want %q", found.Product, "protect")
@@ -231,6 +233,7 @@ func TestCollectCommands_RootCommandsNoProduct(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("expected 'version' in entries")
+		return
 	}
 	if found.Product != "" {
 		t.Errorf("version product = %q, want empty", found.Product)
