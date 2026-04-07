@@ -16,89 +16,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
-// NewClassicVppAssignmentsCmd creates the classic-vpp-assignments command group
-func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicAccountUsersCmd creates the classic-account-users command group
+func NewClassicAccountUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-vpp-assignments",
-		Short: "VPP license assignments (Classic API)",
-		Long:  `Manage vpp license assignments via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-account-users",
+		Short: "Jamf Pro account users (Classic API)",
+		Long:  `Manage jamf pro account users via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicVppAssignmentsListCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersGetCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersGetByUsernameCmd(ctx))
 
-	cmd.AddCommand(newClassicVppAssignmentsGetCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersCreateCmd(ctx))
 
-	cmd.AddCommand(newClassicVppAssignmentsCreateCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersUpdateCmd(ctx))
 
-	cmd.AddCommand(newClassicVppAssignmentsUpdateCmd(ctx))
-
-	cmd.AddCommand(newClassicVppAssignmentsDeleteCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersDeleteCmd(ctx))
 
 	return cmd
 }
 
-func newClassicVppAssignmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all vppassignments",
-		Example: `  # List all vppassignments
-  jamf-cli classic-vpp-assignments list
-
-  # List vppassignments and extract IDs
-  jamf-cli classic-vpp-assignments list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppassignments", nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Classic API returns XML list responses.
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				items, err := xmlconv.ExtractListItems(body)
-				if err == nil {
-					jsonItems, err := json.Marshal(items)
-					if err == nil {
-						return ctx.Output.PrintRaw(jsonItems)
-					}
-				}
-				return ctx.Output.PrintRaw(body)
-			}
-			// JSON fallback
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["vppassignments"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a vpp_assignment by ID",
-		Example: `  # Get a vpp_assignment by ID
-  jamf-cli classic-vpp-assignments get 1
+		Short: "Get a account_user by ID",
+		Example: `  # Get a account_user by ID
+  jamf-cli classic-account-users get 1
 
-  # Get a vpp_assignment and output as YAML
-  jamf-cli classic-vpp-assignments get 1 -o yaml`,
+  # Get a account_user and output as YAML
+  jamf-cli classic-account-users get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -122,7 +72,7 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["vpp_assignment"]; ok {
+				if inner, ok := wrapper["account_user"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -131,13 +81,52 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersGetByUsernameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-username <username>",
+		Short: "Get a account_user by username",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/accounts/username/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["account_user"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
-		Short: "Create a vpp_assignment",
-		Long:  "Create a new vpp_assignment. Reads XML body from stdin.",
-		Example: `  # Create a vpp_assignment from XML
-  cat vpp_assignment.xml | jamf-cli classic-vpp-assignments create`,
+		Short: "Create a account_user",
+		Long:  "Create a new account_user. Reads XML body from stdin.",
+		Example: `  # Create a account_user from XML
+  cat account_user.xml | jamf-cli classic-account-users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -149,7 +138,7 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppassignments/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/accounts/userid/0", body)
 			if err != nil {
 				return err
 			}
@@ -160,13 +149,13 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 }
 
-func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a vpp_assignment",
-		Long:  "Update an existing vpp_assignment by ID. Reads XML body from stdin.",
-		Example: `  # Update a vpp_assignment from XML
-  cat vpp_assignment.xml | jamf-cli classic-vpp-assignments update 1`,
+		Short: "Update a account_user",
+		Long:  "Update an existing account_user by ID. Reads XML body from stdin.",
+		Example: `  # Update a account_user from XML
+  cat account_user.xml | jamf-cli classic-account-users update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -179,7 +168,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -191,7 +180,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 }
 
-func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -199,18 +188,18 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a vpp_assignment",
-		Example: `  # Delete a vpp_assignment (with confirmation)
-  jamf-cli classic-vpp-assignments delete 1
+		Short: "Delete a account_user",
+		Example: `  # Delete a account_user (with confirmation)
+  jamf-cli classic-account-users delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-vpp-assignments delete 1 --yes`,
+  jamf-cli classic-account-users delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete vpp_assignment %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete account_user %s\n", args[0])
 				return nil
 			}
 			if !flagYes {
@@ -218,7 +207,7 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete vpp_assignment %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete account_user %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -226,7 +215,7 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

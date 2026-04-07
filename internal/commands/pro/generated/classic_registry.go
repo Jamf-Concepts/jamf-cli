@@ -18,11 +18,12 @@ import (
 
 // RegisterClassicCommands registers all Classic API resource commands.
 func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
+	root.AddCommand(NewClassicAccountGroupsCmd(ctx))
+	root.AddCommand(NewClassicAccountUsersCmd(ctx))
 	root.AddCommand(NewClassicAccountsCmd(ctx))
 	root.AddCommand(NewClassicAdvancedComputerSearchesCmd(ctx))
 	root.AddCommand(NewClassicAllowedFileExtensionsCmd(ctx))
 	root.AddCommand(NewClassicClassesCmd(ctx))
-	root.AddCommand(NewClassicComputerAppUsageCmd(ctx))
 	root.AddCommand(NewClassicComputerAppsCmd(ctx))
 	root.AddCommand(NewClassicComputerCommandsCmd(ctx))
 	root.AddCommand(NewClassicComputerConfigsCmd(ctx))
@@ -51,6 +52,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicPatchExternalSourcesCmd(ctx))
 	root.AddCommand(NewClassicPatchInternalSourcesCmd(ctx))
 	root.AddCommand(NewClassicPatchPoliciesCmd(ctx))
+	root.AddCommand(NewClassicPatchReportsCmd(ctx))
 	root.AddCommand(NewClassicPatchTitlesCmd(ctx))
 	root.AddCommand(NewClassicPoliciesCmd(ctx))
 	root.AddCommand(NewClassicPrintersCmd(ctx))

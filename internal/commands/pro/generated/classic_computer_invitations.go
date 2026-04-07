@@ -27,10 +27,14 @@ func NewClassicComputerInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicComputerInvitationsListCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsGetCmd(ctx))
+	cmd.AddCommand(newClassicComputerInvitationsGetByNameCmd(ctx))
+	cmd.AddCommand(newClassicComputerInvitationsGetByInvitationCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsCreateCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsDeleteCmd(ctx))
+
+	cmd.AddCommand(newClassicComputerInvitationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -56,6 +60,11 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				items, err := xmlconv.ExtractListItems(body)
@@ -98,10 +107,93 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			}
 			defer resp.Body.Close()
 
-			// Classic API returns XML; convert to JSON for output.
+			// Classic API returns XML; pass through by default.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["computer_invitation"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicComputerInvitationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a computer_invitation by name",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computerinvitations/name/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["computer_invitation"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicComputerInvitationsGetByInvitationCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-invitation <invitation>",
+		Short: "Get a computer_invitation by invitation",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computerinvitations/invitation/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
@@ -192,6 +284,73 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newClassicComputerInvitationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete-by-name <name>",
+		Short: "Delete a computer_invitation by name",
+		Example: `  # Delete a computer_invitation by name (with confirmation)
+  jamf-cli classic-computer-invitations delete-by-name "Example"
+
+  # Delete without confirmation prompt
+  jamf-cli classic-computer-invitations delete-by-name "Example" --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			name := args[0]
+
+			// Resolve name to ID (collision-aware)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", name, noInput)
+			if err != nil {
+				return err
+			}
+			if id == "" {
+				return fmt.Errorf("no computer_invitation found with name %q", name)
+			}
+
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %q (id: %s). Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(id))
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				fmt.Fprintf(os.Stderr, "Deleted computer_invitation %q (id: %s)\n", name, id)
 				return nil
 			}
 

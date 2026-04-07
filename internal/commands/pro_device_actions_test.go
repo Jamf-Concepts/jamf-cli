@@ -284,6 +284,8 @@ type mockOutput struct{}
 
 func (mockOutput) PrintResponse(_ *http.Response) error { return nil }
 func (mockOutput) PrintRaw(_ []byte) error              { return nil }
+func (mockOutput) PrintBytes(_ []byte) error            { return nil }
+func (mockOutput) Format() string                       { return "json" }
 
 // bodyCapturingClient captures the request body for assertion in tests.
 type bodyCapturingClient struct {

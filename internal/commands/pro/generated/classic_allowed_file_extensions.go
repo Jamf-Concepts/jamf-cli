@@ -27,6 +27,7 @@ func NewClassicAllowedFileExtensionsCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newClassicAllowedFileExtensionsListCmd(ctx))
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsGetCmd(ctx))
+	cmd.AddCommand(newClassicAllowedFileExtensionsGetByExtensionCmd(ctx))
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
@@ -56,6 +57,11 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				items, err := xmlconv.ExtractListItems(body)
@@ -98,10 +104,54 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			defer resp.Body.Close()
 
-			// Classic API returns XML; convert to JSON for output.
+			// Classic API returns XML; pass through by default.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["allowed_file_extension"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicAllowedFileExtensionsGetByExtensionCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-extension <extension>",
+		Short: "Get a allowed_file_extension by extension",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/allowedfileextensions/extension/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {

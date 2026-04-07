@@ -268,6 +268,99 @@ func TestGenerate_ClassicExamples_ListOnly(t *testing.T) {
 	}
 }
 
+func TestGenerate_CustomIDPath(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "account-groups",
+		Path:        "accounts",
+		CLIName:     "classic-account-groups",
+		GoName:      "ClassicAccountGroups",
+		Singular:    "account_group",
+		Description: "Account groups",
+		Operations:  []string{"get", "create", "update", "delete"},
+		Lookups:     []string{"id", "groupname"},
+		IDPath:      "groupid",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// All ID-based paths must use groupid, not id
+	if strings.Contains(code, "/accounts/id/") {
+		t.Error("generated code must not use /accounts/id/ — should use /accounts/groupid/")
+	}
+	checks := []string{
+		"/JSSResource/accounts/groupid/",
+		"newClassicAccountGroupsGetCmd",
+		"newClassicAccountGroupsGetByGroupnameCmd",
+		"newClassicAccountGroupsCreateCmd",
+		"newClassicAccountGroupsUpdateCmd",
+		"newClassicAccountGroupsDeleteCmd",
+		`"net/url"`,
+		`"io"`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated code missing %q", check)
+		}
+	}
+}
+
+func TestGenerate_ExtraLookupsOnlyResource(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerapplications",
+		Path:        "computerapplications",
+		CLIName:     "classic-computer-apps",
+		GoName:      "ClassicComputerApps",
+		Singular:    "computer_application",
+		Description: "Computer applications inventory",
+		Operations:  []string{},
+		Lookups:     []string{"application"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Should have get-by-application but no list/get/create/update/delete
+	if !strings.Contains(code, "GetByApplicationCmd") {
+		t.Error("expected get-by-application command")
+	}
+	for _, unexpected := range []string{"ListCmd", "GetCmd(", "CreateCmd", "UpdateCmd", "DeleteCmd"} {
+		if strings.Contains(code, unexpected) {
+			t.Errorf("unexpected %s for extra-lookups-only resource", unexpected)
+		}
+	}
+	// Must import net/url and io for the get-by-* command
+	if !strings.Contains(code, `"net/url"`) {
+		t.Error("expected net/url import for get-by-application")
+	}
+	if !strings.Contains(code, `"io"`) {
+		t.Error("expected io import for get-by-application")
+	}
+}
+
 // --- Template helper function tests ---
 
 func TestHasOp(t *testing.T) {

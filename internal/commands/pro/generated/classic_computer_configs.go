@@ -65,6 +65,11 @@ func newClassicComputerConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
 			if xmlconv.IsXML(body) {
 				items, err := xmlconv.ExtractListItems(body)
 				if err == nil {
@@ -106,10 +111,15 @@ func newClassicComputerConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			// Classic API returns XML; convert to JSON for output.
+			// Classic API returns XML; pass through by default.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
@@ -144,6 +154,11 @@ func newClassicComputerConfigsGetByNameCmd(ctx *registry.CLIContext) *cobra.Comm
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
