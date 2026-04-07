@@ -421,7 +421,7 @@ func newUsersGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/users", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/users", "username", args[0])
 			if err != nil {
 				return err
 			}
@@ -457,12 +457,12 @@ func newUsersDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/users", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/users", "username", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no user found with name %q", name)
+				return fmt.Errorf("no user found with username %q", name)
 			}
 
 			if flagDryRun {
@@ -514,7 +514,7 @@ func newUsersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create or replace a user by name",
 		Long: `Create or replace a user. Reads JSON from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The username field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a user from a file
@@ -538,14 +538,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "username")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "username", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/users", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/users", "username", name, noInput)
 			if err != nil {
 				return err
 			}

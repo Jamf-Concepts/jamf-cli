@@ -550,6 +550,47 @@ func TestDetectNameField(t *testing.T) {
 			},
 			want: "name",
 		},
+		{
+			// Schema "Package" + field "packageName": prefix "package" is in schema name → typed candidate
+			name: "packageName matches schema name - used as name field",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{"packageName": {}, "fileName": {}, "manifestFileName": {}}},
+			},
+			want: "packageName",
+		},
+		{
+			// username prefix "user" is in schema name "User"
+			name: "username matches User schema",
+			schemas: map[string]*Schema{
+				"User": {Properties: map[string]*Property{"username": {}, "realname": {}}},
+			},
+			want: "username",
+		},
+		{
+			// multiple typed candidates from different schemas → ambiguous → fall back to "name"
+			name: "multiple typed candidates - fall back to name",
+			schemas: map[string]*Schema{
+				"Package":  {Properties: map[string]*Property{"packageName": {}}},
+				"Category": {Properties: map[string]*Property{"categoryName": {}}},
+			},
+			want: "name",
+		},
+		{
+			// field prefix not in schema name → not a typed candidate → fall back
+			name: "packageName in unrelated schema - fall back to name",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"packageName": {}, "fileName": {}}},
+			},
+			want: "name",
+		},
+		{
+			// name takes priority over typed candidates
+			name: "name present alongside typed candidate - name wins",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{"packageName": {}, "name": {}}},
+			},
+			want: "name",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -753,17 +753,58 @@ func hasPaginationParams(op *openapi3.Operation) bool {
 }
 
 // detectNameField inspects schemas to determine the correct field for name-based
-// filtering. Returns "displayName" if any schema has it without "name", otherwise "name".
+// filtering. Priority: "displayName" > "name" > schema-typed *name field > "name".
+//
+// The "schema-typed" heuristic handles resources like Package (packageName) or
+// User (username): if a non-readonly string field named "{prefix}name" exists and
+// its prefix is a substring of the schema name, it is treated as the type-specific
+// name field. If exactly one such candidate is found across all schemas, it is used.
 func detectNameField(schemas map[string]*Schema) string {
-	hasDisplayName := false
-	for _, s := range schemas {
-		if _, ok := s.Properties["displayName"]; ok {
-			hasDisplayName = true
+	var (
+		hasName, hasDisplayName bool
+		typedCandidates         []string
+		seenCandidates          = map[string]bool{}
+	)
+
+	for schemaName, s := range schemas {
+		schemaLower := strings.ToLower(schemaName)
+		for fieldName, prop := range s.Properties {
+			if prop.ReadOnly {
+				continue
+			}
+			lower := strings.ToLower(fieldName)
+			if !strings.HasSuffix(lower, "name") {
+				continue
+			}
+			switch fieldName {
+			case "name":
+				hasName = true
+			case "displayName":
+				hasDisplayName = true
+			default:
+				// e.g. "packageName" → prefix "package" must appear in schema name "Package"
+				prefix := lower[:len(lower)-len("name")]
+				if prefix != "" && strings.Contains(schemaLower, prefix) && !seenCandidates[fieldName] {
+					typedCandidates = append(typedCandidates, fieldName)
+					seenCandidates[fieldName] = true
+				}
+			}
 		}
 	}
+
+	// Priority: displayName > name (preserves existing behaviour)
 	if hasDisplayName {
 		return "displayName"
 	}
+	if hasName {
+		return "name"
+	}
+
+	// No standard name field: if exactly one schema-typed *name candidate, use it.
+	if len(typedCandidates) == 1 {
+		return typedCandidates[0]
+	}
+
 	return "name"
 }
 
