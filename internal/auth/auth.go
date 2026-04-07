@@ -4,11 +4,16 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -42,13 +47,76 @@ func (p *TokenProvider) Name() string {
 	return "token"
 }
 
+// cachedToken is the on-disk representation of a persisted OAuth2 token.
+type cachedToken struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// tokenCachePath returns the path of the token cache file for the given URL and
+// client ID. The path is keyed by a sha256 hash so each profile gets a unique file.
+// Files are stored under os.UserCacheDir() (~/Library/Caches on macOS, ~/.cache on
+// Linux) so they survive reboots. Returns "" if no user-private cache directory is
+// available — callers must check for "" and skip disk caching.
+func tokenCachePath(baseURL, clientID string) string {
+	h := sha256.Sum256([]byte(baseURL + "|" + clientID))
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Join(cacheDir, "jamf-cli")
+	_ = os.MkdirAll(dir, 0o700)
+	return filepath.Join(dir, "token-"+hex.EncodeToString(h[:]))
+}
+
+// ClearTokenCache removes the on-disk token cache file for the given URL and
+// client ID. Called by setup commands after credential changes to prevent stale
+// cached tokens from being used. Errors are silently ignored.
+func ClearTokenCache(baseURL, clientID string) {
+	if path := tokenCachePath(baseURL, clientID); path != "" {
+		_ = os.Remove(path)
+	}
+}
+
+// loadTokenCache reads the cache file at path and returns the token and its expiry.
+// Returns false if the file does not exist, cannot be parsed, or the token is empty.
+func loadTokenCache(path string) (cachedToken, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cachedToken{}, false
+	}
+	var tc cachedToken
+	if err := json.Unmarshal(data, &tc); err != nil || tc.Token == "" {
+		return cachedToken{}, false
+	}
+	return tc, true
+}
+
+// saveTokenCache persists a token and its expiry to the cache file with mode 0600.
+// The write is atomic: data is written to a temporary file then renamed into place
+// so concurrent readers never see a partial file. Failures are silently ignored —
+// the cache is best-effort.
+func saveTokenCache(path, token string, expiresAt time.Time) {
+	data, err := json.Marshal(cachedToken{Token: token, ExpiresAt: expiresAt})
+	if err != nil {
+		return
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
+}
+
 // OAuth2Provider uses client credentials flow to obtain and cache tokens.
-// It proactively refreshes the token before expiry.
+// It proactively refreshes the token before expiry and persists tokens to a
+// temp file so repeated CLI invocations skip redundant token exchanges.
 type OAuth2Provider struct {
 	baseURL      string
 	clientID     string
 	clientSecret string
 	httpClient   *http.Client
+	jar          *cookiejar.Jar
 
 	// cached token state
 	mu            sync.Mutex
@@ -58,27 +126,48 @@ type OAuth2Provider struct {
 }
 
 func NewOAuth2Provider(baseURL, clientID, clientSecret string) *OAuth2Provider {
+	jar, _ := cookiejar.New(nil)
 	return &OAuth2Provider{
 		baseURL:      baseURL,
 		clientID:     clientID,
 		clientSecret: clientSecret,
+		jar:          jar,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+			Jar:     jar,
 		},
 		refreshBuffer: 10 * time.Second,
 	}
+}
+
+// Jar returns the cookie jar used by this provider's HTTP client.
+// Sharing this jar with the API client enables sticky session affinity
+// cookies (e.g. APBALANCEID on Jamf Cloud) to persist across requests.
+func (p *OAuth2Provider) Jar() http.CookieJar {
+	return p.jar
 }
 
 func (p *OAuth2Provider) GetToken(ctx context.Context) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Return cached token if still valid
+	// Return in-memory cached token if still valid.
 	if p.token != "" && time.Now().Before(p.expiresAt.Add(-p.refreshBuffer)) {
 		return p.token, nil
 	}
 
-	// Exchange client credentials for a new token
+	// Try disk cache before making a token exchange request.
+	// This avoids a redundant OAuth2 round-trip on every CLI invocation.
+	cachePath := tokenCachePath(p.baseURL, p.clientID)
+	if cachePath != "" {
+		if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
+			p.token = tc.Token
+			p.expiresAt = tc.ExpiresAt
+			return p.token, nil
+		}
+	}
+
+	// Exchange client credentials for a new token.
 	token, expiresIn, err := p.exchangeToken(ctx)
 	if err != nil {
 		return "", err
@@ -86,6 +175,9 @@ func (p *OAuth2Provider) GetToken(ctx context.Context) (string, error) {
 
 	p.token = token
 	p.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
+	if cachePath != "" {
+		saveTokenCache(cachePath, p.token, p.expiresAt)
+	}
 	return p.token, nil
 }
 
@@ -151,6 +243,7 @@ type PlatformOAuth2Provider struct {
 	clientSecret string
 	tenantID     string
 	httpClient   *http.Client
+	jar          *cookiejar.Jar
 
 	// cached token state
 	mu            sync.Mutex
@@ -160,24 +253,45 @@ type PlatformOAuth2Provider struct {
 }
 
 func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, tenantID string) *PlatformOAuth2Provider {
+	jar, _ := cookiejar.New(nil)
 	return &PlatformOAuth2Provider{
 		baseURL:      baseURL,
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		tenantID:     tenantID,
+		jar:          jar,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+			Jar:     jar,
 		},
 		refreshBuffer: 10 * time.Second,
 	}
+}
+
+// Jar returns the cookie jar used by this provider's HTTP client.
+// Sharing this jar with the API client enables sticky session affinity
+// cookies (e.g. APBALANCEID on Jamf Cloud) to persist across requests.
+func (p *PlatformOAuth2Provider) Jar() http.CookieJar {
+	return p.jar
 }
 
 func (p *PlatformOAuth2Provider) GetToken(ctx context.Context) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	// Return in-memory cached token if still valid.
 	if p.token != "" && time.Now().Before(p.expiresAt.Add(-p.refreshBuffer)) {
 		return p.token, nil
+	}
+
+	// Try disk cache before making a token exchange request.
+	cachePath := tokenCachePath(p.baseURL, p.clientID)
+	if cachePath != "" {
+		if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
+			p.token = tc.Token
+			p.expiresAt = tc.ExpiresAt
+			return p.token, nil
+		}
 	}
 
 	token, expiresIn, err := p.exchangeToken(ctx)
@@ -187,6 +301,9 @@ func (p *PlatformOAuth2Provider) GetToken(ctx context.Context) (string, error) {
 
 	p.token = token
 	p.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
+	if cachePath != "" {
+		saveTokenCache(cachePath, p.token, p.expiresAt)
+	}
 	return p.token, nil
 }
 
