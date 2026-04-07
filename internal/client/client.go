@@ -45,6 +45,15 @@ func WithTenantID(id string) Option {
 	}
 }
 
+// WithCookieJar sets the cookie jar on the HTTP client. Sharing a jar with the
+// auth provider enables sticky session affinity cookies (e.g. APBALANCEID on
+// Jamf Cloud) to persist from the token exchange through all API calls.
+func WithCookieJar(jar http.CookieJar) Option {
+	return func(c *Client) {
+		c.httpClient.Jar = jar
+	}
+}
+
 // New creates a new Jamf Pro API client
 func New(baseURL string, authProvider auth.Provider, opts ...Option) *Client {
 	c := &Client{

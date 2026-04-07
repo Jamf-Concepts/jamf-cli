@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -446,10 +449,17 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				return err
 			}
 
-			// Build HTTP client with decorators
+			// Build HTTP client with decorators.
+			// jarProvider is satisfied by OAuth2Provider and PlatformOAuth2Provider.
+			type jarProvider interface {
+				Jar() http.CookieJar
+			}
 			clientOpts := []client.Option{client.WithVerbose(verbose)}
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
+			}
+			if jp, ok := authProvider.(jarProvider); ok {
+				clientOpts = append(clientOpts, client.WithCookieJar(jp.Jar()))
 			}
 			proClient := &cliClient{client.New(resolvedURL, authProvider, clientOpts...)}
 			cliCtx.Uploader = proClient // set before wrapping with decorators
@@ -750,8 +760,24 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 		return exitcode.New(exitcode.Usage, "client-id and client-secret are required for Jamf Protect: use JAMFPROTECT_CLIENT_ID/JAMFPROTECT_CLIENT_SECRET env vars, or configure a protect profile")
 	}
 
+	// Build a retryablehttp-backed HTTP client with a cookie jar so that:
+	//   - sticky session affinity cookies (APBALANCEID) persist across requests
+	//   - the SDK's retry behavior (3 retries, exponential backoff) is preserved
+	// Injecting a plain *http.Client would replace the SDK's default retryablehttp
+	// transport, so we reconstruct it here with the jar set on the inner client.
+	jar, _ := cookiejar.New(nil)
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 3
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 30 * time.Second
+	rc.Logger = nil
+	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+	rc.HTTPClient.Timeout = 60 * time.Second
+	rc.HTTPClient.Jar = jar
+
 	sdkClient := jamfprotect.NewClient(url, cid, csecret,
 		jamfprotect.WithUserAgent("jamf-cli/"+cliVersion),
+		jamfprotect.WithHTTPClient(rc.StandardClient()),
 	)
 	cliCtx.ProtectClient = sdkClient
 	return nil
