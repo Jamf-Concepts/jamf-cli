@@ -67,7 +67,7 @@ func newClassicWebhooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
 			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
@@ -118,7 +118,7 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
 			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
@@ -157,7 +157,7 @@ func newClassicWebhooksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
 			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
 				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
