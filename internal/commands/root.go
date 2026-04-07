@@ -477,7 +477,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
-	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain")
+	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show debug info")
 	cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "never prompt; fail if input required")

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"maps"
@@ -45,6 +46,8 @@ const (
 	FormatCSV   Format = "csv"
 	FormatYAML  Format = "yaml"
 	FormatPlain Format = "plain"
+	FormatXML   Format = "xml" // Classic API native format — pretty-printed XML
+	FormatRaw   Format = "raw" // Exact wire bytes, no conversion or formatting
 )
 
 // nowFunc is the function used to get the current time. Override in tests.
@@ -61,6 +64,56 @@ type Formatter struct {
 // SetWriter replaces the output destination.
 func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
+}
+
+// Format returns the current output format string.
+func (f *Formatter) Format() string {
+	return string(f.format)
+}
+
+// PrintBytes writes bytes to the output.
+// XML is pretty-printed unless the format is FormatRaw, which writes exact wire bytes.
+// Used by Classic API commands to emit XML when no structured format is requested.
+func (f *Formatter) PrintBytes(data []byte) error {
+	if f.format != FormatRaw && xmlconv.IsXML(data) {
+		if pretty, err := prettyXML(data); err == nil {
+			data = pretty
+		}
+	}
+	_, err := f.writer.Write(data)
+	if err != nil {
+		return err
+	}
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		_, err = f.writer.Write([]byte("\n"))
+	}
+	return err
+}
+
+// prettyXML re-serializes XML with 2-space indentation.
+// Returns an error and leaves the caller to use the original data if parsing fails.
+func prettyXML(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := enc.EncodeToken(tok); err != nil {
+			return nil, err
+		}
+	}
+	if err := enc.Flush(); err != nil {
+		return nil, err
+	}
+	buf.WriteByte('\n')
+	return buf.Bytes(), nil
 }
 
 // New creates a new formatter
@@ -236,8 +289,19 @@ func (f *Formatter) printTable(data any) error {
 }
 
 // PrintRaw outputs raw bytes (usually JSON from the API).
-// XML responses (from Classic API) are converted to JSON before formatting.
+// XML responses (from Classic API) are converted to JSON before formatting,
+// unless the format is FormatXML (pretty-printed) or FormatRaw (exact wire bytes).
 func (f *Formatter) PrintRaw(data []byte) error {
+	// FormatRaw: exact wire bytes, no processing at all.
+	if f.format == FormatRaw {
+		_, err := f.writer.Write(data)
+		return err
+	}
+	// FormatXML: pretty-print and pass through without JSON conversion.
+	if f.format == FormatXML {
+		return f.PrintBytes(data)
+	}
+
 	// Convert XML to JSON if needed (Classic API responses).
 	if xmlconv.IsXML(data) {
 		if converted, err := xmlconv.ToJSON(data); err == nil {

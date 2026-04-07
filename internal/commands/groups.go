@@ -302,6 +302,8 @@ var proGroupMap = map[string]string{
 
 	// Classic - Administration
 	"classic-accounts":                groupClassicAdmin,
+	"classic-account-groups":          groupClassicAdmin,
+	"classic-account-users":           groupClassicAdmin,
 	"classic-webhooks":                groupClassicAdmin,
 	"classic-smtp-server":             groupClassicAdmin,
 	"classic-distribution-points":     groupClassicAdmin,
@@ -320,6 +322,7 @@ var proGroupMap = map[string]string{
 	"classic-patch-external-sources": groupClassicPatch,
 	"classic-patch-internal-sources": groupClassicPatch,
 	"classic-patch-available-titles": groupClassicPatch,
+	"classic-patch-reports":          groupClassicPatch,
 }
 
 // applyProGroups registers command groups on the pro command and assigns each

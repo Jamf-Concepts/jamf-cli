@@ -14,32 +14,32 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
-// NewClassicPatchAvailableTitlesCmd creates the classic-patch-available-titles command group
-func NewClassicPatchAvailableTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicPatchReportsCmd creates the classic-patch-reports command group
+func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-available-titles",
-		Short: "Available patch titles from sources (Classic API)",
-		Long:  `Manage available patch titles from sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-patch-reports",
+		Short: "Patch management reports (Classic API)",
+		Long:  `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
+	cmd.AddCommand(newClassicPatchReportsGetCmd(ctx))
 
 	return cmd
 }
 
-func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a patch_available_title by ID",
-		Example: `  # Get a patch_available_title by ID
-  jamf-cli classic-patch-available-titles get 1
+		Short: "Get a patch_report by ID",
+		Example: `  # Get a patch_report by ID
+  jamf-cli classic-patch-reports get 1
 
-  # Get a patch_available_title and output as YAML
-  jamf-cli classic-patch-available-titles get 1 -o yaml`,
+  # Get a patch_report and output as YAML
+  jamf-cli classic-patch-reports get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/patchavailabletitles/sourceid/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/patchreports/patchsoftwaretitleid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -63,7 +63,7 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["patch_available_title"]; ok {
+				if inner, ok := wrapper["patch_report"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}

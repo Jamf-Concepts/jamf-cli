@@ -218,7 +218,7 @@ func generateSmokeRegistry(outputDir string, modern []*parser.Resource, classicR
 				Resource:      r.CLIName,
 				Operation:     "get",
 				Method:        "GET",
-				Path:          "/JSSResource/" + r.Path + "/id/{id}",
+				Path:          "/JSSResource/" + r.Path + "/" + r.IDPath + "/{id}",
 				HasPathParams: true,
 				IsClassic:     true,
 				SingularKey:   r.Singular,

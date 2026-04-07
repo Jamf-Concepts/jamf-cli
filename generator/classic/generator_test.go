@@ -22,6 +22,7 @@ func TestGenerate_ProducesFile(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -77,6 +78,7 @@ func TestGenerate_ListOnly(t *testing.T) {
 		Description: "Available patch titles",
 		Operations:  []string{"list", "get"},
 		Lookups:     []string{"id"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -122,6 +124,7 @@ func TestGenerate_ExtraLookups(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -196,6 +199,7 @@ func TestGenerate_ClassicExamples(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -265,6 +269,99 @@ func TestGenerate_ClassicExamples_ListOnly(t *testing.T) {
 	// No delete/update/create examples
 	if strings.Contains(code, "classic-patch-reports delete") {
 		t.Error("unexpected delete example for list-only resource")
+	}
+}
+
+func TestGenerate_CustomIDPath(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "account-groups",
+		Path:        "accounts",
+		CLIName:     "classic-account-groups",
+		GoName:      "ClassicAccountGroups",
+		Singular:    "account_group",
+		Description: "Account groups",
+		Operations:  []string{"get", "create", "update", "delete"},
+		Lookups:     []string{"id", "groupname"},
+		IDPath:      "groupid",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// All ID-based paths must use groupid, not id
+	if strings.Contains(code, "/accounts/id/") {
+		t.Error("generated code must not use /accounts/id/ — should use /accounts/groupid/")
+	}
+	checks := []string{
+		"/JSSResource/accounts/groupid/",
+		"newClassicAccountGroupsGetCmd",
+		"newClassicAccountGroupsGetByGroupnameCmd",
+		"newClassicAccountGroupsCreateCmd",
+		"newClassicAccountGroupsUpdateCmd",
+		"newClassicAccountGroupsDeleteCmd",
+		`"net/url"`,
+		`"io"`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated code missing %q", check)
+		}
+	}
+}
+
+func TestGenerate_ExtraLookupsOnlyResource(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerapplications",
+		Path:        "computerapplications",
+		CLIName:     "classic-computer-apps",
+		GoName:      "ClassicComputerApps",
+		Singular:    "computer_application",
+		Description: "Computer applications inventory",
+		Operations:  []string{},
+		Lookups:     []string{"application"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Should have get-by-application but no list/get/create/update/delete
+	if !strings.Contains(code, "GetByApplicationCmd") {
+		t.Error("expected get-by-application command")
+	}
+	for _, unexpected := range []string{"ListCmd", "GetCmd(", "CreateCmd", "UpdateCmd", "DeleteCmd"} {
+		if strings.Contains(code, unexpected) {
+			t.Errorf("unexpected %s for extra-lookups-only resource", unexpected)
+		}
+	}
+	// Must import net/url and io for the get-by-* command
+	if !strings.Contains(code, `"net/url"`) {
+		t.Error("expected net/url import for get-by-application")
+	}
+	if !strings.Contains(code, `"io"`) {
+		t.Error("expected io import for get-by-application")
 	}
 }
 
@@ -394,6 +491,7 @@ func TestGenerate_ApplyCommand(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -452,6 +550,7 @@ func TestGenerate_NoApply_WithoutName(t *testing.T) {
 		Description: "VPP accounts",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"}, // No name lookup
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -483,6 +582,7 @@ func TestGenerate_NoApply_WithoutCreateUpdate(t *testing.T) {
 		Description: "Accounts",
 		Operations:  []string{"list", "get"}, // No create/update
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -514,6 +614,7 @@ func TestGenerate_ApplyExample(t *testing.T) {
 		Description: "Printers",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -591,6 +692,7 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 		Description: "Printers",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -635,6 +737,7 @@ func TestGenerate_NoDeleteByName_WithoutNameLookup(t *testing.T) {
 		Description: "VPP accounts",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"}, // No name lookup
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)

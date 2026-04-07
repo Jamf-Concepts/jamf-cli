@@ -19,6 +19,8 @@ func (m *mockFormatter) PrintRaw(data []byte) error {
 	copy(m.lastData, data)
 	return nil
 }
+func (m *mockFormatter) PrintBytes(data []byte) error { return m.PrintRaw(data) }
+func (m *mockFormatter) Format() string               { return "json" }
 
 func TestPrintOne_MarshalsSingleItem(t *testing.T) {
 	type item struct {

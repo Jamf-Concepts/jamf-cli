@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -25,10 +24,9 @@ func NewClassicComputerCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newClassicComputerCommandsListCmd(ctx))
 
-	cmd.AddCommand(newClassicComputerCommandsGetCmd(ctx))
 	cmd.AddCommand(newClassicComputerCommandsGetByNameCmd(ctx))
-
-	cmd.AddCommand(newClassicComputerCommandsCreateCmd(ctx))
+	cmd.AddCommand(newClassicComputerCommandsGetByUuidCmd(ctx))
+	cmd.AddCommand(newClassicComputerCommandsGetByStatusCmd(ctx))
 
 	return cmd
 }
@@ -55,6 +53,11 @@ func newClassicComputerCommandsListCmd(ctx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
 			if xmlconv.IsXML(body) {
 				items, err := xmlconv.ExtractListItems(body)
 				if err == nil {
@@ -69,46 +72,6 @@ func newClassicComputerCommandsListCmd(ctx *registry.CLIContext) *cobra.Command 
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
 				if inner, ok := wrapper["computercommands"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicComputerCommandsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a computer_command by ID",
-		Example: `  # Get a computer_command by ID
-  jamf-cli classic-computer-commands get 1
-
-  # Get a computer_command and output as YAML
-  jamf-cli classic-computer-commands get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computercommands/id/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Classic API returns XML; convert to JSON for output.
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["computer_command"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -135,6 +98,11 @@ func newClassicComputerCommandsGetByNameCmd(ctx *registry.CLIContext) *cobra.Com
 			if err != nil {
 				return err
 			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
 					body = jsonBody
@@ -151,31 +119,80 @@ func newClassicComputerCommandsGetByNameCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 }
 
-func newClassicComputerCommandsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicComputerCommandsGetByUuidCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
-		Use:   "create",
-		Short: "Create a computer_command",
-		Long:  "Create a new computer_command. Reads XML body from stdin.",
-		Example: `  # Create a computer_command from XML
-  cat computer_command.xml | jamf-cli classic-computer-commands create`,
+		Use:   "get-by-uuid <uuid>",
+		Short: "Get a computer_command by uuid",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
-			}
-
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computercommands/id/0", body)
+			path := fmt.Sprintf("/JSSResource/computercommands/uuid/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["computer_command"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicComputerCommandsGetByStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-status <status>",
+		Short: "Get a computer_command by status",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/computercommands/status/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["computer_command"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
 		},
 	}
 }
