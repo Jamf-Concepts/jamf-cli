@@ -64,8 +64,8 @@ For group targets, a single API call flushes all members of the group at once.`,
   # Dry-run: see what would be flushed without executing
   jamf-cli pro computers flush-commands --serial C02X1234ABCD --dry-run`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := dt.validate(); err != nil {
-				return err
+			if dt.serial == "" && dt.name == "" && dt.id == "" && dt.group == "" {
+				return fmt.Errorf("one of --serial, --name, --id, or --group is required")
 			}
 			apiStatus, ok := flushStatusMap[strings.ToLower(status)]
 			if !ok {
@@ -186,8 +186,8 @@ For group targets, a single API call flushes all members of the group at once.`,
   # Dry-run: see what would be flushed without executing
   jamf-cli pro mobile-devices flush-commands --serial F4GH5678 --dry-run`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := dt.validate(); err != nil {
-				return err
+			if dt.serial == "" && dt.name == "" && dt.id == "" && dt.group == "" {
+				return fmt.Errorf("one of --serial, --name, --id, or --group is required")
 			}
 			apiStatus, ok := flushStatusMap[strings.ToLower(status)]
 			if !ok {
