@@ -56,16 +56,26 @@ type cachedToken struct {
 // tokenCachePath returns the path of the token cache file for the given URL and
 // client ID. The path is keyed by a sha256 hash so each profile gets a unique file.
 // Files are stored under os.UserCacheDir() (~/Library/Caches on macOS, ~/.cache on
-// Linux) so they survive reboots, with os.TempDir() as a fallback.
+// Linux) so they survive reboots. Returns "" if no user-private cache directory is
+// available — callers must check for "" and skip disk caching.
 func tokenCachePath(baseURL, clientID string) string {
 	h := sha256.Sum256([]byte(baseURL + "|" + clientID))
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		cacheDir = os.TempDir()
+		return ""
 	}
 	dir := filepath.Join(cacheDir, "jamf-cli")
 	_ = os.MkdirAll(dir, 0o700)
 	return filepath.Join(dir, "token-"+hex.EncodeToString(h[:]))
+}
+
+// ClearTokenCache removes the on-disk token cache file for the given URL and
+// client ID. Called by setup commands after credential changes to prevent stale
+// cached tokens from being used. Errors are silently ignored.
+func ClearTokenCache(baseURL, clientID string) {
+	if path := tokenCachePath(baseURL, clientID); path != "" {
+		_ = os.Remove(path)
+	}
 }
 
 // loadTokenCache reads the cache file at path and returns the token and its expiry.
@@ -83,13 +93,19 @@ func loadTokenCache(path string) (cachedToken, bool) {
 }
 
 // saveTokenCache persists a token and its expiry to the cache file with mode 0600.
-// Failures are silently ignored — the cache is best-effort.
+// The write is atomic: data is written to a temporary file then renamed into place
+// so concurrent readers never see a partial file. Failures are silently ignored —
+// the cache is best-effort.
 func saveTokenCache(path, token string, expiresAt time.Time) {
 	data, err := json.Marshal(cachedToken{Token: token, ExpiresAt: expiresAt})
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(path, data, 0o600)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
 }
 
 // OAuth2Provider uses client credentials flow to obtain and cache tokens.
@@ -143,10 +159,12 @@ func (p *OAuth2Provider) GetToken(ctx context.Context) (string, error) {
 	// Try disk cache before making a token exchange request.
 	// This avoids a redundant OAuth2 round-trip on every CLI invocation.
 	cachePath := tokenCachePath(p.baseURL, p.clientID)
-	if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
-		p.token = tc.Token
-		p.expiresAt = tc.ExpiresAt
-		return p.token, nil
+	if cachePath != "" {
+		if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
+			p.token = tc.Token
+			p.expiresAt = tc.ExpiresAt
+			return p.token, nil
+		}
 	}
 
 	// Exchange client credentials for a new token.
@@ -157,7 +175,9 @@ func (p *OAuth2Provider) GetToken(ctx context.Context) (string, error) {
 
 	p.token = token
 	p.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
-	saveTokenCache(cachePath, p.token, p.expiresAt)
+	if cachePath != "" {
+		saveTokenCache(cachePath, p.token, p.expiresAt)
+	}
 	return p.token, nil
 }
 
@@ -266,10 +286,12 @@ func (p *PlatformOAuth2Provider) GetToken(ctx context.Context) (string, error) {
 
 	// Try disk cache before making a token exchange request.
 	cachePath := tokenCachePath(p.baseURL, p.clientID)
-	if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
-		p.token = tc.Token
-		p.expiresAt = tc.ExpiresAt
-		return p.token, nil
+	if cachePath != "" {
+		if tc, ok := loadTokenCache(cachePath); ok && time.Now().Before(tc.ExpiresAt.Add(-p.refreshBuffer)) {
+			p.token = tc.Token
+			p.expiresAt = tc.ExpiresAt
+			return p.token, nil
+		}
 	}
 
 	token, expiresIn, err := p.exchangeToken(ctx)
@@ -279,7 +301,9 @@ func (p *PlatformOAuth2Provider) GetToken(ctx context.Context) (string, error) {
 
 	p.token = token
 	p.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
-	saveTokenCache(cachePath, p.token, p.expiresAt)
+	if cachePath != "" {
+		saveTokenCache(cachePath, p.token, p.expiresAt)
+	}
 	return p.token, nil
 }
 

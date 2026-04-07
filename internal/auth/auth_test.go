@@ -352,6 +352,13 @@ func TestOAuth2Provider_GetToken_SavesToDiskCache(t *testing.T) {
 	if tc.ExpiresAt.IsZero() {
 		t.Error("expected non-zero expires_at in cache")
 	}
+	info, err := os.Stat(cachePath)
+	if err != nil {
+		t.Fatalf("stat cache file: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("expected cache file mode 0600, got %04o", info.Mode().Perm())
+	}
 }
 
 func TestOAuth2Provider_GetToken_LoadsFromDiskCache(t *testing.T) {

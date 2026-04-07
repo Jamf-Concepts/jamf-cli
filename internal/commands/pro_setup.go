@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
@@ -568,6 +569,10 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		ClientID:     keychain.KeychainRef(profileName, "client-id"),
 		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
 	}
+
+	// Clear any cached token for this profile so the next invocation fetches a
+	// fresh token rather than potentially using a stale one from before setup.
+	auth.ClearTokenCache(instanceURL, clientID)
 
 	if clientID != "" {
 		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
