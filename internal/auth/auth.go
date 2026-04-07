@@ -108,6 +108,164 @@ func saveTokenCache(path, token string, expiresAt time.Time) {
 	_ = os.Rename(tmp, path)
 }
 
+// cookieJarPath returns the path for the cookie cache file for the given URL and
+// client ID. Keyed by the same hash as the token cache so each profile gets its
+// own file. Returns "" if no user-private cache directory is available.
+func cookieJarPath(baseURL, clientID string) string {
+	h := sha256.Sum256([]byte(baseURL + "|" + clientID))
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Join(cacheDir, "jamf-cli")
+	_ = os.MkdirAll(dir, 0o700)
+	return filepath.Join(dir, "cookies-"+hex.EncodeToString(h[:]))
+}
+
+// ClearCookieCache removes the on-disk cookie cache file for the given URL and
+// client ID. Called alongside ClearTokenCache after credential changes.
+func ClearCookieCache(baseURL, clientID string) {
+	if path := cookieJarPath(baseURL, clientID); path != "" {
+		_ = os.Remove(path)
+	}
+}
+
+// persistedCookieFile is the on-disk format for the cookie cache.
+type persistedCookieFile struct {
+	Entries []persistedCookieEntry `json:"entries"`
+}
+
+type persistedCookieEntry struct {
+	URL     string            `json:"url"`
+	Cookies []persistedCookie `json:"cookies"`
+}
+
+type persistedCookie struct {
+	Name     string    `json:"name"`
+	Value    string    `json:"value"`
+	Path     string    `json:"path,omitempty"`
+	Domain   string    `json:"domain,omitempty"`
+	Expires  time.Time `json:"expires,omitempty"`
+	Secure   bool      `json:"secure,omitempty"`
+	HttpOnly bool      `json:"http_only,omitempty"`
+}
+
+// diskCookieJar is a cookie jar that persists cookies to disk so that
+// session-affinity cookies (e.g. APBALANCEID on Jamf Cloud) survive across
+// separate CLI invocations. The inner cookiejar.Jar handles all RFC 6265
+// semantics; this wrapper intercepts SetCookies to write-through to disk.
+type diskCookieJar struct {
+	inner *cookiejar.Jar
+	path  string
+	mu    sync.Mutex
+	// seen tracks the latest value of each cookie name per scheme://host key.
+	seen map[string]map[string]*http.Cookie
+}
+
+// newDiskCookieJar creates a diskCookieJar backed by path. If path is "" it
+// behaves as a plain in-memory jar. Any previously persisted cookies are
+// loaded immediately so the inner jar starts with the last known state.
+func newDiskCookieJar(path string) *diskCookieJar {
+	inner, _ := cookiejar.New(nil)
+	j := &diskCookieJar{
+		inner: inner,
+		path:  path,
+		seen:  make(map[string]map[string]*http.Cookie),
+	}
+	if path != "" {
+		j.load()
+	}
+	return j
+}
+
+func (j *diskCookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	j.inner.SetCookies(u, cookies)
+	if j.path == "" {
+		return
+	}
+	key := u.Scheme + "://" + u.Host
+	j.mu.Lock()
+	if j.seen[key] == nil {
+		j.seen[key] = make(map[string]*http.Cookie)
+	}
+	for _, c := range cookies {
+		j.seen[key][c.Name] = c
+	}
+	j.mu.Unlock()
+	j.save()
+}
+
+func (j *diskCookieJar) Cookies(u *url.URL) []*http.Cookie {
+	return j.inner.Cookies(u)
+}
+
+func (j *diskCookieJar) load() {
+	data, err := os.ReadFile(j.path)
+	if err != nil {
+		return
+	}
+	var pf persistedCookieFile
+	if err := json.Unmarshal(data, &pf); err != nil {
+		return
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for _, entry := range pf.Entries {
+		u, err := url.Parse(entry.URL)
+		if err != nil {
+			continue
+		}
+		byName := make(map[string]*http.Cookie, len(entry.Cookies))
+		var cookies []*http.Cookie
+		for _, pc := range entry.Cookies {
+			c := &http.Cookie{
+				Name:     pc.Name,
+				Value:    pc.Value,
+				Path:     pc.Path,
+				Domain:   pc.Domain,
+				Expires:  pc.Expires,
+				Secure:   pc.Secure,
+				HttpOnly: pc.HttpOnly,
+			}
+			cookies = append(cookies, c)
+			byName[c.Name] = c
+		}
+		j.inner.SetCookies(u, cookies)
+		j.seen[entry.URL] = byName
+	}
+}
+
+func (j *diskCookieJar) save() {
+	j.mu.Lock()
+	pf := persistedCookieFile{}
+	for rawURL, byName := range j.seen {
+		entry := persistedCookieEntry{URL: rawURL}
+		for _, c := range byName {
+			entry.Cookies = append(entry.Cookies, persistedCookie{
+				Name:     c.Name,
+				Value:    c.Value,
+				Path:     c.Path,
+				Domain:   c.Domain,
+				Expires:  c.Expires,
+				Secure:   c.Secure,
+				HttpOnly: c.HttpOnly,
+			})
+		}
+		pf.Entries = append(pf.Entries, entry)
+	}
+	j.mu.Unlock()
+
+	data, err := json.Marshal(pf)
+	if err != nil {
+		return
+	}
+	tmp := j.path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, j.path)
+}
+
 // OAuth2Provider uses client credentials flow to obtain and cache tokens.
 // It proactively refreshes the token before expiry and persists tokens to a
 // temp file so repeated CLI invocations skip redundant token exchanges.
@@ -116,7 +274,7 @@ type OAuth2Provider struct {
 	clientID     string
 	clientSecret string
 	httpClient   *http.Client
-	jar          *cookiejar.Jar
+	jar          *diskCookieJar
 
 	// cached token state
 	mu            sync.Mutex
@@ -126,7 +284,7 @@ type OAuth2Provider struct {
 }
 
 func NewOAuth2Provider(baseURL, clientID, clientSecret string) *OAuth2Provider {
-	jar, _ := cookiejar.New(nil)
+	jar := newDiskCookieJar(cookieJarPath(baseURL, clientID))
 	return &OAuth2Provider{
 		baseURL:      baseURL,
 		clientID:     clientID,
@@ -243,7 +401,7 @@ type PlatformOAuth2Provider struct {
 	clientSecret string
 	tenantID     string
 	httpClient   *http.Client
-	jar          *cookiejar.Jar
+	jar          *diskCookieJar
 
 	// cached token state
 	mu            sync.Mutex
@@ -253,7 +411,7 @@ type PlatformOAuth2Provider struct {
 }
 
 func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, tenantID string) *PlatformOAuth2Provider {
-	jar, _ := cookiejar.New(nil)
+	jar := newDiskCookieJar(cookieJarPath(baseURL, clientID))
 	return &PlatformOAuth2Provider{
 		baseURL:      baseURL,
 		clientID:     clientID,
