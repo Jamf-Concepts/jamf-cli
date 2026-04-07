@@ -537,11 +537,41 @@ func TestDetectNameField(t *testing.T) {
 			want: "displayName",
 		},
 		{
-			name: "both in same schema - displayName wins",
+			name: "both in same schema - displayName wins (non-readonly)",
 			schemas: map[string]*Schema{
 				"Foo": {Properties: map[string]*Property{"name": {}, "displayName": {}}},
 			},
 			want: "displayName",
+		},
+		{
+			// readOnly displayName is skipped; writable name is used instead
+			name: "readOnly displayName skipped - falls through to name",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{
+					"displayName": {ReadOnly: true},
+					"name":        {},
+				}},
+			},
+			want: "name",
+		},
+		{
+			// readOnly name is skipped; typed candidate is used instead
+			name: "readOnly name skipped - falls through to typed candidate",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{
+					"name":        {ReadOnly: true},
+					"packageName": {},
+				}},
+			},
+			want: "packageName",
+		},
+		{
+			// short prefix (<3 chars) must not match to avoid false positives
+			name: "short prefix ignored - fall back to name",
+			schemas: map[string]*Schema{
+				"Certificate": {Properties: map[string]*Property{"caName": {}}},
+			},
+			want: "name",
 		},
 		{
 			name: "no name fields at all",

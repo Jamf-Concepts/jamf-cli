@@ -753,12 +753,14 @@ func hasPaginationParams(op *openapi3.Operation) bool {
 }
 
 // detectNameField inspects schemas to determine the correct field for name-based
-// filtering. Priority: "displayName" > "name" > schema-typed *name field > "name".
+// filtering. Read-only properties are skipped — they cannot appear in apply input.
+// Priority among writable fields: "displayName" > "name" > schema-typed *name field > "name".
 //
 // The "schema-typed" heuristic handles resources like Package (packageName) or
 // User (username): if a non-readonly string field named "{prefix}name" exists and
-// its prefix is a substring of the schema name, it is treated as the type-specific
-// name field. If exactly one such candidate is found across all schemas, it is used.
+// its prefix (min 3 chars) is a substring of the schema name, it is treated as the
+// type-specific name field. If exactly one such candidate is found across all schemas,
+// it is used.
 func detectNameField(schemas map[string]*Schema) string {
 	var (
 		hasName, hasDisplayName bool
@@ -782,9 +784,10 @@ func detectNameField(schemas map[string]*Schema) string {
 			case "displayName":
 				hasDisplayName = true
 			default:
-				// e.g. "packageName" → prefix "package" must appear in schema name "Package"
+				// e.g. "packageName" → prefix "package" must appear in schema name "Package".
+				// Require at least 3 chars to avoid false positives from short prefixes like "ca".
 				prefix := lower[:len(lower)-len("name")]
-				if prefix != "" && strings.Contains(schemaLower, prefix) && !seenCandidates[fieldName] {
+				if len(prefix) >= 3 && strings.Contains(schemaLower, prefix) && !seenCandidates[fieldName] {
 					typedCandidates = append(typedCandidates, fieldName)
 					seenCandidates[fieldName] = true
 				}
