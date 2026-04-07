@@ -131,12 +131,7 @@ func templateFuncs() template.FuncMap {
 			// extraLookup get-by-* commands also use io.ReadAll
 			return r.HasOperation("list") || r.HasOperation("get") || r.HasOperation("create") || r.HasOperation("update") || len(r.ExtraLookups()) > 0
 		},
-		"idPath": func(r ClassicResource) string {
-			if r.IDPath == "" {
-				return "id"
-			}
-			return r.IDPath
-		},
+		"idPath": func(r ClassicResource) string { return r.IDPath },
 		"needsFmt": func(r ClassicResource) bool {
 			return r.HasOperation("delete") || r.HasOperation("create") || r.HasOperation("update") || r.HasOperation("get") || len(r.ExtraLookups()) > 0
 		},

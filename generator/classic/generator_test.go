@@ -22,6 +22,7 @@ func TestGenerate_ProducesFile(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -77,6 +78,7 @@ func TestGenerate_ListOnly(t *testing.T) {
 		Description: "Available patch titles",
 		Operations:  []string{"list", "get"},
 		Lookups:     []string{"id"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -122,6 +124,7 @@ func TestGenerate_ExtraLookups(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -196,6 +199,7 @@ func TestGenerate_ClassicExamples(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -487,6 +491,7 @@ func TestGenerate_ApplyCommand(t *testing.T) {
 		Description: "Deployment policies",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -545,6 +550,7 @@ func TestGenerate_NoApply_WithoutName(t *testing.T) {
 		Description: "VPP accounts",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"}, // No name lookup
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -576,6 +582,7 @@ func TestGenerate_NoApply_WithoutCreateUpdate(t *testing.T) {
 		Description: "Accounts",
 		Operations:  []string{"list", "get"}, // No create/update
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -607,6 +614,7 @@ func TestGenerate_ApplyExample(t *testing.T) {
 		Description: "Printers",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -684,6 +692,7 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 		Description: "Printers",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
@@ -728,6 +737,7 @@ func TestGenerate_NoDeleteByName_WithoutNameLookup(t *testing.T) {
 		Description: "VPP accounts",
 		Operations:  []string{"list", "get", "create", "update", "delete"},
 		Lookups:     []string{"id"}, // No name lookup
+		IDPath:      "id",
 	}
 
 	outPath, err := gen.Generate(resource)
