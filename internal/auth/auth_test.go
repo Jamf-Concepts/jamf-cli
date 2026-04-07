@@ -659,11 +659,16 @@ func TestDiskCookieJar_EmptyPath_InMemoryOnly(t *testing.T) {
 }
 
 func TestClearCookieCache_RemovesFile(t *testing.T) {
-	// Use a real cookieJarPath keyed on a test URL+clientID, pointed at a temp dir.
-	// We test the function indirectly by calling it and verifying the file is gone.
-	path := filepath.Join(t.TempDir(), "cookies.json")
-	u, _ := url.Parse("https://clear-test.jamfcloud.com")
+	const testURL = "https://clear-test.jamfcloud.com"
+	const testClientID = "clear-test-client-id"
 
+	path := cookieJarPath(testURL, testClientID)
+	if path == "" {
+		t.Skip("no user cache dir available")
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	u, _ := url.Parse(testURL)
 	j := newDiskCookieJar(path)
 	j.SetCookies(u, []*http.Cookie{{Name: "APBALANCEID", Value: "node-3"}})
 
@@ -671,10 +676,10 @@ func TestClearCookieCache_RemovesFile(t *testing.T) {
 		t.Fatalf("expected cookie file to exist before clear: %v", err)
 	}
 
-	_ = os.Remove(path)
+	ClearCookieCache(testURL, testClientID)
 
 	if _, err := os.Stat(path); err == nil {
-		t.Error("expected cookie file to be removed")
+		t.Error("expected cookie file to be removed by ClearCookieCache")
 	}
 }
 

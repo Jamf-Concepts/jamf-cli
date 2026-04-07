@@ -570,9 +570,10 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
 	}
 
-	// Clear any cached token for this profile so the next invocation fetches a
-	// fresh token rather than potentially using a stale one from before setup.
+	// Clear any cached token and cookies for this profile so the next invocation
+	// fetches a fresh token rather than potentially using a stale one from before setup.
 	auth.ClearTokenCache(instanceURL, clientID)
+	auth.ClearCookieCache(instanceURL, clientID)
 
 	if clientID != "" {
 		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
