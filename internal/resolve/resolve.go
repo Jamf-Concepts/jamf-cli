@@ -607,6 +607,80 @@ func readEntriesFromFile(path string) ([]string, error) {
 	return entries, nil
 }
 
+// ResolveClassicComputerGroupID resolves a computer group name to its Classic API
+// numeric ID by fetching the group detail from /JSSResource/computergroups/name/{name}.
+// Works for both smart and static computer groups.
+func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	path := fmt.Sprintf("/JSSResource/computergroups/name/%s", url.PathEscape(groupName))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("looking up computer group %q: %w", groupName, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("computer group %q not found", groupName)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("looking up computer group %q: HTTP %d", groupName, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	detail, err := unmarshalClassic(body)
+	if err != nil {
+		return "", fmt.Errorf("parsing computer group response: %w", err)
+	}
+	// Unwrap envelope: {"computer_group": {"id": "7", ...}}
+	for _, v := range detail {
+		if inner, ok := v.(map[string]any); ok {
+			if id := jsonString(inner, "id"); id != "" {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("computer group %q: id not found in response", groupName)
+}
+
+// ResolveClassicMobileGroupID resolves a mobile device group name to its Classic API
+// numeric ID by fetching the group detail from /JSSResource/mobiledevicegroups/name/{name}.
+// Works for both smart and static mobile device groups.
+func ResolveClassicMobileGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	path := fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", url.PathEscape(groupName))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("looking up mobile device group %q: %w", groupName, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("mobile device group %q not found", groupName)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("looking up mobile device group %q: HTTP %d", groupName, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	detail, err := unmarshalClassic(body)
+	if err != nil {
+		return "", fmt.Errorf("parsing mobile device group response: %w", err)
+	}
+	// Unwrap envelope: {"mobile_device_group": {"id": "5", ...}}
+	for _, v := range detail {
+		if inner, ok := v.(map[string]any); ok {
+			if id := jsonString(inner, "id"); id != "" {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("mobile device group %q: id not found in response", groupName)
+}
+
 // FormatDeviceDesc returns a human-readable device description for confirmation messages.
 // Example: "Neil's MacBook" (serial: C02X1234, id: 42)
 func FormatDeviceDesc(d *DeviceIdentifiers) string {

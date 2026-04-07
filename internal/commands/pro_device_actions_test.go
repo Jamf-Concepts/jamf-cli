@@ -68,6 +68,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 		"blank-push", "ddm-sync", "renew-mdm",
 		"lock", "enable-remote-desktop", "disable-remote-desktop",
 		"restart", "shutdown", "set-recovery-lock",
+		"flush-commands",
 	}
 	for _, name := range wantComputer {
 		t.Run("computers/"+name, func(t *testing.T) {
@@ -88,6 +89,7 @@ func TestMobileActionSubcommands_Exist(t *testing.T) {
 		"restart", "shutdown", "update-inventory",
 		"lock", "clear-passcode", "enable-lost-mode", "disable-lost-mode",
 		"play-lost-mode-sound", "clear-restrictions-password",
+		"flush-commands",
 	}
 	for _, name := range wantMobile {
 		t.Run("mobile-devices/"+name, func(t *testing.T) {

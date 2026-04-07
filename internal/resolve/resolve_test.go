@@ -310,6 +310,76 @@ func TestEscapeRSQL(t *testing.T) {
 	}
 }
 
+func TestResolveClassicComputerGroupID(t *testing.T) {
+	groupXML := `<?xml version="1.0" encoding="UTF-8"?>
+<computer_group>
+  <id>7</id>
+  <name>Lab Macs</name>
+  <is_smart>true</is_smart>
+</computer_group>`
+
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/computergroups/name/Lab%20Macs": {200, groupXML},
+	}}
+
+	id, err := ResolveClassicComputerGroupID(context.Background(), client, "Lab Macs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "7" {
+		t.Errorf("ID = %q, want %q", id, "7")
+	}
+}
+
+func TestResolveClassicComputerGroupID_NotFound(t *testing.T) {
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/computergroups/name/NoSuch": {404, `<error><code>404</code></error>`},
+	}}
+
+	_, err := ResolveClassicComputerGroupID(context.Background(), client, "NoSuch")
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want to contain 'not found'", err.Error())
+	}
+}
+
+func TestResolveClassicMobileGroupID(t *testing.T) {
+	groupXML := `<?xml version="1.0" encoding="UTF-8"?>
+<mobile_device_group>
+  <id>12</id>
+  <name>Lab iPads</name>
+  <is_smart>false</is_smart>
+</mobile_device_group>`
+
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads": {200, groupXML},
+	}}
+
+	id, err := ResolveClassicMobileGroupID(context.Background(), client, "Lab iPads")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "12" {
+		t.Errorf("ID = %q, want %q", id, "12")
+	}
+}
+
+func TestResolveClassicMobileGroupID_NotFound(t *testing.T) {
+	client := &mockClient{responses: map[string]mockResponse{
+		"GET /JSSResource/mobiledevicegroups/name/NoSuch": {404, `<error><code>404</code></error>`},
+	}}
+
+	_, err := ResolveClassicMobileGroupID(context.Background(), client, "NoSuch")
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want to contain 'not found'", err.Error())
+	}
+}
+
 func TestResolveComputerGroup(t *testing.T) {
 	groupListResponse := `{"computer_groups": [{"id": "5", "name": "All Macs"}]}`
 	groupDetailResponse := `{"computer_group": {"id": "5", "name": "All Macs", "computers": [{"id": "42", "name": "Mac1"}, {"id": "43", "name": "Mac2"}]}}`
