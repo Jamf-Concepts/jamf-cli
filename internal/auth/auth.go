@@ -55,9 +55,17 @@ type cachedToken struct {
 
 // tokenCachePath returns the path of the token cache file for the given URL and
 // client ID. The path is keyed by a sha256 hash so each profile gets a unique file.
+// Files are stored under os.UserCacheDir() (~/Library/Caches on macOS, ~/.cache on
+// Linux) so they survive reboots, with os.TempDir() as a fallback.
 func tokenCachePath(baseURL, clientID string) string {
 	h := sha256.Sum256([]byte(baseURL + "|" + clientID))
-	return filepath.Join(os.TempDir(), "jamf-cli-token-"+hex.EncodeToString(h[:]))
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		cacheDir = os.TempDir()
+	}
+	dir := filepath.Join(cacheDir, "jamf-cli")
+	_ = os.MkdirAll(dir, 0o700)
+	return filepath.Join(dir, "token-"+hex.EncodeToString(h[:]))
 }
 
 // loadTokenCache reads the cache file at path and returns the token and its expiry.

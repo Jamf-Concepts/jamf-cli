@@ -441,6 +441,127 @@ func TestOAuth2Provider_GetToken_IgnoresMalformedDiskCache(t *testing.T) {
 	}
 }
 
+// --- Platform OAuth2 disk cache tests ---
+
+func TestPlatformOAuth2Provider_GetToken_SavesToDiskCache(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "platform-disk-token",
+			"token_type":   "Bearer",
+			"expires_in":   300,
+		})
+	}))
+	defer server.Close()
+
+	p := NewPlatformOAuth2Provider(server.URL, "plat-disk-id", "plat-secret", "tenant")
+	cachePath := tokenCachePath(server.URL, "plat-disk-id")
+	defer func() { _ = os.Remove(cachePath) }()
+
+	token, err := p.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "platform-disk-token" {
+		t.Errorf("expected platform-disk-token, got %s", token)
+	}
+
+	tc, ok := loadTokenCache(cachePath)
+	if !ok {
+		t.Fatal("expected cache file to exist after token exchange")
+	}
+	if tc.Token != "platform-disk-token" {
+		t.Errorf("expected platform-disk-token in cache, got %s", tc.Token)
+	}
+	if tc.ExpiresAt.IsZero() {
+		t.Error("expected non-zero expires_at in cache")
+	}
+}
+
+func TestPlatformOAuth2Provider_GetToken_LoadsFromDiskCache(t *testing.T) {
+	// No HTTP server — if GetToken makes any network call it will fail.
+	const (
+		fakeURL      = "https://fake-platform.jamf.com"
+		fakeClientID = "plat-cached-id"
+		cachedTok    = "plat-pre-cached-token"
+	)
+	cachePath := tokenCachePath(fakeURL, fakeClientID)
+	defer func() { _ = os.Remove(cachePath) }()
+
+	saveTokenCache(cachePath, cachedTok, time.Now().Add(5*time.Minute))
+
+	p := NewPlatformOAuth2Provider(fakeURL, fakeClientID, "secret", "tenant")
+	token, err := p.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != cachedTok {
+		t.Errorf("expected %s from disk cache, got %s", cachedTok, token)
+	}
+}
+
+func TestPlatformOAuth2Provider_GetToken_IgnoresExpiredDiskCache(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&callCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "plat-fresh-token",
+			"token_type":   "Bearer",
+			"expires_in":   300,
+		})
+	}))
+	defer server.Close()
+
+	cachePath := tokenCachePath(server.URL, "plat-exp-id")
+	defer func() { _ = os.Remove(cachePath) }()
+
+	saveTokenCache(cachePath, "plat-stale-token", time.Now().Add(-1*time.Minute))
+
+	p := NewPlatformOAuth2Provider(server.URL, "plat-exp-id", "secret", "tenant")
+	token, err := p.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "plat-fresh-token" {
+		t.Errorf("expected plat-fresh-token after expired cache, got %s", token)
+	}
+	if atomic.LoadInt32(&callCount) != 1 {
+		t.Errorf("expected 1 HTTP call after cache miss, got %d", callCount)
+	}
+}
+
+func TestPlatformOAuth2Provider_GetToken_IgnoresMalformedDiskCache(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&callCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "plat-fallback-token",
+			"token_type":   "Bearer",
+			"expires_in":   300,
+		})
+	}))
+	defer server.Close()
+
+	cachePath := tokenCachePath(server.URL, "plat-bad-id")
+	defer func() { _ = os.Remove(cachePath) }()
+
+	_ = os.WriteFile(cachePath, []byte("not json at all {{{{"), 0o600)
+
+	p := NewPlatformOAuth2Provider(server.URL, "plat-bad-id", "secret", "tenant")
+	token, err := p.GetToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "plat-fallback-token" {
+		t.Errorf("expected plat-fallback-token after bad cache, got %s", token)
+	}
+	if atomic.LoadInt32(&callCount) != 1 {
+		t.Errorf("expected 1 HTTP call after cache miss, got %d", callCount)
+	}
+}
+
 func TestTokenCachePath_UniquePerProfile(t *testing.T) {
 	p1 := tokenCachePath("https://a.jamfcloud.com", "client-1")
 	p2 := tokenCachePath("https://b.jamfcloud.com", "client-1")
