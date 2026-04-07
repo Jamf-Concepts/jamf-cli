@@ -414,7 +414,7 @@ func newSelfServiceBrandingMacosGetByNameCmd(ctx *registry.CLIContext) *cobra.Co
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "brandingName", args[0])
 			if err != nil {
 				return err
 			}
@@ -450,12 +450,12 @@ func newSelfServiceBrandingMacosDeleteByNameCmd(ctx *registry.CLIContext) *cobra
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "brandingName", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no self-service-branding-macos found with name %q", name)
+				return fmt.Errorf("no self-service-branding-macos found with brandingName %q", name)
 			}
 
 			if flagDryRun {
@@ -507,7 +507,7 @@ func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Create or replace a self-service-branding-macos by name",
 		Long: `Create or replace a self-service-branding-macos. Reads JSON from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a self-service-branding-macos from a file
@@ -531,14 +531,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "brandingName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "brandingName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "brandingName", name, noInput)
 			if err != nil {
 				return err
 			}

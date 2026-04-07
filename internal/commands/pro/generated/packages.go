@@ -1033,7 +1033,7 @@ func newPackagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/packages", "packageName", args[0])
 			if err != nil {
 				return err
 			}
@@ -1069,12 +1069,12 @@ func newPackagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no package found with name %q", name)
+				return fmt.Errorf("no package found with packageName %q", name)
 			}
 
 			if flagDryRun {
@@ -1126,7 +1126,7 @@ func newPackagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create or replace a package by name",
 		Long: `Create or replace a package. Reads JSON from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The packageName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a package from a file
@@ -1150,14 +1150,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "packageName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "packageName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/packages", "packageName", name, noInput)
 			if err != nil {
 				return err
 			}

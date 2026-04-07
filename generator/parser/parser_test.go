@@ -537,16 +537,87 @@ func TestDetectNameField(t *testing.T) {
 			want: "displayName",
 		},
 		{
-			name: "both in same schema - displayName wins",
+			name: "both in same schema - displayName wins (non-readonly)",
 			schemas: map[string]*Schema{
 				"Foo": {Properties: map[string]*Property{"name": {}, "displayName": {}}},
 			},
 			want: "displayName",
 		},
 		{
+			// readOnly displayName is skipped; writable name is used instead
+			name: "readOnly displayName skipped - falls through to name",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{
+					"displayName": {ReadOnly: true},
+					"name":        {},
+				}},
+			},
+			want: "name",
+		},
+		{
+			// readOnly name is skipped; typed candidate is used instead
+			name: "readOnly name skipped - falls through to typed candidate",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{
+					"name":        {ReadOnly: true},
+					"packageName": {},
+				}},
+			},
+			want: "packageName",
+		},
+		{
+			// short prefix (<3 chars) must not match to avoid false positives
+			name: "short prefix ignored - fall back to name",
+			schemas: map[string]*Schema{
+				"Certificate": {Properties: map[string]*Property{"caName": {}}},
+			},
+			want: "name",
+		},
+		{
 			name: "no name fields at all",
 			schemas: map[string]*Schema{
 				"Foo": {Properties: map[string]*Property{"id": {}, "description": {}}},
+			},
+			want: "name",
+		},
+		{
+			// Schema "Package" + field "packageName": prefix "package" is in schema name → typed candidate
+			name: "packageName matches schema name - used as name field",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{"packageName": {}, "fileName": {}, "manifestFileName": {}}},
+			},
+			want: "packageName",
+		},
+		{
+			// username prefix "user" is in schema name "User"
+			name: "username matches User schema",
+			schemas: map[string]*Schema{
+				"User": {Properties: map[string]*Property{"username": {}, "realname": {}}},
+			},
+			want: "username",
+		},
+		{
+			// multiple typed candidates from different schemas → ambiguous → fall back to "name"
+			name: "multiple typed candidates - fall back to name",
+			schemas: map[string]*Schema{
+				"Package":  {Properties: map[string]*Property{"packageName": {}}},
+				"Category": {Properties: map[string]*Property{"categoryName": {}}},
+			},
+			want: "name",
+		},
+		{
+			// field prefix not in schema name → not a typed candidate → fall back
+			name: "packageName in unrelated schema - fall back to name",
+			schemas: map[string]*Schema{
+				"Foo": {Properties: map[string]*Property{"packageName": {}, "fileName": {}}},
+			},
+			want: "name",
+		},
+		{
+			// name takes priority over typed candidates
+			name: "name present alongside typed candidate - name wins",
+			schemas: map[string]*Schema{
+				"Package": {Properties: map[string]*Property{"packageName": {}, "name": {}}},
 			},
 			want: "name",
 		},

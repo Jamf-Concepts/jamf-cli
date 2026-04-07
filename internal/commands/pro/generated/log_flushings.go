@@ -245,7 +245,7 @@ func newLogFlushingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/log-flushing/task", "displayName", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", args[0])
 			if err != nil {
 				return err
 			}
@@ -281,12 +281,12 @@ func newLogFlushingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/log-flushing/task", "displayName", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no log-flushing found with displayName %q", name)
+				return fmt.Errorf("no log-flushing found with name %q", name)
 			}
 
 			if flagDryRun {
