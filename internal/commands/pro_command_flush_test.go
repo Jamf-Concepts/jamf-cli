@@ -91,6 +91,8 @@ type discardOutput struct{}
 
 func (d *discardOutput) PrintResponse(_ *http.Response) error { return nil }
 func (d *discardOutput) PrintRaw(_ []byte) error              { return nil }
+func (d *discardOutput) PrintBytes(_ []byte) error            { return nil }
+func (d *discardOutput) Format() string                       { return "json" }
 
 const classicGroupXML = `<?xml version="1.0" encoding="UTF-8"?>
 <computer_group>
