@@ -349,6 +349,32 @@ func TestComputerFlushCommands_GroupWithoutYes_DoesNotExecute(t *testing.T) {
 	}
 }
 
+func TestComputerFlushCommands_NoInputGroup_Errors(t *testing.T) {
+	resetGlobals()
+
+	mock := &flushMockClient{
+		responses: map[string]flushMockResponse{
+			"GET /JSSResource/computergroups/name/Lab%20Macs": {200, classicGroupXML},
+		},
+	}
+	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
+	cmd := newComputerFlushCommandsCmd(cliCtx)
+	cmd.Flags().Bool("no-input", false, "")
+	_ = cmd.Flags().Set("no-input", "true")
+	cmd.SetArgs([]string{"--group", "Lab Macs", "--status", "failed"}) // no --yes
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --no-input without --yes for group target")
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("error = %q, want to contain '--yes'", err.Error())
+	}
+	if len(mock.deletedPaths) != 0 {
+		t.Errorf("expected no DELETE calls, got %v", mock.deletedPaths)
+	}
+}
+
 // --- Mobile flush-commands ---
 
 func TestMobileFlushCommands_DryRun_ByID(t *testing.T) {
@@ -401,6 +427,32 @@ func TestMobileFlushCommands_WithYes_ByGroup(t *testing.T) {
 	}
 	if !strings.Contains(mock.deletedPaths[0], "/JSSResource/commandflush/mobiledevicegroups/id/12/status/Failed") {
 		t.Errorf("unexpected DELETE path: %s", mock.deletedPaths[0])
+	}
+}
+
+func TestMobileFlushCommands_NoInputGroup_Errors(t *testing.T) {
+	resetGlobals()
+
+	mock := &flushMockClient{
+		responses: map[string]flushMockResponse{
+			"GET /JSSResource/mobiledevicegroups/name/Lab%20iPads": {200, classicMobileGroupXML},
+		},
+	}
+	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
+	cmd := newMobileFlushCommandsCmd(cliCtx)
+	cmd.Flags().Bool("no-input", false, "")
+	_ = cmd.Flags().Set("no-input", "true")
+	cmd.SetArgs([]string{"--group", "Lab iPads", "--status", "failed"}) // no --yes
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --no-input without --yes for group target")
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("error = %q, want to contain '--yes'", err.Error())
+	}
+	if len(mock.deletedPaths) != 0 {
+		t.Errorf("expected no DELETE calls, got %v", mock.deletedPaths)
 	}
 }
 

@@ -84,7 +84,13 @@ For group targets, a single API call flushes all members of the group at once.`,
 					_, _ = fmt.Fprintf(stderr, "[dry-run] Would flush %s commands from computer group %q (id: %s)\n", status, dt.group, groupID)
 					return nil
 				}
+				// Group path never offers an interactive prompt — the blast radius is too high.
+				// --yes is always required; --no-input without --yes is an error, not a silent no-op.
 				if !yes {
+					isNoInput, _ := cmd.Flags().GetBool("no-input")
+					if isNoInput {
+						return fmt.Errorf("flush-commands requires --yes when --no-input is set")
+					}
 					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all computers in group %q. Use --yes to execute.\n", status, dt.group)
 					return nil
 				}
@@ -132,10 +138,6 @@ For group targets, a single API call flushes all members of the group at once.`,
 		},
 	}
 
-	dt.serial = ""
-	dt.name = ""
-	dt.id = ""
-	dt.group = ""
 	cmd.Flags().StringVar(&dt.serial, "serial", "", "computer serial number")
 	cmd.Flags().StringVar(&dt.name, "name", "", "computer name")
 	cmd.Flags().StringVar(&dt.id, "id", "", "computer numeric ID")
@@ -204,7 +206,13 @@ For group targets, a single API call flushes all members of the group at once.`,
 					_, _ = fmt.Fprintf(stderr, "[dry-run] Would flush %s commands from mobile device group %q (id: %s)\n", status, dt.group, groupID)
 					return nil
 				}
+				// Group path never offers an interactive prompt — the blast radius is too high.
+				// --yes is always required; --no-input without --yes is an error, not a silent no-op.
 				if !yes {
+					isNoInput, _ := cmd.Flags().GetBool("no-input")
+					if isNoInput {
+						return fmt.Errorf("flush-commands requires --yes when --no-input is set")
+					}
 					_, _ = fmt.Fprintf(stderr, "This will flush %s MDM commands from all mobile devices in group %q. Use --yes to execute.\n", status, dt.group)
 					return nil
 				}
@@ -252,10 +260,6 @@ For group targets, a single API call flushes all members of the group at once.`,
 		},
 	}
 
-	dt.serial = ""
-	dt.name = ""
-	dt.id = ""
-	dt.group = ""
 	cmd.Flags().StringVar(&dt.serial, "serial", "", "mobile device serial number")
 	cmd.Flags().StringVar(&dt.name, "name", "", "mobile device name")
 	cmd.Flags().StringVar(&dt.id, "id", "", "mobile device numeric ID")
