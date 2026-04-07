@@ -127,9 +127,11 @@ func templateFuncs() template.FuncMap {
 			return strcase.ToCamel(l)
 		},
 		"needsIO": func(r ClassicResource) bool {
-			// list and get use io.ReadAll for response unwrapping; create/update read from stdin
-			return r.HasOperation("list") || r.HasOperation("get") || r.HasOperation("create") || r.HasOperation("update")
+			// list and get use io.ReadAll for response unwrapping; create/update read from stdin;
+			// extraLookup get-by-* commands also use io.ReadAll
+			return r.HasOperation("list") || r.HasOperation("get") || r.HasOperation("create") || r.HasOperation("update") || len(r.ExtraLookups()) > 0
 		},
+		"idPath": func(r ClassicResource) string { return r.IDPath },
 		"needsFmt": func(r ClassicResource) bool {
 			return r.HasOperation("delete") || r.HasOperation("create") || r.HasOperation("update") || r.HasOperation("get") || len(r.ExtraLookups()) > 0
 		},
@@ -208,7 +210,7 @@ import (
 {{- if hasOp .Operations "delete" }}
 	"net/http"
 {{- end }}
-{{- if or (hasOp .Operations "get") (hasOp .Operations "update") (hasOp .Operations "delete") (hasApply .) }}
+{{- if or (hasOp .Operations "get") (hasOp .Operations "update") (hasOp .Operations "delete") (hasApply .) (extraLookups .Lookups) }}
 	"net/url"
 {{- end }}
 {{- if needsOS . }}
@@ -285,6 +287,11 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
 			if xmlconv.IsXML(body) {
 				items, err := xmlconv.ExtractListItems(body)
 				if err == nil {
@@ -316,17 +323,22 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
-			// Classic API returns XML; convert to JSON for output.
+			// Classic API returns XML; pass through by default.
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
 			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
@@ -363,6 +375,11 @@ func new{{ $.GoName }}GetBy{{ lookupCamel . }}Cmd(ctx *registry.CLIContext) *cob
 			if err != nil {
 				return err
 			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
 			if xmlconv.IsXML(body) {
 				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
 					body = jsonBody
@@ -397,7 +414,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", body)
 			if err != nil {
 				return err
 			}
@@ -427,7 +444,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -471,7 +488,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -538,7 +555,7 @@ If not, a new resource is created.` + "`" + `,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .Singular }} %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/id/0", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -564,7 +581,7 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 
-			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(id))
+			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
@@ -628,7 +645,7 @@ func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/{{ .Path }}/id/%s", url.PathEscape(id))
+			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

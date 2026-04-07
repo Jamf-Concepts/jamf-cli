@@ -1344,3 +1344,91 @@ func TestDateColumnsNotStatusColumns(t *testing.T) {
 		}
 	}
 }
+
+// --- XML / PrintBytes / Format tests ---
+
+func TestFormat_ReturnsConfiguredFormat(t *testing.T) {
+	for _, fmt := range []string{"json", "xml", "raw", "table", "csv", "yaml"} {
+		f, _ := newTestFormatter(fmt)
+		if got := f.Format(); got != fmt {
+			t.Errorf("Format() = %q, want %q", got, fmt)
+		}
+	}
+}
+
+func TestPrintBytes_PrettyPrintsXML(t *testing.T) {
+	f, buf := newTestFormatter("json")
+	input := []byte(`<account><id>1</id><name>admin</name></account>`)
+	if err := f.PrintBytes(input); err != nil {
+		t.Fatalf("PrintBytes() error: %v", err)
+	}
+	out := buf.String()
+	// Should be indented
+	if !strings.Contains(out, "  <id>") {
+		t.Errorf("expected indented XML, got:\n%s", out)
+	}
+	// Should end with newline
+	if !strings.HasSuffix(out, "\n") {
+		t.Errorf("expected trailing newline, got %q", out)
+	}
+}
+
+func TestPrintBytes_Raw_SkipsPrettyPrint(t *testing.T) {
+	f, buf := newTestFormatter("raw")
+	input := []byte(`<account><id>1</id></account>`)
+	if err := f.PrintBytes(input); err != nil {
+		t.Fatalf("PrintBytes() error: %v", err)
+	}
+	// Raw: exact bytes + newline (PrintBytes adds \n if missing)
+	if !strings.Contains(buf.String(), `<account><id>1</id></account>`) {
+		t.Errorf("raw mode should not reformat XML, got:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "  <id>") {
+		t.Errorf("raw mode must not indent XML")
+	}
+}
+
+func TestPrintBytes_NonXML_PassThrough(t *testing.T) {
+	f, buf := newTestFormatter("json")
+	input := []byte(`not xml at all`)
+	if err := f.PrintBytes(input); err != nil {
+		t.Fatalf("PrintBytes() error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "not xml at all") {
+		t.Errorf("non-XML should pass through unchanged, got: %s", buf.String())
+	}
+}
+
+func TestPrintBytes_AddsTrailingNewline(t *testing.T) {
+	f, buf := newTestFormatter("xml")
+	// prettyXML already adds \n, but test the branch where data has no trailing \n
+	input := []byte("plain text")
+	if err := f.PrintBytes(input); err != nil {
+		t.Fatalf("PrintBytes() error: %v", err)
+	}
+	if !strings.HasSuffix(buf.String(), "\n") {
+		t.Errorf("PrintBytes should append newline when missing")
+	}
+}
+
+func TestPrintRaw_XMLFormat_PrettyPrintsXML(t *testing.T) {
+	f, buf := newTestFormatter("xml")
+	input := []byte(`<policy><id>5</id></policy>`)
+	if err := f.PrintRaw(input); err != nil {
+		t.Fatalf("PrintRaw() error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "  <id>") {
+		t.Errorf("FormatXML should pretty-print XML via PrintRaw, got:\n%s", buf.String())
+	}
+}
+
+func TestPrintRaw_RawFormat_ExactBytes(t *testing.T) {
+	f, buf := newTestFormatter("raw")
+	input := []byte(`{"id":1}`)
+	if err := f.PrintRaw(input); err != nil {
+		t.Fatalf("PrintRaw() error: %v", err)
+	}
+	if buf.String() != `{"id":1}` {
+		t.Errorf("FormatRaw should write exact bytes, got: %q", buf.String())
+	}
+}

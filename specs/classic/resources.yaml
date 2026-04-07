@@ -5,6 +5,18 @@
 # Defaults (omit to use):
 #   operations: [list, get, create, update, delete]
 #   lookups:    [id, name]
+#   id_path:    id
+#
+# id_path overrides the URL segment between the base path and the ID value.
+# Use when the API deviates from the standard /JSSResource/{path}/id/{id} pattern.
+# Example: id_path: groupid → /JSSResource/accounts/groupid/{id}
+#
+# Specifying operations: [] (explicit empty list) generates no standard CRUD commands,
+# only get-by-{lookup} commands for any non-id entries in lookups.
+#
+# Resources requiring non-standard URL structures beyond what id_path covers
+# (e.g. required date ranges in path, deeply hierarchical paths, command-dispatch APIs)
+# must be implemented as handwritten commands in internal/commands/pro_*.go.
 
 resources:
   # ── Computers & Policies ──────────────────────────────────────────
@@ -26,7 +38,10 @@ resources:
     description: Computer management commands
     cli_name: classic-computer-commands
     singular: computer_command
-    operations: [list, get, create]
+    # No standard /id/{id} endpoint; create requires /command/{command} path (handwritten).
+    # Lookups only — list all, or fetch by name/uuid/status.
+    operations: [list]
+    lookups: [name, uuid, status]
 
   - name: computerextensionattributes
     path: computerextensionattributes
@@ -45,16 +60,13 @@ resources:
     description: Computer applications inventory
     cli_name: classic-computer-apps
     singular: computer_application
-    operations: [list, get]
-    lookups: [id]
+    # No /list or /id/{id} endpoints; lookup is by application name only.
+    operations: []
+    lookups: [application]
 
-  - name: computerapplicationusage
-    path: computerapplicationusage
-    description: Computer application usage data
-    cli_name: classic-computer-app-usage
-    singular: computer_application_usage
-    operations: [get]
-    lookups: [id]
+  # computerapplicationusage: all endpoints require a date range in the URL
+  # (/computerapplicationusage/id/{id}/{start_date}_{end_date}) which the generator
+  # cannot express. Implement as a handwritten command if needed.
 
   - name: computerhistory
     path: computerhistory
@@ -62,7 +74,7 @@ resources:
     cli_name: classic-computer-history
     singular: computer_history
     operations: [get]
-    lookups: [id]
+    lookups: [id, name, serialnumber, macaddress, udid]
 
   - name: computerinvitations
     path: computerinvitations
@@ -70,7 +82,7 @@ resources:
     cli_name: classic-computer-invitations
     singular: computer_invitation
     operations: [list, get, create, delete]
-    lookups: [id]
+    lookups: [id, name, invitation]
 
   - name: advancedcomputersearches
     path: advancedcomputersearches
@@ -84,7 +96,10 @@ resources:
     description: Mobile device management commands
     cli_name: classic-mobile-commands
     singular: mobile_device_command
-    operations: [list, get, create]
+    # No standard /id/{id} endpoint; create requires /command/{command} path (handwritten).
+    # Lookups only — list all, or fetch by name/uuid/command type.
+    operations: [list]
+    lookups: [name, uuid, command]
 
   - name: mobiledeviceconfigurationprofiles
     path: mobiledeviceconfigurationprofiles
@@ -105,7 +120,7 @@ resources:
     cli_name: classic-mobile-history
     singular: mobile_device_history
     operations: [get]
-    lookups: [id]
+    lookups: [id, name, serialnumber, macaddress, udid]
 
   - name: mobiledeviceinvitations
     path: mobiledeviceinvitations
@@ -113,7 +128,7 @@ resources:
     cli_name: classic-mobile-invitations
     singular: mobile_device_invitation
     operations: [list, get, create, delete]
-    lookups: [id]
+    lookups: [id, invitation]
 
   # ── Configuration & Content ───────────────────────────────────────
   - name: packages
@@ -163,7 +178,7 @@ resources:
     cli_name: classic-allowed-file-extensions
     singular: allowed_file_extension
     operations: [list, get, create, delete]
-    lookups: [id]
+    lookups: [id, extension]
 
   - name: macapplications
     path: macapplications
@@ -193,9 +208,32 @@ resources:
   # ── Administration ────────────────────────────────────────────────
   - name: accounts
     path: accounts
-    description: Jamf Pro user accounts and groups
+    description: All Jamf Pro user accounts and groups (combined list)
     singular: account
-    operations: [list, get]
+    # /accounts returns users + groups together; split resources below handle CRUD.
+    operations: [list]
+
+  - name: account-groups
+    path: accounts
+    cli_name: classic-account-groups
+    description: Jamf Pro account groups
+    singular: account_group
+    # Groups use /accounts/groupid/{id} and /accounts/groupname/{name}.
+    # No list-only-groups endpoint; use classic-accounts list to see all accounts.
+    operations: [get, create, update, delete]
+    id_path: groupid
+    lookups: [id, groupname]
+
+  - name: account-users
+    path: accounts
+    cli_name: classic-account-users
+    description: Jamf Pro account users
+    singular: account_user
+    # Users use /accounts/userid/{id} and /accounts/username/{name}.
+    # No list-only-users endpoint; use classic-accounts list to see all accounts.
+    operations: [get, create, update, delete]
+    id_path: userid
+    lookups: [id, username]
 
   - name: webhooks
     path: webhooks
@@ -303,5 +341,17 @@ resources:
     description: Available patch titles from sources
     cli_name: classic-patch-available-titles
     singular: patch_available_title
-    operations: [list, get]
+    # No /list endpoint and no /id/{id}; only /sourceid/{id}.
+    operations: [get]
+    id_path: sourceid
+    lookups: [id]
+
+  - name: patchreports
+    path: patchreports
+    description: Patch management reports
+    cli_name: classic-patch-reports
+    singular: patch_report
+    # Only /patchsoftwaretitleid/{id}; no list or write endpoints.
+    operations: [get]
+    id_path: patchsoftwaretitleid
     lookups: [id]

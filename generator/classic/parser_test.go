@@ -211,6 +211,77 @@ func TestParseManifest_DefaultOperationsAndLookups(t *testing.T) {
 	}
 }
 
+func TestParseManifest_IDPath(t *testing.T) {
+	dir := t.TempDir()
+	manifest := filepath.Join(dir, "resources.yaml")
+	data := []byte(`resources:
+  - name: accounts
+    path: accounts
+    description: Accounts
+    singular: account
+    operations: [list]
+  - name: account-groups
+    path: accounts
+    cli_name: classic-account-groups
+    description: Account groups
+    singular: account_group
+    operations: [get, create, update, delete]
+    id_path: groupid
+    lookups: [id, groupname]
+`)
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseManifest(manifest)
+	if err != nil {
+		t.Fatalf("ParseManifest() error = %v", err)
+	}
+
+	if len(resources) != 2 {
+		t.Fatalf("expected 2 resources, got %d", len(resources))
+	}
+
+	// resources are sorted by CLIName: classic-account-groups < classic-accounts
+	groups := resources[0]
+	accounts := resources[1]
+
+	if groups.IDPath != "groupid" {
+		t.Errorf("account-groups IDPath = %q, want %q", groups.IDPath, "groupid")
+	}
+	if accounts.IDPath != "id" {
+		t.Errorf("accounts IDPath = %q, want default %q", accounts.IDPath, "id")
+	}
+}
+
+func TestParseManifest_ExplicitEmptyOperations(t *testing.T) {
+	dir := t.TempDir()
+	manifest := filepath.Join(dir, "resources.yaml")
+	data := []byte(`resources:
+  - name: computerapplications
+    path: computerapplications
+    description: Computer applications
+    singular: computer_application
+    operations: []
+    lookups: [application]
+`)
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, err := ParseManifest(manifest)
+	if err != nil {
+		t.Fatalf("ParseManifest() error = %v", err)
+	}
+
+	if len(resources[0].Operations) != 0 {
+		t.Errorf("expected 0 operations for explicit empty ops, got %v", resources[0].Operations)
+	}
+	if len(resources[0].Lookups) != 1 || resources[0].Lookups[0] != "application" {
+		t.Errorf("Lookups = %v, want [application]", resources[0].Lookups)
+	}
+}
+
 func TestParseManifest_FileNotFound(t *testing.T) {
 	_, err := ParseManifest("/nonexistent/path")
 	if err == nil {

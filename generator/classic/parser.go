@@ -27,6 +27,7 @@ type manifestResource struct {
 	Operations  []string `yaml:"operations"`
 	Lookups     []string `yaml:"lookups"`
 	Scope       bool     `yaml:"scope"`
+	IDPath      string   `yaml:"id_path"`
 }
 
 // ParseManifest reads the Classic API YAML manifest and returns a sorted
@@ -82,14 +83,21 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		singular = strings.TrimSuffix(entry.Name, "s")
 	}
 
+	// nil means omitted from YAML → apply defaults.
+	// An explicit empty slice (operations: []) means intentionally no standard CRUD.
 	operations := entry.Operations
-	if len(operations) == 0 {
+	if operations == nil {
 		operations = defaultOperations
 	}
 
 	lookups := entry.Lookups
-	if len(lookups) == 0 {
+	if lookups == nil {
 		lookups = defaultLookups
+	}
+
+	idPath := entry.IDPath
+	if idPath == "" {
+		idPath = "id"
 	}
 
 	goName := strcase.ToCamel(cliName)
@@ -104,5 +112,6 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		Operations:  operations,
 		Lookups:     lookups,
 		HasScope:    entry.Scope,
+		IDPath:      idPath,
 	}, nil
 }

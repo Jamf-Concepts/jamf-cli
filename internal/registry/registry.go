@@ -43,6 +43,11 @@ type FileUploader interface {
 type OutputFormatter interface {
 	PrintResponse(resp *http.Response) error
 	PrintRaw(data []byte) error
+	// PrintBytes writes raw bytes without any conversion or formatting.
+	// Used by Classic API commands to emit raw XML.
+	PrintBytes(data []byte) error
+	// Format returns the current output format string (e.g. "json", "xml", "table").
+	Format() string
 }
 
 // ProtectClient defines the interface for Jamf Protect API operations.

@@ -45,6 +45,15 @@ func WithTenantID(id string) Option {
 	}
 }
 
+// WithCookieJar sets the cookie jar on the HTTP client. Sharing a jar with the
+// auth provider enables sticky session affinity cookies (e.g. APBALANCEID on
+// Jamf Cloud) to persist from the token exchange through all API calls.
+func WithCookieJar(jar http.CookieJar) Option {
+	return func(c *Client) {
+		c.httpClient.Jar = jar
+	}
+}
+
 // New creates a new Jamf Pro API client
 func New(baseURL string, authProvider auth.Provider, opts ...Option) *Client {
 	c := &Client{
@@ -184,8 +193,9 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	// Use a dedicated client with no timeout for uploads. The standard client's
 	// 30-second timeout covers the entire request lifecycle including body transfer,
 	// which is too short for multi-GB packages. Context cancellation provides the
-	// safety net instead.
-	uploadClient := &http.Client{Timeout: 0}
+	// safety net instead. Share the main client's cookie jar so session-affinity
+	// cookies (e.g. APBALANCEID on Jamf Cloud) are included in upload requests.
+	uploadClient := &http.Client{Timeout: 0, Jar: c.httpClient.Jar}
 	resp, err := uploadClient.Do(req)
 	if err != nil {
 		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))

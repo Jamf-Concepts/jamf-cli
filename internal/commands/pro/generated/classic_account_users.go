@@ -16,89 +16,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
-// NewClassicJwtConfigsCmd creates the classic-jwt-configs command group
-func NewClassicJwtConfigsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicAccountUsersCmd creates the classic-account-users command group
+func NewClassicAccountUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-jwt-configs",
-		Short: "JSON Web Token configurations (Classic API)",
-		Long:  `Manage json web token configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-account-users",
+		Short: "Jamf Pro account users (Classic API)",
+		Long:  `Manage jamf pro account users via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicJwtConfigsListCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersGetCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersGetByUsernameCmd(ctx))
 
-	cmd.AddCommand(newClassicJwtConfigsGetCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersCreateCmd(ctx))
 
-	cmd.AddCommand(newClassicJwtConfigsCreateCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersUpdateCmd(ctx))
 
-	cmd.AddCommand(newClassicJwtConfigsUpdateCmd(ctx))
-
-	cmd.AddCommand(newClassicJwtConfigsDeleteCmd(ctx))
+	cmd.AddCommand(newClassicAccountUsersDeleteCmd(ctx))
 
 	return cmd
 }
 
-func newClassicJwtConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all jsonwebtokenconfigurations",
-		Example: `  # List all jsonwebtokenconfigurations
-  jamf-cli classic-jwt-configs list
-
-  # List jsonwebtokenconfigurations and extract IDs
-  jamf-cli classic-jwt-configs list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/jsonwebtokenconfigurations", nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Classic API returns XML list responses.
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				items, err := xmlconv.ExtractListItems(body)
-				if err == nil {
-					jsonItems, err := json.Marshal(items)
-					if err == nil {
-						return ctx.Output.PrintRaw(jsonItems)
-					}
-				}
-				return ctx.Output.PrintRaw(body)
-			}
-			// JSON fallback
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["jsonwebtokenconfigurations"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a json_web_token_configuration by ID",
-		Example: `  # Get a json_web_token_configuration by ID
-  jamf-cli classic-jwt-configs get 1
+		Short: "Get a account_user by ID",
+		Example: `  # Get a account_user by ID
+  jamf-cli classic-account-users get 1
 
-  # Get a json_web_token_configuration and output as YAML
-  jamf-cli classic-jwt-configs get 1 -o yaml`,
+  # Get a account_user and output as YAML
+  jamf-cli classic-account-users get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -122,7 +72,7 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["json_web_token_configuration"]; ok {
+				if inner, ok := wrapper["account_user"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -131,13 +81,52 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersGetByUsernameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-username <username>",
+		Short: "Get a account_user by username",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			path := fmt.Sprintf("/JSSResource/accounts/username/%s", url.PathEscape(args[0]))
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
+			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(body)
+			}
+			if xmlconv.IsXML(body) {
+				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
+					body = jsonBody
+				}
+			}
+			var wrapper map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wrapper); err == nil {
+				if inner, ok := wrapper["account_user"]; ok {
+					return ctx.Output.PrintRaw(inner)
+				}
+			}
+			return ctx.Output.PrintRaw(body)
+		},
+	}
+}
+
+func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
-		Short: "Create a json_web_token_configuration",
-		Long:  "Create a new json_web_token_configuration. Reads XML body from stdin.",
-		Example: `  # Create a json_web_token_configuration from XML
-  cat json_web_token_configuration.xml | jamf-cli classic-jwt-configs create`,
+		Short: "Create a account_user",
+		Long:  "Create a new account_user. Reads XML body from stdin.",
+		Example: `  # Create a account_user from XML
+  cat account_user.xml | jamf-cli classic-account-users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -149,7 +138,7 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/jsonwebtokenconfigurations/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/accounts/userid/0", body)
 			if err != nil {
 				return err
 			}
@@ -160,13 +149,13 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update a json_web_token_configuration",
-		Long:  "Update an existing json_web_token_configuration by ID. Reads XML body from stdin.",
-		Example: `  # Update a json_web_token_configuration from XML
-  cat json_web_token_configuration.xml | jamf-cli classic-jwt-configs update 1`,
+		Short: "Update a account_user",
+		Long:  "Update an existing account_user by ID. Reads XML body from stdin.",
+		Example: `  # Update a account_user from XML
+  cat account_user.xml | jamf-cli classic-account-users update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -179,7 +168,7 @@ func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -191,7 +180,7 @@ func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicAccountUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -199,18 +188,18 @@ func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a json_web_token_configuration",
-		Example: `  # Delete a json_web_token_configuration (with confirmation)
-  jamf-cli classic-jwt-configs delete 1
+		Short: "Delete a account_user",
+		Example: `  # Delete a account_user (with confirmation)
+  jamf-cli classic-account-users delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-jwt-configs delete 1 --yes`,
+  jamf-cli classic-account-users delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete json_web_token_configuration %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete account_user %s\n", args[0])
 				return nil
 			}
 			if !flagYes {
@@ -218,7 +207,7 @@ func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete json_web_token_configuration %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete account_user %s. Type 'yes' to confirm: ", args[0])
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -226,7 +215,7 @@ func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
