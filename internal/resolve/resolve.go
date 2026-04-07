@@ -607,22 +607,22 @@ func readEntriesFromFile(path string) ([]string, error) {
 	return entries, nil
 }
 
-// ResolveClassicComputerGroupID resolves a computer group name to its Classic API
-// numeric ID by fetching the group detail from /JSSResource/computergroups/name/{name}.
-// Works for both smart and static computer groups.
-func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	path := fmt.Sprintf("/JSSResource/computergroups/name/%s", url.PathEscape(groupName))
+// resolveClassicGroupID is the shared implementation for Classic API group ID
+// lookups. pathSegment is the JSSResource collection name (e.g. "computergroups"),
+// label is the human-readable type used in error messages (e.g. "computer group").
+func resolveClassicGroupID(ctx context.Context, client registry.HTTPClient, pathSegment, label, groupName string) (string, error) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, url.PathEscape(groupName))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
-		return "", fmt.Errorf("looking up computer group %q: %w", groupName, err)
+		return "", fmt.Errorf("looking up %s %q: %w", label, groupName, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("computer group %q not found", groupName)
+		return "", fmt.Errorf("%s %q not found", label, groupName)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("looking up computer group %q: HTTP %d", groupName, resp.StatusCode)
+		return "", fmt.Errorf("looking up %s %q: HTTP %d", label, groupName, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -631,9 +631,8 @@ func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClie
 	}
 	detail, err := unmarshalClassic(body)
 	if err != nil {
-		return "", fmt.Errorf("parsing computer group response: %w", err)
+		return "", fmt.Errorf("parsing %s response: %w", label, err)
 	}
-	// Unwrap envelope: {"computer_group": {"id": "7", ...}}
 	for _, v := range detail {
 		if inner, ok := v.(map[string]any); ok {
 			if id := jsonString(inner, "id"); id != "" {
@@ -641,44 +640,19 @@ func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClie
 			}
 		}
 	}
-	return "", fmt.Errorf("computer group %q: id not found in response", groupName)
+	return "", fmt.Errorf("%s %q: id not found in response", label, groupName)
+}
+
+// ResolveClassicComputerGroupID resolves a computer group name to its Classic API
+// numeric ID. Works for both smart and static computer groups.
+func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	return resolveClassicGroupID(ctx, client, "computergroups", "computer group", groupName)
 }
 
 // ResolveClassicMobileGroupID resolves a mobile device group name to its Classic API
-// numeric ID by fetching the group detail from /JSSResource/mobiledevicegroups/name/{name}.
-// Works for both smart and static mobile device groups.
+// numeric ID. Works for both smart and static mobile device groups.
 func ResolveClassicMobileGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	path := fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", url.PathEscape(groupName))
-	resp, err := client.Do(ctx, "GET", path, nil)
-	if err != nil {
-		return "", fmt.Errorf("looking up mobile device group %q: %w", groupName, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("mobile device group %q not found", groupName)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("looking up mobile device group %q: HTTP %d", groupName, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	detail, err := unmarshalClassic(body)
-	if err != nil {
-		return "", fmt.Errorf("parsing mobile device group response: %w", err)
-	}
-	// Unwrap envelope: {"mobile_device_group": {"id": "5", ...}}
-	for _, v := range detail {
-		if inner, ok := v.(map[string]any); ok {
-			if id := jsonString(inner, "id"); id != "" {
-				return id, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("mobile device group %q: id not found in response", groupName)
+	return resolveClassicGroupID(ctx, client, "mobiledevicegroups", "mobile device group", groupName)
 }
 
 // FormatDeviceDesc returns a human-readable device description for confirmation messages.

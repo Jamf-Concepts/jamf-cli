@@ -138,11 +138,7 @@ For group targets, a single API call flushes all members of the group at once.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&dt.serial, "serial", "", "computer serial number")
-	cmd.Flags().StringVar(&dt.name, "name", "", "computer name")
-	cmd.Flags().StringVar(&dt.id, "id", "", "computer numeric ID")
-	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a computer group (smart or static)")
-	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group")
+	dt.addFlushFlags(cmd, "computer")
 	cmd.Flags().StringVar(&status, "status", "failed", "commands to flush: failed, pending, or both")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompt")
 
@@ -260,11 +256,7 @@ For group targets, a single API call flushes all members of the group at once.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&dt.serial, "serial", "", "mobile device serial number")
-	cmd.Flags().StringVar(&dt.name, "name", "", "mobile device name")
-	cmd.Flags().StringVar(&dt.id, "id", "", "mobile device numeric ID")
-	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a mobile device group (smart or static)")
-	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group")
+	dt.addFlushFlags(cmd, "mobile device")
 	cmd.Flags().StringVar(&status, "status", "failed", "commands to flush: failed, pending, or both")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompt")
 
