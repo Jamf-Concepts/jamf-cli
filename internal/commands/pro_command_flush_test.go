@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -94,16 +92,6 @@ type discardOutput struct{}
 func (d *discardOutput) PrintResponse(_ *http.Response) error { return nil }
 func (d *discardOutput) PrintRaw(_ []byte) error              { return nil }
 
-const computerV3FlushResponse = `{
-	"totalCount": 1,
-	"results": [{
-		"id": "42",
-		"udid": "AAAA-BBBB-CCCC",
-		"general": {"name": "Test Mac", "managementId": "mgmt-uuid"},
-		"hardware": {"serialNumber": "C02X1234"}
-	}]
-}`
-
 const classicGroupXML = `<?xml version="1.0" encoding="UTF-8"?>
 <computer_group>
   <id>7</id>
@@ -129,13 +117,6 @@ const groupFlushXML = `<?xml version="1.0" encoding="UTF-8"?>
   <status>+failed</status>
   <computer_groups>7</computer_groups>
 </commandflush>`
-
-// newFlushTestCmd creates a minimal cobra.Command with the no-input flag for use in tests.
-func newFlushTestCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "test"}
-	cmd.Flags().Bool("no-input", false, "")
-	return cmd
-}
 
 func TestComputerFlushCommands_DryRun_ByID(t *testing.T) {
 	resetGlobals()
