@@ -805,7 +805,7 @@ func newComputerExtensionAttributesDeleteByNameCmd(ctx *registry.CLIContext) *co
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/computer-extension-attributes/templates", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", name, noInput)
 			if err != nil {
 				return err
 			}

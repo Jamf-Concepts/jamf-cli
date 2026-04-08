@@ -163,16 +163,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			return "{id}"
 		},
 		"listPathFromOps": func(ops []*Operation) string {
-			// Derive the list endpoint from the get path: /v1/buildings/{id} → /v1/buildings
-			for _, op := range ops {
-				if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
-					path := op.Path
-					if idx := strings.LastIndex(path, "/{"); idx != -1 {
-						return path[:idx]
-					}
-				}
-			}
-			return ""
+			return collectionPath(ops)
 		},
 		"createPath": func(ops []*Operation) string {
 			for _, op := range ops {
@@ -379,6 +370,60 @@ func escapeQuotes(s string) string {
 	s = strings.ReplaceAll(s, "\r", "")
 	s = strings.ReplaceAll(s, "`", "'")
 	return s
+}
+
+// collectionPath returns the canonical collection/list path for a resource's operations.
+// collectionPath returns the canonical collection/list path for a resource's operations.
+// Priority:
+//  1. "list" GET without path param that also has a direct /{param} child — this confirms
+//     it is a true CRUD collection and not a utility endpoint (e.g. feature-toggle).
+//  2. "create" POST without path param AND with a direct /{param} child — same safety
+//     check; excludes utility POSTs like parse-markdown or tasks/retry.
+//  3. Derive from "update" (PUT) by stripping the last /{param} segment — only accepted
+//     when the result itself has no path params (avoids paths like /foo/{id}/bar/{subId}).
+//  4. Derive from "get" (GET with path param) by stripping the last /{param} — same
+//     constraint: result must be param-free (original fallback, safe).
+func collectionPath(ops []*Operation) string {
+	hasDirectChild := func(path string) bool {
+		for _, other := range ops {
+			if strings.HasPrefix(other.Path, path+"/") {
+				if strings.HasPrefix(other.Path[len(path):], "/{") {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	for _, op := range ops {
+		if op.Name == "list" && op.Method == "GET" && !hasPathParam(op.Path) && hasDirectChild(op.Path) {
+			return op.Path
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "create" && op.Method == "POST" && !hasPathParam(op.Path) && hasDirectChild(op.Path) {
+			return op.Path
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				if stripped := op.Path[:idx]; !hasPathParam(stripped) {
+					return stripped
+				}
+			}
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "update" && op.Method == "PUT" && hasPathParam(op.Path) {
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				if stripped := op.Path[:idx]; !hasPathParam(stripped) {
+					return stripped
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func dedupeOperations(ops []*Operation) []*Operation {
