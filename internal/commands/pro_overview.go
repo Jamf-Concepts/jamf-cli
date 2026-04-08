@@ -118,7 +118,7 @@ func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string,
 		maxPages = 1000
 	)
 	total := 0
-	for page := 0; page < maxPages; page++ {
+	for page := range maxPages {
 		path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, pageSize)
 		data, err := fetchJSON(ctx, client, path)
 		if err != nil {
@@ -904,6 +904,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		if count == 0 {
 			send("alerts", "None", nil)
 			sendWithColor("alert_detail", "", "", nil)
+			send("apns_cert", "OK", nil)
 			return
 		}
 
