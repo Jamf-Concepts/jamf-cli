@@ -103,7 +103,23 @@ func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePatte
 	// Scope group filter
 	if scopeGroup != "" {
 		scope, _ := policy["scope"].(map[string]any)
-		groups, _ := scope["computer_groups"].([]any)
+		// Classic API XML: <computer_groups> may or may not contain <size>.
+		// With <size>: xmlconv produces []any directly.
+		// Without <size>: xmlconv produces map[string]any{"computer_group": ...}.
+		// Handle both forms.
+		var groups []any
+		switch cg := scope["computer_groups"].(type) {
+		case []any:
+			groups = cg
+		case map[string]any:
+			// Unwrap the "computer_group" key which may be a single map or a slice.
+			switch inner := cg["computer_group"].(type) {
+			case []any:
+				groups = inner
+			case map[string]any:
+				groups = []any{inner}
+			}
+		}
 		found := false
 		for _, g := range groups {
 			gm, ok := g.(map[string]any)

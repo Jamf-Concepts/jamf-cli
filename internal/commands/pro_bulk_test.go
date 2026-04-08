@@ -267,6 +267,45 @@ func TestDisablePolicies_NamePatternFilter(t *testing.T) {
 	}
 }
 
+func TestDisablePolicies_ScopeGroupFilter(t *testing.T) {
+	// Classic API XML without <size> produces {"computer_group": [...]} not a flat array.
+	scopeDetail := func(id int, name string, groupName string) string {
+		return fmt.Sprintf(`{"policy":{"general":{"id":%d,"name":"%s","enabled":true,"category":{"id":10,"name":"Apps"}},"scope":{"computer_groups":{"computer_group":{"id":20,"name":"%s"}}}}}`,
+			id, name, groupName)
+	}
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"},
+				{"id":3,"name":"Policy C"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, scopeDetail(1, "Policy A", "Lab Macs")},
+			"GET /JSSResource/policies/id/2": {200, scopeDetail(2, "Policy B", "All Computers")},
+			"GET /JSSResource/policies/id/3": {200, scopeDetail(3, "Policy C", "Lab Macs")},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+			"PUT /JSSResource/policies/id/3": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes", "--scope-group", "Lab Macs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 2 {
+		t.Errorf("expected 2 PUTs (Lab Macs scope), got %d: %v", len(puts), puts)
+	}
+	for _, c := range puts {
+		if strings.Contains(c, "/id/2") {
+			t.Error("policy 2 (All Computers) should not be disabled when filtering by Lab Macs")
+		}
+	}
+}
+
 func TestDisablePolicies_AlreadyDisabledSkipped(t *testing.T) {
 	mock := &bulkMockClient{
 		responses: map[string]overviewMockResponse{
