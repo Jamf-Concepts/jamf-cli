@@ -272,6 +272,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"opHasBinaryResponse":     opHasBinaryResponse,
 		"shouldGenerateApply":     shouldGenerateApply,
 		"shouldGenerateGetByName": shouldGenerateGetByName,
+		"hasResolvableID":         hasResolvableID,
 		"hasDeleteMultiple":       hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
@@ -648,14 +649,17 @@ func needsURL(r *Resource) bool {
 // semantics don't apply. Sub-resources (where collectionPath returns empty) are also
 // excluded: without a flat collection there is no way to resolve a name to an ID.
 func shouldGenerateApply(r *Resource) bool {
-	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != ""
+	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != "" && hasResolvableID(r)
 }
 
 // shouldGenerateGetByName returns true if the resource should have a get-by-name command.
-// Sub-resources (where collectionPath returns empty) are excluded because there is no
-// flat collection to search for name resolution.
+// Sub-resources (where collectionPath returns empty) and resources with unresolvable ID
+// fields are excluded.
 func shouldGenerateGetByName(r *Resource) bool {
 	if collectionPath(r.Operations) == "" {
+		return false
+	}
+	if !hasResolvableID(r) {
 		return false
 	}
 	for _, op := range r.Operations {
@@ -664,6 +668,17 @@ func shouldGenerateGetByName(r *Resource) bool {
 		}
 	}
 	return false
+}
+
+// hasResolvableID returns true when the detected ID field exists in at least one
+// response schema (or is the standard "id"). When false, name-resolution commands
+// (get-by-name, delete-by-name, apply) are not generated because extracting the
+// identifier from list responses would fail at runtime.
+func hasResolvableID(r *Resource) bool {
+	if r.IDField == "" || r.IDField == "id" {
+		return true
+	}
+	return schemaHasProperty(r.Schemas, r.IDField)
 }
 
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
@@ -1345,6 +1360,7 @@ If not, a new resource is created.` + "`" + `,
 
 	return cmd
 }
+{{ end }}
 {{ end }}
 `
 

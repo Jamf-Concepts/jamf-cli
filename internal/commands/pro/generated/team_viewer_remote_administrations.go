@@ -31,8 +31,6 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetByNameCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -434,99 +432,6 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newTeamViewerRemoteAdministrationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a team-viewer-remote-administration by name",
-		Example: `  # Get a team-viewer-remote-administration by name
-  jamf-cli team-viewer-remote-administrations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli team-viewer-remote-administrations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "sessionId", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a team-viewer-remote-administration by name",
-		Example: `  # Delete a team-viewer-remote-administration by name (with confirmation)
-  jamf-cli team-viewer-remote-administrations delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli team-viewer-remote-administrations delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "sessionId", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no team-viewer-remote-administration found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete team-viewer-remote-administration %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted team-viewer-remote-administration %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }
