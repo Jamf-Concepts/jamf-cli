@@ -4,6 +4,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -158,13 +159,8 @@ Supported shells: bash, zsh, fish
 				if err := cmd.Root().GenZshCompletion(&content); err != nil {
 					return err
 				}
-				// Try common zsh completion directories
 				home := os.Getenv("HOME")
-				candidates := []string{
-					filepath.Join(home, ".zsh", "completions"),
-					filepath.Join(home, ".local", "share", "zsh", "site-functions"),
-					"/usr/local/share/zsh/site-functions",
-				}
+				candidates := zshCompletionCandidates(home)
 				for _, dir := range candidates {
 					if _, err := os.Stat(dir); err == nil {
 						installPath = filepath.Join(dir, "_jamf-cli")
@@ -202,11 +198,62 @@ Supported shells: bash, zsh, fish
 			}
 
 			fmt.Fprintf(os.Stderr, "Completion script installed to: %s\n", installPath)
+			if shell == "zsh" {
+				printZshPostInstallHint(os.Stderr, filepath.Dir(installPath))
+			}
 			fmt.Fprintf(os.Stderr, "Restart your shell or source the file to enable completions.\n")
 
 			return nil
 		},
 	}
+}
+
+// zshCompletionCandidates returns candidate directories for zsh completion
+// scripts, ordered by preference. On macOS it includes the Homebrew
+// site-functions directory (which varies between Intel and Apple Silicon).
+func zshCompletionCandidates(home string) []string {
+	candidates := make([]string, 0, 4)
+
+	// On macOS, prefer Homebrew's site-functions — already on fpath for
+	// Oh My Zsh / Prezto users and the standard location for Homebrew formulae.
+	if runtime.GOOS == "darwin" {
+		if brewPrefix, err := exec.Command("brew", "--prefix").Output(); err == nil {
+			candidates = append(candidates, filepath.Join(strings.TrimSpace(string(brewPrefix)), "share", "zsh", "site-functions"))
+		}
+	}
+
+	candidates = append(candidates,
+		filepath.Join(home, ".zsh", "completions"),
+		filepath.Join(home, ".local", "share", "zsh", "site-functions"),
+		"/usr/local/share/zsh/site-functions",
+	)
+	return candidates
+}
+
+// printZshPostInstallHint checks whether the install directory is likely on the
+// user's fpath and prints setup guidance if not. This helps vanilla macOS zsh
+// users who don't have a framework like Oh My Zsh setting up fpath/compinit.
+func printZshPostInstallHint(w io.Writer, dir string) {
+	// Quick check: ask zsh what's on fpath right now.
+	out, err := exec.Command("zsh", "-c", "echo $fpath").Output()
+	if err != nil {
+		// Can't check — always print the hint.
+		printZshHintBlock(w, dir)
+		return
+	}
+	for _, entry := range strings.Fields(string(out)) {
+		if entry == dir {
+			return // already on fpath — no hint needed
+		}
+	}
+	printZshHintBlock(w, dir)
+}
+
+func printZshHintBlock(w io.Writer, dir string) {
+	_, _ = fmt.Fprintf(w, "\nNote: %s may not be on your zsh fpath.\n", dir)
+	_, _ = fmt.Fprintf(w, "If completions don't work, add the following to ~/.zshrc:\n\n")
+	_, _ = fmt.Fprintf(w, "  fpath=(%s $fpath)\n", dir)
+	_, _ = fmt.Fprintf(w, "  autoload -Uz compinit && compinit\n\n")
 }
 
 func detectShell() string {
