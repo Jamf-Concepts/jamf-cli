@@ -388,19 +388,27 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				noColor = true
 			}
 
-			// Skip for completion, help, version, config, and commands
-			skipCommands := map[string]bool{
+			// Skip auth for commands that don't need it. Most are matched
+			// anywhere in the chain (e.g. "config" covers all subcommands,
+			// "setup" covers both "pro setup" and "protect setup").
+			// "commands" is intentionally root-child-only: the root-level
+			// "jamf-cli commands" listing command must be skipped, but
+			// "pro mdm-commands commands" must NOT be skipped.
+			chainSkip := map[string]bool{
 				"completion": true,
 				"help":       true,
 				"version":    true,
 				"config":     true,
-				"commands":   true,
 				"diff":       true,
 				"setup":      true,
 				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
-				if skipCommands[c.Name()] {
+				if chainSkip[c.Name()] {
+					return nil
+				}
+				// "commands" only skips when it is a direct child of the root.
+				if c.Name() == "commands" && c.Parent() != nil && c.Parent().Parent() == nil {
 					return nil
 				}
 			}

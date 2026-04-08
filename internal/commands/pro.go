@@ -75,6 +75,9 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerSetRecoveryLockCmd(cliCtx))
 
+	addSubcommand(cmd, []string{"computers"}, newComputerFlushCommandsCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileFlushCommandsCmd(cliCtx))
+
 	// Mobile device MDM commands (modern API where available, Classic where not)
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRestartCmd(cliCtx))         // modern: RESTART_DEVICE
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileShutdownCmd(cliCtx))        // modern: SHUT_DOWN_DEVICE

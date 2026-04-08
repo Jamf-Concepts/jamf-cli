@@ -38,6 +38,18 @@ func (dt *deviceTarget) addFlags(cmd *cobra.Command) {
 	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group", "from-file")
 }
 
+// addFlushFlags registers --serial, --name, --id, --group (but not --from-file)
+// with device-type-specific help text and marks them mutually exclusive.
+// Used by flush-style commands that operate on a single device or group but
+// don't support bulk file input.
+func (dt *deviceTarget) addFlushFlags(cmd *cobra.Command, deviceType string) {
+	cmd.Flags().StringVar(&dt.serial, "serial", "", deviceType+" serial number")
+	cmd.Flags().StringVar(&dt.name, "name", "", deviceType+" name")
+	cmd.Flags().StringVar(&dt.id, "id", "", deviceType+" numeric ID")
+	cmd.Flags().StringVar(&dt.group, "group", "", "target all members of a "+deviceType+" group (smart or static)")
+	cmd.MarkFlagsMutuallyExclusive("serial", "name", "id", "group")
+}
+
 // validate ensures exactly one targeting flag is set.
 func (dt *deviceTarget) validate() error {
 	set := 0

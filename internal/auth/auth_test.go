@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -582,5 +584,117 @@ func TestTokenCachePath_UniquePerProfile(t *testing.T) {
 	}
 	if p2 == p3 {
 		t.Error("different URL+clientID combinations should produce different cache paths")
+	}
+}
+
+// --- diskCookieJar tests ---
+
+func TestDiskCookieJar_PersistAndReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cookies.json")
+	u, _ := url.Parse("https://example.jamfcloud.com")
+
+	// Write cookies via first jar instance.
+	j1 := newDiskCookieJar(path)
+	j1.SetCookies(u, []*http.Cookie{
+		{Name: "APBALANCEID", Value: "node-7"},
+	})
+
+	// A second jar loaded from the same file should have the cookie.
+	j2 := newDiskCookieJar(path)
+	cookies := j2.Cookies(u)
+	found := false
+	for _, c := range cookies {
+		if c.Name == "APBALANCEID" && c.Value == "node-7" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected APBALANCEID=node-7 to survive jar reload, got %v", cookies)
+	}
+}
+
+func TestDiskCookieJar_UpdateOverwrites(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cookies.json")
+	u, _ := url.Parse("https://example.jamfcloud.com")
+
+	j := newDiskCookieJar(path)
+	j.SetCookies(u, []*http.Cookie{{Name: "APBALANCEID", Value: "node-1"}})
+	j.SetCookies(u, []*http.Cookie{{Name: "APBALANCEID", Value: "node-2"}})
+
+	j2 := newDiskCookieJar(path)
+	cookies := j2.Cookies(u)
+	for _, c := range cookies {
+		if c.Name == "APBALANCEID" && c.Value == "node-1" {
+			t.Error("stale value node-1 should have been overwritten by node-2")
+		}
+	}
+}
+
+func TestDiskCookieJar_MissingFileIsNoop(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nonexistent.json")
+	u, _ := url.Parse("https://example.jamfcloud.com")
+
+	j := newDiskCookieJar(path)
+	if cookies := j.Cookies(u); len(cookies) != 0 {
+		t.Errorf("expected empty jar from missing file, got %v", cookies)
+	}
+}
+
+func TestDiskCookieJar_EmptyPath_InMemoryOnly(t *testing.T) {
+	u, _ := url.Parse("https://example.jamfcloud.com")
+
+	j := newDiskCookieJar("")
+	j.SetCookies(u, []*http.Cookie{{Name: "APBALANCEID", Value: "node-5"}})
+
+	cookies := j.Cookies(u)
+	found := false
+	for _, c := range cookies {
+		if c.Name == "APBALANCEID" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected cookie to be present in-memory even with empty path")
+	}
+}
+
+func TestClearCookieCache_RemovesFile(t *testing.T) {
+	const testURL = "https://clear-test.jamfcloud.com"
+	const testClientID = "clear-test-client-id"
+
+	path := cookieJarPath(testURL, testClientID)
+	if path == "" {
+		t.Skip("no user cache dir available")
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	u, _ := url.Parse(testURL)
+	j := newDiskCookieJar(path)
+	j.SetCookies(u, []*http.Cookie{{Name: "APBALANCEID", Value: "node-3"}})
+
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected cookie file to exist before clear: %v", err)
+	}
+
+	ClearCookieCache(testURL, testClientID)
+
+	if _, err := os.Stat(path); err == nil {
+		t.Error("expected cookie file to be removed by ClearCookieCache")
+	}
+}
+
+func TestCookieJarPath_UniquePerProfile(t *testing.T) {
+	p1 := cookieJarPath("https://a.jamfcloud.com", "client-1")
+	p2 := cookieJarPath("https://b.jamfcloud.com", "client-1")
+	p3 := cookieJarPath("https://a.jamfcloud.com", "client-2")
+
+	if p1 == p2 {
+		t.Error("different URLs should produce different cookie jar paths")
+	}
+	if p1 == p3 {
+		t.Error("different client IDs should produce different cookie jar paths")
+	}
+	if p1 == tokenCachePath("https://a.jamfcloud.com", "client-1") {
+		t.Error("cookie jar path and token cache path should be different files")
 	}
 }

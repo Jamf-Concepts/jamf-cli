@@ -607,6 +607,54 @@ func readEntriesFromFile(path string) ([]string, error) {
 	return entries, nil
 }
 
+// resolveClassicGroupID is the shared implementation for Classic API group ID
+// lookups. pathSegment is the JSSResource collection name (e.g. "computergroups"),
+// label is the human-readable type used in error messages (e.g. "computer group").
+func resolveClassicGroupID(ctx context.Context, client registry.HTTPClient, pathSegment, label, groupName string) (string, error) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, url.PathEscape(groupName))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("looking up %s %q: %w", label, groupName, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("%s %q not found", label, groupName)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("looking up %s %q: HTTP %d", label, groupName, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	detail, err := unmarshalClassic(body)
+	if err != nil {
+		return "", fmt.Errorf("parsing %s response: %w", label, err)
+	}
+	for _, v := range detail {
+		if inner, ok := v.(map[string]any); ok {
+			if id := jsonString(inner, "id"); id != "" {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%s %q: id not found in response", label, groupName)
+}
+
+// ResolveClassicComputerGroupID resolves a computer group name to its Classic API
+// numeric ID. Works for both smart and static computer groups.
+func ResolveClassicComputerGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	return resolveClassicGroupID(ctx, client, "computergroups", "computer group", groupName)
+}
+
+// ResolveClassicMobileGroupID resolves a mobile device group name to its Classic API
+// numeric ID. Works for both smart and static mobile device groups.
+func ResolveClassicMobileGroupID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	return resolveClassicGroupID(ctx, client, "mobiledevicegroups", "mobile device group", groupName)
+}
+
 // FormatDeviceDesc returns a human-readable device description for confirmation messages.
 // Example: "Neil's MacBook" (serial: C02X1234, id: 42)
 func FormatDeviceDesc(d *DeviceIdentifiers) string {
