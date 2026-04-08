@@ -28,6 +28,8 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newEnrollmentCustomizationPanelsCreateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsAllCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsMarkdownCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsApplyCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteByNameCmd(ctx))
@@ -40,8 +42,8 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get all Panels for single Enrollment Customization",
-		Long:  "Get all panels for single enrollment customization",
+		Short: "Get a single Panel for a single Enrollment Customization",
+		Long:  "Get a single panel for a single enrollment customization",
 		Example: `  # Get a enrollment-customization-panel by ID
   jamf-cli enrollment-customization-panels get 1
 
@@ -55,8 +57,9 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/all"
+			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -253,6 +256,77 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
+func newEnrollmentCustomizationPanelsAllCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "all <id>",
+		Short: "Get all Panels for single Enrollment Customization",
+		Long:  "Get all panels for single enrollment customization",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/all"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationPanelsMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "markdown <id>",
+		Short: "Get the markdown output of a single Text Panel for a single Enrollment",
+		Long:  "Get the markdown output of a single Text panel for a single enrollment customization",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -265,11 +339,11 @@ func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cob
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization/{id}/all", "displayName", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/enrollment-customization/{id}/all", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v1/enrollment-customization/{id}/all/{panel-id}", "{panel-id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -301,7 +375,7 @@ func newEnrollmentCustomizationPanelsDeleteByNameCmd(ctx *registry.CLIContext) *
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "", "displayName", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -389,7 +463,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "", "displayName", name, noInput)
 			if err != nil {
 				return err
 			}

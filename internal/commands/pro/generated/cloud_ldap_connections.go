@@ -19,28 +19,21 @@ func NewCloudLdapConnectionsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-ldap-connections in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudLdapConnectionsGetCmd(ctx))
-	cmd.AddCommand(newCloudLdapConnectionsGetByNameCmd(ctx))
+	cmd.AddCommand(newCloudLdapConnectionsBindCmd(ctx))
+	cmd.AddCommand(newCloudLdapConnectionsSearchCmd(ctx))
+	cmd.AddCommand(newCloudLdapConnectionsStatusCmd(ctx))
 
 	return cmd
 }
 
-func newCloudLdapConnectionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapConnectionsBindCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "bind <id>",
 		Short: "Get bind connection pool statistics",
 		Long:  "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
-		Example: `  # Get a cloud-ldap-connection by ID
-  jamf-cli cloud-ldap-connections get 1
-
-  # Get a cloud-ldap-connection by name
-  jamf-cli cloud-ldap-connections get-by-name "Example"
-
-  # Get a cloud-ldap-connection and output as YAML
-  jamf-cli cloud-ldap-connections get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -68,29 +61,72 @@ func newCloudLdapConnectionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapConnectionsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a cloud-ldap-connection by name",
-		Example: `  # Get a cloud-ldap-connection by name
-  jamf-cli cloud-ldap-connections get-by-name "Example"
+func newCloudLdapConnectionsSearchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli cloud-ldap-connections get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "search <id>",
+		Short: "Get search connection pool statistics",
+		Long:  "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/connection/search"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v2/cloud-ldaps/{id}/connection/bind", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newCloudLdapConnectionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status <id>",
+		Short: "Tests the communication with the specified cloud connection",
+		Long:  "Tests the communication with the specified cloud connection",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/connection/status"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
 }

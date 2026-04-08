@@ -19,28 +19,20 @@ func NewCloudLdapDefaultsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-ldap-defaults in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudLdapDefaultsGetCmd(ctx))
-	cmd.AddCommand(newCloudLdapDefaultsGetByNameCmd(ctx))
+	cmd.AddCommand(newCloudLdapDefaultsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapDefaultsServerConfigurationCmd(ctx))
 
 	return cmd
 }
 
-func newCloudLdapDefaultsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "mappings <id>",
 		Short: "Get default mappings",
 		Long:  "Get default mappings for Cloud Identity Provider Provider.",
-		Example: `  # Get a cloud-ldap-default by ID
-  jamf-cli cloud-ldap-defaults get 1
-
-  # Get a cloud-ldap-default by name
-  jamf-cli cloud-ldap-defaults get-by-name "Example"
-
-  # Get a cloud-ldap-default and output as YAML
-  jamf-cli cloud-ldap-defaults get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -68,29 +60,37 @@ func newCloudLdapDefaultsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapDefaultsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a cloud-ldap-default by name",
-		Example: `  # Get a cloud-ldap-default by name
-  jamf-cli cloud-ldap-defaults get-by-name "Example"
+func newCloudLdapDefaultsServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli cloud-ldap-defaults get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "server-configuration <id>",
+		Short: "Get default server configuration",
+		Long:  "Get default server configuration for Cloud Identity Provider Identity Provider.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps/defaults", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v2/cloud-ldaps/defaults/{provider}/server-configuration"
+			path = strings.Replace(path, "{provider}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v2/cloud-ldaps/defaults/{provider}/mappings", "{provider}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

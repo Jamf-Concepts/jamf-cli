@@ -31,6 +31,7 @@ func NewVppLocationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVppLocationsHistoryCmd(ctx))
 	cmd.AddCommand(newVppLocationsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newVppLocationsPatchCmd(ctx))
+	cmd.AddCommand(newVppLocationsContentCmd(ctx))
 	cmd.AddCommand(newVppLocationsReclaimCmd(ctx))
 	cmd.AddCommand(newVppLocationsRevokeLicensesCmd(ctx))
 	cmd.AddCommand(newVppLocationsGetByNameCmd(ctx))
@@ -565,6 +566,65 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newVppLocationsContentCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "content <id>",
+		Short: "Retrieve the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
+		Long:  "Retrieves the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/volume-purchasing-locations/{id}/content"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Volume Purchasing Content collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: name, licenseCountTotal, licenseCountInUse, licenseCountReported, contentType, and pricingParam. This param can be combined with paging and sorting.")
 
 	return cmd
 }

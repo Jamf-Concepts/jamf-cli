@@ -36,6 +36,7 @@ func NewComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newComputerExtensionAttributesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesUploadCmd(ctx))
+	cmd.AddCommand(newComputerExtensionAttributesDataDependencyCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDownloadCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesGetByNameCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDeleteByNameCmd(ctx))
@@ -694,6 +695,41 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
+
+	return cmd
+}
+
+func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "data-dependency <id>",
+		Short: "Get smart group/advance search dependent objects for a specified computer extension attribute",
+		Long:  "Get smart group/advance search dependent objects for a specified computer extension attribute",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/computer-extension-attributes/{id}/data-dependency"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

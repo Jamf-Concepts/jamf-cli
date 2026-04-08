@@ -26,6 +26,7 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
+	cmd.AddCommand(newMobileDevicesDetailCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetByNameCmd(ctx))
 
 	return cmd
@@ -256,6 +257,41 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "detail <id>",
+		Short: "Get Mobile Device",
+		Long:  "Get MobileDevice",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/mobile-devices/{id}/detail"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

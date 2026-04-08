@@ -29,6 +29,8 @@ func NewManagedSoftwareUpdatesPlansCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansCreateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansUpdateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansAbandonCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansEventsCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansGetByNameCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansApplyCmd(ctx))
 
@@ -350,6 +352,76 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.C
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "declarations <id>",
+		Short: "Retrieve all Declarations associated with a Managed Software Update Plan",
+		Long:  "Retrieves all Declarations associated with a Managed Software Update Plan",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/{id}/declarations"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesPlansEventsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "events <id>",
+		Short: "Retrieve a Managed Software Update Plan Event Store",
+		Long:  "Retrieves a Managed Software Update Plan Event Store",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/{id}/events"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}

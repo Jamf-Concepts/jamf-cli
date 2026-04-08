@@ -32,6 +32,7 @@ func NewAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAdcsSettingsValidateCertificateCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsValidateClientCertificateCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsPatchCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsDependenciesCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsGetByNameCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsDeleteByNameCmd(ctx))
 
@@ -532,6 +533,41 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "dependencies <id>",
+		Short: "Retrieve list of AD CS Settings dependencies",
+		Long:  "Retrieve list of AD CS Settings dependencies",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/adcs-settings/{id}/dependencies"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}

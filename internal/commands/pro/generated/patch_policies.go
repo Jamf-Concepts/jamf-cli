@@ -25,11 +25,8 @@ func NewPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newPatchPoliciesListCmd(ctx))
-	cmd.AddCommand(newPatchPoliciesGetCmd(ctx))
 	cmd.AddCommand(newPatchPoliciesDeleteCmd(ctx))
 	cmd.AddCommand(newPatchPoliciesDashboardCmd(ctx))
-	cmd.AddCommand(newPatchPoliciesGetByNameCmd(ctx))
-	cmd.AddCommand(newPatchPoliciesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -165,49 +162,6 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Return whether or not the requested patch policy is on the dashboard",
-		Long:  "Returns whether or not the requested patch policy is on the dashboard",
-		Example: `  # Get a patch-policy by ID
-  jamf-cli patch-policies get 1
-
-  # Get a patch-policy by name
-  jamf-cli patch-policies get-by-name "Example"
-
-  # Get a patch-policy and output as YAML
-  jamf-cli patch-policies get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/patch-policies/{id}/dashboard"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
 func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -282,8 +236,8 @@ func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "dashboard <id>",
-		Short: "Add a patch policy to the dashboard",
-		Long:  "Adds a patch policy to the dashboard.",
+		Short: "Return whether or not the requested patch policy is on the dashboard",
+		Long:  "Returns whether or not the requested patch policy is on the dashboard",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -299,114 +253,15 @@ func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newPatchPoliciesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a patch-policy by name",
-		Example: `  # Get a patch-policy by name
-  jamf-cli patch-policies get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli patch-policies get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/patch-policies/{id}/dashboard", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-}
-
-func newPatchPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a patch-policy by name",
-		Example: `  # Delete a patch-policy by name (with confirmation)
-  jamf-cli patch-policies delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli patch-policies delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-policies", "name", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no patch-policy found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete patch-policy %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v2/patch-policies/{id}/dashboard", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted patch-policy %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

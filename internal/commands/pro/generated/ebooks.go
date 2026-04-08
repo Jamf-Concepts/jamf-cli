@@ -24,6 +24,7 @@ func NewEbooksCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newEbooksListCmd(ctx))
 	cmd.AddCommand(newEbooksGetCmd(ctx))
+	cmd.AddCommand(newEbooksScopeCmd(ctx))
 	cmd.AddCommand(newEbooksGetByNameCmd(ctx))
 
 	return cmd
@@ -176,6 +177,41 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/ebooks/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEbooksScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "scope <id>",
+		Short: "Get specified scope of Ebook object",
+		Long:  "Gets specified scope of Ebook object",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/ebooks/{id}/scope"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string

@@ -24,11 +24,9 @@ func NewMobileDevicePrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newMobileDevicePrestageScopesListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopesUpdateCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopesScopeCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -50,49 +48,6 @@ func newMobileDevicePrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/scope"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newMobileDevicePrestageScopesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get Device Scope for a specific Mobile Device Prestage",
-		Long:  "Get device scope for a specific mobile device prestage",
-		Example: `  # Get a mobile-device-prestage-scope by ID
-  jamf-cli mobile-device-prestage-scopes get 1
-
-  # Get a mobile-device-prestage-scope by name
-  jamf-cli mobile-device-prestage-scopes get-by-name "Example"
-
-  # Get a mobile-device-prestage-scope and output as YAML
-  jamf-cli mobile-device-prestage-scopes get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/scope"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -270,28 +225,15 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 }
 
 func newMobileDevicePrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "scope <id>",
-		Short: "Add Device Scope for a specific Mobile Device Prestage",
-		Long:  "Add device scope for a specific mobile device prestage",
+		Short: "Get Device Scope for a specific Mobile Device Prestage",
+		Long:  "Get device scope for a specific mobile device prestage",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				fmt.Println(`{
-  "serialNumbers": [
-    "DMQVGC0DHLF0",
-    "C02L29ECF8J1"
-  ],
-  "versionLock": 1
-}`)
-				return nil
-			}
 
 			// Build request path
 			path := "/v2/mobile-device-prestages/{id}/scope"
@@ -304,50 +246,15 @@ func newMobileDevicePrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newMobileDevicePrestageScopesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestage-scope by name",
-		Example: `  # Get a mobile-device-prestage-scope by name
-  jamf-cli mobile-device-prestage-scopes get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-device-prestage-scopes get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/mobile-device-prestages/{id}/scope", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

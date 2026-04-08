@@ -30,9 +30,15 @@ func NewPatchSoftwareTitleConfigurationsCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDeleteCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsHistoryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchCmd(ctx))
-	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDashboardCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExportReportCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDashboardCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsVersionsCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsGetByNameCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDeleteByNameCmd(ctx))
 
@@ -436,35 +442,48 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 	return cmd
 }
 
-func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
-		Short: "Update Patch Software Title Configurations",
-		Long:  "Updates Patch Software Title Configurations",
+		Use:   "definitions <id>",
+		Short: "Retrieve Patch Software Title Definitions with the supplied id",
+		Long:  "Retrieves patch software title definitions with the supplied id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}"
+			path := "/v2/patch-software-title-configurations/{id}/definitions"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -474,22 +493,27 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 		},
 	}
 
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is absoluteOrderId:asc. Multiple sort criteria are supported and must be separated with a comma.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Software Title Definition collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, version, minimumOperatingSystem, releaseDate, reboot, standalone and absoluteOrderId. This param can be combined with paging and sorting.")
+
 	return cmd
 }
 
-func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "dashboard <id>",
-		Short: "Add a software title configuration to the dashboard",
-		Long:  "Adds asoftware title configuration to the dashboard.",
+		Use:   "dependencies <id>",
+		Short: "Retrieve list of Patch Software Title Configuration Dependencies",
+		Long:  "Retrieve list of Patch Software Title Configuration Dependencies",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/dashboard"
+			path := "/v2/patch-software-title-configurations/{id}/dependencies"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -499,13 +523,7 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -585,6 +603,246 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.")
 	cmd.Flags().StringSliceVar(&flagColumnsToExport, "columns-to-export", nil, "List of column names to export")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "extension-attributes <id>",
+		Short: "Retrieve Software Title Extension Attributes with the supplied id",
+		Long:  "Retrieves software title extension attributes with the supplied id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/extension-attributes"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "dashboard <id>",
+		Short: "Return whether or not the requested software title configuration is on the dashboard",
+		Long:  "Returns whether or not the requested software title configuration is on the dashboard",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/dashboard"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "patch <id>",
+		Short: "Update Patch Software Title Configurations",
+		Long:  "Updates Patch Software Title Configurations",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "patch-report <id>",
+		Short: "Retrieve Patch Software Title Configuration Patch Report",
+		Long:  "Retrieve Patch Software Title Configuration Patch Report",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/patch-report"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is computerName:asc. Multiple sort criteria are supported and must be separated with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName, version")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.")
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "patch-summary <id>",
+		Short: "Return Active Patch Summary",
+		Long:  "Returns active patch summary.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/patch-summary"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "versions <id>",
+		Short: "Returns patch versions",
+		Long:  "Returns patch versions",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/patch-summary/versions"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

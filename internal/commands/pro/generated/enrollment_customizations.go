@@ -35,6 +35,8 @@ func NewEnrollmentCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentCustomizationsHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsUploadCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsDownloadCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsPrestagesCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsApplyCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsDeleteByNameCmd(ctx))
@@ -631,6 +633,100 @@ func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download <id>",
+		Short: "Download an enrollment customization image",
+		Long:  "Download an enrollment customization image",
+		Example: `  # Save to file
+  jamf-cli pro enrollment-customizations download <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro enrollment-customizations download <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v2/enrollment-customizations/images/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "prestages <id>",
+		Short: "Retrieve the list of Prestages using this Enrollment Customization",
+		Long:  "Retrieves the list of Prestages using this Enrollment Customization",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/enrollment-customizations/{id}/prestages"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

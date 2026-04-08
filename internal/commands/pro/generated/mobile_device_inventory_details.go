@@ -23,8 +23,7 @@ func NewMobileDeviceInventoryDetailsCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.AddCommand(newMobileDeviceInventoryDetailsListCmd(ctx))
-	cmd.AddCommand(newMobileDeviceInventoryDetailsGetCmd(ctx))
-	cmd.AddCommand(newMobileDeviceInventoryDetailsGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx))
 
 	return cmd
 }
@@ -167,7 +166,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newMobileDeviceInventoryDetailsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSection  []string
 		flagPage     int
@@ -177,18 +176,10 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "paired-devices <id>",
 		Short: "Return paginated Mobile Device Inventory records of all paired devices for the device",
 		Long:  "Return paginated Mobile Device Inventory records of all paired devices for the device",
-		Example: `  # Get a mobile-device-inventory-detail by ID
-  jamf-cli mobile-device-inventory-details get 1
-
-  # Get a mobile-device-inventory-detail by name
-  jamf-cli mobile-device-inventory-details get-by-name "Example"
-
-  # Get a mobile-device-inventory-detail and output as YAML
-  jamf-cli mobile-device-inventory-details get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -239,31 +230,4 @@ func newMobileDeviceInventoryDetailsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
 
 	return cmd
-}
-
-func newMobileDeviceInventoryDetailsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-inventory-detail by name",
-		Example: `  # Get a mobile-device-inventory-detail by name
-  jamf-cli mobile-device-inventory-details get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-device-inventory-details get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/mobile-devices/{id}/paired-devices", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }
