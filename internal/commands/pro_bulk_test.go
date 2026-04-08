@@ -306,6 +306,279 @@ func TestDisablePolicies_ScopeGroupFilter(t *testing.T) {
 	}
 }
 
+// fullPolicyDetailJSON builds a policy detail JSON with targets, limitations, and exclusions.
+func fullPolicyDetailJSON(id int, name string, enabled bool, opts map[string]any) string {
+	enabledStr := "false"
+	if enabled {
+		enabledStr = "true"
+	}
+
+	category := "General"
+	if c, ok := opts["category"].(string); ok {
+		category = c
+	}
+	allComputers := "false"
+	if ac, ok := opts["all_computers"].(bool); ok && ac {
+		allComputers = "true"
+	}
+
+	// Build scope sections from opts
+	targetGroups := buildScopeSection(opts, "target_groups", "computer_group")
+	targetBuildings := buildScopeSection(opts, "target_buildings", "building")
+	targetDepartments := buildScopeSection(opts, "target_departments", "department")
+	limitNetSegments := buildScopeSection(opts, "limit_network_segments", "network_segment")
+	limitUserGroups := buildScopeSection(opts, "limit_user_groups", "user_group")
+	excludeGroups := buildScopeSection(opts, "exclude_groups", "computer_group")
+	excludeBuildings := buildScopeSection(opts, "exclude_buildings", "building")
+	excludeDepartments := buildScopeSection(opts, "exclude_departments", "department")
+
+	return fmt.Sprintf(`{"policy":{
+		"general":{"id":%d,"name":"%s","enabled":%s,"category":{"id":10,"name":"%s"}},
+		"scope":{
+			"all_computers":%s,
+			"computer_groups":%s,
+			"buildings":%s,
+			"departments":%s,
+			"limitations":{
+				"network_segments":%s,
+				"user_groups":%s
+			},
+			"exclusions":{
+				"computer_groups":%s,
+				"buildings":%s,
+				"departments":%s
+			}
+		}
+	}}`, id, name, enabledStr, category, allComputers,
+		targetGroups, targetBuildings, targetDepartments,
+		limitNetSegments, limitUserGroups,
+		excludeGroups, excludeBuildings, excludeDepartments)
+}
+
+// buildScopeSection builds a JSON scope section from an opts map entry.
+// The entry should be a []string of names. Uses the wrapped map form (no <size>).
+func buildScopeSection(opts map[string]any, key, childKey string) string {
+	names, _ := opts[key].([]string)
+	if len(names) == 0 {
+		return `""`
+	}
+	var items []string
+	for i, n := range names {
+		items = append(items, fmt.Sprintf(`{"id":%d,"name":"%s"}`, i+100, n))
+	}
+	if len(items) == 1 {
+		return fmt.Sprintf(`{"%s":%s}`, childKey, items[0])
+	}
+	return fmt.Sprintf(`{"%s":[%s]}`, childKey, strings.Join(items, ","))
+}
+
+func TestDisablePolicies_ScopeGroupMultiple(t *testing.T) {
+	// --scope-group "Lab" --scope-group "Dev" should match policies scoped to EITHER group.
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"},
+				{"id":3,"name":"Policy C"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"target_groups": []string{"Lab Macs"},
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"target_groups": []string{"Dev Team"},
+			})},
+			"GET /JSSResource/policies/id/3": {200, fullPolicyDetailJSON(3, "Policy C", true, map[string]any{
+				"target_groups": []string{"QA Team"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+			"PUT /JSSResource/policies/id/2": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes",
+		"--scope-group", "Lab Macs", "--scope-group", "Dev Team")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 2 {
+		t.Errorf("expected 2 PUTs (Lab Macs OR Dev Team), got %d: %v", len(puts), puts)
+	}
+	for _, c := range puts {
+		if strings.Contains(c, "/id/3") {
+			t.Error("policy 3 (QA Team) should not match Lab Macs or Dev Team")
+		}
+	}
+}
+
+func TestDisablePolicies_ScopeBuildingFilter(t *testing.T) {
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"target_buildings": []string{"HQ"},
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"target_buildings": []string{"Branch Office"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes", "--scope-building", "HQ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 1 {
+		t.Errorf("expected 1 PUT (HQ building), got %d: %v", len(puts), puts)
+	}
+}
+
+func TestDisablePolicies_AllComputersFilter(t *testing.T) {
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"all_computers": true,
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"target_groups": []string{"Lab Macs"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes", "--all-computers")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 1 {
+		t.Errorf("expected 1 PUT (all-computers), got %d: %v", len(puts), puts)
+	}
+	if len(puts) > 0 && !strings.Contains(puts[0], "/id/1") {
+		t.Errorf("expected policy 1 to match, got: %v", puts)
+	}
+}
+
+func TestDisablePolicies_ExcludeGroupFilter(t *testing.T) {
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"exclude_groups": []string{"Excluded Devices"},
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"exclude_groups": []string{"Test Machines"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes", "--exclude-group", "Excluded Devices")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 1 {
+		t.Errorf("expected 1 PUT (Excluded Devices), got %d: %v", len(puts), puts)
+	}
+}
+
+func TestDisablePolicies_LimitNetworkSegmentFilter(t *testing.T) {
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"limit_network_segments": []string{"Office WiFi"},
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"limit_network_segments": []string{"VPN"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes", "--limit-network-segment", "Office WiFi")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 1 {
+		t.Errorf("expected 1 PUT (Office WiFi), got %d: %v", len(puts), puts)
+	}
+}
+
+func TestDisablePolicies_CombinedANDFilters(t *testing.T) {
+	// --scope-group "All Managed" --category "Apps" — only policies matching BOTH.
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"GET /JSSResource/policies": {200, `{"policies":[
+				{"id":1,"name":"Policy A"},
+				{"id":2,"name":"Policy B"},
+				{"id":3,"name":"Policy C"}
+			]}`},
+			"GET /JSSResource/policies/id/1": {200, fullPolicyDetailJSON(1, "Policy A", true, map[string]any{
+				"category":      "Apps",
+				"target_groups": []string{"All Managed"},
+			})},
+			"GET /JSSResource/policies/id/2": {200, fullPolicyDetailJSON(2, "Policy B", true, map[string]any{
+				"category":      "Security",
+				"target_groups": []string{"All Managed"},
+			})},
+			"GET /JSSResource/policies/id/3": {200, fullPolicyDetailJSON(3, "Policy C", true, map[string]any{
+				"category":      "Apps",
+				"target_groups": []string{"Dev Team"},
+			})},
+			"PUT /JSSResource/policies/id/1": {200, `<policy/>`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(t, cmd, "disable-policies", "--yes",
+		"--scope-group", "All Managed", "--category", "Apps")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	puts := mock.callsMatching("PUT /JSSResource/policies/id/")
+	if len(puts) != 1 {
+		t.Errorf("expected 1 PUT (AND: Apps + All Managed), got %d: %v", len(puts), puts)
+	}
+	if len(puts) > 0 && !strings.Contains(puts[0], "/id/1") {
+		t.Errorf("expected policy 1 to match, got: %v", puts)
+	}
+}
+
 func TestDisablePolicies_AlreadyDisabledSkipped(t *testing.T) {
 	mock := &bulkMockClient{
 		responses: map[string]overviewMockResponse{
@@ -825,6 +1098,126 @@ func TestCapitalize(t *testing.T) {
 		if got := capitalize(tt.in); got != tt.want {
 			t.Errorf("capitalize(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestExtractScopeItems(t *testing.T) {
+	tests := []struct {
+		name          string
+		parent        map[string]any
+		collectionKey string
+		childKey      string
+		wantNames     []string
+	}{
+		{
+			name: "array form (with size)",
+			parent: map[string]any{
+				"computer_groups": []any{
+					map[string]any{"id": 1.0, "name": "Group A"},
+					map[string]any{"id": 2.0, "name": "Group B"},
+				},
+			},
+			collectionKey: "computer_groups",
+			childKey:      "computer_group",
+			wantNames:     []string{"Group A", "Group B"},
+		},
+		{
+			name: "map with child slice (no size)",
+			parent: map[string]any{
+				"computer_groups": map[string]any{
+					"computer_group": []any{
+						map[string]any{"id": 1.0, "name": "Group A"},
+						map[string]any{"id": 2.0, "name": "Group B"},
+					},
+				},
+			},
+			collectionKey: "computer_groups",
+			childKey:      "computer_group",
+			wantNames:     []string{"Group A", "Group B"},
+		},
+		{
+			name: "map with single child (no size, single item)",
+			parent: map[string]any{
+				"buildings": map[string]any{
+					"building": map[string]any{"id": 1.0, "name": "HQ"},
+				},
+			},
+			collectionKey: "buildings",
+			childKey:      "building",
+			wantNames:     []string{"HQ"},
+		},
+		{
+			name: "empty string (self-closing XML)",
+			parent: map[string]any{
+				"buildings": "",
+			},
+			collectionKey: "buildings",
+			childKey:      "building",
+			wantNames:     nil,
+		},
+		{
+			name:          "nil parent",
+			parent:        nil,
+			collectionKey: "buildings",
+			childKey:      "building",
+			wantNames:     nil,
+		},
+		{
+			name:          "missing key",
+			parent:        map[string]any{},
+			collectionKey: "buildings",
+			childKey:      "building",
+			wantNames:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := extractScopeItems(tt.parent, tt.collectionKey, tt.childKey)
+			var got []string
+			for _, item := range items {
+				if n, ok := item["name"].(string); ok {
+					got = append(got, n)
+				}
+			}
+			if len(got) != len(tt.wantNames) {
+				t.Fatalf("got %d items %v, want %d items %v", len(got), got, len(tt.wantNames), tt.wantNames)
+			}
+			for i := range got {
+				if got[i] != tt.wantNames[i] {
+					t.Errorf("item[%d] = %q, want %q", i, got[i], tt.wantNames[i])
+				}
+			}
+		})
+	}
+}
+
+func TestScopeItemsContainAny(t *testing.T) {
+	items := []map[string]any{
+		{"id": 1.0, "name": "Lab Macs"},
+		{"id": 2.0, "name": "Dev Team"},
+	}
+
+	tests := []struct {
+		name  string
+		items []map[string]any
+		names []string
+		want  bool
+	}{
+		{"match single", items, []string{"Lab Macs"}, true},
+		{"case insensitive", items, []string{"lab macs"}, true},
+		{"no match", items, []string{"QA Team"}, false},
+		{"OR logic - second matches", items, []string{"QA Team", "Dev Team"}, true},
+		{"empty items", nil, []string{"Lab Macs"}, false},
+		{"empty names", items, nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := scopeItemsContainAny(tt.items, tt.names); got != tt.want {
+				t.Errorf("scopeItemsContainAny() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

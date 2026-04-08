@@ -73,17 +73,33 @@ func fetchClassicPolicyDetail(ctx context.Context, client registry.HTTPClient, i
 	return unwrapClassicDetail(data), nil
 }
 
+// policyBulkFilters groups all filter parameters for bulk policy operations.
+// Within a single slice filter, values are OR (match any). Between different
+// filters, AND (all must match).
+type policyBulkFilters struct {
+	namePattern        string
+	category           string
+	allComputers       *bool // nil = filter disabled
+	scopeGroups        []string
+	scopeBuildings     []string
+	scopeDepartments   []string
+	limitNetSegments   []string
+	limitUserGroups    []string
+	excludeGroups      []string
+	excludeBuildings   []string
+	excludeDepartments []string
+}
+
 // policyMatchesFilters returns true when the policy satisfies all active
-// filter criteria.  Empty values disable the corresponding filter.
-func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePattern string) (bool, error) {
+// filter criteria. Empty slices and zero-value fields disable the corresponding filter.
+func policyMatchesFilters(policy map[string]any, f policyBulkFilters) (bool, error) {
 	// Name pattern (glob-style: only * wildcard supported)
-	if namePattern != "" {
-		// Classic API nests name under "general".
+	if f.namePattern != "" {
 		general, _ := policy["general"].(map[string]any)
 		name, _ := general["name"].(string)
-		matched, err := matchGlob(namePattern, name)
+		matched, err := matchGlob(f.namePattern, name)
 		if err != nil {
-			return false, fmt.Errorf("invalid name pattern %q: %w", namePattern, err)
+			return false, fmt.Errorf("invalid name pattern %q: %w", f.namePattern, err)
 		}
 		if !matched {
 			return false, nil
@@ -91,53 +107,124 @@ func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePatte
 	}
 
 	// Category filter — Classic API nests category under "general".
-	if category != "" {
+	if f.category != "" {
 		general, _ := policy["general"].(map[string]any)
 		cat, _ := general["category"].(map[string]any)
 		catName, _ := cat["name"].(string)
-		if !strings.EqualFold(catName, category) {
+		if !strings.EqualFold(catName, f.category) {
 			return false, nil
 		}
 	}
 
-	// Scope group filter
-	if scopeGroup != "" {
-		scope, _ := policy["scope"].(map[string]any)
-		// Classic API XML: <computer_groups> may or may not contain <size>.
-		// With <size>: xmlconv produces []any directly.
-		// Without <size>: xmlconv produces map[string]any{"computer_group": ...}.
-		// Handle both forms.
-		var groups []any
-		switch cg := scope["computer_groups"].(type) {
-		case []any:
-			groups = cg
-		case map[string]any:
-			// Unwrap the "computer_group" key which may be a single map or a slice.
-			switch inner := cg["computer_group"].(type) {
-			case []any:
-				groups = inner
-			case map[string]any:
-				groups = []any{inner}
-			}
+	scope, _ := policy["scope"].(map[string]any)
+
+	// All-computers filter
+	if f.allComputers != nil {
+		allComp, _ := scope["all_computers"].(bool)
+		if allComp != *f.allComputers {
+			return false, nil
 		}
-		found := false
-		for _, g := range groups {
-			gm, ok := g.(map[string]any)
-			if !ok {
-				continue
-			}
-			gName, _ := gm["name"].(string)
-			if strings.EqualFold(gName, scopeGroup) {
-				found = true
-				break
-			}
+	}
+
+	// Target scope filters
+	if len(f.scopeGroups) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(scope, "computer_groups", "computer_group"), f.scopeGroups) {
+			return false, nil
 		}
-		if !found {
+	}
+	if len(f.scopeBuildings) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(scope, "buildings", "building"), f.scopeBuildings) {
+			return false, nil
+		}
+	}
+	if len(f.scopeDepartments) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(scope, "departments", "department"), f.scopeDepartments) {
+			return false, nil
+		}
+	}
+
+	// Limitation filters
+	limitations, _ := scope["limitations"].(map[string]any)
+	if len(f.limitNetSegments) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(limitations, "network_segments", "network_segment"), f.limitNetSegments) {
+			return false, nil
+		}
+	}
+	if len(f.limitUserGroups) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(limitations, "user_groups", "user_group"), f.limitUserGroups) {
+			return false, nil
+		}
+	}
+
+	// Exclusion filters
+	exclusions, _ := scope["exclusions"].(map[string]any)
+	if len(f.excludeGroups) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(exclusions, "computer_groups", "computer_group"), f.excludeGroups) {
+			return false, nil
+		}
+	}
+	if len(f.excludeBuildings) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(exclusions, "buildings", "building"), f.excludeBuildings) {
+			return false, nil
+		}
+	}
+	if len(f.excludeDepartments) > 0 {
+		if !scopeItemsContainAny(extractScopeItems(exclusions, "departments", "department"), f.excludeDepartments) {
 			return false, nil
 		}
 	}
 
 	return true, nil
+}
+
+// extractScopeItems extracts named items from an xmlconv-parsed scope collection.
+// xmlconv produces different forms depending on the XML:
+//   - []any when the element had a <size> child
+//   - map[string]any{childKey: ...} when no <size>
+//   - string (empty) for self-closing elements like <buildings/>
+func extractScopeItems(parent map[string]any, collectionKey, childKey string) []map[string]any {
+	if parent == nil {
+		return nil
+	}
+	raw := parent[collectionKey]
+
+	var items []any
+	switch v := raw.(type) {
+	case []any:
+		items = v
+	case map[string]any:
+		switch inner := v[childKey].(type) {
+		case []any:
+			items = inner
+		case map[string]any:
+			items = []any{inner}
+		}
+	}
+
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if m, ok := item.(map[string]any); ok {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+// scopeItemsContainAny returns true if any item in the collection has a name
+// matching (case-insensitive) any of the given target names.
+func scopeItemsContainAny(items []map[string]any, names []string) bool {
+	for _, item := range items {
+		itemName, _ := item["name"].(string)
+		for _, want := range names {
+			if strings.EqualFold(itemName, want) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // matchGlob matches a simple glob pattern (* wildcard only) against a string.
