@@ -78,7 +78,9 @@ func fetchClassicPolicyDetail(ctx context.Context, client registry.HTTPClient, i
 func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePattern string) (bool, error) {
 	// Name pattern (glob-style: only * wildcard supported)
 	if namePattern != "" {
-		name, _ := policy["name"].(string)
+		// Classic API nests name under "general".
+		general, _ := policy["general"].(map[string]any)
+		name, _ := general["name"].(string)
 		matched, err := matchGlob(namePattern, name)
 		if err != nil {
 			return false, fmt.Errorf("invalid name pattern %q: %w", namePattern, err)
@@ -88,9 +90,10 @@ func policyMatchesFilters(policy map[string]any, scopeGroup, category, namePatte
 		}
 	}
 
-	// Category filter
+	// Category filter — Classic API nests category under "general".
 	if category != "" {
-		cat, _ := policy["category"].(map[string]any)
+		general, _ := policy["general"].(map[string]any)
+		cat, _ := general["category"].(map[string]any)
 		catName, _ := cat["name"].(string)
 		if !strings.EqualFold(catName, category) {
 			return false, nil
@@ -306,11 +309,13 @@ func sendMDMCommand(ctx context.Context, client registry.HTTPClient, computerID,
 func bulkPolicyRows(policies []map[string]any) []map[string]any {
 	rows := make([]map[string]any, len(policies))
 	for i, p := range policies {
-		id := extractID(p)
-		name, _ := p["name"].(string)
-		cat, _ := p["category"].(map[string]any)
+		// Classic API nests id, name, enabled under "general".
+		general, _ := p["general"].(map[string]any)
+		id := extractID(general)
+		name, _ := general["name"].(string)
+		enabled, _ := general["enabled"].(bool)
+		cat, _ := general["category"].(map[string]any)
 		catName, _ := cat["name"].(string)
-		enabled, _ := p["enabled"].(bool)
 		rows[i] = map[string]any{
 			"id":       id,
 			"name":     name,

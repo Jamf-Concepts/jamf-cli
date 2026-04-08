@@ -126,7 +126,9 @@ func runTogglePolicies(
 		}
 		if ok {
 			// Skip policies that are already in the desired state.
-			currentlyEnabled, _ := p.detail["enabled"].(bool)
+			// The Classic API nests enabled under "general".
+			general, _ := p.detail["general"].(map[string]any)
+			currentlyEnabled, _ := general["enabled"].(bool)
 			if currentlyEnabled == enable {
 				continue
 			}

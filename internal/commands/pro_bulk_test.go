@@ -110,7 +110,8 @@ func policyDetailJSON(id int, name string, enabled bool, category, groupName str
 	if enabled {
 		enabledStr = "true"
 	}
-	return fmt.Sprintf(`{"policy":{"id":%d,"name":"%s","enabled":%s,"category":%s,"scope":{"computer_groups":[%s]}}}`,
+	// Classic API nests id, name, enabled, category under "general".
+	return fmt.Sprintf(`{"policy":{"general":{"id":%d,"name":"%s","enabled":%s,"category":%s},"scope":{"computer_groups":[%s]}}}`,
 		id, name, enabledStr, catJSON, groupJSON)
 }
 
