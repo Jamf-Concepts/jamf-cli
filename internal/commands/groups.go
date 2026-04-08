@@ -185,6 +185,8 @@ var proGroupMap = map[string]string{
 	"user-accounts":             groupUsers,
 
 	// Content & Configuration
+	"app-installer-titles":                groupContent,
+	"app-installer-deployments":           groupContent,
 	"scripts":                             groupContent,
 	"ebooks":                              groupContent,
 	"package-deployments":                 groupContent,
