@@ -889,7 +889,7 @@ func TestRunOverview_FullMock(t *testing.T) {
 			"/v1/device-enrollments/42/syncs/latest":         {200, `{"syncState":"SUCCESSFUL","timestamp":"2026-03-14T10:30:00.000"}`},
 			"/v3/computer-prestages":                         {200, `{"totalCount":2,"results":[]}`},
 			"/v3/mobile-device-prestages":                    {200, `{"totalCount":1,"results":[]}`},
-			"/v1/volume-purchasing-locations":                {200, `{"totalCount":2,"results":[{"name":"Acme VPP","tokenExpiration":"2027-08-01"},{"name":"Schools VPP","tokenExpiration":"2026-05-15"}]}`},
+			"/v1/volume-purchasing-locations":                {200, `{"totalCount":2,"results":[{"name":"Acme VPP","tokenExpiration":"2027-08-01T12:00:00.000Z"},{"name":"Schools VPP","tokenExpiration":"2026-05-15T09:30:00.000Z"}]}`},
 			"/v1/app-installers/titles":                      {200, `{"totalCount":7,"results":[]}`},
 			"/v3/sso":                                        {200, `{"ssoEnabled":true,"configurationType":"OIDC","oidcSettings":{},"samlSettings":{},"ssoBypassAllowed":false,"ssoForMacOsSelfServiceEnabled":false,"groupEnrollmentAccessEnabled":false,"ssoForEnrollmentEnabled":false,"enrollmentSsoForAccountDrivenEnrollmentEnabled":false}`},
 			"/v1/static-user-groups":                         {200, `[{"id":"1"},{"id":"2"},{"id":"3"}]`},

@@ -350,7 +350,19 @@ func friendlyAlertType(t string) string {
 // formatExpirationDate formats a date string and adds proximity context.
 // Returns the formatted date and a color hint: "red", "yellow", or "".
 func formatExpirationDate(dateStr string, now time.Time) (string, string) {
-	t, err := time.Parse("2006-01-02", dateStr)
+	var t time.Time
+	var err error
+	for _, layout := range []string{
+		"2006-01-02",
+		time.RFC3339,
+		"2006-01-02T15:04:05.999Z",
+		"2006-01-02T15:04:05.000Z0700",
+	} {
+		t, err = time.Parse(layout, dateStr)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return dateStr, ""
 	}
