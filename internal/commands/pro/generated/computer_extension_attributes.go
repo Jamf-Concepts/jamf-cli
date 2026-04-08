@@ -179,8 +179,8 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get specified Computer Extension Attribute Template object.",
-		Long:  "Gets specified Computer Extension Attribute Template object.",
+		Short: "Get specified Computer Extension Attribute object.",
+		Long:  "Gets specified Computer Extension Attribute object.",
 		Example: `  # Get a computer-extension-attribute by ID
   jamf-cli computer-extension-attributes get 1
 
@@ -194,7 +194,7 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/computer-extension-attributes/templates/{id}"
+			path := "/v1/computer-extension-attributes/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -769,11 +769,11 @@ func newComputerExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes/templates", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/computer-extension-attributes/templates/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v1/computer-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

@@ -173,8 +173,8 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get the membership of a Smart Computer Group",
-		Long:  "Gets the membership of a Smart Computer Group",
+		Short: "Get Smart Computer Group by Id",
+		Long:  "Get Smart Computer Group by Id",
 		Example: `  # Get a smart-computer-group by ID
   jamf-cli smart-computer-groups get 1
 
@@ -188,7 +188,7 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/computer-groups/smart-group-membership/{id}"
+			path := "/v2/computer-groups/smart-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -418,11 +418,11 @@ func newSmartComputerGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/smart-group-membership", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v2/computer-groups/smart-group-membership/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/computer-groups/smart-groups/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

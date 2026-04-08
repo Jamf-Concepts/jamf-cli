@@ -427,12 +427,41 @@ func collectionPath(ops []*Operation) string {
 }
 
 func dedupeOperations(ops []*Operation) []*Operation {
-	seen := make(map[string]bool)
+	// Pre-compute the collection path so we can prefer "get" ops that match it.
+	// This avoids keeping a secondary GET/{id} (e.g. /images/{id}, /smart-group-membership/{id})
+	// over the primary CRUD GET/{id} when both exist in the same resource.
+	cp := collectionPath(ops)
+
+	seen := make(map[string]*Operation) // name → kept op
 	var result []*Operation
 	for _, op := range ops {
-		if !seen[op.Name] {
-			seen[op.Name] = true
+		if prev, exists := seen[op.Name]; !exists {
+			seen[op.Name] = op
 			result = append(result, op)
+		} else if op.Name == "get" && cp != "" && hasPathParam(op.Path) {
+			// Check whether this duplicate "get" is a better match for the collection path.
+			prevParent := ""
+			if idx := strings.LastIndex(prev.Path, "/{"); idx != -1 {
+				prevParent = prev.Path[:idx]
+			}
+			opParent := ""
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				opParent = op.Path[:idx]
+			}
+			if opParent == cp && prevParent != cp {
+				// Replace the previously kept op with this better match.
+				for i, r := range result {
+					if r == prev {
+						result[i] = op
+						break
+					}
+				}
+				seen[op.Name] = op
+				fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — replacing %s %s with %s %s (matches collection path)\n",
+					op.Name, prev.Method, prev.Path, op.Method, op.Path)
+			} else {
+				fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — dropping %s %s\n", op.Name, op.Method, op.Path)
+			}
 		} else {
 			fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — dropping %s %s\n", op.Name, op.Method, op.Path)
 		}

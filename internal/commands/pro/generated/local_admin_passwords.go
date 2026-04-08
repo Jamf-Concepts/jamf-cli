@@ -74,8 +74,8 @@ func newLocalAdminPasswordsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get LAPS password viewed history.",
-		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
+		Short: "Get the LAPS capable admin accounts for a device.",
+		Long:  "Get a full list of admin accounts that are LAPS capable. Capable accounts are returned in the AutoSetupAdminAccounts from QueryResponses.",
 		Example: `  # Get a local-admin-password by ID
   jamf-cli local-admin-passwords get 1
 
@@ -89,9 +89,8 @@ func newLocalAdminPasswordsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/audit"
+			path := "/v2/local-admin-password/{clientManagementId}/accounts"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -221,11 +220,11 @@ func newLocalAdminPasswordsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/local-admin-password/{clientManagementId}/account", "username", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/local-admin-password", "username", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v2/local-admin-password/{clientManagementId}/account/{username}/audit", "{username}", url.PathEscape(id), 1)
+			path := strings.Replace("/v2/local-admin-password/{clientManagementId}/accounts", "{clientManagementId}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
