@@ -41,7 +41,7 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id> <panel-id>",
 		Short: "Get a single Panel for a single Enrollment Customization",
 		Long:  "Get a single panel for a single enrollment customization",
 		Example: `  # Get a enrollment-customization-panel by ID
@@ -52,14 +52,14 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get a enrollment-customization-panel and output as YAML
   jamf-cli enrollment-customization-panels get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -143,7 +143,7 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <id> <panel-id>",
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Update a enrollment-customization-panel from JSON
@@ -151,14 +151,14 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a enrollment-customization-panel, modify, and update
   jamf-cli enrollment-customization-panels get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -193,7 +193,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete <id> <panel-id>",
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization-panel (with confirmation)
@@ -201,7 +201,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli enrollment-customization-panels delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -226,7 +226,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -295,17 +295,17 @@ func newEnrollmentCustomizationPanelsMarkdownCmd(ctx *registry.CLIContext) *cobr
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "markdown <id>",
+		Use:   "markdown <id> <panel-id>",
 		Short: "Get the markdown output of a single Text Panel for a single Enrollment",
 		Long:  "Get the markdown output of a single Text panel for a single enrollment customization",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

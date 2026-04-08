@@ -37,7 +37,7 @@ func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id> <deviceId>",
 		Short: "Retrieves a single Patch Policy Log",
 		Long:  "Retrieves a single Patch Policy Log",
 		Example: `  # Get a patch-policy-log by ID
@@ -48,14 +48,14 @@ func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch-policy-log and output as YAML
   jamf-cli patch-policy-logs get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/patch-policies/{id}/logs/{deviceId}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -271,17 +271,17 @@ func newPatchPolicyLogsDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "details <id>",
+		Use:   "details <id> <deviceId>",
 		Short: "Return attempt details for a specific log",
 		Long:  "Return attempt details for a specific log",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/patch-policies/{id}/logs/{deviceId}/details"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

@@ -132,19 +132,19 @@ func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "history <id>",
+		Use:   "history <clientManagementId> <username>",
 		Short: "Get LAPS historical records for target device and username.",
 		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
 		Example: `  # Get history for a local-admin-password
   jamf-cli local-admin-passwords history 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/history"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -170,17 +170,17 @@ func newLocalAdminPasswordsAuditCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "audit <id>",
+		Use:   "audit <clientManagementId> <username>",
 		Short: "Get LAPS password viewed history.",
 		Long:  "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/audit"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -206,17 +206,17 @@ func newLocalAdminPasswordsPasswordCmd(ctx *registry.CLIContext) *cobra.Command 
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "password <id>",
+		Use:   "password <clientManagementId> <username>",
 		Short: "Get current LAPS password for specified username on a client.",
 		Long:  "Get current LAPS password for specified client by using the client management id and username as the path parameters. Once the password is viewed it will be rotated out with a new password based on the rotation time settings. If multiple accounts with the same username exist, the MDM source will be selected by default.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/password"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{username}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

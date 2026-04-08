@@ -68,20 +68,38 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	resource.Operations = dedupeOperations(resource.Operations)
 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
-		"toCamel":          strcase.ToCamel,
-		"toLowerCamel":     strcase.ToLowerCamel,
-		"toSnake":          strcase.ToSnake,
-		"toKebab":          strcase.ToKebab,
-		"toScreamingSnake": strcase.ToScreamingSnake,
-		"hasPathParam":     hasPathParam,
-		"pathParams":       pathParams,
-		"queryParams":      queryParams,
-		"goType":           goType,
-		"flagType":         flagType,
-		"sortOps":          sortOperations,
-		"dedupeOps":        dedupeOperations,
-		"escapeQuotes":     escapeQuotes,
-		"isDestructive":    func(op *Operation) bool { return op.IsDestructive },
+		"toCamel":           strcase.ToCamel,
+		"toLowerCamel":      strcase.ToLowerCamel,
+		"toSnake":           strcase.ToSnake,
+		"toKebab":           strcase.ToKebab,
+		"toScreamingSnake":  strcase.ToScreamingSnake,
+		"hasPathParam":      hasPathParam,
+		"pathParams":        pathParams,
+		"indexedPathParams": indexedPathParams,
+		"pathParamCount": func(params []*Parameter) int {
+			return len(pathParams(params))
+		},
+		"pathParamUsage": func(params []*Parameter) string {
+			pp := pathParams(params)
+			if len(pp) == 0 {
+				return ""
+			}
+			if len(pp) == 1 {
+				return " <id>"
+			}
+			var parts []string
+			for _, p := range pp {
+				parts = append(parts, "<"+p.Name+">")
+			}
+			return " " + strings.Join(parts, " ")
+		},
+		"queryParams":   queryParams,
+		"goType":        goType,
+		"flagType":      flagType,
+		"sortOps":       sortOperations,
+		"dedupeOps":     dedupeOperations,
+		"escapeQuotes":  escapeQuotes,
+		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
 		"exampleText": func(resourceName, nameSingular string, op *Operation) string {
 			bin := "jamf-cli"
 			switch op.Name {
@@ -322,6 +340,22 @@ func pathParams(params []*Parameter) []*Parameter {
 	for _, p := range params {
 		if p.In == "path" {
 			result = append(result, p)
+		}
+	}
+	return result
+}
+
+// indexedParam pairs a path parameter with its positional index for template use.
+type indexedParam struct {
+	Index int
+	Param *Parameter
+}
+
+func indexedPathParams(params []*Parameter) []indexedParam {
+	var result []indexedParam
+	for _, p := range params {
+		if p.In == "path" {
+			result = append(result, indexedParam{Index: len(result), Param: p})
 		}
 	}
 	return result
@@ -795,7 +829,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "{{ .Name }}{{ if hasPathParam .Path }} <id>{{ end }}",
+		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
 		Short: "{{ escapeQuotes .Summary }}",
 {{- if .Description }}
 		Long:  "{{ escapeQuotes .Description }}",
@@ -804,7 +838,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
 {{- if hasPathParam .Path }}
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs({{ pathParamCount .Parameters }}),
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -842,8 +876,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Build request path
 			path := "{{ .Path }}"
-{{- range pathParams .Parameters }}
-			path = strings.Replace(path, "{{"{"}}{{ .Name }}{{"}"}}", url.PathEscape(args[0]), 1)
+{{- range indexedPathParams .Parameters }}
+			path = strings.Replace(path, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 
 			// Build query string
@@ -883,8 +917,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				for {
 					// Build page-specific query
 					pagePath := "{{ .Path }}"
-{{- range pathParams .Parameters }}
-					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Name }}{{"}"}}", url.PathEscape(args[0]), 1)
+{{- range indexedPathParams .Parameters }}
+					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 					var pageQuery []string
 					// Carry forward non-pagination query params

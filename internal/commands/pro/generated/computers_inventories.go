@@ -438,7 +438,7 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download <id>",
+		Use:   "download <id> <attachmentId>",
 		Short: "Download attachment file",
 		Long:  "Download attachment file",
 		Example: `  # Save to file
@@ -446,7 +446,7 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Pipe to stdout
   jamf-cli pro computers-inventories download <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -454,7 +454,7 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 			// Build request path
 			path := "/v3/computers-inventory/{id}/attachments/{attachmentId}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{attachmentId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{attachmentId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

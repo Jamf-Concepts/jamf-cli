@@ -267,17 +267,17 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "close <id>",
+		Use:   "close <configurationId> <sessionId>",
 		Short: "Close a session",
 		Long:  "Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/close"
 			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -309,17 +309,17 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "resend-notification <id>",
+		Use:   "resend-notification <configurationId> <sessionId>",
 		Short: "Resend nofications for a session",
 		Long:  "Resends configured notifications (e.g. Self Service push notifications).",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/resend-notification"
 			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -351,17 +351,17 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "status <id>",
+		Use:   "status <configurationId> <sessionId>",
 		Short: "Get a session status by its ID",
 		Long:  "Returns a session status if found.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status"
 			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

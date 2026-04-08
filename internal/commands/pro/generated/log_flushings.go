@@ -75,7 +75,7 @@ func newLogFlushingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get",
 		Short: "Get log flushing task",
 		Long:  "Get the log flushing task by the specified ID",
 		Example: `  # Get a log-flushing by ID
@@ -86,7 +86,7 @@ func newLogFlushingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a log-flushing and output as YAML
   jamf-cli log-flushings get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -120,7 +120,7 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete",
 		Short: "Cancels a log flushing task",
 		Long:  "Cancels a log flushing task by ID",
 		Example: `  # Delete a log-flushing (with confirmation)
@@ -128,7 +128,7 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli log-flushings delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

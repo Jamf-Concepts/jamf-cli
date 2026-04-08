@@ -73,7 +73,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete <id> <type>",
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
 		Example: `  # Delete a notification (with confirmation)
@@ -81,7 +81,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli notifications delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -106,7 +106,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Build request path
 			path := "/v1/notifications/{type}/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{type}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{type}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

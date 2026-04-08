@@ -30,7 +30,7 @@ func newDdmStatussGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <clientManagementId> <key>",
 		Short: "Retrieve a Status Item from the latest Status Report for a device",
 		Long:  "Retrieves a Status Item from the latest Status Report for a device",
 		Example: `  # Get a ddm-status by ID
@@ -41,14 +41,14 @@ func newDdmStatussGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ddm-status and output as YAML
   jamf-cli ddm-statuss get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/ddm/{clientManagementId}/status-items/{key}"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{key}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{key}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
