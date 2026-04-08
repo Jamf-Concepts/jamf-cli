@@ -115,6 +115,8 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "classic-policies", Operation: "list", Method: "GET", Path: "/JSSResource/policies", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "policies", SingularKey: ""},
 		{Resource: "classic-printers", Operation: "get", Method: "GET", Path: "/JSSResource/printers/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "printer"},
 		{Resource: "classic-printers", Operation: "list", Method: "GET", Path: "/JSSResource/printers", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "printers", SingularKey: ""},
+		{Resource: "classic-removable-mac-addresses", Operation: "get", Method: "GET", Path: "/JSSResource/removablemacaddresses/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "removable_mac_address"},
+		{Resource: "classic-removable-mac-addresses", Operation: "list", Method: "GET", Path: "/JSSResource/removablemacaddresses", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "removablemacaddresses", SingularKey: ""},
 		{Resource: "classic-restricted-software", Operation: "get", Method: "GET", Path: "/JSSResource/restrictedsoftware/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "restricted_software"},
 		{Resource: "classic-restricted-software", Operation: "list", Method: "GET", Path: "/JSSResource/restrictedsoftware", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "restrictedsoftware", SingularKey: ""},
 		{Resource: "classic-smtp-server", Operation: "get", Method: "GET", Path: "/JSSResource/smtpserver/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "smtp_server"},

@@ -205,6 +205,12 @@ resources:
     description: Class configurations for Apple Classroom
     singular: class
 
+  - name: removablemacaddresses
+    path: removablemacaddresses
+    description: Removable MAC addresses for storage control
+    cli_name: classic-removable-mac-addresses
+    singular: removable_mac_address
+
   # ── Administration ────────────────────────────────────────────────
   - name: accounts
     path: accounts
