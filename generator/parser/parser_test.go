@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func TestPluralize(t *testing.T) {
@@ -62,6 +64,7 @@ func TestInferOperationName(t *testing.T) {
 		{"DELETE", "/v1/buildings/{id}", "DELETE", false, "delete"},
 		{"unknown method", "/v1/buildings", "OPTIONS", false, "options"},
 		{"POST with id and action", "/v1/computers/{id}", "POST", true, "action"},
+		{"download path", "/v1/things/{id}/download/{fileId}", "GET", false, "download"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1515,6 +1518,62 @@ func TestFilterToCanonicalPrefix(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseOperation_BinaryGetBecomesDownload(t *testing.T) {
+	// GET /images/{id} returning image/* should be renamed from "get" to "download"
+	op := buildOpenAPI3Operation("Download an image", "image/*")
+	result := parseOperation("/v2/enrollment-customizations/images/{id}", "get", op)
+	if result.Name != "download" {
+		t.Errorf("name = %q, want %q", result.Name, "download")
+	}
+}
+
+func TestParseOperation_SubResourceGetNamed(t *testing.T) {
+	// GET /{id}/prestages should be named "prestages" not "get"
+	op := buildOpenAPI3Operation("Retrieve prestages", "application/json")
+	result := parseOperation("/v2/enrollment-customizations/{id}/prestages", "get", op)
+	if result.Name != "prestages" {
+		t.Errorf("name = %q, want %q", result.Name, "prestages")
+	}
+}
+
+func TestParseOperation_StandardGetUnchanged(t *testing.T) {
+	// GET /{id} should remain "get"
+	op := buildOpenAPI3Operation("Get a widget", "application/json")
+	result := parseOperation("/v1/widgets/{id}", "get", op)
+	if result.Name != "get" {
+		t.Errorf("name = %q, want %q", result.Name, "get")
+	}
+}
+
+func TestParseOperation_SubResourceAfterTwoParams(t *testing.T) {
+	// GET /{id}/account/{username}/audit should be named "audit"
+	op := buildOpenAPI3Operation("Get audit history", "application/json")
+	result := parseOperation("/v2/laps/{clientManagementId}/account/{username}/audit", "get", op)
+	if result.Name != "audit" {
+		t.Errorf("name = %q, want %q", result.Name, "audit")
+	}
+}
+
+// buildOpenAPI3Operation creates a minimal openapi3.Operation with a 200 response
+// of the given content type for use in parseOperation tests.
+func buildOpenAPI3Operation(summary, contentType string) *openapi3.Operation {
+	desc := "OK"
+	resp := openapi3.NewResponses(
+		openapi3.WithStatus(200, &openapi3.ResponseRef{
+			Value: &openapi3.Response{
+				Description: &desc,
+				Content: openapi3.Content{
+					contentType: &openapi3.MediaType{},
+				},
+			},
+		}),
+	)
+	return &openapi3.Operation{
+		Summary:   summary,
+		Responses: resp,
 	}
 }
 
