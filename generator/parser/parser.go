@@ -95,11 +95,12 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		}
 	}
 	nameField := detectNameField(schemas)
+	idField := detectIDField(schemas, allOps)
 
 	// Check for multi-family spec: multiple sibling collection paths in one file.
 	// Example: SelfServiceBranding.yaml has both /v1/.../branding/macos and
 	// /v1/.../branding/ios — each needs its own resource and command group.
-	if families := splitByPathFamilies(doc.Info.Description, allOps, schemas, nameField); families != nil {
+	if families := splitByPathFamilies(doc.Info.Description, allOps, schemas, nameField, idField); families != nil {
 		return families, nil
 	}
 
@@ -127,6 +128,7 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		Operations:  allOps,
 		Schemas:     schemas,
 		NameField:   nameField,
+		IDField:     idField,
 	}
 
 	// Detect singleton before naming: a singleton has no {id} in any path and
@@ -156,7 +158,7 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 // splitByPathFamilies detects specs with multiple sibling collection paths
 // (e.g. /v1/foo/macos and /v1/foo/ios both having full CRUD under the same
 // parent prefix). Returns nil for normal single-family specs.
-func splitByPathFamilies(description string, ops []*Operation, schemas map[string]*Schema, nameField string) []*Resource {
+func splitByPathFamilies(description string, ops []*Operation, schemas map[string]*Schema, nameField, idField string) []*Resource {
 	// Find "collection paths": non-parameterized paths that have a /{param}
 	// child path — i.e., they serve as the list/create endpoint for a CRUD family.
 	collectionPaths := make(map[string]bool)
@@ -223,6 +225,9 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			// filename — e.g. /v1/self-service/branding/macos → self-service-branding-macos.
 			name := pathToResourceName(cp)
 
+			// Each family may have different path params; re-detect the ID field.
+			familyIDField := detectIDField(schemas, familyOps)
+
 			r := &Resource{
 				Name:         name,
 				NameSingular: name, // path-derived names are already singular; don't strip trailing chars
@@ -231,6 +236,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 				Operations:   familyOps,
 				Schemas:      schemas,
 				NameField:    nameField,
+				IDField:      familyIDField,
 			}
 
 			// Apply singleton detection to each family independently.
@@ -307,6 +313,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			}
 		}
 		name := pluralize(pathToResourceName(namePath))
+		parentIDField := detectIDField(schemas, parentOps)
 		r := &Resource{
 			Name:         name,
 			NameSingular: singularize(name),
@@ -315,6 +322,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			Operations:   parentOps,
 			Schemas:      schemas,
 			NameField:    nameField,
+			IDField:      parentIDField,
 		}
 		if detectSingleton(parentOps) {
 			r.IsSingleton = true
@@ -846,6 +854,98 @@ func detectNameField(schemas map[string]*Schema) string {
 	}
 
 	return "name"
+}
+
+// detectIDField inspects response schemas and operations to determine the correct
+// field for extracting the resource identifier during name-to-ID resolution.
+//
+// The path parameter on the get-by-id endpoint tells us what value the API expects
+// (e.g. {id}, {clientManagementId}, {fileName}). We search response schemas for
+// a property whose name matches that path parameter. When the path parameter is
+// the generic "{id}" but no "id" property exists, we fall back to heuristics:
+// look for a unique property ending in "Id", "Uuid", or named "uuid".
+func detectIDField(schemas map[string]*Schema, ops []*Operation) string {
+	// 1. Find the primary path parameter name from the get operation.
+	pathParam := ""
+	for _, op := range ops {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			// Extract the last {param} from the path — that's the resource identifier.
+			start := strings.LastIndex(op.Path, "{")
+			end := strings.LastIndex(op.Path, "}")
+			if start != -1 && end > start {
+				pathParam = op.Path[start+1 : end]
+			}
+			break
+		}
+	}
+	if pathParam == "" {
+		return "id"
+	}
+
+	// 2. Check if any schema has a property matching the path parameter name exactly.
+	if schemaHasProperty(schemas, pathParam) {
+		return pathParam
+	}
+
+	// 3. If the path param ends in "Id", try the bare prefix as a property name.
+	//    e.g. "keyId" → "key", "languageId" → "language"
+	if strings.HasSuffix(pathParam, "Id") {
+		bare := strings.TrimSuffix(pathParam, "Id")
+		if bare != "" && schemaHasProperty(schemas, bare) {
+			return bare
+		}
+	}
+
+	// 4. If the path param is the generic "id" but no "id" property exists,
+	//    search for a unique identifier-like property across all schemas.
+	if pathParam == "id" {
+		if candidate := findUniqueIDProperty(schemas); candidate != "" {
+			return candidate
+		}
+	}
+
+	// 5. Fall back to the path parameter name itself. Even if no schema property
+	//    matches, using the path param name is the best guess and makes the
+	//    generated code's intent clear.
+	return pathParam
+}
+
+// schemaHasProperty checks whether any schema in the map contains a property
+// with the given name.
+func schemaHasProperty(schemas map[string]*Schema, name string) bool {
+	for _, s := range schemas {
+		if _, ok := s.Properties[name]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// findUniqueIDProperty searches all schema properties for a single candidate
+// that looks like an identifier: ends in "Id" or "Uuid", or is exactly "uuid".
+// Returns the candidate if exactly one is found across all schemas; returns ""
+// if zero or multiple candidates exist (ambiguous).
+func findUniqueIDProperty(schemas map[string]*Schema) string {
+	seen := map[string]bool{}
+	for _, s := range schemas {
+		for name := range s.Properties {
+			if name == "id" {
+				continue // already checked by caller
+			}
+			lower := strings.ToLower(name)
+			if strings.HasSuffix(lower, "id") || strings.HasSuffix(lower, "uuid") || lower == "uuid" {
+				seen[name] = true
+			}
+		}
+	}
+
+	// Only use the heuristic when there's exactly one candidate to avoid ambiguity.
+	if len(seen) == 1 {
+		for name := range seen {
+			return name
+		}
+	}
+	return ""
 }
 
 // versionedName matches CLI resource names with a version suffix, e.g. "inventory-preload-v-2s"

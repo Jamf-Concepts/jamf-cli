@@ -1854,3 +1854,99 @@ func findOp(ops []*Operation, name string) *Operation {
 	}
 	return nil
 }
+
+func TestGenerate_IDFieldInNameResolution(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "renewals",
+		NameSingular: "renewal",
+		GoName:       "Renewals",
+		Description:  "MDM renewals",
+		NameField:    "name",
+		IDField:      "clientManagementId",
+		Operations: []*Operation{
+			{
+				Name:       "list",
+				Method:     "GET",
+				Path:       "/v1/mdm-renewal/device-common-details",
+				Summary:    "List MDM renewals",
+				IsList:     true,
+				APIVersion: "v1",
+			},
+			{
+				Name:       "get",
+				Method:     "GET",
+				Path:       "/v1/mdm-renewal/device-common-details/{clientManagementId}",
+				Summary:    "Get a renewal",
+				APIVersion: "v1",
+				Parameters: []*Parameter{
+					{Name: "clientManagementId", In: "path", Type: "string", Required: true},
+				},
+			},
+			{
+				Name:   "create",
+				Method: "POST",
+				Path:   "/v1/mdm-renewal/device-common-details",
+				RequestBody: &RequestBody{
+					Schema: &Schema{
+						Properties: map[string]*Property{"name": {}},
+					},
+				},
+				APIVersion: "v1",
+			},
+			{
+				Name:   "update",
+				Method: "PUT",
+				Path:   "/v1/mdm-renewal/device-common-details/{clientManagementId}",
+				RequestBody: &RequestBody{
+					Schema: &Schema{
+						Properties: map[string]*Property{"name": {}},
+					},
+				},
+				APIVersion: "v1",
+				Parameters: []*Parameter{
+					{Name: "clientManagementId", In: "path", Type: "string", Required: true},
+				},
+			},
+		},
+		Schemas: map[string]*Schema{
+			"Renewal": {
+				Properties: map[string]*Property{
+					"id":                 {},
+					"clientManagementId": {},
+					"name":               {},
+				},
+			},
+		},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// get-by-name should use the custom ID field
+	if !strings.Contains(code, `"name", "clientManagementId"`) {
+		t.Error("get-by-name should use clientManagementId as ID field")
+	}
+
+	// apply should use the custom ID field
+	if !strings.Contains(code, `"name", "clientManagementId", name, noInput`) {
+		t.Error("apply should use clientManagementId as ID field")
+	}
+
+	// Should NOT contain the old hardcoded pattern (id field as 3rd positional arg = "id")
+	// when the resource has a non-standard ID field.
+	// We check that the resolve call doesn't use "id" for this resource.
+	if strings.Contains(code, `"name", "id", args[0]`) {
+		t.Error("should not use hardcoded 'id' when IDField is clientManagementId")
+	}
+}

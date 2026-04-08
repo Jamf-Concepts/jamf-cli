@@ -1584,3 +1584,116 @@ func pathKeys(m map[string]bool) []string {
 	}
 	return out
 }
+
+func TestDetectIDField(t *testing.T) {
+	tests := []struct {
+		name    string
+		schemas map[string]*Schema
+		ops     []*Operation
+		want    string
+	}{
+		{
+			name:    "no get operation - defaults to id",
+			schemas: map[string]*Schema{},
+			ops:     []*Operation{{Name: "list", Method: "GET", Path: "/v1/things"}},
+			want:    "id",
+		},
+		{
+			name: "standard {id} path param with id in schema",
+			schemas: map[string]*Schema{
+				"Building": {Properties: map[string]*Property{"id": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/buildings/{id}"}},
+			want: "id",
+		},
+		{
+			name: "non-standard path param with exact schema match",
+			schemas: map[string]*Schema{
+				"Device": {Properties: map[string]*Property{"clientManagementId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/mdm/{clientManagementId}"}},
+			want: "clientManagementId",
+		},
+		{
+			name: "non-standard path param with exact schema match - fileName",
+			schemas: map[string]*Schema{
+				"FileData": {Properties: map[string]*Property{"fileName": {}, "length": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/jcds/files/{fileName}"}},
+			want: "fileName",
+		},
+		{
+			name: "path param ending in Id - strip Id to find bare property",
+			schemas: map[string]*Schema{
+				"Settings": {Properties: map[string]*Property{"key": {}, "username": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/preferences/{keyId}"}},
+			want: "key",
+		},
+		{
+			name: "generic {id} not in schema - unique ID-like property used",
+			schemas: map[string]*Schema{
+				"Template": {Properties: map[string]*Property{"templateId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/templates/{id}"}},
+			want: "templateId",
+		},
+		{
+			name: "generic {id} not in schema - unique uuid property used",
+			schemas: map[string]*Schema{
+				"Plan": {Properties: map[string]*Property{"planUuid": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/plans/{id}"}},
+			want: "planUuid",
+		},
+		{
+			name: "generic {id} not in schema - ambiguous multiple ID-like properties",
+			schemas: map[string]*Schema{
+				"Group": {Properties: map[string]*Property{"groupId": {}, "platformId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/groups/{id}"}},
+			want: "id", // ambiguous — fall back
+		},
+		{
+			name: "path param has no match in schema - falls back to path param name",
+			schemas: map[string]*Schema{
+				"Language": {Properties: map[string]*Property{"languageCode": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v3/languages/{languageId}"}},
+			want: "languageId", // can't derive languageCode from languageId automatically
+		},
+		{
+			name: "prefers exact match of non-standard path param over id property",
+			schemas: map[string]*Schema{
+				"Renewal": {Properties: map[string]*Property{"id": {}, "clientManagementId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/renewals/{clientManagementId}"}},
+			want: "clientManagementId",
+		},
+		{
+			name: "get operation without path param - defaults to id",
+			schemas: map[string]*Schema{
+				"Settings": {Properties: map[string]*Property{"enabled": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/settings"}},
+			want: "id",
+		},
+		{
+			name: "generic {id} not in schema - single groupId found",
+			schemas: map[string]*Schema{
+				"SmartGroup": {Properties: map[string]*Property{"groupId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/groups/{id}"}},
+			want: "groupId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectIDField(tt.schemas, tt.ops)
+			if got != tt.want {
+				t.Errorf("detectIDField() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

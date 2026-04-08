@@ -211,7 +211,7 @@ func newMdmRenewalsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", "clientManagementId", args[0])
 			if err != nil {
 				return err
 			}
@@ -247,7 +247,7 @@ func newMdmRenewalsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", "clientManagementId", name, noInput)
 			if err != nil {
 				return err
 			}

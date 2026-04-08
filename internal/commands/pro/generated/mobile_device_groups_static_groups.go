@@ -411,7 +411,7 @@ func newMobileDeviceGroupsStaticGroupsGetByNameCmd(ctx *registry.CLIContext) *co
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -447,7 +447,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteByNameCmd(ctx *registry.CLIContext) 
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}

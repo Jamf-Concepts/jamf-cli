@@ -381,7 +381,7 @@ func newEnrollmentLanguagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageId", args[0])
 			if err != nil {
 				return err
 			}
@@ -417,7 +417,7 @@ func newEnrollmentLanguagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageId", name, noInput)
 			if err != nil {
 				return err
 			}

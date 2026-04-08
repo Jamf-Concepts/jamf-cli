@@ -180,8 +180,10 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 // resolveNameToID looks up a resource by name using a filtered list call and
 // returns its ID. This enables --name as an alternative to positional ID args
 // on get commands. The nameField parameter specifies the filter field
-// (usually "name", but some resources use "displayName").
-func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string) (string, error) {
+// (usually "name", but some resources use "displayName"). The idField parameter
+// specifies which response property holds the identifier (usually "id", but some
+// resources use "templateId", "groupId", etc.).
+func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) (string, error) {
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=1",
 		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, name)))
 
@@ -220,24 +222,16 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 		return "", fmt.Errorf("parsing lookup result: %w", err)
 	}
 
-	// Extract ID — could be string or number
-	switch v := first["id"].(type) {
-	case string:
-		if v == "" {
-			return "", fmt.Errorf("resource %q has no ID", name)
-		}
-		return v, nil
-	case float64:
-		return fmt.Sprintf("%d", int(v)), nil
-	default:
-		return "", fmt.Errorf("resource %q has unexpected ID type", name)
+	if id := extractIDString(first, idField); id != "" {
+		return id, nil
 	}
+	return "", fmt.Errorf("resource %q has no %s field", name, idField)
 }
 
-// extractIDString extracts the "id" field from a JSON object as a string.
+// extractIDString extracts the named identifier field from a JSON object as a string.
 // NOTE: Also used by classic_registry.go helpers (same generated package).
-func extractIDString(obj map[string]any) string {
-	switch v := obj["id"].(type) {
+func extractIDString(obj map[string]any, field string) string {
+	switch v := obj[field].(type) {
 	case string:
 		return v
 	case float64:
@@ -294,7 +288,7 @@ func extractJSONField(data []byte, field string) (string, error) {
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
 // Returns ("", error) when multiple matches or lookup fails.
-func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string, noInput bool) (string, error) {
+func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string, noInput bool) (string, error) {
 	// Escape double quotes in name to prevent RSQL injection
 	escapedName := strings.ReplaceAll(name, `"`, `\"`)
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
@@ -338,7 +332,7 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
 		}
-		if id := extractIDString(obj); id != "" {
+		if id := extractIDString(obj, idField); id != "" {
 			matches = append(matches, applyMatch{id: id})
 		}
 	}

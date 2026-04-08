@@ -80,7 +80,7 @@ func newClassicLdapsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/classic-ldap", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/classic-ldap", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
