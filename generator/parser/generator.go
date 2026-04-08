@@ -407,16 +407,16 @@ func escapeQuotes(s string) string {
 }
 
 // collectionPath returns the canonical collection/list path for a resource's operations.
-// collectionPath returns the canonical collection/list path for a resource's operations.
 // Priority:
 //  1. "list" GET without path param that also has a direct /{param} child — this confirms
 //     it is a true CRUD collection and not a utility endpoint (e.g. feature-toggle).
 //  2. "create" POST without path param AND with a direct /{param} child — same safety
 //     check; excludes utility POSTs like parse-markdown or tasks/retry.
-//  3. Derive from "update" (PUT) by stripping the last /{param} segment — only accepted
-//     when the result itself has no path params (avoids paths like /foo/{id}/bar/{subId}).
-//  4. Derive from "get" (GET with path param) by stripping the last /{param} — same
-//     constraint: result must be param-free (original fallback, safe).
+//  3. Derive from "get" (GET with path param) by stripping the last /{param} segment —
+//     only accepted when the result itself has no path params (avoids paths like
+//     /foo/{id}/bar/{subId}). This is the original fallback and most common case.
+//  4. Derive from "update" (PUT) by stripping the last /{param} — same constraint:
+//     result must be param-free.
 func collectionPath(ops []*Operation) string {
 	hasDirectChild := func(path string) bool {
 		for _, other := range ops {

@@ -157,17 +157,10 @@ func TestDedupeOperations(t *testing.T) {
 			{Name: "create", Method: "POST", Path: "/v2/computer-groups/smart-groups"},
 		}
 		got := dedupeOperations(ops)
-		var getOp *Operation
-		for _, op := range got {
-			if op.Name == "get" {
-				getOp = op
-				break
-			}
-		}
+		getOp := findOp(got, "get")
 		if getOp == nil {
 			t.Fatal("no get operation after dedup")
-		}
-		if getOp.Path != "/v2/computer-groups/smart-groups/{id}" {
+		} else if getOp.Path != "/v2/computer-groups/smart-groups/{id}" {
 			t.Errorf("get path = %q, want /v2/computer-groups/smart-groups/{id}", getOp.Path)
 		}
 	})
@@ -178,18 +171,11 @@ func TestDedupeOperations(t *testing.T) {
 			{Name: "get", Method: "GET", Path: "/v1/foo/baz/{id}"},
 		}
 		got := dedupeOperations(ops)
-		var getOp *Operation
-		for _, op := range got {
-			if op.Name == "get" {
-				getOp = op
-				break
-			}
-		}
+		// Should keep first (bar) since neither matches a collection path
+		getOp := findOp(got, "get")
 		if getOp == nil {
 			t.Fatal("no get operation after dedup")
-		}
-		// Should keep first (bar) since neither matches a collection path
-		if getOp.Path != "/v1/foo/bar/{id}" {
+		} else if getOp.Path != "/v1/foo/bar/{id}" {
 			t.Errorf("get path = %q, want /v1/foo/bar/{id}", getOp.Path)
 		}
 	})
@@ -1800,4 +1786,13 @@ func TestGenerate_MultiParamCommand(t *testing.T) {
 	if !strings.Contains(code, "cobra.ExactArgs(1)") {
 		t.Error("single-param command should use ExactArgs(1)")
 	}
+}
+
+func findOp(ops []*Operation, name string) *Operation {
+	for _, op := range ops {
+		if op.Name == name {
+			return op
+		}
+	}
+	return nil
 }
