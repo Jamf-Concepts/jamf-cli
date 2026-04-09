@@ -112,6 +112,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Get %s\n  %s %s get\n\n  # Get %s and output as YAML\n  %s %s get -o yaml",
 						resourceName, bin, resourceName, resourceName, bin, resourceName)
 				}
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					// Multi-param sub-resource: no get-by-name; use "1 2 ..." as example args
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get %s\n\n  # Get a %s and output as YAML\n  %s %s get %s -o yaml",
+						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr)
+				}
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get-by-name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
 			case "create":
@@ -127,15 +137,41 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Update %s\n  %s %s get -o json | jq '.field = \"value\"' | %s %s update\n\n  # Update from a file\n  %s %s update --from-file %s.json",
 						resourceName, bin, resourceName, bin, resourceName, bin, resourceName, resourceName)
 				}
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s\n\n  # Get a %s, modify, and update\n  %s %s get %s -o json | jq '.name = \"New Name\"' | %s %s update %s",
+						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+				}
 				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "delete":
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete %s\n\n  # Delete without confirmation prompt\n  %s %s delete %s --yes",
+						nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+				}
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					nameSingular, bin, resourceName, bin, resourceName)
 			case "delete-multiple":
 				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
 					resourceName, bin, resourceName)
 			case "history":
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					return fmt.Sprintf("  # Get history for a %s\n  %s %s history %s",
+						nameSingular, bin, resourceName, strings.Join(argNums, " "))
+				}
 				return fmt.Sprintf("  # Get history for a %s\n  %s %s history 1",
 					nameSingular, bin, resourceName)
 			case "export":
@@ -228,14 +264,15 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return scaffoldJSON(op.RequestBody.Schema)
 		},
-		"needsFmt":             needsFmt,
-		"needsURL":             needsURL,
-		"needsMultipart":       needsMultipart,
-		"hasAnyBinaryResponse": hasAnyBinaryResponse,
-		"opIsMultipart":        func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
-		"opHasBinaryResponse":  opHasBinaryResponse,
-		"shouldGenerateApply":  shouldGenerateApply,
-		"hasDeleteMultiple":    hasDeleteMultiple,
+		"needsFmt":                needsFmt,
+		"needsURL":                needsURL,
+		"needsMultipart":          needsMultipart,
+		"hasAnyBinaryResponse":    hasAnyBinaryResponse,
+		"opIsMultipart":           func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
+		"opHasBinaryResponse":     opHasBinaryResponse,
+		"shouldGenerateApply":     shouldGenerateApply,
+		"shouldGenerateGetByName": shouldGenerateGetByName,
+		"hasDeleteMultiple":       hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
@@ -608,9 +645,25 @@ func needsURL(r *Resource) bool {
 
 // shouldGenerateApply returns true if the resource should have an apply (upsert) command.
 // Singletons are excluded: they have no name-based collection to search, so upsert
-// semantics don't apply.
+// semantics don't apply. Sub-resources (where collectionPath returns empty) are also
+// excluded: without a flat collection there is no way to resolve a name to an ID.
 func shouldGenerateApply(r *Resource) bool {
-	return !r.IsSingleton && hasApply(r.Operations)
+	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != ""
+}
+
+// shouldGenerateGetByName returns true if the resource should have a get-by-name command.
+// Sub-resources (where collectionPath returns empty) are excluded because there is no
+// flat collection to search for name resolution.
+func shouldGenerateGetByName(r *Resource) bool {
+	if collectionPath(r.Operations) == "" {
+		return false
+	}
+	for _, op := range r.Operations {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			return true
+		}
+	}
+	return false
 }
 
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
@@ -661,7 +714,12 @@ func scaffoldJSON(s *Schema) string {
 
 // hasDeleteByName returns true if the resource has a delete operation and a
 // get operation with a path parameter (needed for name-to-ID resolution).
+// Sub-resources (where collectionPath returns empty) are excluded because there
+// is no flat collection to search for name resolution.
 func hasDeleteByName(ops []*Operation) bool {
+	if collectionPath(ops) == "" {
+		return false
+	}
 	hasDeleteOp := false
 	hasGetWithParam := false
 	for _, op := range ops {
@@ -784,9 +842,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{ range dedupeOps (sortOps .Operations) }}
 	cmd.AddCommand(new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx))
 {{- end }}
-{{- range dedupeOps (sortOps .Operations) }}{{ if isGet . }}
-	cmd.AddCommand(new{{ $.GoName }}GetByNameCmd(ctx))
-{{- end }}{{ end }}
+{{- if shouldGenerateGetByName . }}
+	cmd.AddCommand(new{{ .GoName }}GetByNameCmd(ctx))
+{{- end }}
 {{- if shouldGenerateApply . }}
 	cmd.AddCommand(new{{ .GoName }}ApplyCmd(ctx))
 {{- end }}
@@ -1092,6 +1150,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 {{ end }}
+{{ if shouldGenerateGetByName . }}
 {{ range dedupeOps (sortOps .Operations) }}{{ if isGet . }}
 func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -1105,7 +1164,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPath . }}", "{{ $.NameField }}", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", args[0])
 			if err != nil {
 				return err
 			}
@@ -1120,6 +1179,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 {{ end }}{{ end }}
+{{ end }}
 {{ if hasDeleteByName .Operations }}
 func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (

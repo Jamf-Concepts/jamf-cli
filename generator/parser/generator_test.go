@@ -1108,6 +1108,14 @@ func TestHasDeleteByName(t *testing.T) {
 			false,
 		},
 		{"empty", []*Operation{}, false},
+		{
+			"sub-resource with multi-param paths — delete-by-name suppressed",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1405,8 +1413,8 @@ func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
 func TestNeedsFmt_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
-			{Name: "create", Method: "POST"},
-			{Name: "update", Method: "PUT"},
+			{Name: "create", Method: "POST", Path: "/v1/widgets"},
+			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
 	}
 	if !needsFmt(r) {
@@ -1417,8 +1425,8 @@ func TestNeedsFmt_WithApply(t *testing.T) {
 func TestNeedsURL_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
-			{Name: "create", Method: "POST"},
-			{Name: "update", Method: "PUT"},
+			{Name: "create", Method: "POST", Path: "/v1/widgets"},
+			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
 	}
 	if !needsURL(r) {
@@ -1516,6 +1524,15 @@ func TestShouldGenerateApply(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name:        "sub-resource with multi-param create+update — apply suppressed",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/foo/{id}/bars"},
+				{Name: "update", Method: "PUT", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1524,6 +1541,47 @@ func TestShouldGenerateApply(t *testing.T) {
 			got := shouldGenerateApply(r)
 			if got != tt.want {
 				t.Errorf("shouldGenerateApply() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldGenerateGetByName(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			"standard CRUD resource with list + get — get-by-name generated",
+			[]*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			},
+			true,
+		},
+		{
+			"sub-resource with multi-param get — get-by-name suppressed",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			false,
+		},
+		{
+			"no get op — get-by-name suppressed",
+			[]*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Resource{Operations: tt.ops}
+			got := shouldGenerateGetByName(r)
+			if got != tt.want {
+				t.Errorf("shouldGenerateGetByName() = %v, want %v", got, tt.want)
 			}
 		})
 	}

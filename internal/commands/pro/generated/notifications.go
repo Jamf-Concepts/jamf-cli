@@ -77,10 +77,10 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
 		Example: `  # Delete a notification (with confirmation)
-  jamf-cli notifications delete 1
+  jamf-cli notifications delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli notifications delete 1 --yes`,
+  jamf-cli notifications delete 1 2 --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

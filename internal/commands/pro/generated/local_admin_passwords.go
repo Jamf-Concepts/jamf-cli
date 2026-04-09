@@ -136,7 +136,7 @@ func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get LAPS historical records for target device and username.",
 		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
 		Example: `  # Get history for a local-admin-password
-  jamf-cli local-admin-passwords history 1`,
+  jamf-cli local-admin-passwords history 1 2`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
