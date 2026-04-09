@@ -82,9 +82,6 @@ jamf-cli pro device C02X1234
 # Fleet security report
 jamf-cli pro report security -o table
 
-# Trigger a policy on specific devices
-jamf-cli pro policy-execute "Update Inventory" --target C02X1234 --yes
-
 # Run a command against multiple instances
 jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
@@ -101,8 +98,6 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM, lock, enable/disable Remote Desktop (computers); erase, unmanage, restart, shutdown, update inventory (mobile devices). Target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
 - **`device`** — Aggregated device deep-dive: identity, hardware, OS, security posture, user info, MDM command history, policy logs
 - **`report security`** — Fleet security posture: FileVault, Gatekeeper, SIP, firewall rates, OS version distribution, flagged devices
-- **`policy-execute`** — Trigger a Jamf Pro policy on specific devices or a computer group by name or ID
-
 ### Jamf Protect
 
 - **Full SDK coverage** — Plans, analytics, analytic sets, exception sets, USB control, telemetry, prevent lists, unified logging filters, roles, users, groups, API clients, and org settings
@@ -185,7 +180,6 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Pro | `categories` | `cat` |
 | Pro | `departments` | `dept` |
 | Pro | `device` | `dev` |
-| Pro | `policy-execute` | `pe` |
 | Protect | `removable-storage-control-sets` | `rscs` |
 | Protect | `unified-logging-filters` | `ulf` |
 | Protect | `exception-sets` | `es` |
