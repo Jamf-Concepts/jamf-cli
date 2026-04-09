@@ -101,16 +101,6 @@
       "command": "jamf-cli pro diff --source staging --target production --resources policies,scripts"
     }
   ],
-  "pro policy-execute": [
-    {
-      "description": "Preview executing a policy on a specific device",
-      "command": "jamf-cli pro policy-execute 5 --target jamf-mini"
-    },
-    {
-      "description": "Execute a policy on all members of a group",
-      "command": "jamf-cli pro policy-execute 5 --group \"Lab Macs\" --yes"
-    }
-  ],
   "pro bulk send-command": [
     {
       "description": "Preview sending UpdateInventory to a group",

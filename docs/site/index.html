@@ -217,7 +217,6 @@
   { "command": "jamf-cli pro report security" },
   { "command": "jamf-cli pro device jamf-mini" },
   { "command": "jamf-cli pro comp list -o table --filter \"osVersion>=15\"" },
-  { "command": "jamf-cli pro policy-execute 5 --target jamf-mini" },
   { "command": "jamf-cli protect analytics list -o table" },
   { "command": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0 --yes" },
   { "command": "jamf-cli pro backup --output ./backup/" }
@@ -253,10 +252,6 @@
   "pro comp erase": {
     "example": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0",
     "output": "[dry-run] Would erase computer H2WDT4RGQ6P0 (jamf-mini)\nUse --yes --confirm-destructive to execute."
-  },
-  "pro policy-execute": {
-    "example": "jamf-cli pro policy-execute 5 --target jamf-mini",
-    "output": "[dry-run] Would execute policy\n  \"DMG | JCDS Cloud Install Test\" (id=5)\n  on 1 device(s):\n  - jamf-mini (id=29)\nUse --yes to execute."
   },
   "protect analytics list": {
     "example": "jamf-cli protect analytics list -o table",

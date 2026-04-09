@@ -92,14 +92,12 @@ var proGroupMap = map[string]string{
 	"device":   groupCore,
 
 	// Power Commands
-	"backup":         groupPower,
-	"audit":          groupPower,
-	"bulk":           groupPower,
-	"report":         groupPower,
-	"diff":           groupPower,
-	"group-tools":    groupPower,
-	"policy-execute": groupPower,
-
+	"backup":      groupPower,
+	"audit":       groupPower,
+	"bulk":        groupPower,
+	"report":      groupPower,
+	"diff":        groupPower,
+	"group-tools": groupPower,
 	// Computer Management
 	"computers":                              groupComputers,
 	"computer-groups":                        groupComputers,
