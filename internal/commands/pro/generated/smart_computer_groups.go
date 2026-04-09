@@ -397,12 +397,18 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
+			var resolvedByName string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
+				if rid == "" {
+					return fmt.Errorf("no smart-computer-group found with name %q", flagName)
+				}
 				resolvedID = rid
+				resolvedByName = flagName
 			} else if len(args) > 0 {
 				resolvedID = args[0]
 			} else {
@@ -411,7 +417,11 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-computer-group %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-computer-group %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -419,7 +429,11 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-computer-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-computer-group %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

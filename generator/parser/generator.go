@@ -285,7 +285,6 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return r.IDField
 		},
-		"not":              func(b bool) bool { return !b },
 		"patchExampleText": func(r *Resource, op *Operation) string { return patchExampleText(r, op) },
 		"patchPath":        func(ops []*Operation) string { return patchPath(ops) },
 		"patchPathParam":   func(ops []*Operation) string { return patchPathParam(ops) },
@@ -1228,6 +1227,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
+{{- if .IsDestructive }}
+			var resolvedByName string
+{{- end }}
 {{ range $.LookupFields }}
 			if flag{{ toCamel .Flag }} != "" {
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }})
@@ -1236,11 +1238,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 				resolvedID = rid
 			} else {{ end }}if flagName != "" {
+{{- if .IsDestructive }}
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no {{ $.NameSingular }} found with {{ $.NameField }} %q", flagName)
+				}
+{{- else }}
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", flagName)
 				if err != nil {
 					return err
 				}
+{{- end }}
 				resolvedID = rid
+{{- if .IsDestructive }}
+				resolvedByName = flagName
+{{- end }}
 			} else if len(args) > 0 {
 				resolvedID = args[0]
 			} else {
@@ -1251,7 +1267,11 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would {{ .Name }} resource %s\n", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ .Name }} {{ $.NameSingular }} %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would {{ .Name }} {{ $.NameSingular }} %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -1259,7 +1279,11 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} resource %s. Type 'yes' to confirm: ", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} {{ $.NameSingular }} %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} {{ $.NameSingular }} %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -1848,75 +1872,7 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 	return matches[choice-1].id, nil
 }
 
-// resolveNameToIDClientSide looks up a resource by name by scanning pages of
-// the list endpoint client-side. Used for resources whose list endpoint ignores
-// RSQL filter params (e.g. /v2/mobile-devices). Pages through all results at
-// page-size=200 until the first exact match is found.
-func resolveNameToIDClientSide(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) (string, error) {
-	const pageSize = 200
-	for page := 0; ; page++ {
-		pagePath := fmt.Sprintf("%s?page=%d&page-size=%d", listPath, page, pageSize)
-		resp, err := client.Do(ctx, "GET", pagePath, nil)
-		if err != nil {
-			return "", fmt.Errorf("looking up %q: %w", name, err)
-		}
-		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-		_ = resp.Body.Close()
-		if err != nil {
-			return "", fmt.Errorf("reading lookup response: %w", err)
-		}
 
-		var data struct {
-			TotalCount int               ` + "`" + `json:"totalCount"` + "`" + `
-			Results    []json.RawMessage ` + "`" + `json:"results"` + "`" + `
-		}
-		isArr := false
-		if err := json.Unmarshal(body, &data); err != nil {
-			var arr []json.RawMessage
-			if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
-				return "", fmt.Errorf("parsing lookup response: %w", err)
-			}
-			data.Results = arr
-			data.TotalCount = len(arr)
-			isArr = true
-		}
-
-		for _, raw := range data.Results {
-			var obj map[string]any
-			if err := json.Unmarshal(raw, &obj); err != nil {
-				continue
-			}
-			if resolveNestedString(obj, nameField) == name {
-				if id := extractIDString(obj, idField); id != "" {
-					return id, nil
-				}
-			}
-		}
-
-		// Plain array: already exhausted; paginated: check if more pages exist.
-		if isArr || len(data.Results) < pageSize || (data.TotalCount > 0 && (page+1)*pageSize >= data.TotalCount) {
-			break
-		}
-	}
-	return "", fmt.Errorf("no resource found with name %q", name)
-}
-
-// resolveNestedString extracts a dot-notation field from a JSON object
-// (e.g. "general.name" from {"general":{"name":"foo"}}).
-func resolveNestedString(obj map[string]any, field string) string {
-	dot := strings.IndexByte(field, '.')
-	if dot == -1 {
-		if v, ok := obj[field].(string); ok {
-			return v
-		}
-		return ""
-	}
-	sub, ok := obj[field[:dot]].(map[string]any)
-	if !ok {
-		return ""
-	}
-	return resolveNestedString(sub, field[dot+1:])
-}
 
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.

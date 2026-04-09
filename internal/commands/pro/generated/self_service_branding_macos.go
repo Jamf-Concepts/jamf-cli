@@ -393,12 +393,18 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
+			var resolvedByName string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "brandingName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/self-service/branding/macos", "brandingName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
+				if rid == "" {
+					return fmt.Errorf("no self-service-branding-macos found with brandingName %q", flagName)
+				}
 				resolvedID = rid
+				resolvedByName = flagName
 			} else if len(args) > 0 {
 				resolvedID = args[0]
 			} else {
@@ -407,7 +413,11 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -415,7 +425,11 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-macos %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete self-service-branding-macos %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
