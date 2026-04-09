@@ -24,10 +24,18 @@ func newDisablePoliciesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // newTogglePoliciesCmd is the shared builder for enable-policies / disable-policies.
 func newTogglePoliciesCmd(cliCtx *registry.CLIContext, enable bool) *cobra.Command {
 	var (
-		scopeGroup  string
-		category    string
-		namePattern string
-		yes         bool
+		category           string
+		namePattern        string
+		allComputers       bool
+		scopeGroups        []string
+		scopeBuildings     []string
+		scopeDepartments   []string
+		limitNetSegments   []string
+		limitUserGroups    []string
+		excludeGroups      []string
+		excludeBuildings   []string
+		excludeDepartments []string
+		yes                bool
 	)
 
 	verb := "enable"
@@ -39,19 +47,67 @@ func newTogglePoliciesCmd(cliCtx *registry.CLIContext, enable bool) *cobra.Comma
 		Use:   verb + "-policies",
 		Short: fmt.Sprintf("Bulk %s policies matching the given filters", verb),
 		Long: fmt.Sprintf(`Fetch all Classic API policies and %s those that match all provided
-filters (--scope-group, --category, --name-pattern).  Multiple filters are
-combined with AND logic.
+filters. Multiple filters are combined with AND logic. Within a repeatable
+flag, values are combined with OR logic.
 
 Without --yes the command prints a preview table and exits without making any
-changes.`, verb),
+changes.
+
+Available filters:
+
+  Identity:
+    --name-pattern    glob match on policy name (e.g. "Deploy *")
+    --category        category name (case-insensitive)
+
+  Target scope:
+    --scope-group     target computer group (repeatable)
+    --scope-building  target building (repeatable)
+    --scope-department target department (repeatable)
+    --all-computers   only policies scoped to all computers
+
+  Limitations:
+    --limit-network-segment  limitation network segment (repeatable)
+    --limit-user-group       limitation user group (repeatable)
+
+  Exclusions:
+    --exclude-group      exclusion computer group (repeatable)
+    --exclude-building   exclusion building (repeatable)
+    --exclude-department exclusion department (repeatable)`, verb),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTogglePolicies(cmd, cliCtx, enable, scopeGroup, category, namePattern, yes)
+			f := policyBulkFilters{
+				namePattern:        namePattern,
+				category:           category,
+				scopeGroups:        scopeGroups,
+				scopeBuildings:     scopeBuildings,
+				scopeDepartments:   scopeDepartments,
+				limitNetSegments:   limitNetSegments,
+				limitUserGroups:    limitUserGroups,
+				excludeGroups:      excludeGroups,
+				excludeBuildings:   excludeBuildings,
+				excludeDepartments: excludeDepartments,
+			}
+			if cmd.Flags().Changed("all-computers") {
+				f.allComputers = &allComputers
+			}
+			return runTogglePolicies(cmd, cliCtx, enable, f, yes)
 		},
 	}
 
-	cmd.Flags().StringVar(&scopeGroup, "scope-group", "", "only policies scoped to this computer group name")
-	cmd.Flags().StringVar(&category, "category", "", "only policies in this category (case-insensitive)")
 	cmd.Flags().StringVar(&namePattern, "name-pattern", "", "only policies whose name matches this glob (e.g. \"Deploy *\")")
+	cmd.Flags().StringVar(&category, "category", "", "only policies in this category (case-insensitive)")
+
+	cmd.Flags().StringArrayVar(&scopeGroups, "scope-group", nil, "only policies scoped to this computer group (repeatable)")
+	cmd.Flags().StringArrayVar(&scopeBuildings, "scope-building", nil, "only policies scoped to this building (repeatable)")
+	cmd.Flags().StringArrayVar(&scopeDepartments, "scope-department", nil, "only policies scoped to this department (repeatable)")
+	cmd.Flags().BoolVar(&allComputers, "all-computers", false, "only policies scoped to all computers")
+
+	cmd.Flags().StringArrayVar(&limitNetSegments, "limit-network-segment", nil, "only policies limited to this network segment (repeatable)")
+	cmd.Flags().StringArrayVar(&limitUserGroups, "limit-user-group", nil, "only policies limited to this user group (repeatable)")
+
+	cmd.Flags().StringArrayVar(&excludeGroups, "exclude-group", nil, "only policies excluding this computer group (repeatable)")
+	cmd.Flags().StringArrayVar(&excludeBuildings, "exclude-building", nil, "only policies excluding this building (repeatable)")
+	cmd.Flags().StringArrayVar(&excludeDepartments, "exclude-department", nil, "only policies excluding this department (repeatable)")
+
 	cmd.Flags().BoolVar(&yes, "yes", false, "execute mutations (default: dry-run preview only)")
 
 	return cmd
@@ -61,7 +117,7 @@ func runTogglePolicies(
 	cmd *cobra.Command,
 	cliCtx *registry.CLIContext,
 	enable bool,
-	scopeGroup, category, namePattern string,
+	f policyBulkFilters,
 	yes bool,
 ) error {
 	ctx := cmd.Context()
@@ -98,9 +154,9 @@ func runTogglePolicies(
 		}
 
 		// Quick name pre-filter avoids a detail fetch for non-matching names.
-		if namePattern != "" {
+		if f.namePattern != "" {
 			listName, _ := m["name"].(string)
-			matched, err := matchGlob(namePattern, listName)
+			matched, err := matchGlob(f.namePattern, listName)
 			if err != nil {
 				return err
 			}
@@ -117,16 +173,18 @@ func runTogglePolicies(
 		candidates = append(candidates, policyEntry{id: id, detail: detail})
 	}
 
-	// 3. Apply remaining filters (category, scope group) against the full detail.
+	// 3. Apply remaining filters against the full detail.
 	var matched []policyEntry
 	for _, p := range candidates {
-		ok, err := policyMatchesFilters(p.detail, scopeGroup, category, "")
+		ok, err := policyMatchesFilters(p.detail, f)
 		if err != nil {
 			return err
 		}
 		if ok {
 			// Skip policies that are already in the desired state.
-			currentlyEnabled, _ := p.detail["enabled"].(bool)
+			// The Classic API nests enabled under "general".
+			general, _ := p.detail["general"].(map[string]any)
+			currentlyEnabled, _ := general["enabled"].(bool)
 			if currentlyEnabled == enable {
 				continue
 			}
@@ -158,7 +216,8 @@ func runTogglePolicies(
 
 	var successCount, failCount int
 	for _, p := range matched {
-		name, _ := p.detail["name"].(string)
+		general, _ := p.detail["general"].(map[string]any)
+		name, _ := general["name"].(string)
 		if err := doClassicPolicyUpdate(ctx, client, p.id, enable); err != nil {
 			bulkLogW(stderr, verb+" policy", name, "ERROR: "+err.Error())
 			failCount++
