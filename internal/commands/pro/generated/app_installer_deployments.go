@@ -331,7 +331,7 @@ func newAppInstallerDeploymentsGetByNameCmd(ctx *registry.CLIContext) *cobra.Com
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -367,7 +367,7 @@ func newAppInstallerDeploymentsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -455,7 +455,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
