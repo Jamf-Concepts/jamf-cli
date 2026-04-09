@@ -18,28 +18,57 @@ func NewCloudAzureDefaultsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-azure-defaults in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudAzureDefaultsListCmd(ctx))
+	cmd.AddCommand(newCloudAzureDefaultsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudAzureDefaultsServerConfigurationCmd(ctx))
 
 	return cmd
 }
 
-func newCloudAzureDefaultsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudAzureDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "mappings",
 		Short: "Get default mappings",
 		Long:  "This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.",
-		Example: `  # List all cloud-azure-defaults
-  jamf-cli cloud-azure-defaults list
-
-  # List cloud-azure-defaults and extract IDs
-  jamf-cli cloud-azure-defaults list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/cloud-azure/defaults/mappings"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudAzureDefaultsServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "server-configuration",
+		Short: "Get default server configuration",
+		Long:  "This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-azure/defaults/server-configuration"
 
 			// Build query string
 			var queryParts []string

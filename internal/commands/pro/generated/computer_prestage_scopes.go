@@ -24,9 +24,10 @@ func NewComputerPrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newComputerPrestageScopesListCmd(ctx))
-	cmd.AddCommand(newComputerPrestageScopesUpdateCmd(ctx))
 	cmd.AddCommand(newComputerPrestageScopesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newComputerPrestageScopesScopeCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesCreateScopeCmd(ctx))
+	cmd.AddCommand(newComputerPrestageScopesUpdateScopeCmd(ctx))
 
 	return cmd
 }
@@ -65,67 +66,6 @@ func newComputerPrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	return cmd
-}
-
-func newComputerPrestageScopesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Replace device Scope for a specific Computer Prestage",
-		Long:  "Replace device scope for a specific computer prestage",
-		Example: `  # Update a computer-prestage-scope from JSON
-  echo '{"name":"Updated"}' | jamf-cli computer-prestage-scopes update 1
-
-  # Get a computer-prestage-scope, modify, and update
-  jamf-cli computer-prestage-scopes get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestage-scopes update 1`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				fmt.Println(`{
-  "serialNumbers": [
-    "DMQVGC0DHLF0",
-    "C02L29ECF8J1"
-  ],
-  "versionLock": 1
-}`)
-				return nil
-			}
-
-			// Build request path
-			path := "/v2/computer-prestages/{id}/scope"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -255,6 +195,118 @@ func newComputerPrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newComputerPrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create-scope <id>",
+		Short: "Add device Scope for a specific Computer Prestage",
+		Long:  "Add device scope for a specific computer prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newComputerPrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-scope <id>",
+		Short: "Replace device Scope for a specific Computer Prestage",
+		Long:  "Replace device scope for a specific computer prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/computer-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

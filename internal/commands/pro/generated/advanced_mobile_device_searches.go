@@ -31,6 +31,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesUpdateCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newAdvancedMobileDeviceSearchesChoicesCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesGetByNameCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesApplyCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx))
@@ -403,6 +404,56 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 	return cmd
 }
 
+func newAdvancedMobileDeviceSearchesChoicesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagCriteria string
+		flagSite     string
+		flagContains string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "choices",
+		Short: "Get Mobile Device Advanced Search criteria choices",
+		Long:  "Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are \"App Name\", \"Building\", and \"Display Name\".",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/advanced-mobile-device-searches/choices"
+
+			// Build query string
+			var queryParts []string
+			if flagCriteria != "" {
+				queryParts = append(queryParts, "criteria="+url.QueryEscape(flagCriteria))
+			}
+			if flagSite != "" {
+				queryParts = append(queryParts, "site="+url.QueryEscape(flagSite))
+			}
+			if flagContains != "" {
+				queryParts = append(queryParts, "contains="+url.QueryEscape(flagContains))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagCriteria, "criteria", "", "")
+	cmd.Flags().StringVar(&flagSite, "site", "-1", "")
+	cmd.Flags().StringVar(&flagContains, "contains", "null", "")
+
+	return cmd
+}
+
 func newAdvancedMobileDeviceSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -415,7 +466,7 @@ func newAdvancedMobileDeviceSearchesGetByNameCmd(ctx *registry.CLIContext) *cobr
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -451,7 +502,7 @@ func newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx *registry.CLIContext) *c
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -539,7 +590,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

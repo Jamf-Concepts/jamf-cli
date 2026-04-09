@@ -42,7 +42,7 @@ func newJamfPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/jamf-package"
+			path := "/v2/jamf-package"
 
 			// Build query string
 			var queryParts []string

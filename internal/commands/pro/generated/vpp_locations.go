@@ -723,7 +723,7 @@ func newVppLocationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -759,7 +759,7 @@ func newVppLocationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

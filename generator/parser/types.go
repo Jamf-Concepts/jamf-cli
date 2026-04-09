@@ -11,6 +11,7 @@ type Resource struct {
 	Operations   []*Operation
 	Schemas      map[string]*Schema
 	NameField    string // Filter field for name lookups (default "name", some use "displayName")
+	IDField      string // Response field for ID extraction in name resolution (default "id", some use "templateId", "groupId", etc.)
 	IsSingleton  bool   // True for settings-style resources: single object, GET+PUT, no {id} in any path
 }
 

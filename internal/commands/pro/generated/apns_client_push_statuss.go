@@ -23,14 +23,15 @@ func NewApnsClientPushStatussCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage apns-client-push-statuss in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newApnsClientPushStatussListCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatussApnsClientPushStatusCmd(ctx))
 	cmd.AddCommand(newApnsClientPushStatussEnableAllClientsCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatussStatusCmd(ctx))
 	cmd.AddCommand(newApnsClientPushStatussEnableClientCmd(ctx))
 
 	return cmd
 }
 
-func newApnsClientPushStatussListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatussApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -41,14 +42,9 @@ func newApnsClientPushStatussListCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "apns-client-push-status",
 		Short: "Search for clients with push notifications disabled",
 		Long:  "Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled. The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.",
-		Example: `  # List all apns-client-push-statuss
-  jamf-cli apns-client-push-statuss list
-
-  # List apns-client-push-statuss and extract IDs
-  jamf-cli apns-client-push-statuss list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,6 +184,39 @@ func newApnsClientPushStatussEnableAllClientsCmd(ctx *registry.CLIContext) *cobr
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newApnsClientPushStatussStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Get status of enable all clients request",
+		Long:  "Retrieve the status of the most recent request to enable push notifications for all clients. Returns 404 if no recent request exists.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/apns-client-push-status/enable-all-clients/status"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}

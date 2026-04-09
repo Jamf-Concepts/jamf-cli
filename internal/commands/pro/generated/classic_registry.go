@@ -147,7 +147,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 	for _, item := range items {
 		itemName, _ := item["name"].(string)
 		if itemName == name {
-			if id := extractIDString(item); id != "" {
+			if id := extractIDString(item, "id"); id != "" {
 				matches = append(matches, classicMatch{id: id})
 			}
 		}

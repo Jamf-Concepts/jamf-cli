@@ -202,7 +202,7 @@ func newUserPreferencesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", args[0])
 			if err != nil {
 				return err
 			}
@@ -238,7 +238,7 @@ func newUserPreferencesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", name, noInput)
 			if err != nil {
 				return err
 			}

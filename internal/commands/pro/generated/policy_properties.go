@@ -21,24 +21,19 @@ func NewPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage policy-properties in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newPolicyPropertiesGetCmd(ctx))
-	cmd.AddCommand(newPolicyPropertiesUpdateCmd(ctx))
+	cmd.AddCommand(newPolicyPropertiesPolicyPropertiesCmd(ctx))
+	cmd.AddCommand(newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx))
 
 	return cmd
 }
 
-func newPolicyPropertiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPolicyPropertiesPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get",
+		Use:   "policy-properties",
 		Short: "Get Policy Properties object",
 		Long:  "Gets 'Policy Properties' object.",
-		Example: `  # Get policy-properties
-  jamf-cli policy-properties get
-
-  # Get policy-properties and output as YAML
-  jamf-cli policy-properties get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -65,20 +60,15 @@ func newPolicyPropertiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPolicyPropertiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update-policy-properties",
 		Short: "Update Policy Properties object",
 		Long:  "Update Policy Properties object",
-		Example: `  # Update policy-properties
-  jamf-cli policy-properties get -o json | jq '.field = "value"' | jamf-cli policy-properties update
-
-  # Update from a file
-  jamf-cli policy-properties update --from-file policy-properties.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

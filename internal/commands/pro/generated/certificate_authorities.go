@@ -358,7 +358,7 @@ func newCertificateAuthoritiesGetByNameCmd(ctx *registry.CLIContext) *cobra.Comm
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", args[0])
 			if err != nil {
 				return err
 			}

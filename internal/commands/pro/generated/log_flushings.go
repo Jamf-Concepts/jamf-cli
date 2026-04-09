@@ -26,6 +26,7 @@ func NewLogFlushingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newLogFlushingsListCmd(ctx))
 	cmd.AddCommand(newLogFlushingsGetCmd(ctx))
 	cmd.AddCommand(newLogFlushingsDeleteCmd(ctx))
+	cmd.AddCommand(newLogFlushingsLogFlushingCmd(ctx))
 	cmd.AddCommand(newLogFlushingsTaskCmd(ctx))
 	cmd.AddCommand(newLogFlushingsGetByNameCmd(ctx))
 	cmd.AddCommand(newLogFlushingsDeleteByNameCmd(ctx))
@@ -38,8 +39,8 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get log flushing settings",
-		Long:  "Get all log flushing and retention policy settings",
+		Short: "Get log flushing tasks",
+		Long:  "Get a list of all log flushing tasks and their statuses",
 		Example: `  # List all log-flushings
   jamf-cli log-flushings list
 
@@ -49,7 +50,7 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/log-flushing"
+			path := "/v1/log-flushing/task"
 
 			// Build query string
 			var queryParts []string
@@ -181,6 +182,39 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newLogFlushingsLogFlushingCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "log-flushing",
+		Short: "Get log flushing settings",
+		Long:  "Get all log flushing and retention policy settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/log-flushing"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newLogFlushingsTaskCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
@@ -245,7 +279,7 @@ func newLogFlushingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -281,7 +315,7 @@ func newLogFlushingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/log-flushing/task", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

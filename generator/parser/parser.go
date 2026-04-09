@@ -95,11 +95,25 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		}
 	}
 	nameField := detectNameField(schemas)
+	idField := detectIDField(schemas, allOps)
+
+	// Post-process operation names before family detection.
+	//
+	// 1. Drop lower-version duplicates: when the same path exists at multiple API
+	//    versions in one spec (e.g. /v2/foo and /v3/foo), keep only the highest.
+	allOps = deduplicateVersionedOps(allOps)
+	// 2. Rename no-param sub-path ops that would otherwise collide with another
+	//    op of the same name (e.g. GET /settings competing with GET /pending-rotations
+	//    for the "list" name — settings becomes "settings").
+	resolveNoParamConflicts(allOps)
+	// 3. Disambiguate ops that share the same terminal segment but differ in
+	//    path-param count (e.g. /{username}/audit vs /{username}/{guid}/audit).
+	disambiguateSameTerminalOps(allOps)
 
 	// Check for multi-family spec: multiple sibling collection paths in one file.
 	// Example: SelfServiceBranding.yaml has both /v1/.../branding/macos and
 	// /v1/.../branding/ios — each needs its own resource and command group.
-	if families := splitByPathFamilies(doc.Info.Description, allOps, schemas, nameField); families != nil {
+	if families := splitByPathFamilies(doc.Info.Description, allOps, schemas, nameField, idField); families != nil {
 		return families, nil
 	}
 
@@ -127,6 +141,7 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		Operations:  allOps,
 		Schemas:     schemas,
 		NameField:   nameField,
+		IDField:     idField,
 	}
 
 	// Detect singleton before naming: a singleton has no {id} in any path and
@@ -156,7 +171,7 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 // splitByPathFamilies detects specs with multiple sibling collection paths
 // (e.g. /v1/foo/macos and /v1/foo/ios both having full CRUD under the same
 // parent prefix). Returns nil for normal single-family specs.
-func splitByPathFamilies(description string, ops []*Operation, schemas map[string]*Schema, nameField string) []*Resource {
+func splitByPathFamilies(description string, ops []*Operation, schemas map[string]*Schema, nameField, idField string) []*Resource {
 	// Find "collection paths": non-parameterized paths that have a /{param}
 	// child path — i.e., they serve as the list/create endpoint for a CRUD family.
 	collectionPaths := make(map[string]bool)
@@ -223,6 +238,9 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			// filename — e.g. /v1/self-service/branding/macos → self-service-branding-macos.
 			name := pathToResourceName(cp)
 
+			// Each family may have different path params; re-detect the ID field.
+			familyIDField := detectIDField(schemas, familyOps)
+
 			r := &Resource{
 				Name:         name,
 				NameSingular: name, // path-derived names are already singular; don't strip trailing chars
@@ -231,6 +249,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 				Operations:   familyOps,
 				Schemas:      schemas,
 				NameField:    nameField,
+				IDField:      familyIDField,
 			}
 
 			// Apply singleton detection to each family independently.
@@ -307,6 +326,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			}
 		}
 		name := pluralize(pathToResourceName(namePath))
+		parentIDField := detectIDField(schemas, parentOps)
 		r := &Resource{
 			Name:         name,
 			NameSingular: singularize(name),
@@ -315,6 +335,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 			Operations:   parentOps,
 			Schemas:      schemas,
 			NameField:    nameField,
+			IDField:      parentIDField,
 		}
 		if detectSingleton(parentOps) {
 			r.IsSingleton = true
@@ -474,6 +495,287 @@ func detectSingleton(ops []*Operation) bool {
 	return false
 }
 
+// deduplicateVersionedOps removes lower-version duplicates when the same path
+// exists at multiple API versions in one spec (e.g. /v2/foo and /v3/foo with the
+// same method). The highest version is kept; ties prefer explicitly versioned paths
+// over unversioned legacy paths.
+func deduplicateVersionedOps(ops []*Operation) []*Operation {
+	type key struct{ method, path string }
+	seen := make(map[key]*Operation)
+	result := make([]*Operation, 0, len(ops))
+
+	for _, op := range ops {
+		k := key{op.Method, stripVersionPrefix(op.Path)}
+		prev, exists := seen[k]
+		if !exists {
+			seen[k] = op
+			result = append(result, op)
+			continue
+		}
+		// Prefer the higher API version. For equal versions, prefer an explicitly
+		// versioned path over a legacy unversioned one.
+		cmp := compareAPIVersions(op.Path, prev.Path)
+		if cmp > 0 {
+			for i, r := range result {
+				if r == prev {
+					result[i] = op
+					break
+				}
+			}
+			seen[k] = op
+			fmt.Fprintf(os.Stderr, "  Info: preferring %s %s over %s (higher version)\n", op.Method, op.Path, prev.Path)
+		}
+		// else: keep prev, drop op (lower or equal version — implicit, no warning)
+	}
+	return result
+}
+
+// compareAPIVersions returns >0 if path1 should be preferred over path2.
+// Comparison order: explicit /v3 > /v2 > /v1 > unversioned > preview (treated as
+// pre-release, kept for now but lower than any numeric version).
+func compareAPIVersions(path1, path2 string) int {
+	rank := func(path string) int {
+		trimmed := strings.TrimPrefix(path, "/")
+		idx := strings.Index(trimmed, "/")
+		var prefix string
+		if idx != -1 {
+			prefix = trimmed[:idx]
+		} else {
+			prefix = trimmed
+		}
+		if prefix == "preview" {
+			return -1 // lower than any versioned path
+		}
+		if strings.HasPrefix(prefix, "v") {
+			var n int
+			if _, err := fmt.Sscanf(prefix[1:], "%d", &n); err == nil {
+				return n
+			}
+		}
+		return 0 // unversioned legacy path
+	}
+	r1, r2 := rank(path1), rank(path2)
+	if r1 > r2 {
+		return 1
+	}
+	if r1 < r2 {
+		return -1
+	}
+	return 0
+}
+
+// resolveNoParamConflicts renames ops on non-parameterized sub-paths that would
+// otherwise collide with another op of the same name in the resource.
+//
+// Canonical collection paths (those with a /{param} child or that have no conflict)
+// keep their inferred name. Non-canonical sub-paths are renamed to their last
+// path segment (or prefixed with their HTTP verb for write methods on paths that
+// also have a same-segment GET).
+//
+// Example: GET /settings + PUT /settings competing in a resource that also has
+// GET /pending-rotations — both are "list"/"update" duplicates. GET /settings
+// becomes "settings" and (if PUT /settings also conflicts) "update-settings".
+func resolveNoParamConflicts(ops []*Operation) {
+	// Identify canonical collection paths: no-param paths with a /{param} child.
+	isCanonical := make(map[string]bool)
+	for _, op := range ops {
+		if hasPathParam(op.Path) {
+			continue
+		}
+		for _, other := range ops {
+			if !hasPathParam(other.Path) {
+				continue
+			}
+			if !strings.HasPrefix(other.Path, op.Path+"/") {
+				continue
+			}
+			remainder := other.Path[len(op.Path):]
+			if len(remainder) > 1 && strings.HasPrefix(remainder[1:], "{") {
+				isCanonical[op.Path] = true
+				break
+			}
+		}
+	}
+
+	// Group ops by their current name.
+	byName := make(map[string][]*Operation)
+	for _, op := range ops {
+		byName[op.Name] = append(byName[op.Name], op)
+	}
+
+	// Track which segment names are already in use so we can add method prefixes
+	// when GET and PUT/PATCH on the same sub-path both need renaming.
+	renamedGETs := make(map[string]string) // path → new name (set by GET renames first)
+
+	for _, group := range byName {
+		if len(group) <= 1 {
+			continue
+		}
+		// Rename GET "list" ops on non-canonical sub-paths first.
+		for _, op := range group {
+			if op.Method != "GET" || hasPathParam(op.Path) || isCanonical[op.Path] {
+				continue
+			}
+			parts := strings.Split(op.Path, "/")
+			seg := strcase.ToKebab(parts[len(parts)-1])
+			op.Name = seg
+			renamedGETs[op.Path] = seg
+		}
+	}
+
+	// Re-group after GET renames (names changed).
+	byName = make(map[string][]*Operation)
+	for _, op := range ops {
+		byName[op.Name] = append(byName[op.Name], op)
+	}
+
+	// Rename PUT/PATCH/POST/DELETE on non-canonical sub-paths.
+	for _, group := range byName {
+		if len(group) <= 1 {
+			continue
+		}
+		for _, op := range group {
+			if op.Method == "GET" || hasPathParam(op.Path) || isCanonical[op.Path] {
+				continue
+			}
+			parts := strings.Split(op.Path, "/")
+			seg := strcase.ToKebab(parts[len(parts)-1])
+			// If a GET on the same path already claimed this segment name, prefix.
+			if _, getClaimedSeg := renamedGETs[op.Path]; getClaimedSeg {
+				switch op.Method {
+				case "PUT":
+					seg = "update-" + seg
+				case "PATCH":
+					seg = "patch-" + seg
+				case "POST":
+					seg = "create-" + seg
+				case "DELETE":
+					seg = "delete-" + seg
+				}
+			}
+			op.Name = seg
+		}
+	}
+}
+
+// disambiguateSameTerminalOps renames duplicate-named operations that all share
+// the same non-param terminal path segment but differ in the number of path params
+// (e.g. /{username}/audit vs /{username}/{guid}/audit).
+//
+// The shortest path keeps the base name. Longer paths receive a distinguishing
+// prefix (from extra fixed segments) and/or a "-by-{param}" suffix.
+func disambiguateSameTerminalOps(ops []*Operation) {
+	byName := make(map[string][]*Operation)
+	for _, op := range ops {
+		byName[op.Name] = append(byName[op.Name], op)
+	}
+
+	for baseName, group := range byName {
+		if len(group) <= 1 {
+			continue
+		}
+
+		// Only apply when ALL paths share the same non-param terminal segment.
+		terminal := lastPathSeg(group[0].Path)
+		if strings.HasPrefix(terminal, "{") {
+			continue // terminal is a param — handled elsewhere
+		}
+		allSame := true
+		for _, op := range group[1:] {
+			if lastPathSeg(op.Path) != terminal {
+				allSame = false
+				break
+			}
+		}
+		if !allSame {
+			continue
+		}
+
+		// Sort ascending by path segment count so the shortest keeps the base name.
+		// Within the same length, GET comes before PUT/PATCH so GET keeps the base name.
+		sort.Slice(group, func(i, j int) bool {
+			ci := strings.Count(group[i].Path, "/")
+			cj := strings.Count(group[j].Path, "/")
+			if ci != cj {
+				return ci < cj
+			}
+			// Same path length: GET < PUT < PATCH < POST < DELETE for name priority.
+			order := map[string]int{"GET": 0, "PUT": 1, "PATCH": 2, "POST": 3, "DELETE": 4}
+			oi := order[group[i].Method]
+			oj := order[group[j].Method]
+			return oi < oj
+		})
+
+		// group[0] keeps baseName. Rename the rest using group[0]'s path as reference.
+		assigned := map[string]bool{baseName: true}
+		for _, op := range group[1:] {
+			// Same path as canonical: differentiate by HTTP method verb prefix.
+			if op.Path == group[0].Path {
+				var prefix string
+				switch op.Method {
+				case "PUT":
+					prefix = "update-"
+				case "PATCH":
+					prefix = "patch-"
+				case "POST":
+					prefix = "create-"
+				case "DELETE":
+					prefix = "delete-"
+				default:
+					prefix = strings.ToLower(op.Method) + "-"
+				}
+				op.Name = prefix + baseName
+				assigned[op.Name] = true
+				continue
+			}
+			newName := buildDisambiguatedName(baseName, op.Path, group[0].Path, assigned)
+			op.Name = newName
+			assigned[newName] = true
+		}
+	}
+}
+
+// buildDisambiguatedName computes a unique name for longerPath relative to
+// shorterPath. It prepends extra fixed segments and appends "-by-{param}" for
+// extra path parameters.
+func buildDisambiguatedName(baseName, longerPath, shorterPath string, assigned map[string]bool) string {
+	longerParts := strings.Split(longerPath, "/")
+	shorterParts := strings.Split(shorterPath, "/")
+
+	// Remove the shared terminal segment from both.
+	longerParts = longerParts[:len(longerParts)-1]
+	shorterParts = shorterParts[:len(shorterParts)-1]
+
+	var extraFixed []string
+	var lastExtraParam string
+
+	for i := 0; i < len(longerParts); i++ {
+		if i >= len(shorterParts) || longerParts[i] != shorterParts[i] {
+			seg := longerParts[i]
+			if !strings.HasPrefix(seg, "{") {
+				extraFixed = append(extraFixed, strcase.ToKebab(seg))
+			} else {
+				lastExtraParam = strings.Trim(seg, "{}")
+			}
+		}
+	}
+
+	candidate := baseName
+	if len(extraFixed) > 0 {
+		candidate = strings.Join(extraFixed, "-") + "-" + baseName
+	}
+	if assigned[candidate] && lastExtraParam != "" {
+		candidate = candidate + "-by-" + lastExtraParam
+	}
+	return candidate
+}
+
+// lastPathSeg returns the last "/" delimited segment of a path.
+func lastPathSeg(path string) string {
+	parts := strings.Split(path, "/")
+	return parts[len(parts)-1]
+}
+
 func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	// Parse x-action extension first (needed for name inference)
 	isAction := false
@@ -624,8 +926,9 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		} else if strings.Contains(path, "{") {
 			parts := strings.Split(path, "/")
 			lastPart := parts[len(parts)-1]
-			// Path ends with a non-param segment after a param → sub-resource GET.
 			if !strings.HasPrefix(lastPart, "{") {
+				// Path ends with a non-param segment after a param → sub-resource GET.
+				// e.g. GET /{id}/prestages → "prestages"
 				hasParam := false
 				for _, p := range parts[:len(parts)-1] {
 					if strings.HasPrefix(p, "{") {
@@ -636,6 +939,44 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 				if hasParam {
 					operation.Name = strcase.ToKebab(lastPart)
 				}
+			} else if len(parts) >= 3 {
+				// Path ends in a param but the segment before it is a named segment
+				// following a prior param — use that named segment.
+				// e.g. GET /{id}/ldap/{panel-id} → "ldap"
+				secondToLast := parts[len(parts)-2]
+				if !strings.HasPrefix(secondToLast, "{") {
+					hasPriorParam := false
+					for _, p := range parts[:len(parts)-2] {
+						if strings.HasPrefix(p, "{") {
+							hasPriorParam = true
+							break
+						}
+					}
+					if hasPriorParam {
+						operation.Name = strcase.ToKebab(secondToLast)
+					}
+				}
+			}
+		}
+	}
+
+	// Sub-resource renaming for PUT/PATCH: when the path ends with a named
+	// (non-param) segment after a path param, the segment is the operation identity.
+	// e.g. PUT /{id}/set-password → "set-password"
+	if (operation.Name == "update" || operation.Name == "patch") && strings.Contains(path, "{") {
+		parts := strings.Split(path, "/")
+		lastPart := parts[len(parts)-1]
+		if !strings.HasPrefix(lastPart, "{") {
+			hasParam := false
+			for _, p := range parts[:len(parts)-1] {
+				if strings.HasPrefix(p, "{") {
+					hasParam = true
+					break
+				}
+			}
+			if hasParam {
+				operation.Name = strcase.ToKebab(lastPart)
+				operation.IsDestructive = isDestructiveAction(operation.Name)
 			}
 		}
 	}
@@ -846,6 +1187,109 @@ func detectNameField(schemas map[string]*Schema) string {
 	}
 
 	return "name"
+}
+
+// detectIDField inspects response schemas and operations to determine the correct
+// field for extracting the resource identifier during name-to-ID resolution.
+//
+// The path parameter on the get-by-id endpoint tells us what value the API expects
+// (e.g. {id}, {clientManagementId}, {fileName}). We search response schemas for
+// a property whose name matches that path parameter. When the path parameter is
+// the generic "{id}" but no "id" property exists, we fall back to heuristics:
+// look for a unique property ending in "Id", "Uuid", or named "uuid".
+func detectIDField(schemas map[string]*Schema, ops []*Operation) string {
+	// 1. Find the primary path parameter name from the get operation.
+	pathParam := ""
+	for _, op := range ops {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			// Extract the last {param} from the path — that's the resource identifier.
+			start := strings.LastIndex(op.Path, "{")
+			end := strings.LastIndex(op.Path, "}")
+			if start != -1 && end > start {
+				pathParam = op.Path[start+1 : end]
+			}
+			break
+		}
+	}
+	if pathParam == "" {
+		return "id"
+	}
+
+	// 2. Check if any schema has a property matching the path parameter name exactly.
+	if schemaHasProperty(schemas, pathParam) {
+		return pathParam
+	}
+
+	// 3. If the path param ends in "Id", try the bare prefix as a property name.
+	//    e.g. "keyId" → "key", "languageId" → "language"
+	if strings.HasSuffix(pathParam, "Id") {
+		bare := strings.TrimSuffix(pathParam, "Id")
+		if bare != "" && schemaHasProperty(schemas, bare) {
+			return bare
+		}
+		// 3b. Spec inconsistency: path param uses "*Id" but response field uses a
+		//     different suffix (e.g. "languageId" → "languageCode"). Try known
+		//     identifier-like suffixes before falling back to the raw path param name.
+		if bare != "" {
+			for _, suffix := range []string{"Code", "Key", "Uuid", "Token"} {
+				candidate := bare + suffix
+				if schemaHasProperty(schemas, candidate) {
+					return candidate
+				}
+			}
+		}
+	}
+
+	// 4. If the path param is the generic "id" but no "id" property exists,
+	//    search for a unique identifier-like property across all schemas.
+	if pathParam == "id" {
+		if candidate := findUniqueIDProperty(schemas); candidate != "" {
+			return candidate
+		}
+	}
+
+	// 5. Fall back to the path parameter name itself. Even if no schema property
+	//    matches, using the path param name is the best guess and makes the
+	//    generated code's intent clear.
+	return pathParam
+}
+
+// schemaHasProperty checks whether any schema in the map contains a property
+// with the given name.
+func schemaHasProperty(schemas map[string]*Schema, name string) bool {
+	for _, s := range schemas {
+		if _, ok := s.Properties[name]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// findUniqueIDProperty searches all schema properties for a single candidate
+// that looks like an identifier: ends in "Id" or "Uuid", or is exactly "uuid".
+// Returns the candidate if exactly one is found across all schemas; returns ""
+// if zero or multiple candidates exist (ambiguous).
+func findUniqueIDProperty(schemas map[string]*Schema) string {
+	seen := map[string]bool{}
+	for _, s := range schemas {
+		for name := range s.Properties {
+			if name == "id" {
+				continue // already checked by caller
+			}
+			lower := strings.ToLower(name)
+			if strings.HasSuffix(lower, "id") || strings.HasSuffix(lower, "uuid") || lower == "uuid" {
+				seen[name] = true
+			}
+		}
+	}
+
+	// Only use the heuristic when there's exactly one candidate to avoid ambiguity.
+	if len(seen) == 1 {
+		for name := range seen {
+			return name
+		}
+	}
+	return ""
 }
 
 // versionedName matches CLI resource names with a version suffix, e.g. "inventory-preload-v-2s"

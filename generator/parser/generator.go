@@ -272,6 +272,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"opHasBinaryResponse":     opHasBinaryResponse,
 		"shouldGenerateApply":     shouldGenerateApply,
 		"shouldGenerateGetByName": shouldGenerateGetByName,
+		"hasResolvableID":         hasResolvableID,
 		"hasDeleteMultiple":       hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
@@ -648,14 +649,17 @@ func needsURL(r *Resource) bool {
 // semantics don't apply. Sub-resources (where collectionPath returns empty) are also
 // excluded: without a flat collection there is no way to resolve a name to an ID.
 func shouldGenerateApply(r *Resource) bool {
-	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != ""
+	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != "" && hasResolvableID(r)
 }
 
 // shouldGenerateGetByName returns true if the resource should have a get-by-name command.
-// Sub-resources (where collectionPath returns empty) are excluded because there is no
-// flat collection to search for name resolution.
+// Sub-resources (where collectionPath returns empty) and resources with unresolvable ID
+// fields are excluded.
 func shouldGenerateGetByName(r *Resource) bool {
 	if collectionPath(r.Operations) == "" {
+		return false
+	}
+	if !hasResolvableID(r) {
 		return false
 	}
 	for _, op := range r.Operations {
@@ -664,6 +668,17 @@ func shouldGenerateGetByName(r *Resource) bool {
 		}
 	}
 	return false
+}
+
+// hasResolvableID returns true when the detected ID field exists in at least one
+// response schema (or is the standard "id"). When false, name-resolution commands
+// (get-by-name, delete-by-name, apply) are not generated because extracting the
+// identifier from list responses would fail at runtime.
+func hasResolvableID(r *Resource) bool {
+	if r.IDField == "" || r.IDField == "id" {
+		return true
+	}
+	return schemaHasProperty(r.Schemas, r.IDField)
 }
 
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
@@ -1164,7 +1179,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", "{{ $.IDField }}", args[0])
 			if err != nil {
 				return err
 			}
@@ -1202,7 +1217,7 @@ func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", "{{ .IDField }}", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -1291,7 +1306,7 @@ If not, a new resource is created.` + "`" + `,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", "{{ .IDField }}", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -1376,8 +1391,10 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 // resolveNameToID looks up a resource by name using a filtered list call and
 // returns its ID. This enables --name as an alternative to positional ID args
 // on get commands. The nameField parameter specifies the filter field
-// (usually "name", but some resources use "displayName").
-func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string) (string, error) {
+// (usually "name", but some resources use "displayName"). The idField parameter
+// specifies which response property holds the identifier (usually "id", but some
+// resources use "templateId", "groupId", etc.).
+func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) (string, error) {
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=1",
 		listPath, url.QueryEscape(fmt.Sprintf(` + "`" + `%s=="%s"` + "`" + `, nameField, name)))
 
@@ -1416,24 +1433,16 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 		return "", fmt.Errorf("parsing lookup result: %w", err)
 	}
 
-	// Extract ID — could be string or number
-	switch v := first["id"].(type) {
-	case string:
-		if v == "" {
-			return "", fmt.Errorf("resource %q has no ID", name)
-		}
-		return v, nil
-	case float64:
-		return fmt.Sprintf("%d", int(v)), nil
-	default:
-		return "", fmt.Errorf("resource %q has unexpected ID type", name)
+	if id := extractIDString(first, idField); id != "" {
+		return id, nil
 	}
+	return "", fmt.Errorf("resource %q has no %s field", name, idField)
 }
 
-// extractIDString extracts the "id" field from a JSON object as a string.
+// extractIDString extracts the named identifier field from a JSON object as a string.
 // NOTE: Also used by classic_registry.go helpers (same generated package).
-func extractIDString(obj map[string]any) string {
-	switch v := obj["id"].(type) {
+func extractIDString(obj map[string]any, field string) string {
+	switch v := obj[field].(type) {
 	case string:
 		return v
 	case float64:
@@ -1490,7 +1499,7 @@ func extractJSONField(data []byte, field string) (string, error) {
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
 // Returns ("", error) when multiple matches or lookup fails.
-func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, name string, noInput bool) (string, error) {
+func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string, noInput bool) (string, error) {
 	// Escape double quotes in name to prevent RSQL injection
 	escapedName := strings.ReplaceAll(name, ` + "`" + `"` + "`" + `, ` + "`" + `\"` + "`" + `)
 	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
@@ -1534,7 +1543,7 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
 		}
-		if id := extractIDString(obj); id != "" {
+		if id := extractIDString(obj, idField); id != "" {
 			matches = append(matches, applyMatch{id: id})
 		}
 	}

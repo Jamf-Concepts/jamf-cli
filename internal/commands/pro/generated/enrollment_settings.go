@@ -33,6 +33,8 @@ func NewEnrollmentSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsHistoryExportCmd(ctx))
+	cmd.AddCommand(newEnrollmentSettingsEnrollmentCmd(ctx))
+	cmd.AddCommand(newEnrollmentSettingsUpdateEnrollmentCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsApplyCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsDeleteByNameCmd(ctx))
@@ -699,6 +701,117 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
+func newEnrollmentSettingsEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "enrollment",
+		Short: "Get Enrollment object and Re-enrollment settings",
+		Long:  "Gets Enrollment object and re-enrollment settings.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-enrollment",
+		Short: "Update Enrollment object",
+		Long:  "Update enrollment object. Regarding the 'developerCertificateIdentity', if this object is omitted, the certificate will not be deleted from Jamf Pro. The 'identityKeystore' is the entire cert file as a base64 encoded string. The 'md5Sum' field is not required in the PUT request, but is calculated and returned in the response.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "accountDrivenDeviceIosEnrollmentEnabled": false,
+  "accountDrivenDeviceMacosEnrollmentEnabled": false,
+  "accountDrivenDeviceVisionosEnrollmentEnabled": false,
+  "accountDrivenUserEnrollmentEnabled": false,
+  "accountDrivenUserVisionosEnrollmentEnabled": false,
+  "allowSshOnlyManagementAccount": false,
+  "createManagementAccount": false,
+  "developerCertificateIdentity": {},
+  "developerCertificateIdentityDetails": {},
+  "ensureSshRunning": false,
+  "flushExtensionAttributes": false,
+  "flushLocationHistoryInformation": false,
+  "flushLocationInformation": false,
+  "flushMdmCommandsOnReenroll": "",
+  "flushPolicyHistory": false,
+  "flushSoftwareUpdatePlans": false,
+  "hideManagementAccount": false,
+  "installSingleProfile": false,
+  "iosEnterpriseEnrollmentEnabled": false,
+  "iosPersonalEnrollmentEnabled": false,
+  "launchSelfService": false,
+  "macOsEnterpriseEnrollmentEnabled": false,
+  "maidUsernameMergeEnabled": false,
+  "managementUsername": "radmin",
+  "mdmSigningCertificate": {},
+  "mdmSigningCertificateDetails": {},
+  "restrictReenrollment": false,
+  "signQuickAdd": false,
+  "signingMdmProfileEnabled": false
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
 func newEnrollmentSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -711,7 +824,7 @@ func newEnrollmentSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command 
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -747,7 +860,7 @@ func newEnrollmentSettingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -835,7 +948,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

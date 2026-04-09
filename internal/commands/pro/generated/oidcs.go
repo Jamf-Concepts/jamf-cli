@@ -21,25 +21,22 @@ func NewOidcsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage oidcs in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newOidcsListCmd(ctx))
+	cmd.AddCommand(newOidcsDirectIdpLoginUrlCmd(ctx))
 	cmd.AddCommand(newOidcsDispatchCmd(ctx))
 	cmd.AddCommand(newOidcsGenerateCertificateCmd(ctx))
+	cmd.AddCommand(newOidcsPublicFeaturesCmd(ctx))
+	cmd.AddCommand(newOidcsPublicKeyCmd(ctx))
 
 	return cmd
 }
 
-func newOidcsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newOidcsDirectIdpLoginUrlCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "direct-idp-login-url",
 		Short: "Retrieve the URL to directly login to the IdP",
 		Long:  "Retrieve the URL to directly login to the IdP",
-		Example: `  # List all oidcs
-  jamf-cli oidcs list
-
-  # List oidcs and extract IDs
-  jamf-cli oidcs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -87,7 +84,7 @@ func newOidcsDispatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/oidc/dispatch"
+			path := "/v2/oidc/dispatch"
 
 			// Build query string
 			var queryParts []string
@@ -144,6 +141,72 @@ func newOidcsGenerateCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newOidcsPublicFeaturesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "public-features",
+		Short: "Get the public features of the OIDC configuration",
+		Long:  "Retrieves public OIDC configuration features.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/oidc/public-features"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newOidcsPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "public-key",
+		Short: "Get the public key of the keystore used for signing OIDC messages as a JWT",
+		Long:  "Gets the public key of the keystore used for signing OIDC messages as a JWT",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/oidc/public-key"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}

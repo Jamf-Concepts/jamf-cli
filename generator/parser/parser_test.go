@@ -1557,6 +1557,169 @@ func TestParseOperation_SubResourceAfterTwoParams(t *testing.T) {
 	}
 }
 
+func TestParseOperation_GetWithTrailingParamNamed(t *testing.T) {
+	// GET /{id}/ldap/{panel-id} → "ldap" (named segment before terminal param)
+	op := buildOpenAPI3Operation("Get LDAP panel", "application/json")
+	result := parseOperation("/v1/enrollment-customization/{id}/ldap/{panel-id}", "get", op)
+	if result.Name != "ldap" {
+		t.Errorf("name = %q, want %q", result.Name, "ldap")
+	}
+}
+
+func TestParseOperation_PutSubResourceNamed(t *testing.T) {
+	// PUT /{id}/set-password → "set-password"
+	op := buildOpenAPI3Operation("Set the LAPS password", "application/json")
+	result := parseOperation("/v2/local-admin-password/{clientManagementId}/set-password", "put", op)
+	if result.Name != "set-password" {
+		t.Errorf("name = %q, want %q", result.Name, "set-password")
+	}
+}
+
+func TestParseOperation_PutStandardNotRenamed(t *testing.T) {
+	// PUT /{id} stays "update" — only non-param terminal gets renamed
+	op := buildOpenAPI3Operation("Update a widget", "application/json")
+	result := parseOperation("/v1/widgets/{id}", "put", op)
+	if result.Name != "update" {
+		t.Errorf("name = %q, want %q", result.Name, "update")
+	}
+}
+
+func TestDeduplicateVersionedOps(t *testing.T) {
+	t.Run("prefers higher version", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/v2/account-preferences", APIVersion: "v2"},
+			{Name: "list", Method: "GET", Path: "/v3/account-preferences", APIVersion: "v3"},
+		}
+		got := deduplicateVersionedOps(ops)
+		if len(got) != 1 {
+			t.Fatalf("expected 1 op, got %d", len(got))
+		}
+		if got[0].Path != "/v3/account-preferences" {
+			t.Errorf("path = %q, want /v3/account-preferences", got[0].Path)
+		}
+	})
+
+	t.Run("prefers explicitly versioned over unversioned", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/ldap/servers", APIVersion: "v1"},
+			{Name: "list", Method: "GET", Path: "/v1/ldap/servers", APIVersion: "v1"},
+		}
+		got := deduplicateVersionedOps(ops)
+		if len(got) != 1 {
+			t.Fatalf("expected 1 op, got %d", len(got))
+		}
+		if got[0].Path != "/v1/ldap/servers" {
+			t.Errorf("path = %q, want /v1/ldap/servers", got[0].Path)
+		}
+	})
+
+	t.Run("different paths not deduplicated", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/v3/enrollment/access-groups", APIVersion: "v3"},
+			{Name: "list", Method: "GET", Path: "/v4/enrollment", APIVersion: "v4"},
+		}
+		got := deduplicateVersionedOps(ops)
+		if len(got) != 2 {
+			t.Fatalf("expected 2 ops, got %d", len(got))
+		}
+	})
+}
+
+func TestResolveNoParamConflicts(t *testing.T) {
+	t.Run("GET settings renamed when competing with list", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/v2/resource/settings"},
+			{Name: "list", Method: "GET", Path: "/v2/resource/pending-rotations"},
+		}
+		resolveNoParamConflicts(ops)
+		names := map[string]bool{}
+		for _, op := range ops {
+			names[op.Name] = true
+		}
+		if !names["settings"] || !names["pending-rotations"] {
+			t.Errorf("expected names {settings, pending-rotations}, got %v", names)
+		}
+	})
+
+	t.Run("canonical list with param child is untouched", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/v2/resource"},
+			{Name: "get", Method: "GET", Path: "/v2/resource/{id}"},
+			{Name: "list", Method: "GET", Path: "/v2/resource/sub-path"},
+		}
+		resolveNoParamConflicts(ops)
+		// /v2/resource has a /{id} child → canonical → stays "list"
+		// /v2/resource/sub-path → renamed to "sub-path"
+		var canonical, renamed string
+		for _, op := range ops {
+			if op.Path == "/v2/resource" {
+				canonical = op.Name
+			}
+			if op.Path == "/v2/resource/sub-path" {
+				renamed = op.Name
+			}
+		}
+		if canonical != "list" {
+			t.Errorf("canonical list = %q, want %q", canonical, "list")
+		}
+		if renamed != "sub-path" {
+			t.Errorf("sub-path name = %q, want %q", renamed, "sub-path")
+		}
+	})
+}
+
+func TestDisambiguateSameTerminalOps(t *testing.T) {
+	t.Run("audit vs audit-by-guid", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/audit"},
+			{Name: "audit", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/audit"},
+		}
+		disambiguateSameTerminalOps(ops)
+		if ops[0].Name != "audit" {
+			t.Errorf("shorter path name = %q, want audit", ops[0].Name)
+		}
+		if ops[1].Name != "audit-by-guid" {
+			t.Errorf("longer path name = %q, want audit-by-guid", ops[1].Name)
+		}
+	})
+
+	t.Run("three history variants", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/history"},
+			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/history"},
+			{Name: "history", Method: "GET", Path: "/v2/laps/{id}/account/{username}/{guid}/history"},
+		}
+		disambiguateSameTerminalOps(ops)
+		names := map[string]string{}
+		for _, op := range ops {
+			names[op.Path] = op.Name
+		}
+		if names["/v2/laps/{id}/history"] != "history" {
+			t.Errorf("device history = %q, want history", names["/v2/laps/{id}/history"])
+		}
+		if names["/v2/laps/{id}/account/{username}/history"] != "account-history" {
+			t.Errorf("account history = %q, want account-history", names["/v2/laps/{id}/account/{username}/history"])
+		}
+		if names["/v2/laps/{id}/account/{username}/{guid}/history"] != "account-history-by-guid" {
+			t.Errorf("guid history = %q, want account-history-by-guid", names["/v2/laps/{id}/account/{username}/{guid}/history"])
+		}
+	})
+
+	t.Run("same-path GET and PUT disambiguated by method", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "mappings", Method: "GET", Path: "/v2/resource/{id}/mappings"},
+			{Name: "mappings", Method: "PUT", Path: "/v2/resource/{id}/mappings"},
+		}
+		disambiguateSameTerminalOps(ops)
+		if ops[0].Name != "mappings" {
+			t.Errorf("GET name = %q, want mappings", ops[0].Name)
+		}
+		if ops[1].Name != "update-mappings" {
+			t.Errorf("PUT name = %q, want update-mappings", ops[1].Name)
+		}
+	})
+}
+
 // buildOpenAPI3Operation creates a minimal openapi3.Operation with a 200 response
 // of the given content type for use in parseOperation tests.
 func buildOpenAPI3Operation(summary, contentType string) *openapi3.Operation {
@@ -1583,4 +1746,117 @@ func pathKeys(m map[string]bool) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func TestDetectIDField(t *testing.T) {
+	tests := []struct {
+		name    string
+		schemas map[string]*Schema
+		ops     []*Operation
+		want    string
+	}{
+		{
+			name:    "no get operation - defaults to id",
+			schemas: map[string]*Schema{},
+			ops:     []*Operation{{Name: "list", Method: "GET", Path: "/v1/things"}},
+			want:    "id",
+		},
+		{
+			name: "standard {id} path param with id in schema",
+			schemas: map[string]*Schema{
+				"Building": {Properties: map[string]*Property{"id": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/buildings/{id}"}},
+			want: "id",
+		},
+		{
+			name: "non-standard path param with exact schema match",
+			schemas: map[string]*Schema{
+				"Device": {Properties: map[string]*Property{"clientManagementId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/mdm/{clientManagementId}"}},
+			want: "clientManagementId",
+		},
+		{
+			name: "non-standard path param with exact schema match - fileName",
+			schemas: map[string]*Schema{
+				"FileData": {Properties: map[string]*Property{"fileName": {}, "length": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/jcds/files/{fileName}"}},
+			want: "fileName",
+		},
+		{
+			name: "path param ending in Id - strip Id to find bare property",
+			schemas: map[string]*Schema{
+				"Settings": {Properties: map[string]*Property{"key": {}, "username": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/preferences/{keyId}"}},
+			want: "key",
+		},
+		{
+			name: "generic {id} not in schema - unique ID-like property used",
+			schemas: map[string]*Schema{
+				"Template": {Properties: map[string]*Property{"templateId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/templates/{id}"}},
+			want: "templateId",
+		},
+		{
+			name: "generic {id} not in schema - unique uuid property used",
+			schemas: map[string]*Schema{
+				"Plan": {Properties: map[string]*Property{"planUuid": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/plans/{id}"}},
+			want: "planUuid",
+		},
+		{
+			name: "generic {id} not in schema - ambiguous multiple ID-like properties",
+			schemas: map[string]*Schema{
+				"Group": {Properties: map[string]*Property{"groupId": {}, "platformId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/groups/{id}"}},
+			want: "id", // ambiguous — fall back
+		},
+		{
+			name: "path param ends in Id, bare prefix+Code suffix matches schema property",
+			schemas: map[string]*Schema{
+				"Language": {Properties: map[string]*Property{"languageCode": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v3/languages/{languageId}"}},
+			want: "languageCode", // languageId → bare "language" → "language"+"Code" = "languageCode"
+		},
+		{
+			name: "prefers exact match of non-standard path param over id property",
+			schemas: map[string]*Schema{
+				"Renewal": {Properties: map[string]*Property{"id": {}, "clientManagementId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/renewals/{clientManagementId}"}},
+			want: "clientManagementId",
+		},
+		{
+			name: "get operation without path param - defaults to id",
+			schemas: map[string]*Schema{
+				"Settings": {Properties: map[string]*Property{"enabled": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/settings"}},
+			want: "id",
+		},
+		{
+			name: "generic {id} not in schema - single groupId found",
+			schemas: map[string]*Schema{
+				"SmartGroup": {Properties: map[string]*Property{"groupId": {}, "name": {}}},
+			},
+			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v1/groups/{id}"}},
+			want: "groupId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectIDField(tt.schemas, tt.ops)
+			if got != tt.want {
+				t.Errorf("detectIDField() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }

@@ -28,7 +28,9 @@ func NewManagedSoftwareUpdatesPlansCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansGetCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansCreateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansUpdateCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansFeatureToggleCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansAbandonCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansStatusCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansEventsCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansGetByNameCmd(ctx))
@@ -325,6 +327,39 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 
+func newManagedSoftwareUpdatesPlansFeatureToggleCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "feature-toggle",
+		Short: "Retrieve current value of the Feature Toggle",
+		Long:  "Retrieves current value of the Feature Toggle",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/feature-toggle"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -352,6 +387,39 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.C
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesPlansStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Retrieves background status of the Feature Toggle",
+		Long:  "Retrieves background status of the Feature Toggle",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/feature-toggle/status"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -446,7 +514,7 @@ func newManagedSoftwareUpdatesPlansGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -504,7 +572,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

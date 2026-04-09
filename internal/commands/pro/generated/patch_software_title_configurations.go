@@ -30,12 +30,13 @@ func NewPatchSoftwareTitleConfigurationsCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDeleteCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsHistoryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExportReportCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDashboardCmd(ctx))
-	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsVersionsCmd(ctx))
@@ -442,6 +443,47 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 	return cmd
 }
 
+func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "patch <id>",
+		Short: "Update Patch Software Title Configurations",
+		Long:  "Updates Patch Software Title Configurations",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
@@ -642,6 +684,47 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 	return cmd
 }
 
+func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "create-dashboard <id>",
+		Short: "Add a software title configuration to the dashboard",
+		Long:  "Adds asoftware title configuration to the dashboard.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-software-title-configurations/{id}/dashboard"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -665,47 +748,6 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "patch <id>",
-		Short: "Update Patch Software Title Configurations",
-		Long:  "Updates Patch Software Title Configurations",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
 				return err
 			}
@@ -859,7 +901,7 @@ func newPatchSoftwareTitleConfigurationsGetByNameCmd(ctx *registry.CLIContext) *
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -895,7 +937,7 @@ func newPatchSoftwareTitleConfigurationsDeleteByNameCmd(ctx *registry.CLIContext
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}

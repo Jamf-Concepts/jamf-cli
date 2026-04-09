@@ -418,7 +418,7 @@ func newStaticComputerGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -454,7 +454,7 @@ func newStaticComputerGroupsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -542,7 +542,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

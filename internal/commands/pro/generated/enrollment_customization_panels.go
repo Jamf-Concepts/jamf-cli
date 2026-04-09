@@ -23,66 +23,26 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 		Long:  `Manage enrollment-customization-panels in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newEnrollmentCustomizationPanelsGetCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsCreateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsParseMarkdownCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsAllCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsLdapCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsSsoCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsTextCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsMarkdownCmd(ctx))
 
 	return cmd
 }
 
-func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id> <panel-id>",
-		Short: "Get a single Panel for a single Enrollment Customization",
-		Long:  "Get a single panel for a single enrollment customization",
-		Example: `  # Get a enrollment-customization-panel by ID
-  jamf-cli enrollment-customization-panels get 1 2
-
-  # Get a enrollment-customization-panel and output as YAML
-  jamf-cli enrollment-customization-panels get 1 2 -o yaml`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	return cmd
-}
-
-func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Parse the given string as markdown text and return Html output",
-		Long:  "Parse the given string as markdown text and return Html output",
+		Use:   "create <id>",
+		Short: "Create an LDAP Panel for a single Enrollment Customization",
+		Long:  "Create an LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Show the JSON template for creating a enrollment-customization-panel
   jamf-cli enrollment-customization-panels create --scaffold
 
@@ -91,18 +51,13 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a enrollment-customization-panel, modify it, and create a copy
   jamf-cli enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli enrollment-customization-panels create`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			if flagScaffold {
-				fmt.Println(`{
-  "markdown": "**markdown**"
-}`)
-				return nil
-			}
-
 			// Build request path
-			path := "/v1/enrollment-customization/parse-markdown"
+			path := "/v1/enrollment-customization/{id}/ldap"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -126,8 +81,6 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -249,6 +202,56 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
+func newEnrollmentCustomizationPanelsParseMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "parse-markdown",
+		Short: "Parse the given string as markdown text and return Html output",
+		Long:  "Parse the given string as markdown text and return Html output",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "markdown": "**markdown**"
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v1/enrollment-customization/parse-markdown"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
 func newEnrollmentCustomizationPanelsAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -263,6 +266,114 @@ func newEnrollmentCustomizationPanelsAllCmd(ctx *registry.CLIContext) *cobra.Com
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationPanelsLdapCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "ldap <id> <panel-id>",
+		Short: "Get a single LDAP panel for a single Enrollment Customization",
+		Long:  "Get a single LDAP panel for a single enrollment customization",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationPanelsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "sso <id> <panel-id>",
+		Short: "Get a single SSO Panel for a single Enrollment Customization",
+		Long:  "Get a single SSO panel for a single enrollment customization",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationPanelsTextCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "text <id> <panel-id>",
+		Short: "Get a single Text Panel for a single Enrollment Customization",
+		Long:  "Get a single Text panel for a single enrollment customization",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string

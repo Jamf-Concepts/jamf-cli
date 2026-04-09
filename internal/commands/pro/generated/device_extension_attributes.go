@@ -596,7 +596,7 @@ func newDeviceExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra.C
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -632,7 +632,7 @@ func newDeviceExtensionAttributesDeleteByNameCmd(ctx *registry.CLIContext) *cobr
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

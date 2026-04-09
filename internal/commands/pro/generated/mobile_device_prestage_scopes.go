@@ -24,9 +24,10 @@ func NewMobileDevicePrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newMobileDevicePrestageScopesListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageScopesUpdateCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestageScopesScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesCreateScopeCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageScopesUpdateScopeCmd(ctx))
 
 	return cmd
 }
@@ -65,67 +66,6 @@ func newMobileDevicePrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	return cmd
-}
-
-func newMobileDevicePrestageScopesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Replace Device Scope for a specific Mobile Device Prestage",
-		Long:  "Replace device scope for a specific mobile device prestage",
-		Example: `  # Update a mobile-device-prestage-scope from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestage-scopes update 1
-
-  # Get a mobile-device-prestage-scope, modify, and update
-  jamf-cli mobile-device-prestage-scopes get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestage-scopes update 1`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				fmt.Println(`{
-  "serialNumbers": [
-    "DMQVGC0DHLF0",
-    "C02L29ECF8J1"
-  ],
-  "versionLock": 1
-}`)
-				return nil
-			}
-
-			// Build request path
-			path := "/v2/mobile-device-prestages/{id}/scope"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -255,6 +195,118 @@ func newMobileDevicePrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Comm
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newMobileDevicePrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create-scope <id>",
+		Short: "Add Device Scope for a specific Mobile Device Prestage",
+		Long:  "Add device scope for a specific mobile device prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newMobileDevicePrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-scope <id>",
+		Short: "Replace Device Scope for a specific Mobile Device Prestage",
+		Long:  "Replace device scope for a specific mobile device prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "serialNumbers": [
+    "DMQVGC0DHLF0",
+    "C02L29ECF8J1"
+  ],
+  "versionLock": 1
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/scope"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
