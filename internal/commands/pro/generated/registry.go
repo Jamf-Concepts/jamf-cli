@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewComputerPrestagesCmd(ctx))
 	root.AddCommand(NewComputerSmartGroupsCmd(ctx))
 	root.AddCommand(NewComputersCmd(ctx))
-	root.AddCommand(NewComputersInventoriesCmd(ctx))
+	root.AddCommand(NewComputersInventoryCmd(ctx))
 	root.AddCommand(NewCountryCodesCmd(ctx))
 	root.AddCommand(NewCsasCmd(ctx))
 	root.AddCommand(NewDashboardsCmd(ctx))
@@ -365,4 +366,58 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+
+// buildMergePatchFromSet converts a slice of "key.path=value" strings into a
+// JSON merge-patch document. Dot notation is expanded into nested objects.
+// Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.
+func buildMergePatchFromSet(pairs []string) ([]byte, error) {
+	result := make(map[string]any)
+	for _, pair := range pairs {
+		eq := strings.Index(pair, "=")
+		if eq < 1 {
+			return nil, fmt.Errorf("invalid --set value %q: expected key=value", pair)
+		}
+		key := pair[:eq]
+		val := pair[eq+1:]
+		if err := setNestedValue(result, strings.Split(key, "."), parsePatchValue(val)); err != nil {
+			return nil, fmt.Errorf("setting %q: %w", key, err)
+		}
+	}
+	return json.Marshal(result)
+}
+
+// setNestedValue sets a value at a dot-notation path within a nested map.
+func setNestedValue(m map[string]any, keys []string, value any) error {
+	if len(keys) == 1 {
+		m[keys[0]] = value
+		return nil
+	}
+	sub, ok := m[keys[0]]
+	if !ok {
+		sub = make(map[string]any)
+		m[keys[0]] = sub
+	}
+	subMap, ok := sub.(map[string]any)
+	if !ok {
+		return fmt.Errorf("cannot set nested key under non-object field %q", keys[0])
+	}
+	return setNestedValue(subMap, keys[1:], value)
+}
+
+// parsePatchValue converts a string to the most appropriate scalar type for
+// JSON merge-patch: "true"/"false" → bool, "null" → nil, integers → int64, else string.
+func parsePatchValue(s string) any {
+	switch s {
+	case "true":
+		return true
+	case "false":
+		return false
+	case "null":
+		return nil
+	}
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return i
+	}
+	return s
 }

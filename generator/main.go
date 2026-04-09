@@ -90,6 +90,18 @@ func main() {
 	// base resource that a versioned sibling supersedes.
 	resources = parser.DeduplicateVersioned(resources)
 
+	// Fix names where auto-pluralization produces unnatural results
+	// (e.g. computers-inventories → computers-inventory).
+	parser.ApplyNameOverrides(resources)
+
+	// Fix NameField values where detectNameField() returned the wrong field
+	// (e.g. general.name for computers-inventory, groupName for groups).
+	parser.ApplyNameFieldOverrides(resources)
+
+	// Apply static lookup fields (e.g. serial number for computers) now that
+	// resource names are in their final canonical form.
+	parser.ApplyLookupFields(resources)
+
 	// Track every file we write so we can delete stale files from previous generator runs.
 	generatedFiles := make(map[string]bool)
 
@@ -170,9 +182,13 @@ func main() {
 	// has been superseded by a renamed canonical file (mobile_device_prestages.go).
 	existing, _ := filepath.Glob(filepath.Join(outputDir, "*.go"))
 	for _, f := range existing {
-		if !generatedFiles[filepath.Base(f)] {
+		base := filepath.Base(f)
+		if strings.HasSuffix(base, "_test.go") {
+			continue // never delete hand-written test files
+		}
+		if !generatedFiles[base] {
 			if err := os.Remove(f); err == nil {
-				fmt.Printf("Removed stale: %s\n", filepath.Base(f))
+				fmt.Printf("Removed stale: %s\n", base)
 			}
 		}
 	}

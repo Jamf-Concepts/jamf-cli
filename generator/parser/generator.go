@@ -174,6 +174,13 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				}
 				return fmt.Sprintf("  # Get history for a %s\n  %s %s history 1",
 					nameSingular, bin, resourceName)
+			case "patch":
+				if !hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Update a field on %s\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
+						resourceName, bin, resourceName, bin, resourceName, bin, resourceName)
+				}
+				return fmt.Sprintf("  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json",
+					bin, resourceName, bin, resourceName, bin, resourceName)
 			case "export":
 				return fmt.Sprintf("  # Export %s to CSV\n  %s %s export --out-file %s.csv",
 					resourceName, bin, resourceName, resourceName)
@@ -246,6 +253,18 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				}
 			}
 			return "{id}"
+		},
+		"isPatchOp":        isPatchOp,
+		"hasPatchOp":       hasPatchOp,
+		"patchHasLookup":   func(r *Resource) bool { return patchHasLookup(r) },
+		"patchExampleText": func(r *Resource, op *Operation) string { return patchExampleText(r, op) },
+		"patchPath":        func(ops []*Operation) string { return patchPath(ops) },
+		"patchPathParam":   func(ops []*Operation) string { return patchPathParam(ops) },
+		"patchSetCompletions": func(op *Operation, schemas map[string]*Schema) []string {
+			return patchSetCompletions(op, schemas)
+		},
+		"patchLongDesc": func(op *Operation, schemas map[string]*Schema, r *Resource) string {
+			return patchLongDesc(op, schemas, r)
 		},
 		"hasScaffold":  hasScaffold,
 		"scaffoldJSON": scaffoldJSON,
@@ -583,8 +602,9 @@ func hasQueryParams(ops []*Operation) bool {
 
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
-	// delete success message, scaffold output, apply status messages, multipart error wrapping
-	return hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r)
+	// delete success message, scaffold output, apply status messages, multipart error wrapping,
+	// patch-by-name error messages, --set parse errors
+	return hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations)
 }
 
 func needsMultipart(r *Resource) bool {
@@ -624,8 +644,8 @@ func hasDeleteMultiple(ops []*Operation) bool {
 }
 
 func needsURL(r *Resource) bool {
-	// net/url is needed for path param encoding, query param encoding, get-by-name, and apply
-	if shouldGenerateApply(r) {
+	// net/url is needed for path param encoding, query param encoding, get-by-name, apply, and patch lookup
+	if shouldGenerateApply(r) || patchHasLookup(r) {
 		return true
 	}
 	for _, op := range r.Operations {
@@ -679,6 +699,209 @@ func hasResolvableID(r *Resource) bool {
 		return true
 	}
 	return schemaHasProperty(r.Schemas, r.IDField)
+}
+
+// ScalarField represents a patchable scalar field in dot-notation (e.g. "general.managed").
+type ScalarField struct {
+	Path string // dot-notation path, e.g. "general.managed"
+	Type string // scalar type: "string", "integer", "boolean", "number"
+}
+
+// flattenSchemaToScalarFields walks a PATCH request body schema and returns all
+// non-read-only scalar fields in dot notation. Top-level scalars are included
+// directly; object properties are expanded one level using their SchemaRef.
+// Arrays are intentionally excluded — they require --from-file.
+func flattenSchemaToScalarFields(schema *Schema, schemas map[string]*Schema) []ScalarField {
+	if schema == nil {
+		return nil
+	}
+
+	isScalar := func(t string) bool {
+		return t == "string" || t == "integer" || t == "boolean" || t == "number"
+	}
+
+	topNames := make([]string, 0, len(schema.Properties))
+	for name := range schema.Properties {
+		topNames = append(topNames, name)
+	}
+	sort.Strings(topNames)
+
+	var fields []ScalarField
+	for _, propName := range topNames {
+		prop := schema.Properties[propName]
+		if prop.ReadOnly {
+			continue
+		}
+		switch {
+		case isScalar(prop.Type):
+			fields = append(fields, ScalarField{Path: propName, Type: prop.Type})
+		case prop.Type == "object" || (prop.Type == "" && prop.Nested != nil):
+			// Prefer the inline-resolved Nested schema (always populated by parseSchema
+			// for cross-file $ref objects). Fall back to component schemas map.
+			var nested *Schema
+			if prop.Nested != nil {
+				nested = prop.Nested
+			} else if prop.SchemaRef != "" {
+				nested = schemas[prop.SchemaRef]
+			}
+			if nested == nil {
+				continue
+			}
+			nestedNames := make([]string, 0, len(nested.Properties))
+			for n := range nested.Properties {
+				nestedNames = append(nestedNames, n)
+			}
+			sort.Strings(nestedNames)
+			for _, nestedName := range nestedNames {
+				nestedProp := nested.Properties[nestedName]
+				if nestedProp.ReadOnly || !isScalar(nestedProp.Type) {
+					continue
+				}
+				fields = append(fields, ScalarField{
+					Path: propName + "." + nestedName,
+					Type: nestedProp.Type,
+				})
+			}
+		}
+	}
+	return fields
+}
+
+// isPatchOp reports whether an operation is a PATCH with a JSON request body schema.
+func isPatchOp(op *Operation) bool {
+	return op.Method == "PATCH" && op.Name == "patch" &&
+		op.RequestBody != nil && !op.RequestBody.IsMultipart
+}
+
+// hasPatchOp reports whether any operation in the slice satisfies isPatchOp.
+func hasPatchOp(ops []*Operation) bool {
+	for _, op := range ops {
+		if isPatchOp(op) {
+			return true
+		}
+	}
+	return false
+}
+
+// patchHasLookup returns true when the resource's patch command should support
+// name/serial/UDID lookup in addition to a direct ID argument.
+// Requires: non-singleton, resolvable ID, a list endpoint for RSQL, and a PATCH with path param.
+func patchHasLookup(r *Resource) bool {
+	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
+		return false
+	}
+	for _, op := range r.Operations {
+		if isPatchOp(op) && hasPathParam(op.Path) {
+			return true
+		}
+	}
+	return false
+}
+
+// patchExampleText builds the Example string for a unified patch command.
+func patchExampleText(r *Resource, op *Operation) string {
+	bin := "jamf-cli"
+	if !hasPathParam(op.Path) {
+		// Singleton PATCH — no ID
+		return fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
+			bin, r.Name, bin, r.Name, bin, r.Name)
+	}
+	base := fmt.Sprintf("  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2",
+		bin, r.Name, bin, r.Name)
+	if patchHasLookup(r) {
+		base += fmt.Sprintf("\n\n  # Update by name\n  %s %s patch --name \"Example\" --set general.managed=true",
+			bin, r.Name)
+		for _, lf := range r.LookupFields {
+			base += fmt.Sprintf("\n\n  # Update by %s\n  %s %s patch --%s <value> --set general.managed=true",
+				lf.Flag, bin, r.Name, lf.Flag)
+		}
+	}
+	base += fmt.Sprintf("\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json", bin, r.Name)
+	return base
+}
+
+// patchPath returns the path of the first PATCH operation.
+func patchPath(ops []*Operation) string {
+	for _, op := range ops {
+		if isPatchOp(op) {
+			return op.Path
+		}
+	}
+	return ""
+}
+
+// patchPathParam returns the last path parameter placeholder of the PATCH path.
+func patchPathParam(ops []*Operation) string {
+	for _, op := range ops {
+		if isPatchOp(op) {
+			start := strings.LastIndex(op.Path, "{")
+			end := strings.LastIndex(op.Path, "}")
+			if start != -1 && end > start {
+				return op.Path[start : end+1]
+			}
+		}
+	}
+	return "{id}"
+}
+
+// patchSetCompletions returns the list of "--set" completion candidates for a
+// PATCH operation: each scalar field path with "=" appended.
+func patchSetCompletions(op *Operation, schemas map[string]*Schema) []string {
+	if op.RequestBody == nil {
+		return nil
+	}
+	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+	result := make([]string, len(fields))
+	for i, f := range fields {
+		result[i] = f.Path + "="
+	}
+	return result
+}
+
+// patchLongDesc builds the Long description string (as a Go double-quoted literal)
+// for a PATCH command, embedding the list of patchable scalar fields and lookup info.
+func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) string {
+	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+
+	goEscape := func(s string) string {
+		s = strings.ReplaceAll(s, `\`, `\\`)
+		s = strings.ReplaceAll(s, `"`, `\"`)
+		s = strings.ReplaceAll(s, "\r", "")
+		s = strings.ReplaceAll(s, "\n", `\n`)
+		s = strings.ReplaceAll(s, "`", "'")
+		return s
+	}
+
+	desc := strings.TrimSpace(op.Description)
+	if desc == "" {
+		desc = strings.TrimSpace(op.Summary)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`"`)
+	sb.WriteString(goEscape(desc))
+
+	if patchHasLookup(r) {
+		sb.WriteString(`\n\nIdentify the resource by ID (positional arg), --name, `)
+		for i, lf := range r.LookupFields {
+			if i > 0 {
+				sb.WriteString(`, `)
+			}
+			sb.WriteString(`--` + lf.Flag)
+		}
+		sb.WriteString(`. Omit ID to use a lookup flag.`)
+	}
+
+	if len(fields) > 0 {
+		sb.WriteString(`\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n`)
+		for _, f := range fields {
+			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+		}
+		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).`)
+	}
+
+	sb.WriteString(`"`)
+	return sb.String()
 }
 
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
@@ -813,7 +1036,7 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (shouldGenerateApply .) (needsMultipart .) }}
+{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
@@ -899,19 +1122,41 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasBinaryResponse . }}
 		flagSaveTo string
 {{- end }}
+{{- if isPatchOp . }}
+		flagSet  []string
+		fromFile string
+{{- if patchHasLookup $ }}
+		flagName string
+{{ range $.LookupFields }}		flag{{ toCamel .Flag }} string
+{{ end }}{{- end }}
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
+{{- if and (isPatchOp .) (patchHasLookup $) }}
+		Use:   "patch [<id>]",
+{{- else }}
 		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
+{{- end }}
 		Short: "{{ escapeQuotes .Summary }}",
-{{- if .Description }}
+{{- if isPatchOp . }}
+		Long: {{ patchLongDesc . $.Schemas $ }},
+{{- else if .Description }}
 		Long:  "{{ escapeQuotes .Description }}",
 {{- end }}
+{{- if isPatchOp . }}
+		Example: ` + "`" + `{{ patchExampleText $ . }}` + "`" + `,
+{{- else }}
 {{- $ex := exampleText $.Name $.NameSingular . }}{{ if $ex }}
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
+{{- end }}
 {{- if hasPathParam .Path }}
+{{- if and (isPatchOp .) (patchHasLookup $) }}
+		Args:  cobra.MaximumNArgs(1),
+{{- else }}
 		Args:  cobra.ExactArgs({{ pathParamCount .Parameters }}),
+{{- end }}
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -947,10 +1192,38 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 
 
+{{- if and (isPatchOp .) (patchHasLookup $) }}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+{{ range $.LookupFields }}
+			if flag{{ toCamel .Flag }} != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ .RSQLField }}", "{{ $.IDField }}", flag{{ toCamel .Flag }})
+				if err != nil {
+					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
+				}
+				resolvedPatchID = rid
+			} else {{ end }}if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", "{{ $.IDField }}", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name{{ range $.LookupFields }}, --{{ .Flag }}{{ end }}")
+			}
+{{- end }}
+
 			// Build request path
 			path := "{{ .Path }}"
+{{- if and (isPatchOp .) (patchHasLookup $) }}
+			path = strings.Replace(path, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
+{{- else }}
 {{- range indexedPathParams .Parameters }}
 			path = strings.Replace(path, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
+{{- end }}
 {{- end }}
 
 			// Build query string
@@ -1076,7 +1349,29 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- else }}
 			// Read body from stdin if available
 			var body io.Reader
-{{- if eq .Name "delete-multiple" }}
+{{- if isPatchOp . }}
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
+			}
+{{- else if eq .Name "delete-multiple" }}
 			// Handle --ids flag for bulk operations
 			if len(flagIds) > 0 {
 				payload := struct {
@@ -1160,6 +1455,19 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 {{- if opHasBinaryResponse . }}
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+{{- end }}
+{{- if isPatchOp . }}
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			{{ range patchSetCompletions . $.Schemas }}"{{ . }}",{{ end }}
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+{{- if patchHasLookup $ }}
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
+{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ end }}{{- end }}
 {{- end }}
 
 	return cmd
@@ -1374,6 +1682,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -1576,5 +1885,59 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+
+// buildMergePatchFromSet converts a slice of "key.path=value" strings into a
+// JSON merge-patch document. Dot notation is expanded into nested objects.
+// Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.
+func buildMergePatchFromSet(pairs []string) ([]byte, error) {
+	result := make(map[string]any)
+	for _, pair := range pairs {
+		eq := strings.Index(pair, "=")
+		if eq < 1 {
+			return nil, fmt.Errorf("invalid --set value %q: expected key=value", pair)
+		}
+		key := pair[:eq]
+		val := pair[eq+1:]
+		if err := setNestedValue(result, strings.Split(key, "."), parsePatchValue(val)); err != nil {
+			return nil, fmt.Errorf("setting %q: %w", key, err)
+		}
+	}
+	return json.Marshal(result)
+}
+
+// setNestedValue sets a value at a dot-notation path within a nested map.
+func setNestedValue(m map[string]any, keys []string, value any) error {
+	if len(keys) == 1 {
+		m[keys[0]] = value
+		return nil
+	}
+	sub, ok := m[keys[0]]
+	if !ok {
+		sub = make(map[string]any)
+		m[keys[0]] = sub
+	}
+	subMap, ok := sub.(map[string]any)
+	if !ok {
+		return fmt.Errorf("cannot set nested key under non-object field %q", keys[0])
+	}
+	return setNestedValue(subMap, keys[1:], value)
+}
+
+// parsePatchValue converts a string to the most appropriate scalar type for
+// JSON merge-patch: "true"/"false" → bool, "null" → nil, integers → int64, else string.
+func parsePatchValue(s string) any {
+	switch s {
+	case "true":
+		return true
+	case "false":
+		return false
+	case "null":
+		return nil
+	}
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return i
+	}
+	return s
 }
 `

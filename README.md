@@ -112,6 +112,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
+- **`patch`** — JSON Merge Patch (RFC 7386): update individual fields without a full replace. Use `--set key=value` for scalar fields or pipe a merge-patch document. Accepts `--name`, `--serial`, `--udid` (resource-dependent) in place of an ID. `--scaffold` prints the patchable field template
 - **`delete-by-name`** — Delete a resource by name instead of ID (with collision detection)
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`

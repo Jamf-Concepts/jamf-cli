@@ -73,6 +73,7 @@ func newSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagOauthState string
+		flagScaffold   bool
 	)
 
 	cmd := &cobra.Command{
@@ -86,6 +87,19 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli smtp-server update --from-file smtp-server.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "authenticationType": "NONE",
+  "basicAuthCredentials": {},
+  "connectionSettings": {},
+  "enabled": true,
+  "googleMailCredentials": {},
+  "graphApiCredentials": {},
+  "senderSettings": {}
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v2/smtp-server"
@@ -117,6 +131,7 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagOauthState, "oauth-state", "", "The OAuth state that was last used to authorize a Google Mail account. This is only required when the authentication type is Google Mail and new accounts are being added.")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

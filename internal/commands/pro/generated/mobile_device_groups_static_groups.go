@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -347,13 +348,27 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
+		Use:   "patch [<id>]",
 		Short: "Update membership of a static group",
-		Long:  "Update membership of a static group",
-		Args:  cobra.ExactArgs(1),
+		Long:  "Update membership of a static group\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli mobile-device-groups-static-groups patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli mobile-device-groups-static-groups patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli mobile-device-groups-static-groups patch --name "Example" --set general.managed=true
+
+  # Patch from a file
+  jamf-cli mobile-device-groups-static-groups patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -367,9 +382,23 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/mobile-device-groups/static-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -380,9 +409,26 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -395,6 +441,14 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"groupDescription=", "groupName=", "siteId=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-groups by name")
 
 	return cmd
 }

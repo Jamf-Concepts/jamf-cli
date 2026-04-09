@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -262,19 +263,59 @@ func newDigiCertSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *
 }
 
 func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
+		Use:   "patch [<id>]",
 		Short: "Update DigiCert Trust Lifecycle Manager configuration",
-		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.",
-		Args:  cobra.ExactArgs(1),
+		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli digi-cert-settings patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli digi-cert-settings patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli digi-cert-settings patch --name "Example" --set general.managed=true
+
+  # Patch from a file
+  jamf-cli digi-cert-settings patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				fmt.Println(`{
+  "caName": "Example Display Name",
+  "clientCert": {},
+  "fqdn": "digicert.example.com",
+  "revocationEnabled": true
+}`)
+				return nil
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -285,9 +326,26 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -298,6 +356,16 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"caName=", "clientCert.filename=", "clientCert.password=", "fqdn=", "revocationEnabled=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
 
 	return cmd
 }
