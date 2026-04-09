@@ -182,9 +182,13 @@ func main() {
 	// has been superseded by a renamed canonical file (mobile_device_prestages.go).
 	existing, _ := filepath.Glob(filepath.Join(outputDir, "*.go"))
 	for _, f := range existing {
-		if !generatedFiles[filepath.Base(f)] {
+		base := filepath.Base(f)
+		if strings.HasSuffix(base, "_test.go") {
+			continue // never delete hand-written test files
+		}
+		if !generatedFiles[base] {
 			if err := os.Remove(f); err == nil {
-				fmt.Printf("Removed stale: %s\n", filepath.Base(f))
+				fmt.Printf("Removed stale: %s\n", base)
 			}
 		}
 	}

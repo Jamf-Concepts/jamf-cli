@@ -93,7 +93,7 @@ site: build
 
 # Verify generated code is up to date (CI-safe)
 verify-generated:
-	@rm -f internal/commands/pro/generated/*.go
+	@ls internal/commands/pro/generated/*.go | grep -v '_test\.go' | xargs rm -f
 	@$(MAKE) generate
 	@if ! git diff --quiet -- internal/commands/pro/generated/; then \
 		echo "Error: generated code is out of date"; \
