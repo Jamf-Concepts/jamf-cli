@@ -457,6 +457,16 @@
     countBadge.textContent = group.commands.length;
     header.appendChild(countBadge);
 
+    var hasNew = false;
+    for (var nc = 0; nc < group.commands.length; nc++) {
+      if (newCommandSet[group.commands[nc].command]) { hasNew = true; break; }
+    }
+    if (hasNew) {
+      var dot = document.createElement('span');
+      dot.className = 'group-new-dot';
+      header.appendChild(dot);
+    }
+
     // Show product badges if group has commands from multiple products, or for Core/shared groups
     if (productKeys.length > 1 || (productKeys.length === 1 && group.name === 'Core Commands')) {
       var badgeWrap = document.createElement('span');
@@ -559,12 +569,6 @@
       copyWithFeedback('jamf-cli ' + cmd.command, nameSpan);
     });
     nameSpan.appendChild(copyIcon);
-    if (newCommandSet[cmd.command]) {
-      var newBadge = document.createElement('span');
-      newBadge.className = 'new-badge';
-      newBadge.textContent = 'New';
-      nameSpan.appendChild(newBadge);
-    }
     row.appendChild(nameSpan);
 
     var descLine = document.createElement('div');
@@ -574,6 +578,13 @@
     descSpan.className = 'command-desc';
     highlightText(cmd.description || '', descSpan);
     descLine.appendChild(descSpan);
+
+    if (newCommandSet[cmd.command]) {
+      var newBadge = document.createElement('span');
+      newBadge.className = 'new-badge';
+      newBadge.textContent = 'New';
+      descLine.appendChild(newBadge);
+    }
 
     // Product badge on every command
     if (cmd.product && PRODUCT_LABELS[cmd.product]) {

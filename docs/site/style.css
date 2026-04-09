@@ -35,6 +35,9 @@ html {
   /* --product-school: #F59E0B; */
   /* --product-connect: #AF52DE; */
 
+  /* Indicator colors */
+  --new-indicator: #f59e0b;
+
   /* Light mode */
   --page-bg: #FFFFFF;
   --card-bg: #F3F7FF;
@@ -752,6 +755,16 @@ a.stat-card:hover {
   color: var(--text-secondary);
 }
 
+.group-new-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--new-indicator);
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
 @media (prefers-color-scheme: light) {
   .group-count-badge {
     background: rgba(0, 0, 0, 0.07);
@@ -966,20 +979,19 @@ a.stat-card:hover {
 }
 
 .command-copy-icon {
-  display: none;
   width: 13px;
   height: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: 0;
   transition: opacity 0.1s;
   vertical-align: middle;
   margin-top: -2px;
 }
 
 .command-name:hover .command-copy-icon {
-  display: inline-block;
+  opacity: 0.5;
 }
 
 .command-copy-icon:hover {
@@ -988,7 +1000,6 @@ a.stat-card:hover {
 }
 
 .command-name.copied .command-copy-icon {
-  display: inline-block;
   color: var(--terminal-success);
   opacity: 1;
 }
@@ -1018,18 +1029,19 @@ a.stat-card:hover {
 }
 
 .new-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-family: 'Inter', -apple-system, system-ui, sans-serif;
-  font-size: 0.55rem;
-  font-weight: 700;
+  font-size: 0.6rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: #f59e0b;
-  color: #000;
-  padding: 0.1rem 0.35rem;
+  background: color-mix(in srgb, var(--new-indicator) 10%, transparent);
+  color: var(--new-indicator);
+  padding: 0.1rem 0.4rem;
   border-radius: 4px;
-  margin-left: 0.4rem;
-  vertical-align: middle;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .command-name .cmd-product {
@@ -1098,7 +1110,7 @@ a.stat-card:hover {
 
 .command-desc-line {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
   position: relative;
 }

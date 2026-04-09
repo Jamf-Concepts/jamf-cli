@@ -59,14 +59,16 @@ func main() {
 	}
 
 	var previousCommands map[string]bool
+	var prevNewCommands []string
+	var prevVersion string
 	if *previous != "" {
-		previousCommands, err = loadPreviousCommands(*previous)
+		previousCommands, prevNewCommands, prevVersion, err = loadPreviousCommands(*previous)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not load previous commands: %v\n", err)
 		}
 	}
 
-	result, err := transformCommands(commandsOut, version, previousCommands)
+	result, err := transformCommands(commandsOut, version, previousCommands, prevNewCommands, prevVersion)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error transforming commands: %v\n", err)
 		os.Exit(1)
@@ -83,12 +85,13 @@ func main() {
 	}
 }
 
-func transformCommands(rawJSON []byte, version string, previousCommands map[string]bool) ([]byte, error) {
+func transformCommands(rawJSON []byte, version string, previousCommands map[string]bool, prevNewCommands []string, prevVersion string) ([]byte, error) {
 	var raw []rawCommand
 	if err := json.Unmarshal(rawJSON, &raw); err != nil {
 		return nil, fmt.Errorf("parsing commands JSON: %w", err)
 	}
 
+	currentCommands := make(map[string]bool, len(raw))
 	commands := make([]siteCommand, len(raw))
 	var newCommands []string
 	for i, r := range raw {
@@ -100,8 +103,21 @@ func transformCommands(rawJSON []byte, version string, previousCommands map[stri
 			Product:     r.Product,
 			Group:       r.Group,
 		}
+		currentCommands[r.Command] = true
 		if previousCommands != nil && !previousCommands[r.Command] {
 			newCommands = append(newCommands, r.Command)
+		}
+	}
+
+	// If no new commands were detected and the version hasn't changed,
+	// carry forward the previous deploy's new-command list (filtered to
+	// commands that still exist). This keeps "New" badges visible across
+	// non-release deploys but clears them on a new release.
+	if len(newCommands) == 0 && len(prevNewCommands) > 0 && prevVersion == version {
+		for _, cmd := range prevNewCommands {
+			if currentCommands[cmd] {
+				newCommands = append(newCommands, cmd)
+			}
 		}
 	}
 
@@ -116,20 +132,20 @@ func transformCommands(rawJSON []byte, version string, previousCommands map[stri
 	return json.MarshalIndent(data, "", "  ")
 }
 
-func loadPreviousCommands(path string) (map[string]bool, error) {
+func loadPreviousCommands(path string) (map[string]bool, []string, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 	var prev siteData
 	if err := json.Unmarshal(data, &prev); err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 	m := make(map[string]bool, len(prev.Commands))
 	for _, c := range prev.Commands {
 		m[c.Command] = true
 	}
-	return m, nil
+	return m, prev.NewCommands, prev.Version, nil
 }
 
 func splitCSV(s string) []string {
