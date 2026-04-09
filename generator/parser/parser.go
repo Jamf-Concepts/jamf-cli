@@ -548,8 +548,9 @@ func compareAPIVersions(path1, path2 string) int {
 		}
 		if strings.HasPrefix(prefix, "v") {
 			var n int
-			fmt.Sscanf(prefix[1:], "%d", &n)
-			return n
+			if _, err := fmt.Sscanf(prefix[1:], "%d", &n); err == nil {
+				return n
+			}
 		}
 		return 0 // unversioned legacy path
 	}
