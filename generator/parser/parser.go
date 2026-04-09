@@ -1226,6 +1226,17 @@ func detectIDField(schemas map[string]*Schema, ops []*Operation) string {
 		if bare != "" && schemaHasProperty(schemas, bare) {
 			return bare
 		}
+		// 3b. Spec inconsistency: path param uses "*Id" but response field uses a
+		//     different suffix (e.g. "languageId" → "languageCode"). Try known
+		//     identifier-like suffixes before falling back to the raw path param name.
+		if bare != "" {
+			for _, suffix := range []string{"Code", "Key", "Uuid", "Token"} {
+				candidate := bare + suffix
+				if schemaHasProperty(schemas, candidate) {
+					return candidate
+				}
+			}
+		}
 	}
 
 	// 4. If the path param is the generic "id" but no "id" property exists,

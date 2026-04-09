@@ -31,6 +31,7 @@ func NewEnrollmentLanguagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentLanguagesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesFilteredLanguageCodesCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesLanguageCodesCmd(ctx))
+	cmd.AddCommand(newEnrollmentLanguagesGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesDeleteByNameCmd(ctx))
 
 	return cmd
@@ -524,6 +525,33 @@ func newEnrollmentLanguagesLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
+func newEnrollmentLanguagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a enrollment-language by name",
+		Example: `  # Get a enrollment-language by name
+  jamf-cli enrollment-languages get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli enrollment-languages get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{languageId}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+}
+
 func newEnrollmentLanguagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -545,7 +573,7 @@ func newEnrollmentLanguagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageId", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", name, noInput)
 			if err != nil {
 				return err
 			}

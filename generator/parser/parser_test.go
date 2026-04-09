@@ -1818,12 +1818,12 @@ func TestDetectIDField(t *testing.T) {
 			want: "id", // ambiguous — fall back
 		},
 		{
-			name: "path param has no match in schema - falls back to path param name",
+			name: "path param ends in Id, bare prefix+Code suffix matches schema property",
 			schemas: map[string]*Schema{
 				"Language": {Properties: map[string]*Property{"languageCode": {}, "name": {}}},
 			},
 			ops:  []*Operation{{Name: "get", Method: "GET", Path: "/v3/languages/{languageId}"}},
-			want: "languageId", // can't derive languageCode from languageId automatically
+			want: "languageCode", // languageId → bare "language" → "language"+"Code" = "languageCode"
 		},
 		{
 			name: "prefers exact match of non-standard path param over id property",
