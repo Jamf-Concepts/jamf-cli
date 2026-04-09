@@ -197,7 +197,7 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				resolvedID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -302,7 +302,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				resolvedPatchID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -403,7 +403,7 @@ func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				resolvedID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
 				if err != nil {
 					return err
 				}

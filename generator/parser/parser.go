@@ -73,6 +73,9 @@ var resourceNameFieldOverrides = map[string]string{
 	// Groups list endpoint requires "groupName"; plain "name" field wins the
 	// heuristic but is not a filterable field on this endpoint.
 	"groups": "groupName",
+	// Mobile devices list response uses "name"; the spec also has a "displayName"
+	// field (WiFi network display name) that wins the heuristic incorrectly.
+	"mobile-devices": "name",
 }
 
 // resourceIDFieldOverrides maps canonical resource names to the correct response
