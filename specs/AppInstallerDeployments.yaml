@@ -1,0 +1,159 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - App Installer Deployments
+  description: Manage App Installer deployment configurations in Jamf Pro. Deployments define which App Installer titles are deployed to which smart groups, along with update behavior and notification settings.
+  version: 0.0.1
+paths:
+  /v1/app-installers/deployments:
+    get:
+      tags:
+      - app-installer-deployments
+      summary: Get all App Installer deployments
+      description: Retrieves all App Installer deployment configurations
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppInstallerDeployment'
+      x-required-privileges:
+      - Read App Installers
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Create an App Installer deployment
+      description: Creates a new App Installer deployment configuration
+      requestBody:
+        description: App Installer deployment to create
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AppInstallerDeployment'
+        required: true
+      responses:
+        201:
+          description: Deployment created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerDeploymentResponse'
+      x-required-privileges:
+      - Create App Installers
+  /v1/app-installers/deployments/{id}:
+    get:
+      tags:
+      - app-installer-deployments
+      summary: Get an App Installer deployment by ID
+      description: Retrieves a specific App Installer deployment by its ID
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerDeployment'
+        404:
+          description: Deployment not found
+      x-required-privileges:
+      - Read App Installers
+    put:
+      tags:
+      - app-installer-deployments
+      summary: Update an App Installer deployment
+      description: Updates an existing App Installer deployment configuration
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: Updated deployment configuration
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AppInstallerDeployment'
+        required: true
+      responses:
+        200:
+          description: Deployment updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerDeploymentResponse'
+      x-required-privileges:
+      - Update App Installers
+    delete:
+      tags:
+      - app-installer-deployments
+      summary: Delete an App Installer deployment
+      description: Deletes an App Installer deployment by ID
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Deployment deleted
+      x-required-privileges:
+      - Delete App Installers
+components:
+  schemas:
+    AppInstallerDeployment:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: Display name for this deployment
+        enabled:
+          type: boolean
+        appTitleId:
+          type: string
+          description: ID of the App Installer title to deploy
+        deploymentType:
+          type: string
+          enum:
+          - INSTALL_AUTOMATICALLY
+          - SELF_SERVICE
+        updateBehavior:
+          type: string
+          enum:
+          - AUTOMATIC
+          - MANUAL
+        categoryId:
+          type: string
+        siteId:
+          type: string
+        smartGroupId:
+          type: string
+        installPredefinedConfigProfiles:
+          type: boolean
+        selectedVersion:
+          type: string
+        latestAvailableVersion:
+          type: string
+          readOnly: true
+    AppInstallerDeploymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string

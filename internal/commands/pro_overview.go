@@ -32,6 +32,13 @@ type overviewItem struct {
 	ColorHint string // optional: "red", "yellow" for expiration coloring
 }
 
+// tokenExpiry holds per-instance token expiry data for multi-row display.
+type tokenExpiry struct {
+	Name  string
+	Value string
+	Color string
+}
+
 // fetchJSON performs a GET request and returns the parsed JSON object.
 func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (map[string]any, error) {
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -111,7 +118,7 @@ func fetchCDPFileCount(ctx context.Context, client registry.HTTPClient) (string,
 		maxPages = 1000
 	)
 	total := 0
-	for page := 0; page < maxPages; page++ {
+	for page := range maxPages {
 		path := fmt.Sprintf("/v1/cloud-distribution-point/files?page=%d&page-size=%d", page, pageSize)
 		data, err := fetchJSON(ctx, client, path)
 		if err != nil {
@@ -343,7 +350,19 @@ func friendlyAlertType(t string) string {
 // formatExpirationDate formats a date string and adds proximity context.
 // Returns the formatted date and a color hint: "red", "yellow", or "".
 func formatExpirationDate(dateStr string, now time.Time) (string, string) {
-	t, err := time.Parse("2006-01-02", dateStr)
+	var t time.Time
+	var err error
+	for _, layout := range []string{
+		"2006-01-02",
+		time.RFC3339,
+		"2006-01-02T15:04:05.999Z",
+		"2006-01-02T15:04:05.000Z0700",
+	} {
+		t, err = time.Parse(layout, dateStr)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return dateStr, ""
 	}
@@ -385,6 +404,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	var mu sync.Mutex
 	results := make(map[string]string)
 	colorHints := make(map[string]string)
+	var adeTokenItems []tokenExpiry // per-ADE-instance token expiry rows
+	var vppTokenItems []tokenExpiry // per-VPP-location token expiry rows
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 10) // cap concurrent API calls
 
@@ -694,8 +715,15 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchArrayCount(ctx, client, "/v1/computer-groups")
-		send("computer_groups", v, err)
+		v, err := fetchPaginatedCount(ctx, client, "/v2/computer-groups/smart-groups")
+		send("computer_smart_groups", v, err)
+	})
+
+	wg.Go(func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		v, err := fetchPaginatedCount(ctx, client, "/v2/computer-groups/static-groups")
+		send("computer_static_groups", v, err)
 	})
 
 	wg.Go(func() {
@@ -703,6 +731,13 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/smart-groups")
 		send("md_smart_groups", v, err)
+	})
+
+	wg.Go(func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/static-groups")
+		send("md_static_groups", v, err)
 	})
 
 	// 8. Configuration & Deployment
@@ -727,44 +762,50 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("jcds_files", v, err)
 	})
 
-	// 9. Enrollment (fetch full results for count + nearest token expiration)
+	wg.Go(func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		v, err := fetchPaginatedCount(ctx, client, "/v1/app-installers/titles")
+		send("app_installers", v, err)
+	})
+
+	// 9. Enrollment (fetch full results for count + per-instance token expiration)
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
 		if err != nil {
-			send("dep_instances", "", err)
-			send("dep_token_expires", "", err)
+			send("ade_instances", "", err)
 			return
 		}
 		if tc, ok := data["totalCount"]; ok {
-			send("dep_instances", formatCount(tc), nil)
+			send("ade_instances", formatCount(tc), nil)
 		} else {
-			send("dep_instances", "0", nil)
+			send("ade_instances", "0", nil)
 		}
 
-		// Find earliest tokenExpirationDate from results
-		results, _ := data["results"].([]any)
-		var earliest string
-		for _, r := range results {
+		// Build per-instance token expiry rows
+		items, _ := data["results"].([]any)
+		now := time.Now()
+		mu.Lock()
+		for _, r := range items {
 			item, ok := r.(map[string]any)
 			if !ok {
 				continue
 			}
-			dateStr, ok := item["tokenExpirationDate"].(string)
-			if !ok || dateStr == "" {
+			dateStr, _ := item["tokenExpirationDate"].(string)
+			name, _ := item["name"].(string)
+			if name == "" {
+				name = "Unnamed"
+			}
+			if dateStr == "" {
+				adeTokenItems = append(adeTokenItems, tokenExpiry{Name: name, Value: "No token", Color: ""})
 				continue
 			}
-			if earliest == "" || dateStr < earliest {
-				earliest = dateStr
-			}
+			formatted, color := formatExpirationDate(dateStr, now)
+			adeTokenItems = append(adeTokenItems, tokenExpiry{Name: name, Value: formatted, Color: color})
 		}
-		if earliest != "" {
-			formatted, color := formatExpirationDate(earliest, time.Now())
-			sendWithColor("dep_token_expires", formatted, color, nil)
-		} else {
-			send("dep_token_expires", "None configured", nil)
-		}
+		mu.Unlock()
 	})
 
 	wg.Go(func() {
@@ -779,6 +820,47 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		defer func() { <-sem }()
 		v, err := fetchPaginatedCount(ctx, client, "/v3/mobile-device-prestages")
 		send("md_prestages", v, err)
+	})
+
+	// VPP / Volume Purchasing Locations (count + per-instance token expiry)
+	wg.Go(func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		data, err := fetchJSON(ctx, client, "/v1/volume-purchasing-locations?page-size=100")
+		if err != nil {
+			send("vpp_locations", "", err)
+			return
+		}
+		if tc, ok := data["totalCount"]; ok {
+			send("vpp_locations", formatCount(tc), nil)
+		} else {
+			send("vpp_locations", "0", nil)
+		}
+
+		items, _ := data["results"].([]any)
+		now := time.Now()
+		mu.Lock()
+		for _, r := range items {
+			item, ok := r.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := item["name"].(string)
+			if name == "" {
+				name, _ = item["locationName"].(string)
+			}
+			if name == "" {
+				name = "Unnamed"
+			}
+			dateStr, _ := item["tokenExpiration"].(string)
+			if dateStr == "" {
+				vppTokenItems = append(vppTokenItems, tokenExpiry{Name: name, Value: "No token", Color: ""})
+				continue
+			}
+			formatted, color := formatExpirationDate(dateStr, now)
+			vppTokenItems = append(vppTokenItems, tokenExpiry{Name: name, Value: formatted, Color: color})
+		}
+		mu.Unlock()
 	})
 
 	// 10. Users & Access
@@ -822,6 +904,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		if count == 0 {
 			send("alerts", "None", nil)
 			sendWithColor("alert_detail", "", "", nil)
+			send("apns_cert", "OK", nil)
 			return
 		}
 
@@ -833,6 +916,43 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			}
 		}
 		send("alert_detail", strings.Join(types, ", "), nil)
+
+		// Extract APNs certificate status from notifications
+		for _, a := range alerts {
+			t, _ := a["type"].(string)
+			switch t {
+			case "PUSH_CERT_EXPIRED":
+				sendWithColor("apns_cert", "Expired", "red", nil)
+				return
+			case "PUSH_CERT_WILL_EXPIRE":
+				sendWithColor("apns_cert", "Expiring soon", "yellow", nil)
+				return
+			}
+		}
+		send("apns_cert", "OK", nil)
+	})
+
+	// Admin SSO (from /v3/sso)
+	wg.Go(func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		data, err := fetchJSON(ctx, client, "/v3/sso")
+		if err != nil {
+			send("admin_sso", "", err)
+			return
+		}
+		enabled, _ := data["ssoEnabled"].(bool)
+		configType, _ := data["configurationType"].(string)
+		// Admin SSO requires OIDC — SAML-only is regular SSO, not Admin SSO.
+		if !enabled || (configType != "OIDC" && configType != "OIDC_WITH_SAML") {
+			send("admin_sso", "disabled", nil)
+			return
+		}
+		if configType == "OIDC_WITH_SAML" {
+			send("admin_sso", "enabled (OIDC + SAML)", nil)
+		} else {
+			send("admin_sso", "enabled (OIDC)", nil)
+		}
 	})
 
 	// 13. Configuration Management (Classic API)
@@ -887,25 +1007,25 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("ldap_servers", v, err)
 	})
 
-	// 16. DEP Sync Status (latest sync for first enrollment instance)
+	// 16. ADE Sync Status (latest sync for first enrollment instance)
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		// First get enrollment instances to find the first ID
 		data, err := fetchJSON(ctx, client, "/v1/device-enrollments")
 		if err != nil {
-			send("dep_sync_status", "", err)
+			send("ade_sync_status", "", err)
 			return
 		}
-		results, _ := data["results"].([]any)
-		if len(results) == 0 {
-			send("dep_sync_status", "No DEP instances", nil)
+		depResults, _ := data["results"].([]any)
+		if len(depResults) == 0 {
+			send("ade_sync_status", "No ADE instances", nil)
 			return
 		}
 		// Get the first instance ID
-		first, ok := results[0].(map[string]any)
+		first, ok := depResults[0].(map[string]any)
 		if !ok {
-			send("dep_sync_status", "N/A", nil)
+			send("ade_sync_status", "N/A", nil)
 			return
 		}
 		instanceID := ""
@@ -915,20 +1035,20 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			instanceID = strconv.Itoa(int(id))
 		}
 		if instanceID == "" {
-			send("dep_sync_status", "N/A", nil)
+			send("ade_sync_status", "N/A", nil)
 			return
 		}
 		// Fetch latest sync state
 		syncPath := fmt.Sprintf("/v1/device-enrollments/%s/syncs/latest", instanceID)
 		syncData, err := fetchJSON(ctx, client, syncPath)
 		if err != nil {
-			send("dep_sync_status", "", err)
+			send("ade_sync_status", "", err)
 			return
 		}
 		state, _ := syncData["syncState"].(string)
 		ts, _ := syncData["timestamp"].(string)
 		if state == "" {
-			send("dep_sync_status", "N/A", nil)
+			send("ade_sync_status", "N/A", nil)
 			return
 		}
 		// Parse timestamp for display
@@ -939,9 +1059,9 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			}
 		}
 		if state == "SUCCESSFUL" {
-			send("dep_sync_status", display, nil)
+			send("ade_sync_status", display, nil)
 		} else {
-			sendWithColor("dep_sync_status", display, "yellow", nil)
+			sendWithColor("ade_sync_status", display, "yellow", nil)
 		}
 	})
 
@@ -989,6 +1109,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		{"macOS Config Profiles", "macos_profiles"},
 		{"iOS Config Profiles", "ios_profiles"},
 		{"Packages", "packages"},
+		{"App Installers", "app_installers"},
 		{"Scripts", "scripts"},
 		{"eBooks", "ebooks"},
 		{"JCDS Files", "jcds_files"},
@@ -1008,7 +1129,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		label, key string
 	}{
 		{"Volume Purchasing", "vpp"},
-		{"Device Enrollment", "dep"},
+		{"Automated Device Enrollment", "dep"},
 		{"Cloud Distribution", "cloud_deploy"},
 		{"Patch Management", "patch"},
 		{"SSO (SAML)", "sso"},
@@ -1018,6 +1139,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		if v == "enabled" {
 			featureItems = append(featureItems, item(pair.label, v))
 		}
+	}
+	// Admin SSO shows its configuration type, not just enabled/disabled
+	if v := get("admin_sso"); v != "N/A" && v != "disabled" {
+		featureItems = append(featureItems, item("Admin SSO", v))
 	}
 
 	// Build Health & Alerts items
@@ -1047,18 +1172,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			},
 		},
 		{
-			Name: "Enrollment & Certificates",
-			Items: []overviewItem{
-				item("DEP Instances", get("dep_instances")),
-				getItem("DEP Token Expires", "dep_token_expires"),
-				item("DEP Sync Status", get("dep_sync_status")),
-				item("Computer Prestages", get("computer_prestages")),
-				item("Mobile Device Prestages", get("md_prestages")),
-				{}, // blank separator
-				getItem("Built-in CA Expires", "ca_expires"),
-				item("MDM Auto Renew (Computers)", get("mdm_renew_computer")),
-				item("MDM Auto Renew (Mobile)", get("mdm_renew_mobile")),
-			},
+			Name:  "Enrollment & Certificates",
+			Items: buildEnrollmentItems(get, getItem, item, adeTokenItems, vppTokenItems),
 		},
 		{
 			Name:  "Configuration",
@@ -1071,8 +1186,10 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 				item("Buildings", get("buildings")),
 				item("Departments", get("departments")),
 				item("Categories", get("categories")),
-				item("Computer Groups", get("computer_groups")),
-				item("Mobile Device Smart Groups", get("md_smart_groups")),
+				item("Computer Smart Groups", get("computer_smart_groups")),
+				item("Computer Static Groups", get("computer_static_groups")),
+				item("Mobile Smart Groups", get("md_smart_groups")),
+				item("Mobile Static Groups", get("md_static_groups")),
 				item("Static User Groups", get("static_user_groups")),
 			},
 		},
@@ -1083,6 +1200,59 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	}
 
 	return sections, nil
+}
+
+// buildEnrollmentItems assembles the Enrollment & Certificates section,
+// including per-instance ADE and VPP token expiry rows.
+func buildEnrollmentItems(
+	get func(string) string,
+	getItem func(string, string) overviewItem,
+	item func(string, string) overviewItem,
+	adeTokens, vppTokens []tokenExpiry,
+) []overviewItem {
+	items := []overviewItem{
+		item("ADE Instances", get("ade_instances")),
+	}
+
+	// Per-instance ADE token expiry rows
+	for i, t := range adeTokens {
+		label := ""
+		if i == 0 {
+			label = "ADE Token Expires"
+		}
+		display := t.Name + " — " + t.Value
+		items = append(items, overviewItem{label, display, t.Color})
+	}
+	if len(adeTokens) == 0 {
+		items = append(items, item("ADE Token Expires", "None configured"))
+	}
+
+	items = append(items,
+		item("ADE Sync Status", get("ade_sync_status")),
+		item("Computer Prestages", get("computer_prestages")),
+		item("Mobile Device Prestages", get("md_prestages")),
+	)
+
+	// VPP / Volume Purchasing section
+	items = append(items, item("VPP Locations", get("vpp_locations")))
+	for i, t := range vppTokens {
+		label := ""
+		if i == 0 {
+			label = "VPP Token Expires"
+		}
+		display := t.Name + " — " + t.Value
+		items = append(items, overviewItem{label, display, t.Color})
+	}
+
+	items = append(items,
+		overviewItem{}, // blank separator
+		getItem("APNs Certificate", "apns_cert"),
+		getItem("Built-in CA Expires", "ca_expires"),
+		item("MDM Auto Renew (Computers)", get("mdm_renew_computer")),
+		item("MDM Auto Renew (Mobile)", get("mdm_renew_mobile")),
+	)
+
+	return items
 }
 
 // printOverviewTable renders a grouped overview table with ANSI colors.
@@ -1136,10 +1306,10 @@ func printOverviewTable(w io.Writer, sections []overviewSection, useColor bool, 
 			case item.ColorHint == "yellow":
 				displayValue = colorize(item.Value+" ●", yellow)
 				visibleLen += 2
-			case item.Value == "ok" || item.Value == "ACCEPTED" || item.Value == "None":
+			case item.Value == "ok" || item.Value == "OK" || item.Value == "ACCEPTED" || item.Value == "None":
 				displayValue = colorize(item.Value+" ●", green)
 				visibleLen += 2
-			case item.Value == "enabled":
+			case item.Value == "enabled" || strings.HasPrefix(item.Value, "enabled ("):
 				displayValue = colorize(item.Value+" ●", green)
 				visibleLen += 2
 			case strings.HasPrefix(item.Value, "SUCCESSFUL"):

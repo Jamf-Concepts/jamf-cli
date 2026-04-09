@@ -1,0 +1,87 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - App Installer Titles
+  description: Browse the Jamf App Catalog of available App Installer titles. Titles are read-only catalog entries provided by Jamf.
+  version: 0.0.1
+paths:
+  /v1/app-installers/titles:
+    get:
+      tags:
+      - app-installer-titles
+      summary: Get all available App Installer titles
+      description: Retrieves all available App Installer titles from the Jamf App Catalog with pagination support
+      parameters:
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerTitleSearchResults'
+      x-required-privileges:
+      - Read App Installers
+  /v1/app-installers/titles/{id}:
+    get:
+      tags:
+      - app-installer-titles
+      summary: Get an App Installer title by ID
+      description: Retrieves a specific App Installer title from the catalog
+      parameters:
+      - name: id
+        in: path
+        description: ID of the App Installer title
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerTitle'
+        404:
+          description: Title not found
+      x-required-privileges:
+      - Read App Installers
+components:
+  schemas:
+    AppInstallerTitleSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppInstallerTitle'
+    AppInstallerTitle:
+      type: object
+      properties:
+        id:
+          type: string
+        bundleId:
+          type: string
+        titleName:
+          type: string
+          description: Display name of the application
+        publisher:
+          type: string
+        iconUrl:
+          type: string
+        version:
+          type: string
+        sizeInBytes:
+          type: integer
+        minimumOsVersion:
+          type: string
+        language:
+          type: string
+        availabilityDate:
+          type: string
+        shortVersion:
+          type: string
+        architecture:
+          type: string
