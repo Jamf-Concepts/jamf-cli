@@ -41,13 +41,10 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Get a single Panel for a single Enrollment Customization",
 		Long:  "Get a single panel for a single enrollment customization",
 		Example: `  # Get a enrollment-customization-panel by ID
-  jamf-cli enrollment-customization-panels get 1
-
-  # Get a enrollment-customization-panel by name
-  jamf-cli enrollment-customization-panels get-by-name "Example"
+  jamf-cli enrollment-customization-panels get 1 2
 
   # Get a enrollment-customization-panel and output as YAML
-  jamf-cli enrollment-customization-panels get 1 -o yaml`,
+  jamf-cli enrollment-customization-panels get 1 2 -o yaml`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -143,10 +140,10 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Update a enrollment-customization-panel from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-customization-panels update 1
+  echo '{"name":"Updated"}' | jamf-cli enrollment-customization-panels update 1 2
 
   # Get a enrollment-customization-panel, modify, and update
-  jamf-cli enrollment-customization-panels get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1`,
+  jamf-cli enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1 2`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -193,10 +190,10 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization-panel (with confirmation)
-  jamf-cli enrollment-customization-panels delete 1
+  jamf-cli enrollment-customization-panels delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-customization-panels delete 1 --yes`,
+  jamf-cli enrollment-customization-panels delete 1 2 --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

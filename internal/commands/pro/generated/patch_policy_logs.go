@@ -28,7 +28,6 @@ func NewPatchPolicyLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPatchPolicyLogsRetryCmd(ctx))
 	cmd.AddCommand(newPatchPolicyLogsRetryAllCmd(ctx))
 	cmd.AddCommand(newPatchPolicyLogsDetailsCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -41,13 +40,10 @@ func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieves a single Patch Policy Log",
 		Long:  "Retrieves a single Patch Policy Log",
 		Example: `  # Get a patch-policy-log by ID
-  jamf-cli patch-policy-logs get 1
-
-  # Get a patch-policy-log by name
-  jamf-cli patch-policy-logs get-by-name "Example"
+  jamf-cli patch-policy-logs get 1 2
 
   # Get a patch-policy-log and output as YAML
-  jamf-cli patch-policy-logs get 1 -o yaml`,
+  jamf-cli patch-policy-logs get 1 2 -o yaml`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -301,31 +297,4 @@ func newPatchPolicyLogsDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
-}
-
-func newPatchPolicyLogsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a patch-policy-log by name",
-		Example: `  # Get a patch-policy-log by name
-  jamf-cli patch-policy-logs get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli patch-policy-logs get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies/{id}/logs", "name", "deviceId", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/patch-policies/{id}/logs/{deviceId}", "{deviceId}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

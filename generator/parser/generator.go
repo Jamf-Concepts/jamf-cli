@@ -1361,7 +1361,6 @@ If not, a new resource is created.` + "`" + `,
 	return cmd
 }
 {{ end }}
-{{ end }}
 `
 
 const registryTemplate = `// Copyright 2026, Jamf Software LLC
