@@ -1860,3 +1860,57 @@ func TestDetectIDField(t *testing.T) {
 		})
 	}
 }
+
+// ── Override functions ───────────────────────────────────────────────────────
+
+func TestApplyNameOverrides(t *testing.T) {
+	resources := []*Resource{
+		{Name: "computers-inventories", NameSingular: "computers-inventory", GoName: "ComputersInventories"},
+		{Name: "buildings", NameSingular: "building", GoName: "Buildings"},
+	}
+	ApplyNameOverrides(resources)
+
+	r := resources[0]
+	if r.Name != "computers-inventory" {
+		t.Errorf("Name = %q, want computers-inventory", r.Name)
+	}
+	// "computers-inventory" ends in 'y', not 's', so singularize leaves it unchanged
+	if r.NameSingular != "computers-inventory" {
+		t.Errorf("NameSingular = %q, want computers-inventory", r.NameSingular)
+	}
+	if r.GoName != "ComputersInventory" {
+		t.Errorf("GoName = %q, want ComputersInventory", r.GoName)
+	}
+	// unaffected resource unchanged
+	if resources[1].Name != "buildings" {
+		t.Errorf("buildings name changed unexpectedly to %q", resources[1].Name)
+	}
+}
+
+func TestApplyNameFieldOverrides(t *testing.T) {
+	resources := []*Resource{
+		{Name: "computers-inventory", NameField: "name", IDField: "id"},
+		{Name: "groups", NameField: "name", IDField: "id"},
+		{Name: "buildings", NameField: "name", IDField: "id"},
+	}
+	ApplyNameFieldOverrides(resources)
+
+	tests := []struct {
+		name     string
+		wantName string
+		wantID   string
+	}{
+		{"computers-inventory", "general.name", "id"},
+		{"groups", "groupName", "groupPlatformId"},
+		{"buildings", "name", "id"}, // unaffected
+	}
+	for i, tt := range tests {
+		r := resources[i]
+		if r.NameField != tt.wantName {
+			t.Errorf("%s NameField = %q, want %q", tt.name, r.NameField, tt.wantName)
+		}
+		if r.IDField != tt.wantID {
+			t.Errorf("%s IDField = %q, want %q", tt.name, r.IDField, tt.wantID)
+		}
+	}
+}

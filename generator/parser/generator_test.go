@@ -1447,7 +1447,7 @@ func TestGeneratedFiles_HaveCodegenHeader(t *testing.T) {
 
 	var checked int
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
 			continue
 		}
 
@@ -1948,5 +1948,205 @@ func TestGenerate_IDFieldInNameResolution(t *testing.T) {
 	// We check that the resolve call doesn't use "id" for this resource.
 	if strings.Contains(code, `"name", "id", args[0]`) {
 		t.Error("should not use hardcoded 'id' when IDField is clientManagementId")
+	}
+}
+
+// ── Patch helpers ────────────────────────────────────────────────────────────
+
+func TestFlattenSchemaToScalarFields(t *testing.T) {
+	schemas := map[string]*Schema{
+		"GeneralUpdate": {
+			Properties: map[string]*Property{
+				"name":     {Type: "string"},
+				"managed":  {Type: "boolean"},
+				"readOnly": {Type: "string", ReadOnly: true},
+				"ids":      {Type: "array"},
+			},
+		},
+	}
+
+	root := &Schema{
+		Properties: map[string]*Property{
+			"udid": {Type: "string"},
+			// object with inline Nested (cross-file $ref pattern)
+			"general": {
+				Type: "object",
+				Nested: &Schema{
+					Properties: map[string]*Property{
+						"name":    {Type: "string"},
+						"managed": {Type: "boolean"},
+						"ids":     {Type: "array"}, // excluded — array
+					},
+				},
+			},
+			// object resolved via SchemaRef (same-file component)
+			"purchasing": {
+				Type:      "object",
+				SchemaRef: "GeneralUpdate",
+			},
+			// array at top level — excluded
+			"extensionAttributes": {Type: "array"},
+		},
+	}
+
+	fields := flattenSchemaToScalarFields(root, schemas)
+
+	byPath := make(map[string]string, len(fields))
+	for _, f := range fields {
+		byPath[f.Path] = f.Type
+	}
+
+	// top-level scalar included
+	if byPath["udid"] != "string" {
+		t.Errorf("expected udid=string, got %q", byPath["udid"])
+	}
+	// nested via Nested
+	if byPath["general.name"] != "string" {
+		t.Errorf("expected general.name=string, got %q", byPath["general.name"])
+	}
+	if byPath["general.managed"] != "boolean" {
+		t.Errorf("expected general.managed=boolean, got %q", byPath["general.managed"])
+	}
+	// nested via SchemaRef
+	if byPath["purchasing.name"] != "string" {
+		t.Errorf("expected purchasing.name=string, got %q", byPath["purchasing.name"])
+	}
+	// read-only excluded
+	if _, ok := byPath["purchasing.readOnly"]; ok {
+		t.Error("read-only field should be excluded")
+	}
+	// arrays excluded
+	if _, ok := byPath["general.ids"]; ok {
+		t.Error("array field inside nested schema should be excluded")
+	}
+	if _, ok := byPath["extensionAttributes"]; ok {
+		t.Error("top-level array should be excluded")
+	}
+}
+
+func TestPatchHasLookup(t *testing.T) {
+	patchOp := &Operation{
+		Name:   "patch",
+		Method: "PATCH",
+		Path:   "/v1/things/{id}",
+		RequestBody: &RequestBody{
+			Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}},
+		},
+	}
+	listOp := &Operation{Name: "list", Method: "GET", Path: "/v1/things"}
+
+	tests := []struct {
+		name string
+		r    *Resource
+		want bool
+	}{
+		{
+			name: "singleton has no lookup",
+			r:    &Resource{IsSingleton: true, Operations: []*Operation{patchOp}},
+			want: false,
+		},
+		{
+			name: "no list path — no lookup",
+			r:    &Resource{Operations: []*Operation{patchOp}, IDField: "id"},
+			want: false,
+		},
+		{
+			name: "patch without path param — no lookup",
+			r: &Resource{
+				Operations: []*Operation{
+					listOp,
+					{
+						Name: "patch", Method: "PATCH", Path: "/v1/things",
+						RequestBody: &RequestBody{Schema: &Schema{}},
+					},
+				},
+				IDField: "id",
+			},
+			want: false,
+		},
+		{
+			name: "full conditions met",
+			r: &Resource{
+				Operations: []*Operation{listOp, patchOp},
+				IDField:    "id",
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := patchHasLookup(tt.r); got != tt.want {
+				t.Errorf("patchHasLookup() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGeneratePatchCommand(t *testing.T) {
+	dir := t.TempDir()
+	resource := &Resource{
+		Name:         "widgets",
+		NameSingular: "widget",
+		GoName:       "Widgets",
+		IDField:      "id",
+		NameField:    "name",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/widgets", IsList: true},
+			{
+				Name:   "patch",
+				Method: "PATCH",
+				Path:   "/v1/widgets/{id}",
+				RequestBody: &RequestBody{
+					Schema: &Schema{
+						Properties: map[string]*Property{
+							"name":  {Type: "string"},
+							"color": {Type: "string"},
+						},
+					},
+				},
+			},
+		},
+		Schemas: map[string]*Schema{},
+	}
+
+	gen := NewGenerator(dir)
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// patch command function exists
+	if !strings.Contains(code, "func newWidgetsPatchCmd(") {
+		t.Error("expected newWidgetsPatchCmd function")
+	}
+	// uses MaximumNArgs(1) because patchHasLookup is true
+	if !strings.Contains(code, "cobra.MaximumNArgs(1)") {
+		t.Error("expected MaximumNArgs(1) for patch command with lookup")
+	}
+	// --name flag registered
+	if !strings.Contains(code, `"name", "", "Look up widget by name"`) {
+		t.Error("expected --name flag for patch command with lookup")
+	}
+	// merge-patch content type set
+	if !strings.Contains(code, "application/merge-patch+json") {
+		t.Error("expected merge-patch content type")
+	}
+	// --set flag registered
+	if !strings.Contains(code, `"set", nil`) {
+		t.Error("expected --set flag")
+	}
+	// --from-file flag registered
+	if !strings.Contains(code, `"from-file"`) {
+		t.Error("expected --from-file flag")
+	}
+	// no patch-by-name function generated
+	if strings.Contains(code, "PatchByNameCmd") {
+		t.Error("patch-by-name should not be generated as a separate command")
 	}
 }

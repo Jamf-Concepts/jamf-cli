@@ -895,7 +895,7 @@ func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) strin
 	if len(fields) > 0 {
 		sb.WriteString(`\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n`)
 		for _, f := range fields {
-			sb.WriteString(fmt.Sprintf(`  %-44s %s\n`, f.Path, f.Type))
+			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
 		}
 		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).`)
 	}
