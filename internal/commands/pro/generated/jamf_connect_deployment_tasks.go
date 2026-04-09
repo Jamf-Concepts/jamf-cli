@@ -22,76 +22,8 @@ func NewJamfConnectDeploymentTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage jamf-connect-deployment-tasks in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newJamfConnectDeploymentTasksGetCmd(ctx))
 	cmd.AddCommand(newJamfConnectDeploymentTasksCreateCmd(ctx))
-	cmd.AddCommand(newJamfConnectDeploymentTasksGetByNameCmd(ctx))
-
-	return cmd
-}
-
-func newJamfConnectDeploymentTasksGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagPage     int
-		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Search for deployment tasks for a config profile linked to Jamf Connect",
-		Long:  "Search for config profiles linked to Jamf Connect",
-		Example: `  # Get a jamf-connect-deployment-task by ID
-  jamf-cli jamf-connect-deployment-tasks get 1
-
-  # Get a jamf-connect-deployment-task by name
-  jamf-cli jamf-connect-deployment-tasks get-by-name "Example"
-
-  # Get a jamf-connect-deployment-task and output as YAML
-  jamf-cli jamf-connect-deployment-tasks get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/jamf-connect/deployments/{id}/tasks"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if len(flagSort) > 0 {
-				for _, v := range flagSort {
-					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
-				}
-			}
-			if flagFilter != "" {
-				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is not duplicated for each sort criterion, e.g., ...&sort=name%2Casc,date%2Cdesc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.AddCommand(newJamfConnectDeploymentTasksTasksCmd(ctx))
 
 	return cmd
 }
@@ -156,29 +88,61 @@ func newJamfConnectDeploymentTasksCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newJamfConnectDeploymentTasksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a jamf-connect-deployment-task by name",
-		Example: `  # Get a jamf-connect-deployment-task by name
-  jamf-cli jamf-connect-deployment-tasks get-by-name "Example"
+func newJamfConnectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+	)
 
-  # Get by name and output as YAML
-  jamf-cli jamf-connect-deployment-tasks get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "tasks <id>",
+		Short: "Search for deployment tasks for a config profile linked to Jamf Connect",
+		Long:  "Search for config profiles linked to Jamf Connect",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jamf-connect/deployments", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v1/jamf-connect/deployments/{id}/tasks"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
 			}
-			path := strings.Replace("/v1/jamf-connect/deployments/{id}/tasks", "{id}", url.PathEscape(id), 1)
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is not duplicated for each sort criterion, e.g., ...&sort=name%2Casc,date%2Cdesc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+
+	return cmd
 }

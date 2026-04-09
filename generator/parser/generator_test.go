@@ -127,27 +127,146 @@ func TestEscapeQuotes(t *testing.T) {
 }
 
 func TestDedupeOperations(t *testing.T) {
-	ops := []*Operation{
-		{Name: "list"},
-		{Name: "get"},
-		{Name: "list"}, // duplicate
-		{Name: "create"},
-		{Name: "get"}, // duplicate
-	}
-	got := dedupeOperations(ops)
-	if len(got) != 3 {
-		t.Fatalf("expected 3 unique ops, got %d", len(got))
-	}
-	names := make([]string, len(got))
-	for i, op := range got {
-		names[i] = op.Name
-	}
-	// Should keep first occurrence
-	want := []string{"list", "get", "create"}
-	for i, n := range want {
-		if names[i] != n {
-			t.Errorf("deduped[%d] = %q, want %q", i, names[i], n)
+	t.Run("keeps first occurrence", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "list"},
+			{Name: "get"},
+			{Name: "list"}, // duplicate
+			{Name: "create"},
+			{Name: "get"}, // duplicate
 		}
+		got := dedupeOperations(ops)
+		if len(got) != 3 {
+			t.Fatalf("expected 3 unique ops, got %d", len(got))
+		}
+		want := []string{"list", "get", "create"}
+		for i, n := range want {
+			if got[i].Name != n {
+				t.Errorf("deduped[%d] = %q, want %q", i, got[i].Name, n)
+			}
+		}
+	})
+
+	t.Run("prefers get matching collection path", func(t *testing.T) {
+		// Simulates SmartComputerGroups: membership/{id} sorts before smart-groups/{id}
+		// but smart-groups/{id} matches the collection path → should win.
+		ops := []*Operation{
+			{Name: "list", Method: "GET", Path: "/v2/computer-groups/smart-groups"},
+			{Name: "get", Method: "GET", Path: "/v2/computer-groups/smart-group-membership/{id}"},
+			{Name: "get", Method: "GET", Path: "/v2/computer-groups/smart-groups/{id}"},
+			{Name: "create", Method: "POST", Path: "/v2/computer-groups/smart-groups"},
+		}
+		got := dedupeOperations(ops)
+		getOp := findOp(got, "get")
+		if getOp == nil {
+			t.Fatal("no get operation after dedup")
+		} else if getOp.Path != "/v2/computer-groups/smart-groups/{id}" {
+			t.Errorf("get path = %q, want /v2/computer-groups/smart-groups/{id}", getOp.Path)
+		}
+	})
+
+	t.Run("no replacement when both get ops miss collection path", func(t *testing.T) {
+		ops := []*Operation{
+			{Name: "get", Method: "GET", Path: "/v1/foo/bar/{id}"},
+			{Name: "get", Method: "GET", Path: "/v1/foo/baz/{id}"},
+		}
+		got := dedupeOperations(ops)
+		// Should keep first (bar) since neither matches a collection path
+		getOp := findOp(got, "get")
+		if getOp == nil {
+			t.Fatal("no get operation after dedup")
+		} else if getOp.Path != "/v1/foo/bar/{id}" {
+			t.Errorf("get path = %q, want /v1/foo/bar/{id}", getOp.Path)
+		}
+	})
+}
+
+func TestCollectionPath(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want string
+	}{
+		{
+			name: "list GET with child takes priority",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v2/computer-groups/smart-groups"},
+				{Name: "get", Method: "GET", Path: "/v2/computer-groups/smart-groups/{id}"},
+				{Name: "get", Method: "GET", Path: "/v2/computer-groups/smart-group-membership/{id}"},
+			},
+			want: "/v2/computer-groups/smart-groups",
+		},
+		{
+			name: "list GET without child is skipped",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/device-compliance/feature-toggle"},
+				{Name: "get", Method: "GET", Path: "/v1/device-compliance/computer/{id}"},
+			},
+			want: "/v1/device-compliance/computer",
+		},
+		{
+			name: "create POST with child",
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v2/enrollment-customizations"},
+				{Name: "get", Method: "GET", Path: "/v2/enrollment-customizations/{id}"},
+			},
+			want: "/v2/enrollment-customizations",
+		},
+		{
+			name: "create POST without child is skipped",
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/enrollment-customization/parse-markdown"},
+				{Name: "get", Method: "GET", Path: "/v1/enrollment-customization/{id}/all/{panel-id}"},
+			},
+			want: "",
+		},
+		{
+			name: "fallback to get stripped",
+			ops: []*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/buildings/{id}"},
+			},
+			want: "/v1/buildings",
+		},
+		{
+			name: "stripped path with remaining params is skipped",
+			ops: []*Operation{
+				{Name: "update", Method: "PUT", Path: "/v1/foo/{id}/bar/{subId}"},
+				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bar/{subId}"},
+			},
+			want: "",
+		},
+		{
+			name: "empty ops",
+			ops:  []*Operation{},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := collectionPath(tt.ops)
+			if got != tt.want {
+				t.Errorf("collectionPath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIndexedPathParams(t *testing.T) {
+	params := []*Parameter{
+		{Name: "filter", In: "query"},
+		{Name: "id", In: "path"},
+		{Name: "page", In: "query"},
+		{Name: "username", In: "path"},
+	}
+	got := indexedPathParams(params)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 indexed path params, got %d", len(got))
+	}
+	if got[0].Index != 0 || got[0].Param.Name != "id" {
+		t.Errorf("indexed[0] = {%d, %q}, want {0, id}", got[0].Index, got[0].Param.Name)
+	}
+	if got[1].Index != 1 || got[1].Param.Name != "username" {
+		t.Errorf("indexed[1] = {%d, %q}, want {1, username}", got[1].Index, got[1].Param.Name)
 	}
 }
 
@@ -989,6 +1108,14 @@ func TestHasDeleteByName(t *testing.T) {
 			false,
 		},
 		{"empty", []*Operation{}, false},
+		{
+			"sub-resource with multi-param paths — delete-by-name suppressed",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1286,8 +1413,8 @@ func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
 func TestNeedsFmt_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
-			{Name: "create", Method: "POST"},
-			{Name: "update", Method: "PUT"},
+			{Name: "create", Method: "POST", Path: "/v1/widgets"},
+			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
 	}
 	if !needsFmt(r) {
@@ -1298,8 +1425,8 @@ func TestNeedsFmt_WithApply(t *testing.T) {
 func TestNeedsURL_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
-			{Name: "create", Method: "POST"},
-			{Name: "update", Method: "PUT"},
+			{Name: "create", Method: "POST", Path: "/v1/widgets"},
+			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
 	}
 	if !needsURL(r) {
@@ -1397,6 +1524,15 @@ func TestShouldGenerateApply(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name:        "sub-resource with multi-param create+update — apply suppressed",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/foo/{id}/bars"},
+				{Name: "update", Method: "PUT", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1405,6 +1541,47 @@ func TestShouldGenerateApply(t *testing.T) {
 			got := shouldGenerateApply(r)
 			if got != tt.want {
 				t.Errorf("shouldGenerateApply() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldGenerateGetByName(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			"standard CRUD resource with list + get — get-by-name generated",
+			[]*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			},
+			true,
+		},
+		{
+			"sub-resource with multi-param get — get-by-name suppressed",
+			[]*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
+				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
+			},
+			false,
+		},
+		{
+			"no get op — get-by-name suppressed",
+			[]*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Resource{Operations: tt.ops}
+			got := shouldGenerateGetByName(r)
+			if got != tt.want {
+				t.Errorf("shouldGenerateGetByName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1584,4 +1761,96 @@ func TestSafeFilename(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerate_MultiParamCommand(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "laps",
+		NameSingular: "lap",
+		GoName:       "Laps",
+		Description:  "LAPS passwords",
+		NameField:    "username",
+		Operations: []*Operation{
+			{
+				Name:       "list",
+				Method:     "GET",
+				Path:       "/v2/laps/pending-rotations",
+				Summary:    "List pending rotations",
+				APIVersion: "v2",
+			},
+			{
+				Name:       "accounts",
+				Method:     "GET",
+				Path:       "/v2/laps/{clientManagementId}/accounts",
+				Summary:    "Get LAPS accounts",
+				APIVersion: "v2",
+				Parameters: []*Parameter{
+					{Name: "clientManagementId", In: "path", Type: "string", Required: true},
+				},
+			},
+			{
+				Name:       "audit",
+				Method:     "GET",
+				Path:       "/v2/laps/{clientManagementId}/account/{username}/audit",
+				Summary:    "Get audit history",
+				APIVersion: "v2",
+				Parameters: []*Parameter{
+					{Name: "clientManagementId", In: "path", Type: "string", Required: true},
+					{Name: "username", In: "path", Type: "string", Required: true},
+				},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Single-param command should use <id>
+	if !strings.Contains(code, `"accounts <id>"`) {
+		t.Error("single-param command should use <id> in usage")
+	}
+
+	// Multi-param command should use named params
+	if !strings.Contains(code, `"audit <clientManagementId> <username>"`) {
+		t.Error("multi-param command should use named params in usage")
+	}
+
+	// Multi-param command should use ExactArgs(2)
+	if !strings.Contains(code, "cobra.ExactArgs(2)") {
+		t.Error("multi-param command should use ExactArgs(2)")
+	}
+
+	// Path replacement should use args[0] and args[1]
+	if !strings.Contains(code, `url.PathEscape(args[0])`) {
+		t.Error("should use args[0] for first path param")
+	}
+	if !strings.Contains(code, `url.PathEscape(args[1])`) {
+		t.Error("should use args[1] for second path param")
+	}
+
+	// Single-param command should still use ExactArgs(1)
+	if !strings.Contains(code, "cobra.ExactArgs(1)") {
+		t.Error("single-param command should use ExactArgs(1)")
+	}
+}
+
+func findOp(ops []*Operation, name string) *Operation {
+	for _, op := range ops {
+		if op.Name == name {
+			return op
+		}
+	}
+	return nil
 }

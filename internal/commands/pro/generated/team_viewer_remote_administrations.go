@@ -26,8 +26,10 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsCreateCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsCloseCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetByNameCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx))
@@ -36,16 +38,12 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagPage     int
-		flagPageSize int
-		flagFilter   string
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a paginated list of sessions",
-		Long:  "Returns a paginated list of sessions for a given configuration ID",
+		Short: "Get Team Viewer Remote Administration connection configuration",
+		Long:  "Returns Team Viewer Remote Administration connection configuration",
 		Example: `  # Get a team-viewer-remote-administration by ID
   jamf-cli team-viewer-remote-administrations get 1
 
@@ -59,20 +57,11 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path := "/preview/remote-administration-configurations/team-viewer/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
-			if flagPage != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
-			}
-			if flagPageSize != 0 {
-				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
-			}
-			if flagFilter != "" {
-				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
-			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -87,10 +76,6 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
 
 	return cmd
 }
@@ -226,21 +211,73 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
+func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagFilter   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "sessions <id>",
+		Short: "Get a paginated list of sessions",
+		Long:  "Returns a paginated list of sessions for a given configuration ID",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
+
+	return cmd
+}
+
 func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "close <id>",
+		Use:   "close <configurationId> <sessionId>",
 		Short: "Close a session",
 		Long:  "Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/close"
 			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -272,17 +309,17 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "resend-notification <id>",
+		Use:   "resend-notification <configurationId> <sessionId>",
 		Short: "Resend nofications for a session",
 		Long:  "Resends configured notifications (e.g. Self Service push notifications).",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/resend-notification"
 			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -298,6 +335,42 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status <configurationId> <sessionId>",
+		Short: "Get a session status by its ID",
+		Long:  "Returns a session status if found.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status"
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -381,7 +454,7 @@ func newTeamViewerRemoteAdministrationsGetByNameCmd(ctx *registry.CLIContext) *c
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions", "{configurationId}", url.PathEscape(id), 1)
+			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err

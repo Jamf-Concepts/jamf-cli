@@ -20,8 +20,8 @@ func NewMobileDevicePrestageSyncStatesCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.AddCommand(newMobileDevicePrestageSyncStatesListCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageSyncStatesGetCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestageSyncStatesGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStatesSyncsCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestageSyncStatesLatestCmd(ctx))
 
 	return cmd
 }
@@ -64,22 +64,14 @@ func newMobileDevicePrestageSyncStatesListCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newMobileDevicePrestageSyncStatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDevicePrestageSyncStatesSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "syncs <id>",
 		Short: "Get all prestage sync states for a single prestage",
 		Long:  "Get all prestage sync states for a single prestage",
-		Example: `  # Get a mobile-device-prestage-sync-state by ID
-  jamf-cli mobile-device-prestage-sync-states get 1
-
-  # Get a mobile-device-prestage-sync-state by name
-  jamf-cli mobile-device-prestage-sync-states get-by-name "Example"
-
-  # Get a mobile-device-prestage-sync-state and output as YAML
-  jamf-cli mobile-device-prestage-sync-states get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -107,29 +99,37 @@ func newMobileDevicePrestageSyncStatesGetCmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 
-func newMobileDevicePrestageSyncStatesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestage-sync-state by name",
-		Example: `  # Get a mobile-device-prestage-sync-state by name
-  jamf-cli mobile-device-prestage-sync-states get-by-name "Example"
+func newMobileDevicePrestageSyncStatesLatestCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli mobile-device-prestage-sync-states get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "latest <id>",
+		Short: "Get the latest Sync State for a single Prestage",
+		Long:  "Get the latest sync state for a single prestage",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-prestages", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v2/mobile-device-prestages/{id}/syncs/latest"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v2/mobile-device-prestages/{id}/syncs", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,9 +27,8 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newEnrollmentCustomizationPanelsCreateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsUpdateCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationPanelsGetByNameCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationPanelsApplyCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationPanelsDeleteByNameCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsAllCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPanelsMarkdownCmd(ctx))
 
 	return cmd
 }
@@ -39,24 +37,22 @@ func newEnrollmentCustomizationPanelsGetCmd(ctx *registry.CLIContext) *cobra.Com
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get all Panels for single Enrollment Customization",
-		Long:  "Get all panels for single enrollment customization",
+		Use:   "get <id> <panel-id>",
+		Short: "Get a single Panel for a single Enrollment Customization",
+		Long:  "Get a single panel for a single enrollment customization",
 		Example: `  # Get a enrollment-customization-panel by ID
-  jamf-cli enrollment-customization-panels get 1
-
-  # Get a enrollment-customization-panel by name
-  jamf-cli enrollment-customization-panels get-by-name "Example"
+  jamf-cli enrollment-customization-panels get 1 2
 
   # Get a enrollment-customization-panel and output as YAML
-  jamf-cli enrollment-customization-panels get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+  jamf-cli enrollment-customization-panels get 1 2 -o yaml`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/enrollment-customization/{id}/all"
+			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -140,22 +136,22 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <id> <panel-id>",
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Update a enrollment-customization-panel from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-customization-panels update 1
+  echo '{"name":"Updated"}' | jamf-cli enrollment-customization-panels update 1 2
 
   # Get a enrollment-customization-panel, modify, and update
-  jamf-cli enrollment-customization-panels get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1`,
-		Args: cobra.ExactArgs(1),
+  jamf-cli enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1 2`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -190,15 +186,15 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete <id> <panel-id>",
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization-panel (with confirmation)
-  jamf-cli enrollment-customization-panels delete 1
+  jamf-cli enrollment-customization-panels delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-customization-panels delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+  jamf-cli enrollment-customization-panels delete 1 2 --yes`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -223,7 +219,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -253,193 +249,73 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	return cmd
 }
 
-func newEnrollmentCustomizationPanelsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a enrollment-customization-panel by name",
-		Example: `  # Get a enrollment-customization-panel by name
-  jamf-cli enrollment-customization-panels get-by-name "Example"
+func newEnrollmentCustomizationPanelsAllCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli enrollment-customization-panels get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "all <id>",
+		Short: "Get all Panels for single Enrollment Customization",
+		Long:  "Get all panels for single enrollment customization",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/all"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v1/enrollment-customization/{id}/all", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-}
-
-func newEnrollmentCustomizationPanelsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a enrollment-customization-panel by name",
-		Example: `  # Delete a enrollment-customization-panel by name (with confirmation)
-  jamf-cli enrollment-customization-panels delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli enrollment-customization-panels delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no enrollment-customization-panel found with displayName %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-customization-panel %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete enrollment-customization-panel %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/enrollment-customization/{id}/all/{panel-id}", "{panel-id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted enrollment-customization-panel %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }
 
-func newEnrollmentCustomizationPanelsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
-	)
+func newEnrollmentCustomizationPanelsMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a enrollment-customization-panel by name",
-		Long: `Create or replace a enrollment-customization-panel. Reads JSON from --from-file or stdin.
-
-The displayName field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a enrollment-customization-panel from a file
-  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json
-
-  # Apply from stdin
-  cat enrollment-customization-panel.json | jamf-cli enrollment-customization-panels apply
-
-  # Apply without replacement confirmation
-  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json --yes
-
-  # Preview what would happen
-  jamf-cli enrollment-customization-panels apply --from-file enrollment-customization-panel.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Use:   "markdown <id> <panel-id>",
+		Short: "Get the markdown output of a single Text Panel for a single Enrollment",
+		Long:  "Get the markdown output of a single Text panel for a single enrollment customization",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "displayName")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/enrollment-customization", "displayName", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create enrollment-customization-panel %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/enrollment-customization/parse-markdown", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created enrollment-customization-panel %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace enrollment-customization-panel %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("enrollment-customization-panel %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "enrollment-customization-panel %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/v1/enrollment-customization/{id}/ldap/{panel-id}", "{panel-id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced enrollment-customization-panel %q (id: %s)\n", name, id)
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

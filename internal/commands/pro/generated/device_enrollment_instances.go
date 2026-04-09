@@ -31,6 +31,7 @@ func NewDeviceEnrollmentInstancesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceEnrollmentInstancesHistoryCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesUploadTokenCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstancesDevicesCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDisownCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesGetByNameCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDeleteByNameCmd(ctx))
@@ -565,6 +566,41 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newDeviceEnrollmentInstancesDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "devices <id>",
+		Short: "Retrieve a list of Devices assigned to the supplied id",
+		Long:  "Retrieves a list of devices assigned to the supplied id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/device-enrollments/{id}/devices"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

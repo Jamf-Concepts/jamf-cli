@@ -29,6 +29,8 @@ func NewManagedSoftwareUpdatesPlansCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansCreateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansUpdateCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansAbandonCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesPlansEventsCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansGetByNameCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesPlansApplyCmd(ctx))
 
@@ -167,14 +169,12 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagGroupType string
-	)
+	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Retrieve Managed Software Update Plans for a Group",
-		Long:  "Retrieves Managed Software Update Plans for a Group",
+		Short: "Retrieve a Managed Software Update Plan",
+		Long:  "Retrieves a Managed Software Update Plan",
 		Example: `  # Get a managed-software-updates-plan by ID
   jamf-cli managed-software-updates-plans get 1
 
@@ -188,14 +188,11 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/managed-software-updates/plans/group/{id}"
+			path := "/v1/managed-software-updates/plans/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
-			if flagGroupType != "" {
-				queryParts = append(queryParts, "group-type="+url.QueryEscape(flagGroupType))
-			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -210,8 +207,6 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagGroupType, "group-type", "", "Managed Software Update Group Type, Available options are \"COMPUTER_GROUP\" or \"MOBILE_DEVICE_GROUP\"")
 
 	return cmd
 }
@@ -369,6 +364,76 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
+func newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "declarations <id>",
+		Short: "Retrieve all Declarations associated with a Managed Software Update Plan",
+		Long:  "Retrieves all Declarations associated with a Managed Software Update Plan",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/{id}/declarations"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesPlansEventsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "events <id>",
+		Short: "Retrieve a Managed Software Update Plan Event Store",
+		Long:  "Retrieves a Managed Software Update Plan Event Store",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/plans/{id}/events"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newManagedSoftwareUpdatesPlansGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
@@ -381,11 +446,11 @@ func newManagedSoftwareUpdatesPlansGetByNameCmd(ctx *registry.CLIContext) *cobra
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans/group", "name", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", args[0])
 			if err != nil {
 				return err
 			}
-			path := strings.Replace("/v1/managed-software-updates/plans/group/{id}", "{id}", url.PathEscape(id), 1)
+			path := strings.Replace("/v1/managed-software-updates/plans/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -439,7 +504,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/managed-software-updates/plans/group", "name", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", name, noInput)
 			if err != nil {
 				return err
 			}

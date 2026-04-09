@@ -22,29 +22,25 @@ func NewMobileDeviceEnrollmentProfilesCmd(ctx *registry.CLIContext) *cobra.Comma
 		Long:  `Manage mobile-device-enrollment-profiles in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDeviceEnrollmentProfilesGetCmd(ctx))
-	cmd.AddCommand(newMobileDeviceEnrollmentProfilesGetByNameCmd(ctx))
+	cmd.AddCommand(newMobileDeviceEnrollmentProfilesDownloadCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDeviceEnrollmentProfilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDeviceEnrollmentProfilesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "download <id>",
 		Short: "Retrieve the MDM Enrollment Profile",
 		Long:  "Retrieve the MDM Enrollment Profile",
-		Example: `  # Get a mobile-device-enrollment-profile by ID
-  jamf-cli mobile-device-enrollment-profiles get 1
+		Example: `  # Save to file
+  jamf-cli pro mobile-device-enrollment-profiles download <id> -O output.bin
 
-  # Get a mobile-device-enrollment-profile by name
-  jamf-cli mobile-device-enrollment-profiles get-by-name "Example"
-
-  # Get a mobile-device-enrollment-profile and output as YAML
-  jamf-cli mobile-device-enrollment-profiles get 1 -o yaml`,
+  # Pipe to stdout
+  jamf-cli pro mobile-device-enrollment-profiles download <id> > output.bin`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -88,31 +84,4 @@ func newMobileDeviceEnrollmentProfilesGetCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
-}
-
-func newMobileDeviceEnrollmentProfilesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-enrollment-profile by name",
-		Example: `  # Get a mobile-device-enrollment-profile by name
-  jamf-cli mobile-device-enrollment-profiles get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-device-enrollment-profiles get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-enrollment-profile", "name", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/mobile-device-enrollment-profile/{id}/download-profile", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

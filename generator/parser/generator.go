@@ -68,20 +68,38 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 	resource.Operations = dedupeOperations(resource.Operations)
 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
-		"toCamel":          strcase.ToCamel,
-		"toLowerCamel":     strcase.ToLowerCamel,
-		"toSnake":          strcase.ToSnake,
-		"toKebab":          strcase.ToKebab,
-		"toScreamingSnake": strcase.ToScreamingSnake,
-		"hasPathParam":     hasPathParam,
-		"pathParams":       pathParams,
-		"queryParams":      queryParams,
-		"goType":           goType,
-		"flagType":         flagType,
-		"sortOps":          sortOperations,
-		"dedupeOps":        dedupeOperations,
-		"escapeQuotes":     escapeQuotes,
-		"isDestructive":    func(op *Operation) bool { return op.IsDestructive },
+		"toCamel":           strcase.ToCamel,
+		"toLowerCamel":      strcase.ToLowerCamel,
+		"toSnake":           strcase.ToSnake,
+		"toKebab":           strcase.ToKebab,
+		"toScreamingSnake":  strcase.ToScreamingSnake,
+		"hasPathParam":      hasPathParam,
+		"pathParams":        pathParams,
+		"indexedPathParams": indexedPathParams,
+		"pathParamCount": func(params []*Parameter) int {
+			return len(pathParams(params))
+		},
+		"pathParamUsage": func(params []*Parameter) string {
+			pp := pathParams(params)
+			if len(pp) == 0 {
+				return ""
+			}
+			if len(pp) == 1 {
+				return " <id>"
+			}
+			var parts []string
+			for _, p := range pp {
+				parts = append(parts, "<"+p.Name+">")
+			}
+			return " " + strings.Join(parts, " ")
+		},
+		"queryParams":   queryParams,
+		"goType":        goType,
+		"flagType":      flagType,
+		"sortOps":       sortOperations,
+		"dedupeOps":     dedupeOperations,
+		"escapeQuotes":  escapeQuotes,
+		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
 		"exampleText": func(resourceName, nameSingular string, op *Operation) string {
 			bin := "jamf-cli"
 			switch op.Name {
@@ -93,6 +111,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					// Singleton get — no ID argument
 					return fmt.Sprintf("  # Get %s\n  %s %s get\n\n  # Get %s and output as YAML\n  %s %s get -o yaml",
 						resourceName, bin, resourceName, resourceName, bin, resourceName)
+				}
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					// Multi-param sub-resource: no get-by-name; use "1 2 ..." as example args
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get %s\n\n  # Get a %s and output as YAML\n  %s %s get %s -o yaml",
+						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr)
 				}
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get-by-name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
@@ -109,15 +137,41 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Update %s\n  %s %s get -o json | jq '.field = \"value\"' | %s %s update\n\n  # Update from a file\n  %s %s update --from-file %s.json",
 						resourceName, bin, resourceName, bin, resourceName, bin, resourceName, resourceName)
 				}
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s\n\n  # Get a %s, modify, and update\n  %s %s get %s -o json | jq '.name = \"New Name\"' | %s %s update %s",
+						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+				}
 				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "delete":
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					idStr := strings.Join(argNums, " ")
+					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete %s\n\n  # Delete without confirmation prompt\n  %s %s delete %s --yes",
+						nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+				}
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					nameSingular, bin, resourceName, bin, resourceName)
 			case "delete-multiple":
 				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
 					resourceName, bin, resourceName)
 			case "history":
+				if pp := pathParams(op.Parameters); len(pp) > 1 {
+					var argNums []string
+					for i := range pp {
+						argNums = append(argNums, fmt.Sprintf("%d", i+1))
+					}
+					return fmt.Sprintf("  # Get history for a %s\n  %s %s history %s",
+						nameSingular, bin, resourceName, strings.Join(argNums, " "))
+				}
 				return fmt.Sprintf("  # Get history for a %s\n  %s %s history 1",
 					nameSingular, bin, resourceName)
 			case "export":
@@ -163,16 +217,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			return "{id}"
 		},
 		"listPathFromOps": func(ops []*Operation) string {
-			// Derive the list endpoint from the get path: /v1/buildings/{id} → /v1/buildings
-			for _, op := range ops {
-				if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
-					path := op.Path
-					if idx := strings.LastIndex(path, "/{"); idx != -1 {
-						return path[:idx]
-					}
-				}
-			}
-			return ""
+			return collectionPath(ops)
 		},
 		"createPath": func(ops []*Operation) string {
 			for _, op := range ops {
@@ -219,14 +264,15 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return scaffoldJSON(op.RequestBody.Schema)
 		},
-		"needsFmt":             needsFmt,
-		"needsURL":             needsURL,
-		"needsMultipart":       needsMultipart,
-		"hasAnyBinaryResponse": hasAnyBinaryResponse,
-		"opIsMultipart":        func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
-		"opHasBinaryResponse":  opHasBinaryResponse,
-		"shouldGenerateApply":  shouldGenerateApply,
-		"hasDeleteMultiple":    hasDeleteMultiple,
+		"needsFmt":                needsFmt,
+		"needsURL":                needsURL,
+		"needsMultipart":          needsMultipart,
+		"hasAnyBinaryResponse":    hasAnyBinaryResponse,
+		"opIsMultipart":           func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
+		"opHasBinaryResponse":     opHasBinaryResponse,
+		"shouldGenerateApply":     shouldGenerateApply,
+		"shouldGenerateGetByName": shouldGenerateGetByName,
+		"hasDeleteMultiple":       hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
@@ -336,6 +382,22 @@ func pathParams(params []*Parameter) []*Parameter {
 	return result
 }
 
+// indexedParam pairs a path parameter with its positional index for template use.
+type indexedParam struct {
+	Index int
+	Param *Parameter
+}
+
+func indexedPathParams(params []*Parameter) []indexedParam {
+	var result []indexedParam
+	for _, p := range params {
+		if p.In == "path" {
+			result = append(result, indexedParam{Index: len(result), Param: p})
+		}
+	}
+	return result
+}
+
 func queryParams(params []*Parameter) []*Parameter {
 	var result []*Parameter
 	for _, p := range params {
@@ -381,13 +443,96 @@ func escapeQuotes(s string) string {
 	return s
 }
 
+// collectionPath returns the canonical collection/list path for a resource's operations.
+// Priority:
+//  1. "list" GET without path param that also has a direct /{param} child — this confirms
+//     it is a true CRUD collection and not a utility endpoint (e.g. feature-toggle).
+//  2. "create" POST without path param AND with a direct /{param} child — same safety
+//     check; excludes utility POSTs like parse-markdown or tasks/retry.
+//  3. Derive from "get" (GET with path param) by stripping the last /{param} segment —
+//     only accepted when the result itself has no path params (avoids paths like
+//     /foo/{id}/bar/{subId}). This is the original fallback and most common case.
+//  4. Derive from "update" (PUT) by stripping the last /{param} — same constraint:
+//     result must be param-free.
+func collectionPath(ops []*Operation) string {
+	hasDirectChild := func(path string) bool {
+		for _, other := range ops {
+			if strings.HasPrefix(other.Path, path+"/") {
+				if strings.HasPrefix(other.Path[len(path):], "/{") {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	for _, op := range ops {
+		if op.Name == "list" && op.Method == "GET" && !hasPathParam(op.Path) && hasDirectChild(op.Path) {
+			return op.Path
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "create" && op.Method == "POST" && !hasPathParam(op.Path) && hasDirectChild(op.Path) {
+			return op.Path
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				if stripped := op.Path[:idx]; !hasPathParam(stripped) {
+					return stripped
+				}
+			}
+		}
+	}
+	for _, op := range ops {
+		if op.Name == "update" && op.Method == "PUT" && hasPathParam(op.Path) {
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				if stripped := op.Path[:idx]; !hasPathParam(stripped) {
+					return stripped
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func dedupeOperations(ops []*Operation) []*Operation {
-	seen := make(map[string]bool)
+	// Pre-compute the collection path so we can prefer "get" ops that match it.
+	// This avoids keeping a secondary GET/{id} (e.g. /images/{id}, /smart-group-membership/{id})
+	// over the primary CRUD GET/{id} when both exist in the same resource.
+	cp := collectionPath(ops)
+
+	seen := make(map[string]*Operation) // name → kept op
 	var result []*Operation
 	for _, op := range ops {
-		if !seen[op.Name] {
-			seen[op.Name] = true
+		if prev, exists := seen[op.Name]; !exists {
+			seen[op.Name] = op
 			result = append(result, op)
+		} else if op.Name == "get" && cp != "" && hasPathParam(op.Path) {
+			// Check whether this duplicate "get" is a better match for the collection path.
+			prevParent := ""
+			if idx := strings.LastIndex(prev.Path, "/{"); idx != -1 {
+				prevParent = prev.Path[:idx]
+			}
+			opParent := ""
+			if idx := strings.LastIndex(op.Path, "/{"); idx != -1 {
+				opParent = op.Path[:idx]
+			}
+			if opParent == cp && prevParent != cp {
+				// Replace the previously kept op with this better match.
+				for i, r := range result {
+					if r == prev {
+						result[i] = op
+						break
+					}
+				}
+				seen[op.Name] = op
+				fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — replacing %s %s with %s %s (matches collection path)\n",
+					op.Name, prev.Method, prev.Path, op.Method, op.Path)
+			} else {
+				fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — dropping %s %s\n", op.Name, op.Method, op.Path)
+			}
 		} else {
 			fmt.Fprintf(os.Stderr, "  Warning: duplicate operation name %q — dropping %s %s\n", op.Name, op.Method, op.Path)
 		}
@@ -500,9 +645,25 @@ func needsURL(r *Resource) bool {
 
 // shouldGenerateApply returns true if the resource should have an apply (upsert) command.
 // Singletons are excluded: they have no name-based collection to search, so upsert
-// semantics don't apply.
+// semantics don't apply. Sub-resources (where collectionPath returns empty) are also
+// excluded: without a flat collection there is no way to resolve a name to an ID.
 func shouldGenerateApply(r *Resource) bool {
-	return !r.IsSingleton && hasApply(r.Operations)
+	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != ""
+}
+
+// shouldGenerateGetByName returns true if the resource should have a get-by-name command.
+// Sub-resources (where collectionPath returns empty) are excluded because there is no
+// flat collection to search for name resolution.
+func shouldGenerateGetByName(r *Resource) bool {
+	if collectionPath(r.Operations) == "" {
+		return false
+	}
+	for _, op := range r.Operations {
+		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
+			return true
+		}
+	}
+	return false
 }
 
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
@@ -553,7 +714,12 @@ func scaffoldJSON(s *Schema) string {
 
 // hasDeleteByName returns true if the resource has a delete operation and a
 // get operation with a path parameter (needed for name-to-ID resolution).
+// Sub-resources (where collectionPath returns empty) are excluded because there
+// is no flat collection to search for name resolution.
 func hasDeleteByName(ops []*Operation) bool {
+	if collectionPath(ops) == "" {
+		return false
+	}
 	hasDeleteOp := false
 	hasGetWithParam := false
 	for _, op := range ops {
@@ -676,9 +842,9 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{ range dedupeOps (sortOps .Operations) }}
 	cmd.AddCommand(new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx))
 {{- end }}
-{{- range dedupeOps (sortOps .Operations) }}{{ if isGet . }}
-	cmd.AddCommand(new{{ $.GoName }}GetByNameCmd(ctx))
-{{- end }}{{ end }}
+{{- if shouldGenerateGetByName . }}
+	cmd.AddCommand(new{{ .GoName }}GetByNameCmd(ctx))
+{{- end }}
 {{- if shouldGenerateApply . }}
 	cmd.AddCommand(new{{ .GoName }}ApplyCmd(ctx))
 {{- end }}
@@ -721,7 +887,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "{{ .Name }}{{ if hasPathParam .Path }} <id>{{ end }}",
+		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
 		Short: "{{ escapeQuotes .Summary }}",
 {{- if .Description }}
 		Long:  "{{ escapeQuotes .Description }}",
@@ -730,7 +896,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
 {{- if hasPathParam .Path }}
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs({{ pathParamCount .Parameters }}),
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -768,8 +934,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Build request path
 			path := "{{ .Path }}"
-{{- range pathParams .Parameters }}
-			path = strings.Replace(path, "{{"{"}}{{ .Name }}{{"}"}}", url.PathEscape(args[0]), 1)
+{{- range indexedPathParams .Parameters }}
+			path = strings.Replace(path, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 
 			// Build query string
@@ -809,8 +975,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				for {
 					// Build page-specific query
 					pagePath := "{{ .Path }}"
-{{- range pathParams .Parameters }}
-					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Name }}{{"}"}}", url.PathEscape(args[0]), 1)
+{{- range indexedPathParams .Parameters }}
+					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
 {{- end }}
 					var pageQuery []string
 					// Carry forward non-pagination query params
@@ -984,6 +1150,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 {{ end }}
+{{ if shouldGenerateGetByName . }}
 {{ range dedupeOps (sortOps .Operations) }}{{ if isGet . }}
 func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -997,7 +1164,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPath . }}", "{{ $.NameField }}", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", args[0])
 			if err != nil {
 				return err
 			}
@@ -1012,6 +1179,7 @@ func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 }
 {{ end }}{{ end }}
+{{ end }}
 {{ if hasDeleteByName .Operations }}
 func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (

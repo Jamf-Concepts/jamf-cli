@@ -603,6 +603,43 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		}
 	}
 
+	// Post-inference name fixes that require parsed response/path information:
+	//
+	// 1. Binary GET ops named "get" → "download" (e.g. GET /images/{id} returning image/*).
+	// 2. Sub-resource GET ops ending with a non-param segment after a param
+	//    (e.g. GET /{id}/prestages) → use that segment as the operation name.
+	//
+	// These prevent legitimate operations from being silently dropped by dedupeOps
+	// when a spec has multiple GET/{id} paths.
+	if operation.Name == "get" && operation.Method == "GET" {
+		hasBinaryResponse := false
+		for _, resp := range operation.Responses {
+			if resp.IsBinary {
+				hasBinaryResponse = true
+				break
+			}
+		}
+		if hasBinaryResponse {
+			operation.Name = "download"
+		} else if strings.Contains(path, "{") {
+			parts := strings.Split(path, "/")
+			lastPart := parts[len(parts)-1]
+			// Path ends with a non-param segment after a param → sub-resource GET.
+			if !strings.HasPrefix(lastPart, "{") {
+				hasParam := false
+				for _, p := range parts[:len(parts)-1] {
+					if strings.HasPrefix(p, "{") {
+						hasParam = true
+						break
+					}
+				}
+				if hasParam {
+					operation.Name = strcase.ToKebab(lastPart)
+				}
+			}
+		}
+	}
+
 	return operation
 }
 

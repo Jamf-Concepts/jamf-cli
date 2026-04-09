@@ -22,52 +22,8 @@ func NewCloudLdapMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-ldap-mappings in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudLdapMappingsGetCmd(ctx))
 	cmd.AddCommand(newCloudLdapMappingsUpdateCmd(ctx))
-	cmd.AddCommand(newCloudLdapMappingsGetByNameCmd(ctx))
-
-	return cmd
-}
-
-func newCloudLdapMappingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get mappings configurations for Cloud Identity Providers server configuration.",
-		Long:  "Get all mappings configurations for Cloud Identity Providers server configuration.",
-		Example: `  # Get a cloud-ldap-mapping by ID
-  jamf-cli cloud-ldap-mappings get 1
-
-  # Get a cloud-ldap-mapping by name
-  jamf-cli cloud-ldap-mappings get-by-name "Example"
-
-  # Get a cloud-ldap-mapping and output as YAML
-  jamf-cli cloud-ldap-mappings get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/cloud-ldaps/{id}/mappings"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newCloudLdapMappingsMappingsCmd(ctx))
 
 	return cmd
 }
@@ -131,29 +87,37 @@ func newCloudLdapMappingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapMappingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a cloud-ldap-mapping by name",
-		Example: `  # Get a cloud-ldap-mapping by name
-  jamf-cli cloud-ldap-mappings get-by-name "Example"
+func newCloudLdapMappingsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli cloud-ldap-mappings get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "mappings <id>",
+		Short: "Get mappings configurations for Cloud Identity Providers server configuration.",
+		Long:  "Get all mappings configurations for Cloud Identity Providers server configuration.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/mappings"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v2/cloud-ldaps/{id}/mappings", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

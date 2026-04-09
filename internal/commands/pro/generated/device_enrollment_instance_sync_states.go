@@ -20,8 +20,8 @@ func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesListCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx))
-	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesGetByNameCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesSyncsCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesLatestCmd(ctx))
 
 	return cmd
 }
@@ -64,22 +64,14 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDeviceEnrollmentInstanceSyncStatesSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "syncs <id>",
 		Short: "Get all instance sync states for a single Device Enrollment Instance",
 		Long:  "Get all instance sync states for a single instance",
-		Example: `  # Get a device-enrollment-instance-sync-state by ID
-  jamf-cli device-enrollment-instance-sync-states get 1
-
-  # Get a device-enrollment-instance-sync-state by name
-  jamf-cli device-enrollment-instance-sync-states get-by-name "Example"
-
-  # Get a device-enrollment-instance-sync-state and output as YAML
-  jamf-cli device-enrollment-instance-sync-states get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -107,29 +99,37 @@ func newDeviceEnrollmentInstanceSyncStatesGetCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newDeviceEnrollmentInstanceSyncStatesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a device-enrollment-instance-sync-state by name",
-		Example: `  # Get a device-enrollment-instance-sync-state by name
-  jamf-cli device-enrollment-instance-sync-states get-by-name "Example"
+func newDeviceEnrollmentInstanceSyncStatesLatestCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli device-enrollment-instance-sync-states get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "latest <id>",
+		Short: "Get the latest sync state for a single Device Enrollment Instance",
+		Long:  "Get the latest sync state for a single instance",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v1/device-enrollments/{id}/syncs/latest"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v1/device-enrollments/{id}/syncs", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

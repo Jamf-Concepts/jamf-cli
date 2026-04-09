@@ -35,6 +35,7 @@ func NewMobileDevicePrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicePrestagesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesHistoryCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newMobileDevicePrestagesAttachmentsCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesUploadCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesGetByNameCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesApplyCmd(ctx))
@@ -638,6 +639,41 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "attachments <id>",
+		Short: "Get attachments for a Mobile Device Prestage",
+		Long:  "Get attachments for a Mobile Device Prestage",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/mobile-device-prestages/{id}/attachments"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

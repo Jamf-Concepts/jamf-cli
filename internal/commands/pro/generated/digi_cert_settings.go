@@ -28,6 +28,8 @@ func NewDigiCertSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDigiCertSettingsDeleteCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsValidateClientCertificateCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsPatchCmd(ctx))
+	cmd.AddCommand(newDigiCertSettingsConnectionStatusCmd(ctx))
+	cmd.AddCommand(newDigiCertSettingsDependenciesCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsGetByNameCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsDeleteByNameCmd(ctx))
 
@@ -288,6 +290,76 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newDigiCertSettingsConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "connection-status <id>",
+		Short: "Get connection status of DigiCert Trust Lifecycle Manager for a given ID",
+		Long:  "Get connection status of DigiCert Trust Lifecycle Manager for a given ID.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/connection-status"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newDigiCertSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "dependencies <id>",
+		Short: "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies",
+		Long:  "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/dependencies"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}

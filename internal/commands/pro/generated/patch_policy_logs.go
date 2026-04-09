@@ -23,14 +23,57 @@ func NewPatchPolicyLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newPatchPolicyLogsGetCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsLogsCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsEligibleRetryCountCmd(ctx))
 	cmd.AddCommand(newPatchPolicyLogsRetryCmd(ctx))
 	cmd.AddCommand(newPatchPolicyLogsRetryAllCmd(ctx))
-	cmd.AddCommand(newPatchPolicyLogsGetByNameCmd(ctx))
+	cmd.AddCommand(newPatchPolicyLogsDetailsCmd(ctx))
 
 	return cmd
 }
 
 func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "get <id> <deviceId>",
+		Short: "Retrieves a single Patch Policy Log",
+		Long:  "Retrieves a single Patch Policy Log",
+		Example: `  # Get a patch-policy-log by ID
+  jamf-cli patch-policy-logs get 1 2
+
+  # Get a patch-policy-log and output as YAML
+  jamf-cli patch-policy-logs get 1 2 -o yaml`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/{deviceId}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newPatchPolicyLogsLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -39,18 +82,10 @@ func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "logs <id>",
 		Short: "Retrieve Patch Policy Logs",
 		Long:  "Retrieves Patch Policy Logs",
-		Example: `  # Get a patch-policy-log by ID
-  jamf-cli patch-policy-logs get 1
-
-  # Get a patch-policy-log by name
-  jamf-cli patch-policy-logs get-by-name "Example"
-
-  # Get a patch-policy-log and output as YAML
-  jamf-cli patch-policy-logs get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -93,6 +128,41 @@ func newPatchPolicyLogsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is deviceName:asc. Multiple sort criteria are supported and must be separated with a comma.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Policy Logs collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: deviceId, deviceName, statusCode, statusDate, attemptNumber, ignoredForPatchPolicyId. This param can be combined with paging and sorting.")
+
+	return cmd
+}
+
+func newPatchPolicyLogsEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "eligible-retry-count <id>",
+		Short: "Return the count of the Patch Policy Logs for the patch policy id that are eligible for a retry attempt",
+		Long:  "return the count of the patch policy logs for the patch policy id that  are eligible for a retry attempt",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/eligible-retry-count"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -193,29 +263,38 @@ func newPatchPolicyLogsRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPatchPolicyLogsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a patch-policy-log by name",
-		Example: `  # Get a patch-policy-log by name
-  jamf-cli patch-policy-logs get-by-name "Example"
+func newPatchPolicyLogsDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
-  # Get by name and output as YAML
-  jamf-cli patch-policy-logs get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "details <id> <deviceId>",
+		Short: "Return attempt details for a specific log",
+		Long:  "Return attempt details for a specific log",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-policies", "name", args[0])
-			if err != nil {
-				return err
+
+			// Build request path
+			path := "/v2/patch-policies/{id}/logs/{deviceId}/details"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
 			}
-			path := strings.Replace("/v2/patch-policies/{id}/logs", "{id}", url.PathEscape(id), 1)
+
+			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

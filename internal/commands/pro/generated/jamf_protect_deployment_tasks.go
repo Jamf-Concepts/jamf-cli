@@ -22,14 +22,13 @@ func NewJamfProtectDeploymentTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage jamf-protect-deployment-tasks in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newJamfProtectDeploymentTasksGetCmd(ctx))
+	cmd.AddCommand(newJamfProtectDeploymentTasksTasksCmd(ctx))
 	cmd.AddCommand(newJamfProtectDeploymentTasksRetryCmd(ctx))
-	cmd.AddCommand(newJamfProtectDeploymentTasksGetByNameCmd(ctx))
 
 	return cmd
 }
 
-func newJamfProtectDeploymentTasksGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProtectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -38,18 +37,10 @@ func newJamfProtectDeploymentTasksGetCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "tasks <id>",
 		Short: "Search for deployment tasks for a config profile linked to Jamf Protect",
 		Long:  "Search for config profiles linked to Jamf Protect",
-		Example: `  # Get a jamf-protect-deployment-task by ID
-  jamf-cli jamf-protect-deployment-tasks get 1
-
-  # Get a jamf-protect-deployment-task by name
-  jamf-cli jamf-protect-deployment-tasks get-by-name "Example"
-
-  # Get a jamf-protect-deployment-task and output as YAML
-  jamf-cli jamf-protect-deployment-tasks get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -146,31 +137,4 @@ func newJamfProtectDeploymentTasksRetryCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
-}
-
-func newJamfProtectDeploymentTasksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a jamf-protect-deployment-task by name",
-		Example: `  # Get a jamf-protect-deployment-task by name
-  jamf-cli jamf-protect-deployment-tasks get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli jamf-protect-deployment-tasks get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jamf-protect/deployments", "name", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/jamf-protect/deployments/{id}/tasks", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

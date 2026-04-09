@@ -20,7 +20,7 @@ func NewDdmStatussCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newDdmStatussGetCmd(ctx))
-	cmd.AddCommand(newDdmStatussGetByNameCmd(ctx))
+	cmd.AddCommand(newDdmStatussStatusItemsCmd(ctx))
 
 	return cmd
 }
@@ -29,18 +29,51 @@ func newDdmStatussGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Retrieve the Status Items from the latest Status Report for a device",
-		Long:  "Retrieves the Status Items from the latest Status Report for a device",
+		Use:   "get <clientManagementId> <key>",
+		Short: "Retrieve a Status Item from the latest Status Report for a device",
+		Long:  "Retrieves a Status Item from the latest Status Report for a device",
 		Example: `  # Get a ddm-status by ID
-  jamf-cli ddm-statuss get 1
-
-  # Get a ddm-status by name
-  jamf-cli ddm-statuss get-by-name "Example"
+  jamf-cli ddm-statuss get 1 2
 
   # Get a ddm-status and output as YAML
-  jamf-cli ddm-statuss get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+  jamf-cli ddm-statuss get 1 2 -o yaml`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/ddm/{clientManagementId}/status-items/{key}"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{key}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newDdmStatussStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status-items <id>",
+		Short: "Retrieve the Status Items from the latest Status Report for a device",
+		Long:  "Retrieves the Status Items from the latest Status Report for a device",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -66,31 +99,4 @@ func newDdmStatussGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	return cmd
-}
-
-func newDdmStatussGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a ddm-status by name",
-		Example: `  # Get a ddm-status by name
-  jamf-cli ddm-statuss get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli ddm-statuss get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/ddm", "name", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/ddm/{clientManagementId}/status-items", "{clientManagementId}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

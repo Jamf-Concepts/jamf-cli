@@ -30,6 +30,9 @@ func NewVenafisCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafisHistoryCmd(ctx))
 	cmd.AddCommand(newVenafisAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newVenafisPatchCmd(ctx))
+	cmd.AddCommand(newVenafisConnectionStatusCmd(ctx))
+	cmd.AddCommand(newVenafisDependentProfilesCmd(ctx))
+	cmd.AddCommand(newVenafisDownloadCmd(ctx))
 	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
 	cmd.AddCommand(newVenafisGetByNameCmd(ctx))
 	cmd.AddCommand(newVenafisDeleteByNameCmd(ctx))
@@ -446,6 +449,135 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newVenafisConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "connection-status <id>",
+		Short: "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/connection-status"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "dependent-profiles <id>",
+		Short: "Get configuration profile data using specified Venafi CA object",
+		Long:  "Get configuration profile data using specified Venafi CA object",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/dependent-profiles"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newVenafisDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "download <id>",
+		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Example: `  # Save to file
+  jamf-cli pro venafis download <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro venafis download <id> > output.bin`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/jamf-public-key"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
 }
