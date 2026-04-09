@@ -35,6 +35,9 @@ html {
   /* --product-school: #F59E0B; */
   /* --product-connect: #AF52DE; */
 
+  /* Indicator colors */
+  --new-indicator: #f59e0b;
+
   /* Light mode */
   --page-bg: #FFFFFF;
   --card-bg: #F3F7FF;
@@ -757,7 +760,7 @@ a.stat-card:hover {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f59e0b;
+  background: var(--new-indicator);
   margin-left: 0.3rem;
   vertical-align: middle;
 }
@@ -1034,7 +1037,7 @@ a.stat-card:hover {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  color: var(--new-indicator);
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   white-space: nowrap;
