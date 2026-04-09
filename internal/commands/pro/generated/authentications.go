@@ -45,7 +45,7 @@ func newAuthenticationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/auth"
+			path := "/v1/auth"
 
 			// Build query string
 			var queryParts []string

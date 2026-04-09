@@ -31,6 +31,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesUpdateCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newAdvancedMobileDeviceSearchesChoicesCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesGetByNameCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesApplyCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx))
@@ -399,6 +400,56 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newAdvancedMobileDeviceSearchesChoicesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagCriteria string
+		flagSite     string
+		flagContains string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "choices",
+		Short: "Get Mobile Device Advanced Search criteria choices",
+		Long:  "Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are \"App Name\", \"Building\", and \"Display Name\".",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/advanced-mobile-device-searches/choices"
+
+			// Build query string
+			var queryParts []string
+			if flagCriteria != "" {
+				queryParts = append(queryParts, "criteria="+url.QueryEscape(flagCriteria))
+			}
+			if flagSite != "" {
+				queryParts = append(queryParts, "site="+url.QueryEscape(flagSite))
+			}
+			if flagContains != "" {
+				queryParts = append(queryParts, "contains="+url.QueryEscape(flagContains))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagCriteria, "criteria", "", "")
+	cmd.Flags().StringVar(&flagSite, "site", "-1", "")
+	cmd.Flags().StringVar(&flagContains, "contains", "null", "")
 
 	return cmd
 }

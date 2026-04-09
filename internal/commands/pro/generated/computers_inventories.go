@@ -31,9 +31,10 @@ func NewComputersInventoriesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputersInventoriesGetCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesCreateCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesDeleteCmd(ctx))
+	cmd.AddCommand(newComputersInventoriesFilevaultCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesUploadCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesDownloadCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesFilevaultCmd(ctx))
+	cmd.AddCommand(newComputersInventoriesFilevaultByIdCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesViewDeviceLockPinCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesViewRecoveryLockPasswordCmd(ctx))
 	cmd.AddCommand(newComputersInventoriesGetByNameCmd(ctx))
@@ -374,6 +375,120 @@ func newComputersInventoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newComputersInventoriesFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagAll      bool
+		flagLimit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "filevault",
+		Short: "Return paginated FileVault information for all computers",
+		Long:  "Return paginated FileVault information for all computers",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/computers-inventory/filevault"
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v3/computers-inventory/filevault"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+
+	return cmd
+}
+
 func newComputersInventoriesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFile string
@@ -492,11 +607,11 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newComputersInventoriesFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoriesFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "filevault <id>",
+		Use:   "filevault-by-id <id>",
 		Short: "Return FileVault information for a specific computer",
 		Long:  "Return FileVault information for a specific computer",
 		Args:  cobra.ExactArgs(1),

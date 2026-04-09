@@ -47,7 +47,7 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *registry.CLIContext) *co
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/computer-inventory-collection-settings"
+			path := "/v2/computer-inventory-collection-settings"
 
 			// Build query string
 			var queryParts []string
@@ -77,7 +77,7 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create Computer Inventory Collection Settings Custom Path",
-		Long:  "Creates a custom search path to use when collecting applications, fonts, and plug-ins.",
+		Long:  "Creates a custom search path to use when collecting applications.",
 		Example: `  # Show the JSON template for creating a computer-inventory-collection-setting
   jamf-cli computer-inventory-collection-settings create --scaffold
 
@@ -98,7 +98,7 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
 			}
 
 			// Build request path
-			path := "/v1/computer-inventory-collection-settings/custom-path"
+			path := "/v2/computer-inventory-collection-settings/custom-path"
 
 			// Build query string
 			var queryParts []string
@@ -166,7 +166,7 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 			}
 
 			// Build request path
-			path := "/v1/computer-inventory-collection-settings/custom-path/{id}"
+			path := "/v2/computer-inventory-collection-settings/custom-path/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -212,15 +212,13 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 			if flagScaffold {
 				fmt.Println(`{
   "applicationPaths": [],
-  "computerInventoryCollectionPreferences": {},
-  "fontPaths": [],
-  "pluginPaths": []
+  "computerInventoryCollectionPreferences": {}
 }`)
 				return nil
 			}
 
 			// Build request path
-			path := "/v1/computer-inventory-collection-settings"
+			path := "/v2/computer-inventory-collection-settings"
 
 			// Build query string
 			var queryParts []string

@@ -18,28 +18,57 @@ func NewHealthChecksCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage health-checks in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newHealthChecksListCmd(ctx))
+	cmd.AddCommand(newHealthChecksHealthCheckCmd(ctx))
+	cmd.AddCommand(newHealthChecksHealthStatusCmd(ctx))
 
 	return cmd
 }
 
-func newHealthChecksListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newHealthChecksHealthCheckCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "health-check",
 		Short: "Get Jamf Pro API status",
 		Long:  "Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.",
-		Example: `  # List all health-checks
-  jamf-cli health-checks list
-
-  # List health-checks and extract IDs
-  jamf-cli health-checks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
 			path := "/v1/health-check"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newHealthChecksHealthStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "health-status",
+		Short: "Retrieve request acceptance ratios for this Jamf Pro node",
+		Long:  "Returns metrics representing the request acceptance ratio for each concurrency group and time window on this Jamf Pro node. The acceptance ratio is a decimal value between 0 and 1, where 1 means all requests were accepted and 0 means all were denied. Health status metrics are only available in Jamf Cloud. This API will return a 404 if the Jamf Pro node does not support health status metrics.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/health-status"
 
 			// Build query string
 			var queryParts []string

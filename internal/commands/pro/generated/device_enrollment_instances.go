@@ -30,9 +30,11 @@ func NewDeviceEnrollmentInstancesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceEnrollmentInstancesDeleteCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesHistoryCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstancesPublicKeyCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesUploadTokenCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDevicesCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDisownCmd(ctx))
+	cmd.AddCommand(newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesGetByNameCmd(ctx))
 	cmd.AddCommand(newDeviceEnrollmentInstancesDeleteByNameCmd(ctx))
 
@@ -519,6 +521,63 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 	return cmd
 }
 
+func newDeviceEnrollmentInstancesPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "public-key",
+		Short: "Retrieve the Jamf Pro Device Enrollment public key",
+		Long:  "Retrieve the Jamf Pro device enrollment public key",
+		Example: `  # Save to file
+  jamf-cli pro device-enrollment-instances public-key -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro device-enrollment-instances public-key > output.bin`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v1/device-enrollments/public-key"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
 func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
@@ -646,6 +705,59 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 				body = os.Stdin
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "upload-token-by-id <id>",
+		Short: "Update a Device Enrollment Instance with the supplied Token",
+		Long:  "Updates a device enrollment instance with the supplied token.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "tokenFileName": "Acme MDM Token"
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v1/device-enrollments/{id}/upload-token"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
 			}

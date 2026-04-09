@@ -22,50 +22,18 @@ func NewLocalAdminPasswordsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage local-admin-passwords in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newLocalAdminPasswordsListCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordsUpdateCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordsHistoryCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsPendingRotationsCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsSettingsCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordsAuditCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsAccountHistoryCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordsPasswordCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsAuditByGuidCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsAccountHistoryByGuidCmd(ctx))
+	cmd.AddCommand(newLocalAdminPasswordsPasswordByGuidCmd(ctx))
 	cmd.AddCommand(newLocalAdminPasswordsAccountsCmd(ctx))
-
-	return cmd
-}
-
-func newLocalAdminPasswordsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
-		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
-		Example: `  # List all local-admin-passwords
-  jamf-cli local-admin-passwords list
-
-  # List local-admin-passwords and extract IDs
-  jamf-cli local-admin-passwords list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/local-admin-password/pending-rotations"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newLocalAdminPasswordsSetPasswordCmd(ctx))
 
 	return cmd
 }
@@ -132,19 +100,84 @@ func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "history <clientManagementId> <username>",
-		Short: "Get LAPS historical records for target device and username.",
-		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
+		Use:   "history <id>",
+		Short: "Get LAPS password viewed history, and rotation history.",
+		Long:  "Get the full history of all local admin passwords for all accounts for a specific management ID. History will include password, who viewed the password and when it was viewed. This will include rotation history as well.",
 		Example: `  # Get history for a local-admin-password
-  jamf-cli local-admin-passwords history 1 2`,
-		Args: cobra.ExactArgs(2),
+  jamf-cli local-admin-passwords history 1`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/history"
+			path := "/v2/local-admin-password/{clientManagementId}/history"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsPendingRotationsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "pending-rotations",
+		Short: "Get a list of the current devices and usernames with pending LAPS rotations",
+		Long:  "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/pending-rotations"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Get the current LAPS settings.",
+		Long:  "Return information about the current LAPS settings.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/settings"
 
 			// Build query string
 			var queryParts []string
@@ -179,6 +212,42 @@ func newLocalAdminPasswordsAuditCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/audit"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsAccountHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "account-history <clientManagementId> <username>",
+		Short: "Get LAPS historical records for target device and username.",
+		Long:  "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/history"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
 
@@ -238,6 +307,117 @@ func newLocalAdminPasswordsPasswordCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
+func newLocalAdminPasswordsAuditByGuidCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "audit-by-guid <clientManagementId> <username> <guid>",
+		Short: "Get LAPS password viewed history.",
+		Long:  "Get the full history of all local admin passwords for a specific user guid on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id, username, and user guid as the path parameters.",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/{guid}/audit"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{guid}", url.PathEscape(args[2]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsAccountHistoryByGuidCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "account-history-by-guid <clientManagementId> <username> <guid>",
+		Short: "Get LAPS historical records for target device and user guid.",
+		Long:  "Get the full history of all for a specific user guid on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id, username, and user guid as the path parameters.",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/{guid}/history"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{guid}", url.PathEscape(args[2]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsPasswordByGuidCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "password-by-guid <clientManagementId> <username> <guid>",
+		Short: "Get current LAPS password for specified user guid on a client.",
+		Long:  "Get current LAPS password for specified client by using the client management id, username, and user guid as the path parameters. Once the password is viewed it will be rotated out with a new password based on the rotation time settings.",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/local-admin-password/{clientManagementId}/account/{username}/{guid}/password"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{username}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{guid}", url.PathEscape(args[2]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newLocalAdminPasswordsAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -269,6 +449,58 @@ func newLocalAdminPasswordsAccountsCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newLocalAdminPasswordsSetPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "set-password <id>",
+		Short: "Set the LAPS password for a device.",
+		Long:  "Set the LAPS password for a device. This will set the password for all LAPS capable accounts.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "lapsUserPasswordList": []
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v2/local-admin-password/{clientManagementId}/set-password"
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

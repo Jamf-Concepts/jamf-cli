@@ -43,7 +43,7 @@ func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/account-preferences"
+			path := "/v3/account-preferences"
 
 			// Build query string
 			var queryParts []string
@@ -81,11 +81,9 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				fmt.Println(`{
   "computerApplicationSearchMethod": "EXACT_MATCH",
   "computerApplicationUsageSearchMethod": "EXACT_MATCH",
-  "computerFontSearchMethod": "EXACT_MATCH",
   "computerLocalUserAccountSearchMethod": "EXACT_MATCH",
   "computerPackageReceiptSearchMethod": "EXACT_MATCH",
   "computerPeripheralSearchMethod": "EXACT_MATCH",
-  "computerPluginSearchMethod": "EXACT_MATCH",
   "computerPrinterSearchMethod": "EXACT_MATCH",
   "computerSearchMethod": "EXACT_MATCH",
   "computerServiceSearchMethod": "EXACT_MATCH",
@@ -112,7 +110,7 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/account-preferences"
+			path := "/v3/account-preferences"
 
 			// Build query string
 			var queryParts []string

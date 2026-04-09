@@ -26,6 +26,7 @@ func NewLogFlushingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newLogFlushingsListCmd(ctx))
 	cmd.AddCommand(newLogFlushingsGetCmd(ctx))
 	cmd.AddCommand(newLogFlushingsDeleteCmd(ctx))
+	cmd.AddCommand(newLogFlushingsLogFlushingCmd(ctx))
 	cmd.AddCommand(newLogFlushingsTaskCmd(ctx))
 	cmd.AddCommand(newLogFlushingsGetByNameCmd(ctx))
 	cmd.AddCommand(newLogFlushingsDeleteByNameCmd(ctx))
@@ -38,8 +39,8 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get log flushing settings",
-		Long:  "Get all log flushing and retention policy settings",
+		Short: "Get log flushing tasks",
+		Long:  "Get a list of all log flushing tasks and their statuses",
 		Example: `  # List all log-flushings
   jamf-cli log-flushings list
 
@@ -49,7 +50,7 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/log-flushing"
+			path := "/v1/log-flushing/task"
 
 			// Build query string
 			var queryParts []string
@@ -177,6 +178,39 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newLogFlushingsLogFlushingCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "log-flushing",
+		Short: "Get log flushing settings",
+		Long:  "Get all log flushing and retention policy settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/log-flushing"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

@@ -19,47 +19,10 @@ func NewManagedSoftwareUpdatesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage managed-software-updates in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newManagedSoftwareUpdatesListCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesGetCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesAvailableUpdatesCmd(ctx))
+	cmd.AddCommand(newManagedSoftwareUpdatesUpdateStatusesCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesGetByNameCmd(ctx))
-
-	return cmd
-}
-
-func newManagedSoftwareUpdatesListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Retrieve available macOS and iOS Managed Software Updates",
-		Long:  "Retrieves available macOS and iOS Managed Software Updates",
-		Example: `  # List all managed-software-updates
-  jamf-cli managed-software-updates list
-
-  # List managed-software-updates and extract IDs
-  jamf-cli managed-software-updates list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/managed-software-updates/available-updates"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 
 	return cmd
 }
@@ -103,6 +66,79 @@ func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesAvailableUpdatesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "available-updates",
+		Short: "Retrieve available macOS and iOS Managed Software Updates",
+		Long:  "Retrieves available macOS and iOS Managed Software Updates",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/available-updates"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newManagedSoftwareUpdatesUpdateStatusesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagFilter string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-statuses",
+		Short: "Retrieve Managed Software Update Statuses",
+		Long:  "Retrieve Managed Software Update Statuses",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/managed-software-updates/update-statuses"
+
+			// Build query string
+			var queryParts []string
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Managed Software Updates collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: osUpdatesStatusId, device.deviceId, device.objectType, downloaded, downloadPercentComplete, productKey, status, deferralsRemaining, maxDeferrals, nextScheduledInstall, created and updated.")
 
 	return cmd
 }

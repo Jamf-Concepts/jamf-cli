@@ -33,6 +33,8 @@ func NewEnrollmentSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsHistoryExportCmd(ctx))
+	cmd.AddCommand(newEnrollmentSettingsEnrollmentCmd(ctx))
+	cmd.AddCommand(newEnrollmentSettingsUpdateEnrollmentCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsApplyCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsDeleteByNameCmd(ctx))
@@ -695,6 +697,117 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name==\"*script*\"")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+
+	return cmd
+}
+
+func newEnrollmentSettingsEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "enrollment",
+		Short: "Get Enrollment object and Re-enrollment settings",
+		Long:  "Gets Enrollment object and re-enrollment settings.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-enrollment",
+		Short: "Update Enrollment object",
+		Long:  "Update enrollment object. Regarding the 'developerCertificateIdentity', if this object is omitted, the certificate will not be deleted from Jamf Pro. The 'identityKeystore' is the entire cert file as a base64 encoded string. The 'md5Sum' field is not required in the PUT request, but is calculated and returned in the response.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "accountDrivenDeviceIosEnrollmentEnabled": false,
+  "accountDrivenDeviceMacosEnrollmentEnabled": false,
+  "accountDrivenDeviceVisionosEnrollmentEnabled": false,
+  "accountDrivenUserEnrollmentEnabled": false,
+  "accountDrivenUserVisionosEnrollmentEnabled": false,
+  "allowSshOnlyManagementAccount": false,
+  "createManagementAccount": false,
+  "developerCertificateIdentity": {},
+  "developerCertificateIdentityDetails": {},
+  "ensureSshRunning": false,
+  "flushExtensionAttributes": false,
+  "flushLocationHistoryInformation": false,
+  "flushLocationInformation": false,
+  "flushMdmCommandsOnReenroll": "",
+  "flushPolicyHistory": false,
+  "flushSoftwareUpdatePlans": false,
+  "hideManagementAccount": false,
+  "installSingleProfile": false,
+  "iosEnterpriseEnrollmentEnabled": false,
+  "iosPersonalEnrollmentEnabled": false,
+  "launchSelfService": false,
+  "macOsEnterpriseEnrollmentEnabled": false,
+  "maidUsernameMergeEnabled": false,
+  "managementUsername": "radmin",
+  "mdmSigningCertificate": {},
+  "mdmSigningCertificateDetails": {},
+  "restrictReenrollment": false,
+  "signQuickAdd": false,
+  "signingMdmProfileEnabled": false
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v4/enrollment"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

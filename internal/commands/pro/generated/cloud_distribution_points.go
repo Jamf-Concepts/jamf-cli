@@ -24,52 +24,17 @@ func NewCloudDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-distribution-points in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudDistributionPointsListCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsCreateCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsDeleteCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsHistoryCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newCloudDistributionPointsCloudDistributionPointCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsPatchCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsActionCmd(ctx))
+	cmd.AddCommand(newCloudDistributionPointsFilesCmd(ctx))
 	cmd.AddCommand(newCloudDistributionPointsRefreshInventoryCmd(ctx))
-
-	return cmd
-}
-
-func newCloudDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get the cloud distribution point Details.",
-		Long:  "Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.",
-		Example: `  # List all cloud-distribution-points
-  jamf-cli cloud-distribution-points list
-
-  # List cloud-distribution-points and extract IDs
-  jamf-cli cloud-distribution-points list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/cloud-distribution-point"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newCloudDistributionPointsTestConnectionCmd(ctx))
+	cmd.AddCommand(newCloudDistributionPointsUploadCapabilityCmd(ctx))
 
 	return cmd
 }
@@ -366,6 +331,39 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
+func newCloudDistributionPointsCloudDistributionPointCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "cloud-distribution-point",
+		Short: "Get the cloud distribution point Details.",
+		Long:  "Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-distribution-point"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
 func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
@@ -458,6 +456,132 @@ func newCloudDistributionPointsActionCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
+func newCloudDistributionPointsFilesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "files",
+		Short: "Get the cloud distribution point Inventory files details",
+		Long:  "Retrieves the details of the inventory files associated with a cloud distribution point.This includes information about the files used for content distribution, such as their type, status, and categorization.The response provides a comprehensive list of inventory files, which may include packages, ebooks, or mobile device apps, allowing users to view the current state and metadata for each file in the distribution system.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-distribution-point/files"
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/cloud-distribution-point/files"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is id:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id, fileName, inventoryId and type etc.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including fileName and type<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: fileName, inventoryId and type <br/> Default filter is an empty query and returns all results from the requested page.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+
+	return cmd
+}
+
 func newCloudDistributionPointsRefreshInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFileName string
@@ -500,6 +624,72 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *registry.CLIContext) *co
 	}
 
 	cmd.Flags().StringVar(&flagFileName, "file-name", "", "Name of the file to check the availability of. If available, the inventory and status will be updated in Jamf Pro. If no file is specified, it will force an immediate inventory refresh at a rate-limit of once every 15 seconds.")
+
+	return cmd
+}
+
+func newCloudDistributionPointsTestConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "test-connection",
+		Short: "Get the cloud distribution point test connection details.",
+		Long:  "Verifies the connection to the cloud distribution point after updating its configuration.  This endpoint returns the connection status and a message indicating whether the connection is successful or failed.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-distribution-point/test-connection"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudDistributionPointsUploadCapabilityCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "upload-capability",
+		Short: "Finds specific information for the currently configured cloud distribution point.",
+		Long:  "Finds a variety of values based on the currently configured cloud distribution point.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/cloud-distribution-point/upload-capability"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

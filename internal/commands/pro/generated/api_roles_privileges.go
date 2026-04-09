@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,23 +19,19 @@ func NewApiRolesPrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage api-roles-privileges in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newApiRolesPrivilegesListCmd(ctx))
+	cmd.AddCommand(newApiRolesPrivilegesApiRolePrivilegesCmd(ctx))
+	cmd.AddCommand(newApiRolesPrivilegesSearchCmd(ctx))
 
 	return cmd
 }
 
-func newApiRolesPrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiRolesPrivilegesApiRolePrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "api-role-privileges",
 		Short: "Get the current Jamf API Role Privileges",
 		Long:  "Get role privileges",
-		Example: `  # List all api-roles-privileges
-  jamf-cli api-roles-privileges list
-
-  # List api-roles-privileges and extract IDs
-  jamf-cli api-roles-privileges list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -57,6 +54,51 @@ func newApiRolesPrivilegesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
+}
+
+func newApiRolesPrivilegesSearchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName  string
+		flagLimit string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search the current Jamf API Role Privileges",
+		Long:  "Search role privileges",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/api-role-privileges/search"
+
+			// Build query string
+			var queryParts []string
+			if flagName != "" {
+				queryParts = append(queryParts, "name="+url.QueryEscape(flagName))
+			}
+			if flagLimit != "" {
+				queryParts = append(queryParts, "limit="+url.QueryEscape(flagLimit))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "The partial or complete privilege name we are searching for")
+	cmd.Flags().StringVar(&flagLimit, "limit", "15", "Limit the query results, defaults to 15")
 
 	return cmd
 }

@@ -21,46 +21,9 @@ func NewCsasCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage csas in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCsasListCmd(ctx))
 	cmd.AddCommand(newCsasDeleteCmd(ctx))
-
-	return cmd
-}
-
-func newCsasListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns the CSA tenant ID.",
-		Long:  "Returns the CSA tenant ID.",
-		Example: `  # List all csas
-  jamf-cli csas list
-
-  # List csas and extract IDs
-  jamf-cli csas list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/csa/tenant-id"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newCsasTenantIdCmd(ctx))
+	cmd.AddCommand(newCsasTokenCmd(ctx))
 
 	return cmd
 }
@@ -128,6 +91,72 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newCsasTenantIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "tenant-id",
+		Short: "Returns the CSA tenant ID.",
+		Long:  "Returns the CSA tenant ID.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/csa/tenant-id"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCsasTokenCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "token",
+		Short: "Get details regarding the CSA token exchange",
+		Long:  "Get details regarding the CSA token exchange",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/csa/token"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

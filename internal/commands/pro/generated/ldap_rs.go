@@ -19,30 +19,27 @@ func NewLdapRsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage ldap-rs in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newLdapRsListCmd(ctx))
+	cmd.AddCommand(newLdapRsGroupsCmd(ctx))
+	cmd.AddCommand(newLdapRsServersCmd(ctx))
+	cmd.AddCommand(newLdapRsLdapServersCmd(ctx))
 
 	return cmd
 }
 
-func newLdapRsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLdapRsGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagQ string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "groups",
 		Short: "Retrieve the configured access groups that contain the text in the search param",
 		Long:  "Retrieves the configured access groups that contain the text in the searchParam.",
-		Example: `  # List all ldap-rs
-  jamf-cli ldap-rs list
-
-  # List ldap-rs and extract IDs
-  jamf-cli ldap-rs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/ldap/groups"
+			path := "/v1/ldap/groups"
 
 			// Build query string
 			var queryParts []string
@@ -65,6 +62,72 @@ func newLdapRsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagQ, "q", "null", "Will perform a \"contains\" search on the names of access groups")
+
+	return cmd
+}
+
+func newLdapRsServersCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "servers",
+		Short: "Retrieve all Servers including LDAP and Cloud Identity Providers.",
+		Long:  "Retrieve all active Servers including LDAP and Cloud Identity Providers.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/ldap/servers"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newLdapRsLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "ldap-servers",
+		Short: "Retrieve all LDAP Servers.",
+		Long:  "Retrieves all not migrated, LDAP Servers.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/ldap/ldap-servers"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

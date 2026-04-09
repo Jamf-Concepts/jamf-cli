@@ -29,6 +29,8 @@ func NewAppRequestsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAppRequestsCreateCmd(ctx))
 	cmd.AddCommand(newAppRequestsUpdateCmd(ctx))
 	cmd.AddCommand(newAppRequestsDeleteCmd(ctx))
+	cmd.AddCommand(newAppRequestsSettingsCmd(ctx))
+	cmd.AddCommand(newAppRequestsUpdateSettingsCmd(ctx))
 	cmd.AddCommand(newAppRequestsGetByNameCmd(ctx))
 	cmd.AddCommand(newAppRequestsApplyCmd(ctx))
 	cmd.AddCommand(newAppRequestsDeleteByNameCmd(ctx))
@@ -286,6 +288,92 @@ func newAppRequestsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	return cmd
+}
+
+func newAppRequestsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Get Applicastion Request Settings",
+		Long:  "Get app request settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/app-request/settings"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newAppRequestsUpdateSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update-settings",
+		Short: "Update Application Request Settings",
+		Long:  "Update app request settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "appStoreLocale": "deviceLocale",
+  "approverEmails": [],
+  "isEnabled": true,
+  "requesterUserGroupId": 1
+}`)
+				return nil
+			}
+
+			// Build request path
+			path := "/v1/app-request/settings"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				body = os.Stdin
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

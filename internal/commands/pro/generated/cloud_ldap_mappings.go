@@ -22,27 +22,57 @@ func NewCloudLdapMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage cloud-ldap-mappings in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCloudLdapMappingsUpdateCmd(ctx))
 	cmd.AddCommand(newCloudLdapMappingsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapMappingsUpdateMappingsCmd(ctx))
 
 	return cmd
 }
 
-func newCloudLdapMappingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapMappingsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "mappings <id>",
+		Short: "Get mappings configurations for Cloud Identity Providers server configuration.",
+		Long:  "Get all mappings configurations for Cloud Identity Providers server configuration.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/mappings"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapMappingsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update-mappings <id>",
 		Short: "Update Cloud Identity Provider mappings configuration.",
 		Long:  "Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.",
-		Example: `  # Update a cloud-ldap-mapping from JSON
-  echo '{"name":"Updated"}' | jamf-cli cloud-ldap-mappings update 1
-
-  # Get a cloud-ldap-mapping, modify, and update
-  jamf-cli cloud-ldap-mappings get 1 -o json | jq '.name = "New Name"' | jamf-cli cloud-ldap-mappings update 1`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,41 +113,6 @@ func newCloudLdapMappingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newCloudLdapMappingsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "mappings <id>",
-		Short: "Get mappings configurations for Cloud Identity Providers server configuration.",
-		Long:  "Get all mappings configurations for Cloud Identity Providers server configuration.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v2/cloud-ldaps/{id}/mappings"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 
 	return cmd
 }

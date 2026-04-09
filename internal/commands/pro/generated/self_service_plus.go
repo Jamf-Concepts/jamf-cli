@@ -21,46 +21,9 @@ func NewSelfServicePlusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage self-service-plus in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSelfServicePlusGetCmd(ctx))
 	cmd.AddCommand(newSelfServicePlusUpdateCmd(ctx))
-
-	return cmd
-}
-
-func newSelfServicePlusGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Determines if Self Service Plus feature toggle is enabled.",
-		Long:  "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
-		Example: `  # Get self-service-plus
-  jamf-cli self-service-plus get
-
-  # Get self-service-plus and output as YAML
-  jamf-cli self-service-plus get -o yaml`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/self-service-plus/feature-toggle/enabled"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newSelfServicePlusEnabledCmd(ctx))
+	cmd.AddCommand(newSelfServicePlusSettingsCmd(ctx))
 
 	return cmd
 }
@@ -116,6 +79,72 @@ func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newSelfServicePlusEnabledCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "enabled",
+		Short: "Determines if Self Service Plus feature toggle is enabled.",
+		Long:  "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/self-service-plus/feature-toggle/enabled"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newSelfServicePlusSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Get Self Service Plus settings.",
+		Long:  "Get Self Service Plus settings.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/self-service-plus/settings"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

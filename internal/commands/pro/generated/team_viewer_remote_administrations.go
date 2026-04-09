@@ -29,8 +29,10 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsCloseCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetByNameCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx))
 
 	return cmd
@@ -346,11 +348,11 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "status <configurationId> <sessionId>",
+		Use:   "sessions-status <configurationId> <sessionId>",
 		Short: "Get a session status by its ID",
 		Long:  "Returns a session status if found.",
 		Args:  cobra.ExactArgs(2),
@@ -437,6 +439,68 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
+func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "status <id>",
+		Short: "Get Team Viewer Remote Administration connection status",
+		Long:  "Returns Team Viewer Remote Administration connection status",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/preview/remote-administration-configurations/team-viewer/{id}/status"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newTeamViewerRemoteAdministrationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get-by-name <name>",
+		Short: "Get a team-viewer-remote-administration by name",
+		Example: `  # Get a team-viewer-remote-administration by name
+  jamf-cli team-viewer-remote-administrations get-by-name "Example"
+
+  # Get by name and output as YAML
+  jamf-cli team-viewer-remote-administrations get-by-name "Example" -o yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", args[0])
+			if err != nil {
+				return err
+			}
+			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+}
+
 func newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -458,7 +522,7 @@ func newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx *registry.CLIContext)
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "sessionId", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}

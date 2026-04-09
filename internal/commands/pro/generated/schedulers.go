@@ -22,6 +22,7 @@ func NewSchedulersCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newSchedulersListCmd(ctx))
 	cmd.AddCommand(newSchedulersTriggersCmd(ctx))
+	cmd.AddCommand(newSchedulersSummaryCmd(ctx))
 
 	return cmd
 }
@@ -119,6 +120,39 @@ func newSchedulersTriggersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is nextFireTime:asc. If using multiple criteria, separate with commas.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter the Jamf Pro Scheduler triggers collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: triggerKey, previousFireTime, nextFireTime.")
+
+	return cmd
+}
+
+func newSchedulersSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "summary",
+		Short: "Retrieve a summary of the Jamf Pro Scheduler",
+		Long:  "Retrieves a summary of the Jamf Pro Scheduler",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/scheduler/summary"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
