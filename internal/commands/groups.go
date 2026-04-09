@@ -299,6 +299,7 @@ var proGroupMap = map[string]string{
 	"classic-mobile-apps":             groupClassicMobile,
 	"classic-ibeacons":                groupClassicConfig,
 	"classic-classes":                 groupClassicConfig,
+	"classic-removable-mac-addresses": groupClassicConfig,
 
 	// Classic - Administration
 	"classic-accounts":                groupClassicAdmin,

@@ -56,6 +56,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicPatchTitlesCmd(ctx))
 	root.AddCommand(NewClassicPoliciesCmd(ctx))
 	root.AddCommand(NewClassicPrintersCmd(ctx))
+	root.AddCommand(NewClassicRemovableMacAddressesCmd(ctx))
 	root.AddCommand(NewClassicRestrictedSoftwareCmd(ctx))
 	root.AddCommand(NewClassicSmtpServerCmd(ctx))
 	root.AddCommand(NewClassicSoftwareUpdateServersCmd(ctx))
