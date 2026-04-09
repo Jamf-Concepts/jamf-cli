@@ -146,9 +146,9 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 	t.Setenv("SHELL", "/bin/zsh")
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	t.Setenv("PATH", "/usr/bin:/bin") // isolate from Homebrew
 
-	// Pre-create the candidate dir so the install logic picks it over system paths.
-	// On machines with Homebrew, the brew site-functions dir may win instead.
+	// Pre-create the candidate dir so the install logic picks it.
 	zshDir := dir + "/.zsh/completions"
 	if err := os.MkdirAll(zshDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -162,24 +162,12 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 		t.Fatalf("completion install zsh failed: %v", err)
 	}
 
-	// Check all candidate paths — on machines with Homebrew the brew path
-	// may be chosen instead of the temp dir.
-	candidates := zshCompletionCandidates(dir)
-	candidates = append(candidates, zshDir) // fallback default
-	found := false
-	for _, c := range candidates {
-		p := c + "/_jamf-cli"
-		info, err := os.Stat(p)
-		if err == nil && info.Size() > 0 {
-			found = true
-			// Clean up if installed outside the temp dir.
-			if !strings.HasPrefix(p, dir) {
-				_ = os.Remove(p)
-			}
-			break
-		}
+	zshPath := zshDir + "/_jamf-cli"
+	info, err := os.Stat(zshPath)
+	if err != nil {
+		t.Fatalf("completion file not created at %s: %v", zshPath, err)
 	}
-	if !found {
-		t.Fatal("completion file not created at any candidate path")
+	if info.Size() == 0 {
+		t.Error("completion file is empty")
 	}
 }
