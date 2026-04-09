@@ -32,9 +32,7 @@ func NewAdvancedMobileDeviceSearchesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesChoicesCmd(ctx))
-	cmd.AddCommand(newAdvancedMobileDeviceSearchesGetByNameCmd(ctx))
 	cmd.AddCommand(newAdvancedMobileDeviceSearchesApplyCmd(ctx))
-	cmd.AddCommand(newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -78,27 +76,43 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
 		Example: `  # Get a advanced-mobile-device-searche by ID
   jamf-cli advanced-mobile-device-searches get 1
 
   # Get a advanced-mobile-device-searche by name
-  jamf-cli advanced-mobile-device-searches get-by-name "Example"
+  jamf-cli advanced-mobile-device-searches get --name "Example"
 
   # Get a advanced-mobile-device-searche and output as YAML
   jamf-cli advanced-mobile-device-searches get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -116,6 +130,8 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-mobile-device-searche by name")
 
 	return cmd
 }
@@ -187,18 +203,22 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
 func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
 		Example: `  # Update a advanced-mobile-device-searche from JSON
   echo '{"name":"Updated"}' | jamf-cli advanced-mobile-device-searches update 1
 
+  # Update by name
+  jamf-cli advanced-mobile-device-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli advanced-mobile-device-searches update --name "Example"
+
   # Get a advanced-mobile-device-searche, modify, and update
   jamf-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli advanced-mobile-device-searches update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -215,9 +235,23 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -243,6 +277,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-mobile-device-searche by name")
 
 	return cmd
 }
@@ -251,24 +286,42 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Remove specified Advanced Search object",
 		Long:  "Removes specified Advanced Search Object",
 		Example: `  # Delete a advanced-mobile-device-searche (with confirmation)
   jamf-cli advanced-mobile-device-searches delete 1
 
+  # Delete by name
+  jamf-cli advanced-mobile-device-searches delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli advanced-mobile-device-searches delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -276,7 +329,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -286,7 +339,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 			// Build request path
 			path := "/v1/advanced-mobile-device-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -312,6 +365,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-mobile-device-searche by name")
 
 	return cmd
 }
@@ -450,99 +504,6 @@ func newAdvancedMobileDeviceSearchesChoicesCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().StringVar(&flagCriteria, "criteria", "", "")
 	cmd.Flags().StringVar(&flagSite, "site", "-1", "")
 	cmd.Flags().StringVar(&flagContains, "contains", "null", "")
-
-	return cmd
-}
-
-func newAdvancedMobileDeviceSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a advanced-mobile-device-searche by name",
-		Example: `  # Get a advanced-mobile-device-searche by name
-  jamf-cli advanced-mobile-device-searches get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli advanced-mobile-device-searches get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/advanced-mobile-device-searches/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newAdvancedMobileDeviceSearchesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a advanced-mobile-device-searche by name",
-		Example: `  # Delete a advanced-mobile-device-searche by name (with confirmation)
-  jamf-cli advanced-mobile-device-searches delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli advanced-mobile-device-searches delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no advanced-mobile-device-searche found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced-mobile-device-searche %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete advanced-mobile-device-searche %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/advanced-mobile-device-searches/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted advanced-mobile-device-searche %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

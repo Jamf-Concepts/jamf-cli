@@ -31,7 +31,8 @@ func NewClassicGsxConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a gsx_connection by ID",
 		Example: `  # Get a gsx_connection by ID
@@ -43,6 +44,7 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -73,10 +75,12 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a gsx_connection",
 		Long:  "Update an existing gsx_connection by ID. Reads XML body from stdin.",
@@ -95,6 +99,7 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -104,4 +109,6 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }

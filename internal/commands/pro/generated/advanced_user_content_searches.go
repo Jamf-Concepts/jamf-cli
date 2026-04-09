@@ -29,9 +29,7 @@ func NewAdvancedUserContentSearchesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newAdvancedUserContentSearchesCreateCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesUpdateCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesDeleteCmd(ctx))
-	cmd.AddCommand(newAdvancedUserContentSearchesGetByNameCmd(ctx))
 	cmd.AddCommand(newAdvancedUserContentSearchesApplyCmd(ctx))
-	cmd.AddCommand(newAdvancedUserContentSearchesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -75,27 +73,43 @@ func newAdvancedUserContentSearchesListCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
 		Example: `  # Get a advanced-user-content-searche by ID
   jamf-cli advanced-user-content-searches get 1
 
   # Get a advanced-user-content-searche by name
-  jamf-cli advanced-user-content-searches get-by-name "Example"
+  jamf-cli advanced-user-content-searches get --name "Example"
 
   # Get a advanced-user-content-searche and output as YAML
   jamf-cli advanced-user-content-searches get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -113,6 +127,8 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-user-content-searche by name")
 
 	return cmd
 }
@@ -184,18 +200,22 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
 		Example: `  # Update a advanced-user-content-searche from JSON
   echo '{"name":"Updated"}' | jamf-cli advanced-user-content-searches update 1
 
+  # Update by name
+  jamf-cli advanced-user-content-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli advanced-user-content-searches update --name "Example"
+
   # Get a advanced-user-content-searche, modify, and update
   jamf-cli advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli advanced-user-content-searches update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -212,9 +232,23 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -240,6 +274,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-user-content-searche by name")
 
 	return cmd
 }
@@ -248,24 +283,42 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Remove specified Advanced User Content Search object",
 		Long:  "Removes specified Advanced User Content Search Object",
 		Example: `  # Delete a advanced-user-content-searche (with confirmation)
   jamf-cli advanced-user-content-searches delete 1
 
+  # Delete by name
+  jamf-cli advanced-user-content-searches delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli advanced-user-content-searches delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -273,7 +326,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -283,7 +336,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Build request path
 			path := "/v1/advanced-user-content-searches/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -309,99 +362,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newAdvancedUserContentSearchesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a advanced-user-content-searche by name",
-		Example: `  # Get a advanced-user-content-searche by name
-  jamf-cli advanced-user-content-searches get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli advanced-user-content-searches get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/advanced-user-content-searches/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newAdvancedUserContentSearchesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a advanced-user-content-searche by name",
-		Example: `  # Delete a advanced-user-content-searche by name (with confirmation)
-  jamf-cli advanced-user-content-searches delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli advanced-user-content-searches delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no advanced-user-content-searche found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced-user-content-searche %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete advanced-user-content-searche %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/advanced-user-content-searches/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted advanced-user-content-searche %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-user-content-searche by name")
 
 	return cmd
 }

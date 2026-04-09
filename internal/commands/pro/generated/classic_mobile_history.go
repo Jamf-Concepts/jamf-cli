@@ -23,27 +23,46 @@ func NewClassicMobileHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newClassicMobileHistoryGetCmd(ctx))
-	cmd.AddCommand(newClassicMobileHistoryGetByNameCmd(ctx))
-	cmd.AddCommand(newClassicMobileHistoryGetBySerialnumberCmd(ctx))
-	cmd.AddCommand(newClassicMobileHistoryGetByMacaddressCmd(ctx))
-	cmd.AddCommand(newClassicMobileHistoryGetByUdidCmd(ctx))
 
 	return cmd
 }
 
 func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName         string
+		flagSerialnumber string
+		flagMacaddress   string
+		flagUdid         string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a mobile_device_history by ID",
 		Example: `  # Get a mobile_device_history by ID
   jamf-cli classic-mobile-history get 1
 
   # Get a mobile_device_history and output as YAML
   jamf-cli classic-mobile-history get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/name/%s", url.PathEscape(flagName))
+			} else if flagSerialnumber != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/serialnumber/%s", url.PathEscape(flagSerialnumber))
+			} else if flagMacaddress != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/macaddress/%s", url.PathEscape(flagMacaddress))
+			} else if flagUdid != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/udid/%s", url.PathEscape(flagUdid))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -74,160 +93,11 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicMobileHistoryGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile_device_history by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_history by name")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device_history by serialnumber")
+	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device_history by macaddress")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device_history by udid")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_history"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicMobileHistoryGetBySerialnumberCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-serialnumber <serialnumber>",
-		Short: "Get a mobile_device_history by serialnumber",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/serialnumber/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_history"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicMobileHistoryGetByMacaddressCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-macaddress <macaddress>",
-		Short: "Get a mobile_device_history by macaddress",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/macaddress/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_history"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicMobileHistoryGetByUdidCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-udid <udid>",
-		Short: "Get a mobile_device_history by udid",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledevicehistory/udid/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_history"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }

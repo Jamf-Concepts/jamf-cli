@@ -37,9 +37,7 @@ func NewMobileDevicePrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicePrestagesAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesAttachmentsCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesUploadCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesGetByNameCmd(ctx))
 	cmd.AddCommand(newMobileDevicePrestagesApplyCmd(ctx))
-	cmd.AddCommand(newMobileDevicePrestagesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -171,27 +169,43 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve a Mobile Device Prestage with the supplied id",
 		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
 		Example: `  # Get a mobile-device-prestage by ID
   jamf-cli mobile-device-prestages get 1
 
   # Get a mobile-device-prestage by name
-  jamf-cli mobile-device-prestages get-by-name "Example"
+  jamf-cli mobile-device-prestages get --name "Example"
 
   # Get a mobile-device-prestage and output as YAML
   jamf-cli mobile-device-prestages get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -209,6 +223,8 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }
@@ -261,24 +277,43 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update a Mobile Device Prestage",
 		Long:  "Updates a Mobile Device Prestage",
 		Example: `  # Update a mobile-device-prestage from JSON
   echo '{"name":"Updated"}' | jamf-cli mobile-device-prestages update 1
 
+  # Update by name
+  jamf-cli mobile-device-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli mobile-device-prestages update --name "Example"
+
   # Get a mobile-device-prestage, modify, and update
   jamf-cli mobile-device-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestages update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -303,6 +338,8 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
 	return cmd
 }
 
@@ -310,24 +347,42 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a Mobile Device Prestage with the supplied id",
 		Long:  "Deletes a Mobile Device Prestage with the supplied id",
 		Example: `  # Delete a mobile-device-prestage (with confirmation)
   jamf-cli mobile-device-prestages delete 1
 
+  # Delete by name
+  jamf-cli mobile-device-prestages delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli mobile-device-prestages delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -335,7 +390,7 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -345,7 +400,7 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -371,6 +426,7 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }
@@ -381,15 +437,16 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 		flagDryRun   bool
 		flagIds      []string
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete-multiple <id>",
+		Use:   "delete-multiple [<id>]",
 		Short: "Remove an attachment for a Mobile Device Prestage",
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages by IDs
   jamf-cli mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -400,9 +457,23 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 				return nil
 			}
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete-multiple resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -410,7 +481,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -420,7 +491,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/attachments/delete-multiple"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -461,6 +532,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }
@@ -472,21 +544,36 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 		flagSort     []string
 		flagAll      bool
 		flagLimit    int
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "history <id>",
+		Use:   "history [<id>]",
 		Short: "Get sorted and paged Mobile Device Prestage history objects",
 		Long:  "Gets sorted and paged mobile device prestage history objects",
 		Example: `  # Get history for a mobile-device-prestage
   jamf-cli mobile-device-prestages history 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -587,6 +674,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }
@@ -594,13 +682,14 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note <id>",
+		Use:   "add-history-note [<id>]",
 		Short: "Add Mobile Device Prestage history object notes",
 		Long:  "Adds mobile device prestage history object notes",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -611,9 +700,23 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -639,24 +742,41 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }
 
 func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "attachments <id>",
+		Use:   "attachments [<id>]",
 		Short: "Get attachments for a Mobile Device Prestage",
 		Long:  "Get attachments for a Mobile Device Prestage",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/attachments"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -675,25 +795,42 @@ func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Com
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
+
 	return cmd
 }
 
 func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFile string
+		flagName string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload <id>",
+		Use:   "upload [<id>]",
 		Short: "Add an attachment to a Mobile Device Prestage",
 		Long:  "Add an attachment to a Mobile Device prestage",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages/{id}/attachments"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -732,99 +869,7 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
-
-	return cmd
-}
-
-func newMobileDevicePrestagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-prestage by name",
-		Example: `  # Get a mobile-device-prestage by name
-  jamf-cli mobile-device-prestages get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-device-prestages get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newMobileDevicePrestagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a mobile-device-prestage by name",
-		Example: `  # Delete a mobile-device-prestage by name (with confirmation)
-  jamf-cli mobile-device-prestages delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli mobile-device-prestages delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no mobile-device-prestage found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-prestage %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete mobile-device-prestage %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestage %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
 }

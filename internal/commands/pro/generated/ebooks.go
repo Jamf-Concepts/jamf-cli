@@ -25,7 +25,6 @@ func NewEbooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEbooksListCmd(ctx))
 	cmd.AddCommand(newEbooksGetCmd(ctx))
 	cmd.AddCommand(newEbooksScopeCmd(ctx))
-	cmd.AddCommand(newEbooksGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -157,27 +156,43 @@ func newEbooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get specified Ebook object",
 		Long:  "Gets specified Ebook object",
 		Example: `  # Get a ebook by ID
   jamf-cli ebooks get 1
 
   # Get a ebook by name
-  jamf-cli ebooks get-by-name "Example"
+  jamf-cli ebooks get --name "Example"
 
   # Get a ebook and output as YAML
   jamf-cli ebooks get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/ebooks", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/ebooks/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -195,24 +210,42 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up ebook by name")
 
 	return cmd
 }
 
 func newEbooksScopeCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "scope <id>",
+		Use:   "scope [<id>]",
 		Short: "Get specified scope of Ebook object",
 		Long:  "Gets specified scope of Ebook object",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/ebooks", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/ebooks/{id}/scope"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -231,32 +264,7 @@ func newEbooksScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up ebook by name")
+
 	return cmd
-}
-
-func newEbooksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a ebook by name",
-		Example: `  # Get a ebook by name
-  jamf-cli ebooks get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli ebooks get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/ebooks", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/ebooks/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

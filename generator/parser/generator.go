@@ -100,8 +100,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"dedupeOps":     dedupeOperations,
 		"escapeQuotes":  escapeQuotes,
 		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
-		"exampleText": func(resourceName, nameSingular string, op *Operation) string {
+		"exampleText": func(r *Resource, op *Operation) string {
 			bin := "jamf-cli"
+			resourceName := r.Name
+			nameSingular := r.NameSingular
 			switch op.Name {
 			case "list":
 				return fmt.Sprintf("  # List all %s\n  %s %s list\n\n  # List %s and extract IDs\n  %s %s list --field id",
@@ -113,7 +115,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						resourceName, bin, resourceName, resourceName, bin, resourceName)
 				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
-					// Multi-param sub-resource: no get-by-name; use "1 2 ..." as example args
+					// Multi-param sub-resource: no --name lookup; use "1 2 ..." as example args
 					var argNums []string
 					for i := range pp {
 						argNums = append(argNums, fmt.Sprintf("%d", i+1))
@@ -122,8 +124,12 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get %s\n\n  # Get a %s and output as YAML\n  %s %s get %s -o yaml",
 						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr)
 				}
-				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get-by-name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
-					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
+				if opHasNameLookup(op, r) {
+					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get --name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+						nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName)
+				}
+				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+					nameSingular, bin, resourceName, nameSingular, bin, resourceName)
 			case "create":
 				if op.RequestBody != nil && op.RequestBody.IsMultipart {
 					return fmt.Sprintf("  # Upload a file\n  %s pro %s create --file /path/to/file",
@@ -146,6 +152,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s\n\n  # Get a %s, modify, and update\n  %s %s get %s -o json | jq '.name = \"New Name\"' | %s %s update %s",
 						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
 				}
+				if opHasNameLookup(op, r) {
+					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Update by name\n  %s %s get --name \"Example\" -o json | jq '.field = \"value\"' | %s %s update --name \"Example\"\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
+						nameSingular, bin, resourceName, bin, resourceName, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+				}
 				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "delete":
@@ -157,6 +167,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					idStr := strings.Join(argNums, " ")
 					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete %s\n\n  # Delete without confirmation prompt\n  %s %s delete %s --yes",
 						nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+				}
+				if opHasNameLookup(op, r) {
+					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete by name\n  %s %s delete --name \"Example\" --yes\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
+						nameSingular, bin, resourceName, bin, resourceName, bin, resourceName)
 				}
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					nameSingular, bin, resourceName, bin, resourceName)
@@ -198,11 +212,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return ""
 			}
 		},
-		"hasPostOrPut":    hasPostOrPut,
-		"hasDelete":       hasDelete,
-		"hasDestructive":  hasDestructive,
-		"hasApply":        func(ops []*Operation) bool { return hasApply(ops) },
-		"hasDeleteByName": func(ops []*Operation) bool { return hasDeleteByName(ops) },
+		"hasPostOrPut":   hasPostOrPut,
+		"hasDelete":      hasDelete,
+		"hasDestructive": hasDestructive,
+		"hasApply":       func(ops []*Operation) bool { return hasApply(ops) },
 		"deletePath": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "delete" && op.Method == "DELETE" {
@@ -257,6 +270,8 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"isPatchOp":        isPatchOp,
 		"hasPatchOp":       hasPatchOp,
 		"patchHasLookup":   func(r *Resource) bool { return patchHasLookup(r) },
+		"opHasNameLookup":  func(op *Operation, r *Resource) bool { return opHasNameLookup(op, r) },
+		"not":              func(b bool) bool { return !b },
 		"patchExampleText": func(r *Resource, op *Operation) string { return patchExampleText(r, op) },
 		"patchPath":        func(ops []*Operation) string { return patchPath(ops) },
 		"patchPathParam":   func(ops []*Operation) string { return patchPathParam(ops) },
@@ -283,16 +298,15 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return scaffoldJSON(op.RequestBody.Schema)
 		},
-		"needsFmt":                needsFmt,
-		"needsURL":                needsURL,
-		"needsMultipart":          needsMultipart,
-		"hasAnyBinaryResponse":    hasAnyBinaryResponse,
-		"opIsMultipart":           func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
-		"opHasBinaryResponse":     opHasBinaryResponse,
-		"shouldGenerateApply":     shouldGenerateApply,
-		"shouldGenerateGetByName": shouldGenerateGetByName,
-		"hasResolvableID":         hasResolvableID,
-		"hasDeleteMultiple":       hasDeleteMultiple,
+		"needsFmt":             needsFmt,
+		"needsURL":             needsURL,
+		"needsMultipart":       needsMultipart,
+		"hasAnyBinaryResponse": hasAnyBinaryResponse,
+		"opIsMultipart":        func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
+		"opHasBinaryResponse":  opHasBinaryResponse,
+		"shouldGenerateApply":  shouldGenerateApply,
+		"hasResolvableID":      hasResolvableID,
+		"hasDeleteMultiple":    hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
@@ -603,8 +617,16 @@ func hasQueryParams(ops []*Operation) bool {
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
 	// delete success message, scaffold output, apply status messages, multipart error wrapping,
-	// patch-by-name error messages, --set parse errors
-	return hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations)
+	// patch-by-name error messages, --set parse errors, name-lookup error messages
+	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
+		return true
+	}
+	for _, op := range r.Operations {
+		if opHasNameLookup(op, r) {
+			return true
+		}
+	}
+	return false
 }
 
 func needsMultipart(r *Resource) bool {
@@ -644,11 +666,14 @@ func hasDeleteMultiple(ops []*Operation) bool {
 }
 
 func needsURL(r *Resource) bool {
-	// net/url is needed for path param encoding, query param encoding, get-by-name, apply, and patch lookup
+	// net/url is needed for path param encoding, query param encoding, name lookup, apply, and patch lookup
 	if shouldGenerateApply(r) || patchHasLookup(r) {
 		return true
 	}
 	for _, op := range r.Operations {
+		if opHasNameLookup(op, r) {
+			return true
+		}
 		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
 			return true
 		}
@@ -672,28 +697,10 @@ func shouldGenerateApply(r *Resource) bool {
 	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != "" && hasResolvableID(r)
 }
 
-// shouldGenerateGetByName returns true if the resource should have a get-by-name command.
-// Sub-resources (where collectionPath returns empty) and resources with unresolvable ID
-// fields are excluded.
-func shouldGenerateGetByName(r *Resource) bool {
-	if collectionPath(r.Operations) == "" {
-		return false
-	}
-	if !hasResolvableID(r) {
-		return false
-	}
-	for _, op := range r.Operations {
-		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
-			return true
-		}
-	}
-	return false
-}
-
 // hasResolvableID returns true when the detected ID field exists in at least one
-// response schema (or is the standard "id"). When false, name-resolution commands
-// (get-by-name, delete-by-name, apply) are not generated because extracting the
-// identifier from list responses would fail at runtime.
+// response schema (or is the standard "id"). When false, name-resolution (--name
+// lookup flags, apply) is not generated because extracting the identifier from
+// list responses would fail at runtime.
 func hasResolvableID(r *Resource) bool {
 	if r.IDField == "" || r.IDField == "id" {
 		return true
@@ -796,6 +803,17 @@ func patchHasLookup(r *Resource) bool {
 		}
 	}
 	return false
+}
+
+// opHasNameLookup returns true when an operation should get --name/--serial/--udid
+// lookup flags as alternatives to the positional ID argument.
+// Covers get, update, delete, binary download, and multipart upload operations
+// that have a path parameter on a non-singleton, listable resource with resolvable ID.
+func opHasNameLookup(op *Operation, r *Resource) bool {
+	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
+		return false
+	}
+	return hasPathParam(op.Path)
 }
 
 // patchExampleText builds the Example string for a unified patch command.
@@ -950,27 +968,6 @@ func scaffoldJSON(s *Schema) string {
 	return string(data)
 }
 
-// hasDeleteByName returns true if the resource has a delete operation and a
-// get operation with a path parameter (needed for name-to-ID resolution).
-// Sub-resources (where collectionPath returns empty) are excluded because there
-// is no flat collection to search for name resolution.
-func hasDeleteByName(ops []*Operation) bool {
-	if collectionPath(ops) == "" {
-		return false
-	}
-	hasDeleteOp := false
-	hasGetWithParam := false
-	for _, op := range ops {
-		if op.Method == "DELETE" && op.Name == "delete" {
-			hasDeleteOp = true
-		}
-		if op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path) {
-			hasGetWithParam = true
-		}
-	}
-	return hasDeleteOp && hasGetWithParam
-}
-
 // hasApply returns true if the resource has both create and update operations.
 func hasApply(ops []*Operation) bool {
 	hasCreate := false
@@ -1080,14 +1077,8 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{ range dedupeOps (sortOps .Operations) }}
 	cmd.AddCommand(new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx))
 {{- end }}
-{{- if shouldGenerateGetByName . }}
-	cmd.AddCommand(new{{ .GoName }}GetByNameCmd(ctx))
-{{- end }}
 {{- if shouldGenerateApply . }}
 	cmd.AddCommand(new{{ .GoName }}ApplyCmd(ctx))
-{{- end }}
-{{- if hasDeleteByName .Operations }}
-	cmd.AddCommand(new{{ .GoName }}DeleteByNameCmd(ctx))
 {{- end }}
 
 	return cmd
@@ -1130,11 +1121,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{ range $.LookupFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
 {{- end }}
+{{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
+		flagName string
+{{ range $.LookupFields }}		flag{{ toCamel .Flag }} string
+{{ end }}{{- end }}
 	)
 
 	cmd := &cobra.Command{
-{{- if and (isPatchOp .) (patchHasLookup $) }}
-		Use:   "patch [<id>]",
+{{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
+		Use:   "{{ .Name }} [<id>]",
 {{- else }}
 		Use:   "{{ .Name }}{{ pathParamUsage .Parameters }}",
 {{- end }}
@@ -1147,12 +1142,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if isPatchOp . }}
 		Example: ` + "`" + `{{ patchExampleText $ . }}` + "`" + `,
 {{- else }}
-{{- $ex := exampleText $.Name $.NameSingular . }}{{ if $ex }}
+{{- $ex := exampleText $ . }}{{ if $ex }}
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
 {{- end }}
 {{- if hasPathParam .Path }}
-{{- if and (isPatchOp .) (patchHasLookup $) }}
+{{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
 		Args:  cobra.MaximumNArgs(1),
 {{- else }}
 		Args:  cobra.ExactArgs({{ pathParamCount .Parameters }}),
@@ -1170,7 +1165,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return nil
 			}
 {{- end }}
-{{- if .IsDestructive }}
+{{- if and .IsDestructive (not (opHasNameLookup . $)) }}
 
 			// Confirmation for destructive action
 			if flagDryRun {
@@ -1215,11 +1210,56 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return fmt.Errorf("provide an <id> argument, --name{{ range $.LookupFields }}, --{{ .Flag }}{{ end }}")
 			}
 {{- end }}
+{{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+{{ range $.LookupFields }}
+			if flag{{ toCamel .Flag }} != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ .RSQLField }}", "{{ $.IDField }}", flag{{ toCamel .Flag }})
+				if err != nil {
+					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
+				}
+				resolvedID = rid
+			} else {{ end }}if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", "{{ $.IDField }}", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name{{ range $.LookupFields }}, --{{ .Flag }}{{ end }}")
+			}
+{{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "Would {{ .Name }} resource %s\n", resolvedID)
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }} resource %s. Type 'yes' to confirm: ", resolvedID)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+{{- end }}
 
 			// Build request path
 			path := "{{ .Path }}"
 {{- if and (isPatchOp .) (patchHasLookup $) }}
 			path = strings.Replace(path, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
+{{- else if and (not (isPatchOp .)) (opHasNameLookup . $) }}
+			path = strings.Replace(path, "{{ pathParamName . }}", url.PathEscape(resolvedID), 1)
 {{- else }}
 {{- range indexedPathParams .Parameters }}
 			path = strings.Replace(path, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
@@ -1469,103 +1509,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
 {{- end }}
-
-	return cmd
-}
-{{ end }}
-{{ if shouldGenerateGetByName . }}
-{{ range dedupeOps (sortOps .Operations) }}{{ if isGet . }}
-func new{{ $.GoName }}GetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a {{ $.NameSingular }} by name",
-		Example: ` + "`" + `  # Get a {{ $.NameSingular }} by name
-  jamf-cli {{ $.Name }} get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli {{ $.Name }} get-by-name "Example" -o yaml` + "`" + `,
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "{{ listPathFromOps $.Operations }}", "{{ $.NameField }}", "{{ $.IDField }}", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-{{ end }}{{ end }}
-{{ end }}
-{{ if hasDeleteByName .Operations }}
-func new{{ .GoName }}DeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a {{ .NameSingular }} by name",
-		Example: ` + "`" + `  # Delete a {{ .NameSingular }} by name (with confirmation)
-  jamf-cli {{ .Name }} delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli {{ .Name }} delete-by-name "Example" --yes` + "`" + `,
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ listPathFromOps .Operations }}", "{{ .NameField }}", "{{ .IDField }}", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no {{ .NameSingular }} found with {{ .NameField }} %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .NameSingular }} %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete {{ .NameSingular }} %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("{{ deletePath .Operations }}", "{{ deletePathParam .Operations }}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted {{ .NameSingular }} %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+{{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
+{{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ end }}{{- end }}
 
 	return cmd
 }

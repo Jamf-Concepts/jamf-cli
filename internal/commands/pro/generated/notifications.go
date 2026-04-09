@@ -70,10 +70,11 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id> <type>",
+		Use:   "delete [<id>]",
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
 		Example: `  # Delete a notification (with confirmation)
@@ -81,13 +82,27 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli notifications delete 1 2 --yes`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/notifications", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -95,7 +110,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -105,8 +120,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/notifications/{type}/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{type}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -132,6 +146,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up notification by name")
 
 	return cmd
 }

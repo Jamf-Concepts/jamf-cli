@@ -27,14 +27,10 @@ func NewClassicComputerInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicComputerInvitationsListCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsGetCmd(ctx))
-	cmd.AddCommand(newClassicComputerInvitationsGetByNameCmd(ctx))
-	cmd.AddCommand(newClassicComputerInvitationsGetByInvitationCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsCreateCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerInvitationsDeleteCmd(ctx))
-
-	cmd.AddCommand(newClassicComputerInvitationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -89,18 +85,35 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 }
 
 func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName       string
+		flagInvitation string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a computer_invitation by ID",
 		Example: `  # Get a computer_invitation by ID
   jamf-cli classic-computer-invitations get 1
 
   # Get a computer_invitation and output as YAML
   jamf-cli classic-computer-invitations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/computerinvitations/name/%s", url.PathEscape(flagName))
+			} else if flagInvitation != "" {
+				path = fmt.Sprintf("/JSSResource/computerinvitations/invitation/%s", url.PathEscape(flagInvitation))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --invitation")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -131,84 +144,11 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicComputerInvitationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a computer_invitation by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerinvitations/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_invitation by name")
+	cmd.Flags().StringVar(&flagInvitation, "invitation", "", "Look up computer_invitation by invitation")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["computer_invitation"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
-}
-
-func newClassicComputerInvitationsGetByInvitationCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-invitation <invitation>",
-		Short: "Get a computer_invitation by invitation",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerinvitations/invitation/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["computer_invitation"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -244,30 +184,48 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a computer_invitation",
 		Example: `  # Delete a computer_invitation (with confirmation)
   jamf-cli classic-computer-invitations delete 1
 
   # Delete without confirmation prompt
   jamf-cli classic-computer-invitations delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no computer_invitation found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete computer_invitation %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -275,7 +233,8 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -293,73 +252,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicComputerInvitationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a computer_invitation by name",
-		Example: `  # Delete a computer_invitation by name (with confirmation)
-  jamf-cli classic-computer-invitations delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-computer-invitations delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no computer_invitation found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_invitation %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete computer_invitation %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/computerinvitations/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted computer_invitation %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_invitation by name")
 
 	return cmd
 }

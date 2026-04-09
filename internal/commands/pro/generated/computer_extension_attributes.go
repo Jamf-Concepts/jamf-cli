@@ -38,8 +38,6 @@ func NewComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newComputerExtensionAttributesUploadCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDataDependencyCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDownloadCmd(ctx))
-	cmd.AddCommand(newComputerExtensionAttributesGetByNameCmd(ctx))
-	cmd.AddCommand(newComputerExtensionAttributesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -176,27 +174,43 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get specified Computer Extension Attribute object.",
 		Long:  "Gets specified Computer Extension Attribute object.",
 		Example: `  # Get a computer-extension-attribute by ID
   jamf-cli computer-extension-attributes get 1
 
   # Get a computer-extension-attribute by name
-  jamf-cli computer-extension-attributes get-by-name "Example"
+  jamf-cli computer-extension-attributes get --name "Example"
 
   # Get a computer-extension-attribute and output as YAML
   jamf-cli computer-extension-attributes get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -215,28 +229,49 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
 	return cmd
 }
 
 func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update specified Computer Extension Attribute object.",
 		Long:  "Update specified Computer Extension Attribute object.",
 		Example: `  # Update a computer-extension-attribute from JSON
   echo '{"name":"Updated"}' | jamf-cli computer-extension-attributes update 1
 
+  # Update by name
+  jamf-cli computer-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli computer-extension-attributes update --name "Example"
+
   # Get a computer-extension-attribute, modify, and update
   jamf-cli computer-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-extension-attributes update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -261,6 +296,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
 	return cmd
 }
 
@@ -268,24 +305,42 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Remove specified Computer Extension Attribute.",
 		Long:  "ID of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete a computer-extension-attribute (with confirmation)
   jamf-cli computer-extension-attributes delete 1
 
+  # Delete by name
+  jamf-cli computer-extension-attributes delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli computer-extension-attributes delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -293,7 +348,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -303,7 +358,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -329,6 +384,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
 }
@@ -429,21 +485,36 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		flagFilter   string
 		flagAll      bool
 		flagLimit    int
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "history <id>",
+		Use:   "history [<id>]",
 		Short: "Get specified Computer Extension Attribute History object",
 		Long:  "Get specified Computer Extension Attribute history object",
 		Example: `  # Get history for a computer-extension-attribute
   jamf-cli computer-extension-attributes history 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -548,6 +619,7 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
 }
@@ -555,13 +627,14 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note <id>",
+		Use:   "add-history-note [<id>]",
 		Short: "Add specified Computer Extension Attribute history object notes",
 		Long:  "Add specified Computer Extension Attribute history object notes",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -572,9 +645,23 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -600,6 +687,7 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
 }
@@ -700,19 +788,35 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 }
 
 func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "data-dependency <id>",
+		Use:   "data-dependency [<id>]",
 		Short: "Get smart group/advance search dependent objects for a specified computer extension attribute",
 		Long:  "Get smart group/advance search dependent objects for a specified computer extension attribute",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}/data-dependency"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -731,16 +835,19 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
 	return cmd
 }
 
 func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download <id>",
+		Use:   "download [<id>]",
 		Short: "Download the specified Computer Extension Attribute.",
 		Long:  "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
 		Example: `  # Save to file
@@ -748,14 +855,28 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 
   # Pipe to stdout
   jamf-cli pro computer-extension-attributes download <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/computer-extension-attributes/{id}/download"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -789,99 +910,7 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
-	return cmd
-}
-
-func newComputerExtensionAttributesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a computer-extension-attribute by name",
-		Example: `  # Get a computer-extension-attribute by name
-  jamf-cli computer-extension-attributes get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli computer-extension-attributes get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/computer-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newComputerExtensionAttributesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a computer-extension-attribute by name",
-		Example: `  # Delete a computer-extension-attribute by name (with confirmation)
-  jamf-cli computer-extension-attributes delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli computer-extension-attributes delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no computer-extension-attribute found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-extension-attribute %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete computer-extension-attribute %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/computer-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted computer-extension-attribute %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
 }

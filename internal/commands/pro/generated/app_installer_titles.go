@@ -24,7 +24,6 @@ func NewAppInstallerTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newAppInstallerTitlesListCmd(ctx))
 	cmd.AddCommand(newAppInstallerTitlesGetCmd(ctx))
-	cmd.AddCommand(newAppInstallerTitlesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -149,27 +148,43 @@ func newAppInstallerTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newAppInstallerTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get an App Installer title by ID",
 		Long:  "Retrieves a specific App Installer title from the catalog",
 		Example: `  # Get a app-installer-title by ID
   jamf-cli app-installer-titles get 1
 
   # Get a app-installer-title by name
-  jamf-cli app-installer-titles get-by-name "Example"
+  jamf-cli app-installer-titles get --name "Example"
 
   # Get a app-installer-title and output as YAML
   jamf-cli app-installer-titles get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/app-installers/titles/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -188,32 +203,7 @@ func newAppInstallerTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-title by name")
+
 	return cmd
-}
-
-func newAppInstallerTitlesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a app-installer-title by name",
-		Example: `  # Get a app-installer-title by name
-  jamf-cli app-installer-titles get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli app-installer-titles get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/titles", "titleName", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/app-installers/titles/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

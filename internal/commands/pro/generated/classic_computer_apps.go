@@ -3,15 +3,9 @@
 package generated
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/url"
-
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
 // NewClassicComputerAppsCmd creates the classic-computer-apps command group
@@ -22,46 +16,5 @@ func NewClassicComputerAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage computer applications inventory via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicComputerAppsGetByApplicationCmd(ctx))
-
 	return cmd
-}
-
-func newClassicComputerAppsGetByApplicationCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-application <application>",
-		Short: "Get a computer_application by application",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerapplications/application/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["computer_application"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
 }

@@ -28,7 +28,8 @@ func NewClassicPatchAvailableTitlesCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_available_title by ID",
 		Example: `  # Get a patch_available_title by ID
@@ -40,6 +41,7 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchavailabletitles/sourceid/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -70,4 +72,6 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintRaw(body)
 		},
 	}
+
+	return cmd
 }

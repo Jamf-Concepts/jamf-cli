@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -21,7 +22,6 @@ func NewDeviceComplianceInformationsCmd(ctx *registry.CLIContext) *cobra.Command
 
 	cmd.AddCommand(newDeviceComplianceInformationsListCmd(ctx))
 	cmd.AddCommand(newDeviceComplianceInformationsGetCmd(ctx))
-	cmd.AddCommand(newDeviceComplianceInformationsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -65,27 +65,43 @@ func newDeviceComplianceInformationsListCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get compliance information for a single computer device",
 		Long:  "Return basic compliance information for the given computer device",
 		Example: `  # Get a device-compliance-information by ID
   jamf-cli device-compliance-informations get 1
 
   # Get a device-compliance-information by name
-  jamf-cli device-compliance-informations get-by-name "Example"
+  jamf-cli device-compliance-informations get --name "Example"
 
   # Get a device-compliance-information and output as YAML
   jamf-cli device-compliance-informations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", "deviceId", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/conditional-access/device-compliance-information/computer/{deviceId}"
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -104,32 +120,7 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-compliance-information by name")
+
 	return cmd
-}
-
-func newDeviceComplianceInformationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a device-compliance-information by name",
-		Example: `  # Get a device-compliance-information by name
-  jamf-cli device-compliance-informations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli device-compliance-informations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", "deviceId", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/conditional-access/device-compliance-information/computer/{deviceId}", "{deviceId}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

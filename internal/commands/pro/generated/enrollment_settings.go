@@ -35,9 +35,7 @@ func NewEnrollmentSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentSettingsHistoryExportCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsEnrollmentCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsUpdateEnrollmentCmd(ctx))
-	cmd.AddCommand(newEnrollmentSettingsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentSettingsApplyCmd(ctx))
-	cmd.AddCommand(newEnrollmentSettingsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -174,27 +172,43 @@ func newEnrollmentSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newEnrollmentSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve the configured LDAP groups configured for User-Initiated Enrollment",
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
 		Example: `  # Get a enrollment-setting by ID
   jamf-cli enrollment-settings get 1
 
   # Get a enrollment-setting by name
-  jamf-cli enrollment-settings get-by-name "Example"
+  jamf-cli enrollment-settings get --name "Example"
 
   # Get a enrollment-setting and output as YAML
   jamf-cli enrollment-settings get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -212,6 +226,8 @@ func newEnrollmentSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-setting by name")
 
 	return cmd
 }
@@ -284,18 +300,22 @@ func newEnrollmentSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
 		Long:  "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
 		Example: `  # Update a enrollment-setting from JSON
   echo '{"name":"Updated"}' | jamf-cli enrollment-settings update 1
 
+  # Update by name
+  jamf-cli enrollment-settings get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-settings update --name "Example"
+
   # Get a enrollment-setting, modify, and update
   jamf-cli enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-settings update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -313,9 +333,23 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -341,6 +375,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-setting by name")
 
 	return cmd
 }
@@ -349,24 +384,42 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete an LDAP group's access to user initiated Enrollment.",
 		Long:  "Deletes an LDAP group's access to user initiated enrollment. The group \"All LDAP Users\" cannot be deleted, but it can be modified to disallow User-Initiated Enrollment.",
 		Example: `  # Delete a enrollment-setting (with confirmation)
   jamf-cli enrollment-settings delete 1
 
+  # Delete by name
+  jamf-cli enrollment-settings delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli enrollment-settings delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -374,7 +427,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -384,7 +437,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/enrollment/access-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -410,6 +463,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-setting by name")
 
 	return cmd
 }
@@ -808,99 +862,6 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newEnrollmentSettingsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a enrollment-setting by name",
-		Example: `  # Get a enrollment-setting by name
-  jamf-cli enrollment-settings get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli enrollment-settings get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v3/enrollment/access-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newEnrollmentSettingsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a enrollment-setting by name",
-		Example: `  # Delete a enrollment-setting by name (with confirmation)
-  jamf-cli enrollment-settings delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli enrollment-settings delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/access-groups", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no enrollment-setting found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-setting %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete enrollment-setting %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v3/enrollment/access-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted enrollment-setting %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

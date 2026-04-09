@@ -25,7 +25,6 @@ func NewClassicPatchInternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.AddCommand(newClassicPatchInternalSourcesListCmd(ctx))
 
 	cmd.AddCommand(newClassicPatchInternalSourcesGetCmd(ctx))
-	cmd.AddCommand(newClassicPatchInternalSourcesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -80,18 +79,32 @@ func newClassicPatchInternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a patch_internal_source by ID",
 		Example: `  # Get a patch_internal_source by ID
   jamf-cli classic-patch-internal-sources get 1
 
   # Get a patch_internal_source and output as YAML
   jamf-cli classic-patch-internal-sources get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/patchinternalsources/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/patchinternalsources/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/patchinternalsources/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -122,43 +135,8 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicPatchInternalSourcesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a patch_internal_source by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/patchinternalsources/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch_internal_source by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["patch_internal_source"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }

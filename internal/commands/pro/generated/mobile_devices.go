@@ -28,7 +28,6 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
 	cmd.AddCommand(newMobileDevicesDetailCmd(ctx))
-	cmd.AddCommand(newMobileDevicesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -160,27 +159,58 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Mobile Device",
 		Long:  "Get MobileDevice",
 		Example: `  # Get a mobile-device by ID
   jamf-cli mobile-devices get 1
 
   # Get a mobile-device by name
-  jamf-cli mobile-devices get-by-name "Example"
+  jamf-cli mobile-devices get --name "Example"
 
   # Get a mobile-device and output as YAML
   jamf-cli mobile-devices get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
 			// Build request path
 			path := "/v2/mobile-devices/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -198,6 +228,10 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
 
 	return cmd
 }
@@ -339,19 +373,50 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "detail <id>",
+		Use:   "detail [<id>]",
 		Short: "Get Mobile Device",
 		Long:  "Get MobileDevice",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
 			// Build request path
 			path := "/v2/mobile-devices/{id}/detail"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -370,32 +435,9 @@ func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
 	return cmd
-}
-
-func newMobileDevicesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device by name",
-		Example: `  # Get a mobile-device by name
-  jamf-cli mobile-devices get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-devices get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/mobile-devices/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

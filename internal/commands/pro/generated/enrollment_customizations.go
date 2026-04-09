@@ -37,9 +37,7 @@ func NewEnrollmentCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentCustomizationsUploadCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsDownloadCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsPrestagesCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsGetByNameCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsApplyCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -171,27 +169,43 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 }
 
 func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve an Enrollment Customization with the supplied id",
 		Long:  "Retrieves an Enrollment Customization with the supplied id",
 		Example: `  # Get a enrollment-customization by ID
   jamf-cli enrollment-customizations get 1
 
   # Get a enrollment-customization by name
-  jamf-cli enrollment-customizations get-by-name "Example"
+  jamf-cli enrollment-customizations get --name "Example"
 
   # Get a enrollment-customization and output as YAML
   jamf-cli enrollment-customizations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -209,6 +223,8 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
@@ -277,18 +293,22 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update an Enrollment Customization",
 		Long:  "Updates an Enrollment Customization",
 		Example: `  # Update a enrollment-customization from JSON
   echo '{"name":"Updated"}' | jamf-cli enrollment-customizations update 1
 
+  # Update by name
+  jamf-cli enrollment-customizations get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-customizations update --name "Example"
+
   # Get a enrollment-customization, modify, and update
   jamf-cli enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customizations update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -302,9 +322,23 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -330,6 +364,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
@@ -338,24 +373,42 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete an Enrollment Customization with the supplied id",
 		Long:  "Deletes an Enrollment Customization with the supplied id",
 		Example: `  # Delete a enrollment-customization (with confirmation)
   jamf-cli enrollment-customizations delete 1
 
+  # Delete by name
+  jamf-cli enrollment-customizations delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli enrollment-customizations delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -363,7 +416,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -373,7 +426,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -399,6 +452,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
@@ -410,21 +464,36 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 		flagSort     []string
 		flagAll      bool
 		flagLimit    int
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "history <id>",
+		Use:   "history [<id>]",
 		Short: "Get sorted and paged Enrollment Customization history objects",
 		Long:  "Gets sorted and paged enrollment customization history objects",
 		Example: `  # Get history for a enrollment-customization
   jamf-cli enrollment-customizations history 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -525,6 +594,7 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the 'sort' query param is duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
@@ -532,13 +602,14 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note <id>",
+		Use:   "add-history-note [<id>]",
 		Short: "Add Enrollment Customization history object notes",
 		Long:  "Adds enrollment customization history object notes",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -549,9 +620,23 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -577,6 +662,7 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
@@ -640,10 +726,11 @@ func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Comma
 func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download <id>",
+		Use:   "download [<id>]",
 		Short: "Download an enrollment customization image",
 		Long:  "Download an enrollment customization image",
 		Example: `  # Save to file
@@ -651,14 +738,28 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Pipe to stdout
   jamf-cli pro enrollment-customizations download <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/images/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -692,24 +793,41 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }
 
 func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "prestages <id>",
+		Use:   "prestages [<id>]",
 		Short: "Retrieve the list of Prestages using this Enrollment Customization",
 		Long:  "Retrieves the list of Prestages using this Enrollment Customization",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/enrollment-customizations/{id}/prestages"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -728,98 +846,7 @@ func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
-	return cmd
-}
-
-func newEnrollmentCustomizationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a enrollment-customization by name",
-		Example: `  # Get a enrollment-customization by name
-  jamf-cli enrollment-customizations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli enrollment-customizations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/enrollment-customizations/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newEnrollmentCustomizationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a enrollment-customization by name",
-		Example: `  # Delete a enrollment-customization by name (with confirmation)
-  jamf-cli enrollment-customizations delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli enrollment-customizations delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no enrollment-customization found with displayName %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-customization %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete enrollment-customization %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v2/enrollment-customizations/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted enrollment-customization %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
 }

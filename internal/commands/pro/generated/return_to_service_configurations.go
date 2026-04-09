@@ -29,9 +29,7 @@ func NewReturnToServiceConfigurationsCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.AddCommand(newReturnToServiceConfigurationsCreateCmd(ctx))
 	cmd.AddCommand(newReturnToServiceConfigurationsUpdateCmd(ctx))
 	cmd.AddCommand(newReturnToServiceConfigurationsDeleteCmd(ctx))
-	cmd.AddCommand(newReturnToServiceConfigurationsGetByNameCmd(ctx))
 	cmd.AddCommand(newReturnToServiceConfigurationsApplyCmd(ctx))
-	cmd.AddCommand(newReturnToServiceConfigurationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -75,27 +73,43 @@ func newReturnToServiceConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Co
 }
 
 func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve a Return to Service Configuration with the supplied id",
 		Long:  "Retrieves a Return to Service Configuration with the supplied id",
 		Example: `  # Get a return-to-service-configuration by ID
   jamf-cli return-to-service-configurations get 1
 
   # Get a return-to-service-configuration by name
-  jamf-cli return-to-service-configurations get-by-name "Example"
+  jamf-cli return-to-service-configurations get --name "Example"
 
   # Get a return-to-service-configuration and output as YAML
   jamf-cli return-to-service-configurations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/return-to-service/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -113,6 +127,8 @@ func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Com
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up return-to-service-configuration by name")
 
 	return cmd
 }
@@ -179,18 +195,22 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update a Return to Service Configuration",
 		Long:  "Updates a Return to Service Configuration",
 		Example: `  # Update a return-to-service-configuration from JSON
   echo '{"name":"Updated"}' | jamf-cli return-to-service-configurations update 1
 
+  # Update by name
+  jamf-cli return-to-service-configurations get --name "Example" -o json | jq '.field = "value"' | jamf-cli return-to-service-configurations update --name "Example"
+
   # Get a return-to-service-configuration, modify, and update
   jamf-cli return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli return-to-service-configurations update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -202,9 +222,23 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/return-to-service/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -230,6 +264,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up return-to-service-configuration by name")
 
 	return cmd
 }
@@ -238,24 +273,42 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a Return To Service Configuration with the supplied id",
 		Long:  "Deletes a Return To Service Configuration with the supplied id",
 		Example: `  # Delete a return-to-service-configuration (with confirmation)
   jamf-cli return-to-service-configurations delete 1
 
+  # Delete by name
+  jamf-cli return-to-service-configurations delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli return-to-service-configurations delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -263,7 +316,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -273,7 +326,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
 			// Build request path
 			path := "/v1/return-to-service/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -299,99 +352,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newReturnToServiceConfigurationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a return-to-service-configuration by name",
-		Example: `  # Get a return-to-service-configuration by name
-  jamf-cli return-to-service-configurations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli return-to-service-configurations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/return-to-service/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newReturnToServiceConfigurationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a return-to-service-configuration by name",
-		Example: `  # Delete a return-to-service-configuration by name (with confirmation)
-  jamf-cli return-to-service-configurations delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli return-to-service-configurations delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/return-to-service", "displayName", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no return-to-service-configuration found with displayName %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete return-to-service-configuration %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete return-to-service-configuration %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/return-to-service/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted return-to-service-configuration %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up return-to-service-configuration by name")
 
 	return cmd
 }

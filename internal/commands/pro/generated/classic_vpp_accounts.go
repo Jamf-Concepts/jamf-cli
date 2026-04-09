@@ -87,7 +87,8 @@ func newClassicVppAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a vpp_account by ID",
 		Example: `  # Get a vpp_account by ID
@@ -99,6 +100,7 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/vppaccounts/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -129,6 +131,8 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -161,7 +165,7 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_account",
 		Long:  "Update an existing vpp_account by ID. Reads XML body from stdin.",
@@ -180,6 +184,7 @@ func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/JSSResource/vppaccounts/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -189,6 +194,8 @@ func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicVppAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -227,6 +234,7 @@ func newClassicVppAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/JSSResource/vppaccounts/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

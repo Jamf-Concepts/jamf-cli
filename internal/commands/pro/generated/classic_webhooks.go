@@ -28,7 +28,6 @@ func NewClassicWebhooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicWebhooksListCmd(ctx))
 
 	cmd.AddCommand(newClassicWebhooksGetCmd(ctx))
-	cmd.AddCommand(newClassicWebhooksGetByNameCmd(ctx))
 
 	cmd.AddCommand(newClassicWebhooksCreateCmd(ctx))
 
@@ -37,8 +36,6 @@ func NewClassicWebhooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicWebhooksDeleteCmd(ctx))
 
 	cmd.AddCommand(newClassicWebhooksApplyCmd(ctx))
-
-	cmd.AddCommand(newClassicWebhooksDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -93,18 +90,32 @@ func newClassicWebhooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a webhook by ID",
 		Example: `  # Get a webhook by ID
   jamf-cli classic-webhooks get 1
 
   # Get a webhook and output as YAML
   jamf-cli classic-webhooks get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/webhooks/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -135,45 +146,10 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicWebhooksGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a webhook by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/webhooks/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up webhook by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["webhook"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -206,13 +182,15 @@ func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "update <id>",
+	var flagName string
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
 		Short: "Update a webhook",
 		Long:  "Update an existing webhook by ID. Reads XML body from stdin.",
 		Example: `  # Update a webhook from XML
   cat webhook.xml | jamf-cli classic-webhooks update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -224,7 +202,15 @@ func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(args[0]))
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/webhooks/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -234,36 +220,58 @@ func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up webhook by name")
+
+	return cmd
 }
 
 func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a webhook",
 		Example: `  # Delete a webhook (with confirmation)
   jamf-cli classic-webhooks delete 1
 
   # Delete without confirmation prompt
   jamf-cli classic-webhooks delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "webhooks", "webhooks", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no webhook found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete webhook %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete webhook %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete webhook %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete webhook %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -271,7 +279,8 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -289,6 +298,7 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up webhook by name")
 
 	return cmd
 }
@@ -383,73 +393,6 @@ If not, a new resource is created.`,
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicWebhooksDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a webhook by name",
-		Example: `  # Delete a webhook by name (with confirmation)
-  jamf-cli classic-webhooks delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-webhooks delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "webhooks", "webhooks", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no webhook found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete webhook %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete webhook %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/webhooks/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted webhook %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

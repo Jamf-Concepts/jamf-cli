@@ -28,35 +28,49 @@ func NewCloudLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newCloudLdapsCreateCmd(ctx))
 	cmd.AddCommand(newCloudLdapsUpdateCmd(ctx))
 	cmd.AddCommand(newCloudLdapsDeleteCmd(ctx))
-	cmd.AddCommand(newCloudLdapsGetByNameCmd(ctx))
 	cmd.AddCommand(newCloudLdapsApplyCmd(ctx))
-	cmd.AddCommand(newCloudLdapsDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
 func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Cloud Identity Provider configuration with given id.",
 		Long:  "Get Cloud Identity Provider configuration with given id.",
 		Example: `  # Get a cloud-ldap by ID
   jamf-cli cloud-ldaps get 1
 
   # Get a cloud-ldap by name
-  jamf-cli cloud-ldaps get-by-name "Example"
+  jamf-cli cloud-ldaps get --name "Example"
 
   # Get a cloud-ldap and output as YAML
   jamf-cli cloud-ldaps get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/cloud-ldaps/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -74,6 +88,8 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-ldap by name")
 
 	return cmd
 }
@@ -141,18 +157,22 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update Cloud Identity Provider configuration",
 		Long:  "Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.",
 		Example: `  # Update a cloud-ldap from JSON
   echo '{"name":"Updated"}' | jamf-cli cloud-ldaps update 1
 
+  # Update by name
+  jamf-cli cloud-ldaps get --name "Example" -o json | jq '.field = "value"' | jamf-cli cloud-ldaps update --name "Example"
+
   # Get a cloud-ldap, modify, and update
   jamf-cli cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli cloud-ldaps update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -165,9 +185,23 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/cloud-ldaps/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -193,6 +227,7 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-ldap by name")
 
 	return cmd
 }
@@ -201,24 +236,42 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete Cloud Identity Provider configuration.",
 		Long:  "Delete Cloud Identity Provider configuration.",
 		Example: `  # Delete a cloud-ldap (with confirmation)
   jamf-cli cloud-ldaps delete 1
 
+  # Delete by name
+  jamf-cli cloud-ldaps delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli cloud-ldaps delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -226,7 +279,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -236,7 +289,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/cloud-ldaps/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -262,99 +315,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newCloudLdapsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a cloud-ldap by name",
-		Example: `  # Get a cloud-ldap by name
-  jamf-cli cloud-ldaps get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli cloud-ldaps get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/cloud-ldaps/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newCloudLdapsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a cloud-ldap by name",
-		Example: `  # Delete a cloud-ldap by name (with confirmation)
-  jamf-cli cloud-ldaps delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli cloud-ldaps delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/cloud-ldaps", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no cloud-ldap found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete cloud-ldap %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete cloud-ldap %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v2/cloud-ldaps/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted cloud-ldap %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-ldap by name")
 
 	return cmd
 }

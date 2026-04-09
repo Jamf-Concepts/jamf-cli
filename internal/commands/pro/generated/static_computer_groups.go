@@ -30,9 +30,7 @@ func NewStaticComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newStaticComputerGroupsCreateCmd(ctx))
 	cmd.AddCommand(newStaticComputerGroupsUpdateCmd(ctx))
 	cmd.AddCommand(newStaticComputerGroupsDeleteCmd(ctx))
-	cmd.AddCommand(newStaticComputerGroupsGetByNameCmd(ctx))
 	cmd.AddCommand(newStaticComputerGroupsApplyCmd(ctx))
-	cmd.AddCommand(newStaticComputerGroupsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -169,27 +167,43 @@ func newStaticComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Static Computer Group by Id",
 		Long:  "Get Static Computer Group by Id",
 		Example: `  # Get a static-computer-group by ID
   jamf-cli static-computer-groups get 1
 
   # Get a static-computer-group by name
-  jamf-cli static-computer-groups get-by-name "Example"
+  jamf-cli static-computer-groups get --name "Example"
 
   # Get a static-computer-group and output as YAML
   jamf-cli static-computer-groups get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/computer-groups/static-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -207,6 +221,8 @@ func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up static-computer-group by name")
 
 	return cmd
 }
@@ -280,18 +296,22 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update membership of a static computer group.",
 		Long:  "Update membership of a static computer group.",
 		Example: `  # Update a static-computer-group from JSON
   echo '{"name":"Updated"}' | jamf-cli static-computer-groups update 1
 
+  # Update by name
+  jamf-cli static-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli static-computer-groups update --name "Example"
+
   # Get a static-computer-group, modify, and update
   jamf-cli static-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli static-computer-groups update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -305,9 +325,23 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/computer-groups/static-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -333,6 +367,7 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up static-computer-group by name")
 
 	return cmd
 }
@@ -341,24 +376,42 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Remove Static Computer Group by Id",
 		Long:  "Remove Static Computer Group by Id",
 		Example: `  # Delete a static-computer-group (with confirmation)
   jamf-cli static-computer-groups delete 1
 
+  # Delete by name
+  jamf-cli static-computer-groups delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli static-computer-groups delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
@@ -366,7 +419,7 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -376,7 +429,7 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v2/computer-groups/static-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -402,99 +455,7 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newStaticComputerGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a static-computer-group by name",
-		Example: `  # Get a static-computer-group by name
-  jamf-cli static-computer-groups get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli static-computer-groups get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/computer-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newStaticComputerGroupsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a static-computer-group by name",
-		Example: `  # Delete a static-computer-group by name (with confirmation)
-  jamf-cli static-computer-groups delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli static-computer-groups delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/static-groups", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no static-computer-group found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete static-computer-group %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete static-computer-group %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v2/computer-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted static-computer-group %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up static-computer-group by name")
 
 	return cmd
 }

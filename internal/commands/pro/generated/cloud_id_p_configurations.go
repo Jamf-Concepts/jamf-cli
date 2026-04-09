@@ -26,7 +26,6 @@ func NewCloudIdPConfigurationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newCloudIdPConfigurationsListCmd(ctx))
 	cmd.AddCommand(newCloudIdPConfigurationsGetCmd(ctx))
 	cmd.AddCommand(newCloudIdPConfigurationsExportCmd(ctx))
-	cmd.AddCommand(newCloudIdPConfigurationsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -158,27 +157,43 @@ func newCloudIdPConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Cloud Identity Provider configuration with given ID.",
 		Long:  "Get Cloud Identity Provider configuration with given ID.",
 		Example: `  # Get a cloud-id-p-configuration by ID
   jamf-cli cloud-id-p-configurations get 1
 
   # Get a cloud-id-p-configuration by name
-  jamf-cli cloud-id-p-configurations get-by-name "Example"
+  jamf-cli cloud-id-p-configurations get --name "Example"
 
   # Get a cloud-id-p-configuration and output as YAML
   jamf-cli cloud-id-p-configurations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/cloud-idp", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/cloud-idp/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -196,6 +211,8 @@ func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-id-p-configuration by name")
 
 	return cmd
 }
@@ -309,31 +326,4 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
-}
-
-func newCloudIdPConfigurationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a cloud-id-p-configuration by name",
-		Example: `  # Get a cloud-id-p-configuration by name
-  jamf-cli cloud-id-p-configurations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli cloud-id-p-configurations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/cloud-idp", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/cloud-idp/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -22,33 +23,48 @@ func NewManagedSoftwareUpdatesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newManagedSoftwareUpdatesGetCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesAvailableUpdatesCmd(ctx))
 	cmd.AddCommand(newManagedSoftwareUpdatesUpdateStatusesCmd(ctx))
-	cmd.AddCommand(newManagedSoftwareUpdatesGetByNameCmd(ctx))
 
 	return cmd
 }
 
 func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve Managed Software Update Statuses for Computer Groups",
 		Long:  "Retrieve Managed Software Update Statuses for Computer Groups",
 		Example: `  # Get a managed-software-update by ID
   jamf-cli managed-software-updates get 1
 
   # Get a managed-software-update by name
-  jamf-cli managed-software-updates get-by-name "Example"
+  jamf-cli managed-software-updates get --name "Example"
 
   # Get a managed-software-update and output as YAML
   jamf-cli managed-software-updates get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/update-statuses/computer-groups", "name", "osUpdatesStatusId", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/managed-software-updates/update-statuses/computer-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -66,6 +82,8 @@ func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up managed-software-update by name")
 
 	return cmd
 }
@@ -141,31 +159,4 @@ func newManagedSoftwareUpdatesUpdateStatusesCmd(ctx *registry.CLIContext) *cobra
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Managed Software Updates collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: osUpdatesStatusId, device.deviceId, device.objectType, downloaded, downloadPercentComplete, productKey, status, deferralsRemaining, maxDeferrals, nextScheduledInstall, created and updated.")
 
 	return cmd
-}
-
-func newManagedSoftwareUpdatesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a managed-software-update by name",
-		Example: `  # Get a managed-software-update by name
-  jamf-cli managed-software-updates get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli managed-software-updates get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/update-statuses/computer-groups", "name", "osUpdatesStatusId", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/managed-software-updates/update-statuses/computer-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

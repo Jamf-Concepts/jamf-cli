@@ -27,7 +27,6 @@ func NewClassicMobileInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicMobileInvitationsListCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileInvitationsGetCmd(ctx))
-	cmd.AddCommand(newClassicMobileInvitationsGetByInvitationCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileInvitationsCreateCmd(ctx))
 
@@ -86,18 +85,32 @@ func newClassicMobileInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command
 }
 
 func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagInvitation string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a mobile_device_invitation by ID",
 		Example: `  # Get a mobile_device_invitation by ID
   jamf-cli classic-mobile-invitations get 1
 
   # Get a mobile_device_invitation and output as YAML
   jamf-cli classic-mobile-invitations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceinvitations/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagInvitation != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceinvitations/invitation/%s", url.PathEscape(flagInvitation))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceinvitations/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --invitation")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -128,45 +141,10 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicMobileInvitationsGetByInvitationCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-invitation <invitation>",
-		Short: "Get a mobile_device_invitation by invitation",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceinvitations/invitation/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagInvitation, "invitation", "", "Look up mobile_device_invitation by invitation")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_invitation"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -234,6 +212,7 @@ func newClassicMobileInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceinvitations/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
