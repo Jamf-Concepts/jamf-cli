@@ -185,19 +185,19 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
 				resolvedID = rid
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
 				resolvedID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
 				if err != nil {
 					return err
 				}
@@ -290,19 +290,19 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedPatchID string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
 				resolvedPatchID = rid
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
 				resolvedPatchID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
 				if err != nil {
 					return err
 				}
@@ -391,19 +391,19 @@ func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
 				resolvedID = rid
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
 				resolvedID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
 				if err != nil {
 					return err
 				}

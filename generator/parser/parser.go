@@ -45,8 +45,10 @@ var resourceLookupFields = map[string][]LookupField{
 		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up computer by serial number"},
 		{Flag: "udid", RSQLField: "udid", Desc: "Look up computer by UDID"},
 	},
+	// /v2/mobile-devices/detail (the lookup path) uses top-level "serialNumber"
+	// and "udid" filter fields — not the nested "hardware.serialNumber".
 	"mobile-devices": {
-		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up mobile device by serial number"},
+		{Flag: "serial", RSQLField: "serialNumber", Desc: "Look up mobile device by serial number"},
 		{Flag: "udid", RSQLField: "udid", Desc: "Look up mobile device by UDID"},
 	},
 }
@@ -73,9 +75,23 @@ var resourceNameFieldOverrides = map[string]string{
 	// Groups list endpoint requires "groupName"; plain "name" field wins the
 	// heuristic but is not a filterable field on this endpoint.
 	"groups": "groupName",
-	// Mobile devices list response uses "name"; the spec also has a "displayName"
-	// field (WiFi network display name) that wins the heuristic incorrectly.
-	"mobile-devices": "name",
+}
+
+// resourceNameLookupPathOverrides maps resource names to an alternate list path
+// used exclusively for name-based resolution. Needed when the primary list
+// endpoint ignores RSQL filter params but a sibling endpoint supports it.
+var resourceNameLookupPathOverrides = map[string]string{
+	// /v2/mobile-devices ignores RSQL; /v2/mobile-devices/detail supports it
+	// and exposes "displayName" as the filterable name field.
+	"mobile-devices": "/v2/mobile-devices/detail",
+}
+
+// resourceNameLookupIDFieldOverrides maps resource names to the ID field name
+// in the NameLookupPath response when it differs from IDField. Needed when the
+// alternate lookup endpoint uses a different property for the record identifier.
+var resourceNameLookupIDFieldOverrides = map[string]string{
+	// /v2/mobile-devices/detail returns "mobileDeviceId" (not "id").
+	"mobile-devices": "mobileDeviceId",
 }
 
 // resourceIDFieldOverrides maps canonical resource names to the correct response
@@ -98,6 +114,12 @@ func ApplyNameFieldOverrides(resources []*Resource) {
 		}
 		if field, ok := resourceIDFieldOverrides[r.Name]; ok {
 			r.IDField = field
+		}
+		if path, ok := resourceNameLookupPathOverrides[r.Name]; ok {
+			r.NameLookupPath = path
+		}
+		if idField, ok := resourceNameLookupIDFieldOverrides[r.Name]; ok {
+			r.NameLookupIDField = idField
 		}
 	}
 }

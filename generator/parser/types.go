@@ -12,16 +12,18 @@ type LookupField struct {
 
 // Resource represents a parsed API resource (e.g., buildings, computers)
 type Resource struct {
-	Name         string // e.g., "buildings"
-	NameSingular string // e.g., "building"
-	GoName       string // e.g., "Buildings"
-	Description  string
-	Operations   []*Operation
-	Schemas      map[string]*Schema
-	NameField    string        // Filter field for name lookups (default "name", some use "displayName")
-	IDField      string        // Response field for ID extraction in name resolution (default "id", some use "templateId", "groupId", etc.)
-	IsSingleton  bool          // True for settings-style resources: single object, GET+PUT, no {id} in any path
-	LookupFields []LookupField // Alternate identifier fields for patch-by-name / delete-by-name (e.g. serial number)
+	Name              string // e.g., "buildings"
+	NameSingular      string // e.g., "building"
+	GoName            string // e.g., "Buildings"
+	Description       string
+	Operations        []*Operation
+	Schemas           map[string]*Schema
+	NameField         string        // Filter field for name lookups (default "name", some use "displayName")
+	IDField           string        // Response field for ID extraction in name resolution (default "id", some use "templateId", "groupId", etc.)
+	IsSingleton       bool          // True for settings-style resources: single object, GET+PUT, no {id} in any path
+	LookupFields      []LookupField // Alternate identifier fields for patch-by-name / delete-by-name (e.g. serial number)
+	NameLookupPath    string        // Override list path for name resolution (when the standard list endpoint ignores RSQL)
+	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
 }
 
 // Operation represents an API operation (endpoint)

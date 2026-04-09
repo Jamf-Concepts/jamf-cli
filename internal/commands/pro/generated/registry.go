@@ -368,6 +368,76 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 	return matches[choice-1].id, nil
 }
 
+// resolveNameToIDClientSide looks up a resource by name by scanning pages of
+// the list endpoint client-side. Used for resources whose list endpoint ignores
+// RSQL filter params (e.g. /v2/mobile-devices). Pages through all results at
+// page-size=200 until the first exact match is found.
+func resolveNameToIDClientSide(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) (string, error) {
+	const pageSize = 200
+	for page := 0; ; page++ {
+		pagePath := fmt.Sprintf("%s?page=%d&page-size=%d", listPath, page, pageSize)
+		resp, err := client.Do(ctx, "GET", pagePath, nil)
+		if err != nil {
+			return "", fmt.Errorf("looking up %q: %w", name, err)
+		}
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		_ = resp.Body.Close()
+		if err != nil {
+			return "", fmt.Errorf("reading lookup response: %w", err)
+		}
+
+		var data struct {
+			TotalCount int               `json:"totalCount"`
+			Results    []json.RawMessage `json:"results"`
+		}
+		isArr := false
+		if err := json.Unmarshal(body, &data); err != nil {
+			var arr []json.RawMessage
+			if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
+				return "", fmt.Errorf("parsing lookup response: %w", err)
+			}
+			data.Results = arr
+			data.TotalCount = len(arr)
+			isArr = true
+		}
+
+		for _, raw := range data.Results {
+			var obj map[string]any
+			if err := json.Unmarshal(raw, &obj); err != nil {
+				continue
+			}
+			if resolveNestedString(obj, nameField) == name {
+				if id := extractIDString(obj, idField); id != "" {
+					return id, nil
+				}
+			}
+		}
+
+		// Plain array: already exhausted; paginated: check if more pages exist.
+		if isArr || len(data.Results) < pageSize || (data.TotalCount > 0 && (page+1)*pageSize >= data.TotalCount) {
+			break
+		}
+	}
+	return "", fmt.Errorf("no resource found with name %q", name)
+}
+
+// resolveNestedString extracts a dot-notation field from a JSON object
+// (e.g. "general.name" from {"general":{"name":"foo"}}).
+func resolveNestedString(obj map[string]any, field string) string {
+	dot := strings.IndexByte(field, '.')
+	if dot == -1 {
+		if v, ok := obj[field].(string); ok {
+			return v
+		}
+		return ""
+	}
+	sub, ok := obj[field[:dot]].(map[string]any)
+	if !ok {
+		return ""
+	}
+	return resolveNestedString(sub, field[dot+1:])
+}
+
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.
 // Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.
