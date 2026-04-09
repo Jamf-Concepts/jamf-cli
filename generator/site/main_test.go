@@ -13,7 +13,7 @@ func TestTransformCommands(t *testing.T) {
 		{"command":"protect analytics list","description":"List analytics","aliases":"","flags":"--output","product":"protect","group":"Analytics"}
 	]`)
 
-	out, err := transformCommands(input, "1.0.0", nil, nil)
+	out, err := transformCommands(input, "1.0.0", nil, nil, "")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestTransformCommands_EmptyAliasesAndFlags(t *testing.T) {
 		{"command":"version","description":"Print version","aliases":"","flags":"","product":"","group":""}
 	]`)
 
-	out, err := transformCommands(input, "2.0.0", nil, nil)
+	out, err := transformCommands(input, "2.0.0", nil, nil, "")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestTransformCommands_NewCommands(t *testing.T) {
 		"pro report security": true,
 	}
 
-	out, err := transformCommands(input, "1.1.0", previous, nil)
+	out, err := transformCommands(input, "1.1.0", previous, nil, "")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestTransformCommands_NoPrevious(t *testing.T) {
 		{"command":"version","description":"Version","aliases":"","flags":"","product":"","group":""}
 	]`)
 
-	out, err := transformCommands(input, "1.0.0", nil, nil)
+	out, err := transformCommands(input, "1.0.0", nil, nil, "")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestTransformCommands_CarryForwardNewCommands(t *testing.T) {
 	}
 	prevNew := []string{"pro report policy-status"}
 
-	out, err := transformCommands(input, "1.1.0", previous, prevNew)
+	out, err := transformCommands(input, "1.1.0", previous, prevNew, "1.1.0")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestTransformCommands_CarryForwardFiltersRemovedCommands(t *testing.T) {
 	// Previous deploy had a command marked new that no longer exists
 	prevNew := []string{"pro removed-command"}
 
-	out, err := transformCommands(input, "1.2.0", previous, prevNew)
+	out, err := transformCommands(input, "1.2.0", previous, prevNew, "1.2.0")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestTransformCommands_FreshNewCommandsOverridePrevious(t *testing.T) {
 	// Previous deploy had policy-status as new
 	prevNew := []string{"pro report policy-status"}
 
-	out, err := transformCommands(input, "1.2.0", previous, prevNew)
+	out, err := transformCommands(input, "1.2.0", previous, prevNew, "1.1.0")
 	if err != nil {
 		t.Fatalf("transformCommands returned error: %v", err)
 	}
@@ -218,6 +218,34 @@ func TestTransformCommands_FreshNewCommandsOverridePrevious(t *testing.T) {
 	}
 	if data.NewCommands[0] != "pro brand new" {
 		t.Errorf("NewCommands[0] = %q, want %q", data.NewCommands[0], "pro brand new")
+	}
+}
+
+func TestTransformCommands_CarryForwardClearsOnNewVersion(t *testing.T) {
+	input := []byte(`[
+		{"command":"pro computers list","description":"List","aliases":"","flags":"","product":"pro","group":""},
+		{"command":"pro report policy-status","description":"Policy","aliases":"","flags":"","product":"pro","group":""}
+	]`)
+
+	previous := map[string]bool{
+		"pro computers list":       true,
+		"pro report policy-status": true,
+	}
+	prevNew := []string{"pro report policy-status"}
+
+	// Version changed from 1.1.0 to 1.2.0 — badges should NOT carry forward
+	out, err := transformCommands(input, "1.2.0", previous, prevNew, "1.1.0")
+	if err != nil {
+		t.Fatalf("transformCommands returned error: %v", err)
+	}
+
+	var data siteData
+	if err := json.Unmarshal(out, &data); err != nil {
+		t.Fatalf("failed to unmarshal output: %v", err)
+	}
+
+	if len(data.NewCommands) != 0 {
+		t.Errorf("NewCommands = %v, want empty (badges should clear on version change)", data.NewCommands)
 	}
 }
 
