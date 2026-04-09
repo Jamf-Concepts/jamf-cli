@@ -15,6 +15,90 @@ import (
 	"github.com/iancoleman/strcase"
 )
 
+// resourceNameOverrides maps auto-generated canonical names to preferred CLI names,
+// for cases where auto-pluralization produces unnatural results. Applied after
+// DeduplicateVersioned by ApplyNameOverrides.
+var resourceNameOverrides = map[string]string{
+	// "computers-inventory" pluralizes to "computers-inventories" via the -y→-ies
+	// rule, but the Jamf API path (/v3/computers-inventory) treats "inventory" as a
+	// collective noun — no further pluralization needed.
+	"computers-inventories": "computers-inventory",
+}
+
+// ApplyNameOverrides corrects resource names that auto-pluralization got wrong.
+// Must be called after DeduplicateVersioned.
+func ApplyNameOverrides(resources []*Resource) {
+	for _, r := range resources {
+		if preferred, ok := resourceNameOverrides[r.Name]; ok {
+			r.Name = preferred
+			r.NameSingular = singularize(preferred)
+			r.GoName = strcase.ToCamel(preferred)
+		}
+	}
+}
+
+// resourceLookupFields maps canonical resource names to their alternate identifier
+// fields for patch-by-name commands. Keyed by the final canonical resource name
+// (after DeduplicateVersioned and ApplyNameOverrides).
+var resourceLookupFields = map[string][]LookupField{
+	"computers-inventory": {
+		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up computer by serial number"},
+		{Flag: "udid", RSQLField: "udid", Desc: "Look up computer by UDID"},
+	},
+	"mobile-devices": {
+		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up mobile device by serial number"},
+		{Flag: "udid", RSQLField: "udid", Desc: "Look up mobile device by UDID"},
+	},
+}
+
+// ApplyLookupFields sets LookupFields on resources that have alternate identifier
+// fields defined in resourceLookupFields. Must be called after DeduplicateVersioned
+// so resource names are in their final canonical form.
+func ApplyLookupFields(resources []*Resource) {
+	for _, r := range resources {
+		if fields, ok := resourceLookupFields[r.Name]; ok {
+			r.LookupFields = fields
+		}
+	}
+}
+
+// resourceNameFieldOverrides maps canonical resource names to the correct RSQL
+// filter field for name-based lookups. Used when detectNameField() returns the
+// wrong value — typically because the name lives in a nested object (e.g.
+// general.name) that the heuristic can't see, or the schema uses a prefixed
+// field (e.g. groupName) but also exposes a plain "name" field that wins.
+var resourceNameFieldOverrides = map[string]string{
+	// Jamf Pro list endpoint requires "general.name" not "name".
+	"computers-inventory": "general.name",
+	// Groups list endpoint requires "groupName"; plain "name" field wins the
+	// heuristic but is not a filterable field on this endpoint.
+	"groups": "groupName",
+}
+
+// resourceIDFieldOverrides maps canonical resource names to the correct response
+// field for ID extraction during name-to-ID resolution. Used when detectIDField()
+// returns the wrong value — typically for resources that expose a UUID platform ID
+// (used in PATCH/DELETE paths) alongside a legacy integer Jamf Pro ID.
+var resourceIDFieldOverrides = map[string]string{
+	// Groups list response uses "groupPlatformId" (UUID) for PATCH/DELETE paths,
+	// not the legacy integer "groupJamfProId".
+	"groups": "groupPlatformId",
+}
+
+// ApplyNameFieldOverrides corrects NameField and IDField values that the
+// auto-detection heuristics got wrong. Must be called after ApplyNameOverrides
+// so resource names are in their final canonical form.
+func ApplyNameFieldOverrides(resources []*Resource) {
+	for _, r := range resources {
+		if field, ok := resourceNameFieldOverrides[r.Name]; ok {
+			r.NameField = field
+		}
+		if field, ok := resourceIDFieldOverrides[r.Name]; ok {
+			r.IDField = field
+		}
+	}
+}
+
 // singularize converts a plural resource name to singular.
 // Handles: -ies → -y (policies → policy), -sses → -ss (statuses → status),
 // -s → "" (buildings → building).
@@ -425,10 +509,15 @@ func filterToCanonicalPrefix(ops []*Operation) []*Operation {
 		strippedBase = stripped
 	}
 
+	// Also match the "-detail" sibling path variant used by some Jamf endpoints
+	// (e.g. /v3/computers-inventory-detail belongs to the /v3/computers-inventory family).
+	detailBase := strippedBase + "-detail"
+
 	var filtered []*Operation
 	for _, op := range ops {
 		opStripped := stripVersionPrefix(op.Path)
-		if opStripped == strippedBase || strings.HasPrefix(opStripped, strippedBase+"/") {
+		if opStripped == strippedBase || strings.HasPrefix(opStripped, strippedBase+"/") ||
+			opStripped == detailBase || strings.HasPrefix(opStripped, detailBase+"/") {
 			filtered = append(filtered, op)
 		}
 	}
@@ -865,6 +954,9 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			if operation.Name == "create" {
 				operation.Name = "upload"
 			}
+		} else if content, ok := rb.Content["application/merge-patch+json"]; ok && content.Schema != nil && content.Schema.Value != nil {
+			operation.RequestBody.IsMergePatch = true
+			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
 		} else if content, ok := rb.Content["application/json"]; ok && content.Schema != nil && content.Schema.Value != nil {
 			operation.RequestBody.Schema = parseSchema("", content.Schema.Value)
 		}
@@ -1010,6 +1102,19 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 		}
 		if len(prop.Type.Slice()) > 0 {
 			p.Type = prop.Type.Slice()[0]
+		}
+		// Capture the referenced component schema name so the generator can
+		// resolve nested object fields (e.g. for --set dot-notation paths).
+		if propRef.Ref != "" {
+			if idx := strings.LastIndex(propRef.Ref, "/"); idx != -1 {
+				p.SchemaRef = propRef.Ref[idx+1:]
+			}
+		}
+		// Populate Nested for object types so flattenSchemaToScalarFields can
+		// resolve sub-fields even for cross-file $ref schemas not in doc.Components.Schemas.
+		// kin-openapi resolves $ref inline, so prop.Properties is always populated.
+		if len(prop.Properties) > 0 {
+			p.Nested = parseSchema(propName, prop)
 		}
 		s.Properties[propName] = p
 	}

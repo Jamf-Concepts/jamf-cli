@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -72,7 +73,9 @@ func newGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -85,6 +88,18 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli gsx-connection update --from-file gsx-connection.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "enabled": true,
+  "gsxKeystore": {},
+  "serviceAccountNo": "0000012345",
+  "shipToNo": "0000012345",
+  "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",
+  "username": "exampleEmail@example.com"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/gsx-connection"
@@ -111,6 +126,8 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -294,14 +311,35 @@ func newGsxConnectionAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Updates Jamf Pro GSX Connection information",
-		Long:  "Updates Jamf Pro GSX Connection information",
+		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.keystoreBytes                    string\n  gsxKeystore.keystorePassword                 string\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  token                                        string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field
+  jamf-cli gsx-connection patch --set field=value
+
+  # Update using JSON
+  jamf-cli gsx-connection get -o json | jq '.field = "value"' | jamf-cli gsx-connection patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "enabled": true,
+  "gsxKeystore": {},
+  "serviceAccountNo": "0000012345",
+  "shipToNo": "0000012345",
+  "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",
+  "username": "exampleEmail@example.com"
+}`)
+				return nil
+			}
 
 			// Build request path
 			path := "/v1/gsx-connection"
@@ -315,9 +353,26 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -328,6 +383,15 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"enabled=", "gsxKeystore.keystoreBytes=", "gsxKeystore.keystorePassword=", "gsxKeystore.name=", "serviceAccountNo=", "shipToNo=", "token=", "username=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

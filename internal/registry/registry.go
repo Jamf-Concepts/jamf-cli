@@ -34,6 +34,23 @@ func AcceptFromContext(ctx context.Context) string {
 	return ""
 }
 
+// contentTypeKey is the unexported context key for the Content-Type header override.
+type contentTypeKey struct{}
+
+// WithContentType returns a new context that overrides the Content-Type header for the request.
+// Use this for PATCH endpoints that require application/merge-patch+json.
+func WithContentType(ctx context.Context, ct string) context.Context {
+	return context.WithValue(ctx, contentTypeKey{}, ct)
+}
+
+// ContentTypeFromContext returns the Content-Type override from the context, or "" if not set.
+func ContentTypeFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(contentTypeKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
 // FileUploader interface for streaming file uploads with custom Content-Type.
 type FileUploader interface {
 	Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error)

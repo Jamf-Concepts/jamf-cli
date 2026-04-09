@@ -2,6 +2,14 @@
 
 package parser
 
+// LookupField represents an alternate identifier that can be used to resolve a
+// resource ID instead of the primary name field (e.g. serial number for computers).
+type LookupField struct {
+	Flag      string // CLI flag name (e.g. "serial")
+	RSQLField string // RSQL filter field path (e.g. "hardware.serialNumber")
+	Desc      string // Flag description shown in --help
+}
+
 // Resource represents a parsed API resource (e.g., buildings, computers)
 type Resource struct {
 	Name         string // e.g., "buildings"
@@ -10,9 +18,10 @@ type Resource struct {
 	Description  string
 	Operations   []*Operation
 	Schemas      map[string]*Schema
-	NameField    string // Filter field for name lookups (default "name", some use "displayName")
-	IDField      string // Response field for ID extraction in name resolution (default "id", some use "templateId", "groupId", etc.)
-	IsSingleton  bool   // True for settings-style resources: single object, GET+PUT, no {id} in any path
+	NameField    string        // Filter field for name lookups (default "name", some use "displayName")
+	IDField      string        // Response field for ID extraction in name resolution (default "id", some use "templateId", "groupId", etc.)
+	IsSingleton  bool          // True for settings-style resources: single object, GET+PUT, no {id} in any path
+	LookupFields []LookupField // Alternate identifier fields for patch-by-name / delete-by-name (e.g. serial number)
 }
 
 // Operation represents an API operation (endpoint)
@@ -45,11 +54,12 @@ type Parameter struct {
 
 // RequestBody represents a request body
 type RequestBody struct {
-	Description string
-	Required    bool
-	Schema      *Schema
-	IsMultipart bool   // true when content type is multipart/form-data
-	FileField   string // schema property that holds the binary file (e.g. "file")
+	Description  string
+	Required     bool
+	Schema       *Schema
+	IsMultipart  bool   // true when content type is multipart/form-data
+	IsMergePatch bool   // true when content type is application/merge-patch+json
+	FileField    string // schema property that holds the binary file (e.g. "file")
 }
 
 // Response represents an API response
@@ -76,4 +86,6 @@ type Property struct {
 	Example     any
 	Nullable    bool
 	ReadOnly    bool
+	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
+	Nested      *Schema // resolved nested schema for object types (may be nil)
 }

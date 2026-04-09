@@ -108,7 +108,7 @@ var proGroupMap = map[string]string{
 	"computer-inventory-collection-settings": groupComputers,
 	"smart-computer-groups":                  groupComputers,
 	"static-computer-groups":                 groupComputers,
-	"computers-inventories":                  groupComputers,
+	"computers-inventory":                    groupComputers,
 
 	// Mobile Device Management
 	"mobile-devices":                     groupMobile,

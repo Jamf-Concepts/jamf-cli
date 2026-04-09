@@ -34,6 +34,10 @@ After modifying a template: `make generate && make test`
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
 | Change singleton detection logic | `generator/parser/parser.go` → `detectSingleton()` |
 | Change multi-family spec splitting | `generator/parser/parser.go` → `splitByPathFamilies()` |
+| Add/change alternate lookup fields (--serial, --udid) | `generator/parser/parser.go` → `resourceLookupFields` map |
+| Fix a resource name auto-pluralization issue | `generator/parser/parser.go` → `resourceNameOverrides` map |
+| Fix wrong RSQL filter field for --name lookup | `generator/parser/parser.go` → `resourceNameFieldOverrides` map |
+| Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
@@ -216,9 +220,25 @@ Resources with a `delete` operation and name resolution capability (modern: `get
 
 Flags: `--yes` (skip confirmation), `--dry-run` (resolve and preview without deleting).
 
+### Generated Patch Commands
+
+Resources with a PATCH endpoint (JSON, not multipart) automatically get a `patch` subcommand using JSON Merge Patch semantics (RFC 7386): omit a field to leave it unchanged, set to `null` to clear it. The `Content-Type` is always `application/merge-patch+json`.
+
+The `patch` command accepts an optional `[<id>]` positional argument. For resources with a list endpoint and resolvable ID (`patchHasLookup`), additional lookup flags are generated:
+- `--name` — look up by name via RSQL filter
+- Per-resource lookup fields (e.g. `--serial`, `--udid` for computers and mobile devices) — defined in `resourceLookupFields` in `parser.go`
+
+If no ID or lookup flag is provided the command errors with a clear message listing the available options.
+
+Flags: `--set key=value` (repeatable, dot-notation scalar fields), `--from-file` (JSON merge-patch file), `--scaffold` (print patchable field template), `--name`/`--serial`/`--udid` etc. (lookup).
+
+Shell completion for `--set` is baked in at code-gen time: all non-read-only scalar fields from the PATCH request body schema, including nested object fields resolved via `Property.Nested` (populated from kin-openapi's inline `$ref` resolution).
+
+Resource name overrides (e.g. `computers-inventories` → `computers-inventory`) are applied by `ApplyNameOverrides` after `DeduplicateVersioned`. Add entries to `resourceNameOverrides` in `parser.go` for any future auto-pluralization issues.
+
 ### Name Resolution Helpers (Generated)
 
-Helper functions in generated code (shared by `apply`, `delete-by-name`, and `get-by-name`):
+Helper functions in generated code (shared by `apply`, `delete-by-name`, `get-by-name`, and `patch`):
 - `readApplyInput(fromFile)` — reads from file or stdin (in `registry.go`)
 - `extractJSONField(data, field)` — extracts name from JSON (in `registry.go`)
 - `resolveNameToIDForApply(ctx, client, listPath, nameField, name, noInput)` — collision-aware RSQL filter lookup (in `registry.go`)

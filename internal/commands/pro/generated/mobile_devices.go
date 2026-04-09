@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -204,13 +205,35 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
+		Use:   "patch [<id>]",
 		Short: "Update fields on a mobile device that are allowed to be modified by users",
-		Long:  "Updates fields on a mobile device that are allowed to be modified by users.",
-		Args:  cobra.ExactArgs(1),
+		Long:  "Updates fields on a mobile device that are allowed to be modified by users.\n\nIdentify the resource by ID (positional arg), --name, --serial, --udid. Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  assetTag                                     string\n  enforceName                                  boolean\n  location.buildingId                          string\n  location.departmentId                        string\n  location.emailAddress                        string\n  location.phoneNumber                         string\n  location.position                            string\n  location.realName                            string\n  location.room                                string\n  location.username                            string\n  name                                         string\n  siteId                                       string\n  timeZone                                     string\n  tvos.airplayPassword                         string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli mobile-devices patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli mobile-devices patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli mobile-devices patch --name "Example" --set general.managed=true
+
+  # Update by serial
+  jamf-cli mobile-devices patch --serial <value> --set general.managed=true
+
+  # Update by udid
+  jamf-cli mobile-devices patch --udid <value> --set general.managed=true
+
+  # Patch from a file
+  jamf-cli mobile-devices patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -229,9 +252,36 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+
+			if flagSerial != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "hardware.serialNumber", "id", flagSerial)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedPatchID = rid
+			} else if flagUdid != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "udid", "id", flagUdid)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedPatchID = rid
+			} else if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
 			// Build request path
 			path := "/v2/mobile-devices/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -242,9 +292,26 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -257,6 +324,16 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"assetTag=", "enforceName=", "location.buildingId=", "location.departmentId=", "location.emailAddress=", "location.phoneNumber=", "location.position=", "location.realName=", "location.room=", "location.username=", "name=", "siteId=", "timeZone=", "tvos.airplayPassword=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
 
 	return cmd
 }

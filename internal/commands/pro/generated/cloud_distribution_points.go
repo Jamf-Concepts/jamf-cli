@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -365,12 +366,20 @@ func newCloudDistributionPointsCloudDistributionPointCmd(ctx *registry.CLIContex
 }
 
 func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagSet  []string
+		fromFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Update specific fields on a cloud distribution point",
 		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.",
+		Example: `  # Update a field
+  jamf-cli cloud-distribution-points patch --set field=value
+
+  # Update using JSON
+  jamf-cli cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli cloud-distribution-points patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -386,9 +395,26 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -399,6 +425,12 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

@@ -118,7 +118,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		req.Header.Set("Accept", "application/json")
 	}
 	if bodyData != nil {
-		if isClassic {
+		if override := registry.ContentTypeFromContext(ctx); override != "" {
+			req.Header.Set("Content-Type", override)
+		} else if isClassic {
 			req.Header.Set("Content-Type", "application/xml")
 		} else {
 			req.Header.Set("Content-Type", "application/json")

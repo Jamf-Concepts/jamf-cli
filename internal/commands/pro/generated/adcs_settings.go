@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -505,19 +506,64 @@ func newAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *cobr
 }
 
 func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
+		Use:   "patch [<id>]",
 		Short: "Update AD CS Settings configuration",
-		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.",
-		Args:  cobra.ExactArgs(1),
+		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  adcsUrl                                      string\n  apiClientId                                  string\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  displayName                                  string\n  fqdn                                         string\n  outbound                                     boolean\n  revocationEnabled                            boolean\n  serverCert.filename                          string\n  serverCert.password                          string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli adcs-settings patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli adcs-settings patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli adcs-settings patch --name "Example" --set general.managed=true
+
+  # Patch from a file
+  jamf-cli adcs-settings patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				fmt.Println(`{
+  "adcsUrl": "https://\u003chost-name\u003e.example.com",
+  "apiClientId": "A11B43D6-9ED4-4B29-B726-E2DE747D2410",
+  "caName": "EXAMPLE-SUBCA02-CA",
+  "clientCert": {},
+  "displayName": "Example Display Name",
+  "fqdn": "example-subca02.example.com",
+  "outbound": true,
+  "revocationEnabled": true,
+  "serverCert": {}
+}`)
+				return nil
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/adcs-settings", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/pki/adcs-settings/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -528,9 +574,26 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -541,6 +604,16 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"adcsUrl=", "apiClientId=", "caName=", "clientCert.filename=", "clientCert.password=", "displayName=", "fqdn=", "outbound=", "revocationEnabled=", "serverCert.filename=", "serverCert.password=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up adcs-setting by name")
 
 	return cmd
 }

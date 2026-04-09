@@ -19,31 +19,32 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewComputersInventoriesCmd creates the computers-inventories command group
-func NewComputersInventoriesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewComputersInventoryCmd creates the computers-inventory command group
+func NewComputersInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computers-inventories",
-		Short: "Manage computers-inventories",
-		Long:  `Manage computers-inventories in Jamf Pro.`,
+		Use:   "computers-inventory",
+		Short: "Manage computers-inventory",
+		Long:  `Manage computers-inventory in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newComputersInventoriesListCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesGetCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesCreateCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesDeleteCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesFilevaultCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesUploadCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesDownloadCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesFilevaultByIdCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesViewDeviceLockPinCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesViewRecoveryLockPasswordCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesGetByNameCmd(ctx))
-	cmd.AddCommand(newComputersInventoriesDeleteByNameCmd(ctx))
+	cmd.AddCommand(newComputersInventoryListCmd(ctx))
+	cmd.AddCommand(newComputersInventoryGetCmd(ctx))
+	cmd.AddCommand(newComputersInventoryCreateCmd(ctx))
+	cmd.AddCommand(newComputersInventoryDeleteCmd(ctx))
+	cmd.AddCommand(newComputersInventoryPatchCmd(ctx))
+	cmd.AddCommand(newComputersInventoryFilevaultCmd(ctx))
+	cmd.AddCommand(newComputersInventoryUploadCmd(ctx))
+	cmd.AddCommand(newComputersInventoryDownloadCmd(ctx))
+	cmd.AddCommand(newComputersInventoryFilevaultByIdCmd(ctx))
+	cmd.AddCommand(newComputersInventoryViewDeviceLockPinCmd(ctx))
+	cmd.AddCommand(newComputersInventoryViewRecoveryLockPasswordCmd(ctx))
+	cmd.AddCommand(newComputersInventoryGetByNameCmd(ctx))
+	cmd.AddCommand(newComputersInventoryDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
-func newComputersInventoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSection  []string
 		flagPage     int
@@ -58,11 +59,11 @@ func newComputersInventoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Return paginated Computer Inventory records",
 		Long:  "Return paginated Computer Inventory records",
-		Example: `  # List all computers-inventories
-  jamf-cli computers-inventories list
+		Example: `  # List all computers-inventory
+  jamf-cli computers-inventory list
 
-  # List computers-inventories and extract IDs
-  jamf-cli computers-inventories list --field id`,
+  # List computers-inventory and extract IDs
+  jamf-cli computers-inventory list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -181,7 +182,7 @@ func newComputersInventoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSection []string
 	)
@@ -191,13 +192,13 @@ func newComputersInventoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return General section of a Computer",
 		Long:  "Return General section of a Computer",
 		Example: `  # Get a computers-inventory by ID
-  jamf-cli computers-inventories get 1
+  jamf-cli computers-inventory get 1
 
   # Get a computers-inventory by name
-  jamf-cli computers-inventories get-by-name "Example"
+  jamf-cli computers-inventory get-by-name "Example"
 
   # Get a computers-inventory and output as YAML
-  jamf-cli computers-inventories get 1 -o yaml`,
+  jamf-cli computers-inventory get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -233,7 +234,7 @@ func newComputersInventoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -243,13 +244,13 @@ func newComputersInventoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Computer Inventory record",
 		Long:  "Creates Computer Inventory record",
 		Example: `  # Show the JSON template for creating a computers-inventory
-  jamf-cli computers-inventories create --scaffold
+  jamf-cli computers-inventory create --scaffold
 
   # Create a computers-inventory from JSON
-  echo '{"name":"Example"}' | jamf-cli computers-inventories create
+  echo '{"name":"Example"}' | jamf-cli computers-inventory create
 
   # Get a computers-inventory, modify it, and create a copy
-  jamf-cli computers-inventories get 1 -o json | jq '.name = "Copy"' | jamf-cli computers-inventories create`,
+  jamf-cli computers-inventory get 1 -o json | jq '.name = "Copy"' | jamf-cli computers-inventory create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -306,7 +307,7 @@ func newComputersInventoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -317,10 +318,10 @@ func newComputersInventoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Computer record",
 		Long:  "Remove specified Computer record",
 		Example: `  # Delete a computers-inventory (with confirmation)
-  jamf-cli computers-inventories delete 1
+  jamf-cli computers-inventory delete 1
 
   # Delete without confirmation prompt
-  jamf-cli computers-inventories delete 1 --yes`,
+  jamf-cli computers-inventory delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -375,7 +376,141 @@ func newComputersInventoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoriesFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
+		flagSerial   string
+		flagUdid     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "patch [<id>]",
+		Short: "Update specific fields on a computer",
+		Long:  "Update specific fields on a computer, then return the updated computer object.\n\nIdentify the resource by ID (positional arg), --name, --serial, --udid. Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  general.assetTag                             string\n  general.barcode1                             string\n  general.barcode2                             string\n  general.lastIpAddress                        string\n  general.managed                              boolean\n  general.name                                 string\n  general.siteId                               string\n  hardware.altMacAddress                       string\n  hardware.altNetworkAdapterType               string\n  hardware.macAddress                          string\n  hardware.networkAdapterType                  string\n  purchasing.appleCareId                       string\n  purchasing.leaseDate                         string\n  purchasing.leased                            boolean\n  purchasing.lifeExpectancy                    integer\n  purchasing.poDate                            string\n  purchasing.poNumber                          string\n  purchasing.purchasePrice                     string\n  purchasing.purchased                         boolean\n  purchasing.purchasingAccount                 string\n  purchasing.purchasingContact                 string\n  purchasing.vendor                            string\n  purchasing.warrantyDate                      string\n  udid                                         string\n  userAndLocation.buildingId                   string\n  userAndLocation.departmentId                 string\n  userAndLocation.email                        string\n  userAndLocation.phone                        string\n  userAndLocation.position                     string\n  userAndLocation.realname                     string\n  userAndLocation.room                         string\n  userAndLocation.username                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli computers-inventory patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli computers-inventory patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli computers-inventory patch --name "Example" --set general.managed=true
+
+  # Update by serial
+  jamf-cli computers-inventory patch --serial <value> --set general.managed=true
+
+  # Update by udid
+  jamf-cli computers-inventory patch --udid <value> --set general.managed=true
+
+  # Patch from a file
+  jamf-cli computers-inventory patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "extensionAttributes": [],
+  "general": {},
+  "hardware": {},
+  "operatingSystem": {},
+  "purchasing": {},
+  "udid": "45436edf-864e-4364-982a-330b01d39e65",
+  "userAndLocation": {}
+}`)
+				return nil
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+
+			if flagSerial != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedPatchID = rid
+			} else if flagUdid != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "udid", "id", flagUdid)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedPatchID = rid
+			} else if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v3/computers-inventory-detail/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"general.assetTag=", "general.barcode1=", "general.barcode2=", "general.lastIpAddress=", "general.managed=", "general.name=", "general.siteId=", "hardware.altMacAddress=", "hardware.altNetworkAdapterType=", "hardware.macAddress=", "hardware.networkAdapterType=", "purchasing.appleCareId=", "purchasing.leaseDate=", "purchasing.leased=", "purchasing.lifeExpectancy=", "purchasing.poDate=", "purchasing.poNumber=", "purchasing.purchasePrice=", "purchasing.purchased=", "purchasing.purchasingAccount=", "purchasing.purchasingContact=", "purchasing.vendor=", "purchasing.warrantyDate=", "udid=", "userAndLocation.buildingId=", "userAndLocation.departmentId=", "userAndLocation.email=", "userAndLocation.phone=", "userAndLocation.position=", "userAndLocation.realname=", "userAndLocation.room=", "userAndLocation.username=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	return cmd
+}
+
+func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -489,7 +624,7 @@ func newComputersInventoriesFilevaultCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
-func newComputersInventoriesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFile string
 	)
@@ -547,7 +682,7 @@ func newComputersInventoriesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -557,10 +692,10 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Download attachment file",
 		Long:  "Download attachment file",
 		Example: `  # Save to file
-  jamf-cli pro computers-inventories download <id> -O output.bin
+  jamf-cli pro computers-inventory download <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro computers-inventories download <id> > output.bin`,
+  jamf-cli pro computers-inventory download <id> > output.bin`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -607,7 +742,7 @@ func newComputersInventoriesDownloadCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newComputersInventoriesFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -642,7 +777,7 @@ func newComputersInventoriesFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 
-func newComputersInventoriesViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -677,7 +812,7 @@ func newComputersInventoriesViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newComputersInventoriesViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -712,19 +847,19 @@ func newComputersInventoriesViewRecoveryLockPasswordCmd(ctx *registry.CLIContext
 	return cmd
 }
 
-func newComputersInventoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get-by-name <name>",
 		Short: "Get a computers-inventory by name",
 		Example: `  # Get a computers-inventory by name
-  jamf-cli computers-inventories get-by-name "Example"
+  jamf-cli computers-inventory get-by-name "Example"
 
   # Get by name and output as YAML
-  jamf-cli computers-inventories get-by-name "Example" -o yaml`,
+  jamf-cli computers-inventory get-by-name "Example" -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "name", "id", args[0])
+			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", args[0])
 			if err != nil {
 				return err
 			}
@@ -739,7 +874,7 @@ func newComputersInventoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 }
 
-func newComputersInventoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -749,10 +884,10 @@ func newComputersInventoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "delete-by-name <name>",
 		Short: "Delete a computers-inventory by name",
 		Example: `  # Delete a computers-inventory by name (with confirmation)
-  jamf-cli computers-inventories delete-by-name "Example"
+  jamf-cli computers-inventory delete-by-name "Example"
 
   # Delete without confirmation prompt
-  jamf-cli computers-inventories delete-by-name "Example" --yes`,
+  jamf-cli computers-inventory delete-by-name "Example" --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -760,12 +895,12 @@ func newComputersInventoriesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Resolve name to ID (collision-aware)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
 			if id == "" {
-				return fmt.Errorf("no computers-inventory found with name %q", name)
+				return fmt.Errorf("no computers-inventory found with general.name %q", name)
 			}
 
 			if flagDryRun {

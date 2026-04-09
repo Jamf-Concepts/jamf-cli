@@ -715,13 +715,27 @@ func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
+		fromFile     string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
+		Use:   "patch [<id>]",
 		Short: "Update specified distribution point object",
-		Long:  "Updates the specified object configuration of a File Share Distribution Point in Jamf Pro. ID path parameter is mandatory and other fields can be updated as a whole or with minimal object.",
-		Args:  cobra.ExactArgs(1),
+		Long:  "Updates the specified object configuration of a File Share Distribution Point in Jamf Pro. ID path parameter is mandatory and other fields can be updated as a whole or with minimal object.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  backupDistributionPointId                    string\n  enableLoadBalancing                          boolean\n  fileSharingConnectionType                    string\n  httpsContext                                 string\n  httpsEnabled                                 boolean\n  httpsPassword                                string\n  httpsPort                                    integer\n  httpsSecurityType                            string\n  httpsUsername                                string\n  localPathToShare                             string\n  name                                         string\n  port                                         integer\n  principal                                    boolean\n  readOnlyPassword                             string\n  readOnlyUsername                             string\n  readWritePassword                            string\n  readWriteUsername                            string\n  serverName                                   string\n  shareName                                    string\n  sshPassword                                  string\n  sshUsername                                  string\n  workgroup                                    string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Example: `  # Update a field by ID
+  jamf-cli distribution-points patch 1 --set general.managed=true
+
+  # Update multiple fields
+  jamf-cli distribution-points patch 1 --set field1=value1 --set field2=value2
+
+  # Update by name
+  jamf-cli distribution-points patch --name "Example" --set general.managed=true
+
+  # Patch from a file
+  jamf-cli distribution-points patch 1 --from-file changes.json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -753,9 +767,23 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedPatchID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedPatchID = rid
+			} else if len(args) > 0 {
+				resolvedPatchID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/distribution-points/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -766,9 +794,26 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+			// PATCH: --set flags take priority; fall back to --from-file or stdin
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			switch {
+			case len(flagSet) > 0:
+				data, err := buildMergePatchFromSet(flagSet)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(data)
+			case fromFile != "":
+				data, err := os.ReadFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading input file: %w", err)
+				}
+				body = bytes.NewReader(data)
+			default:
+				stat, _ := os.Stdin.Stat()
+				if (stat.Mode() & os.ModeCharDevice) == 0 {
+					body = os.Stdin
+				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
@@ -781,6 +826,14 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"backupDistributionPointId=", "enableLoadBalancing=", "fileSharingConnectionType=", "httpsContext=", "httpsEnabled=", "httpsPassword=", "httpsPort=", "httpsSecurityType=", "httpsUsername=", "localPathToShare=", "name=", "port=", "principal=", "readOnlyPassword=", "readOnlyUsername=", "readWritePassword=", "readWriteUsername=", "serverName=", "shareName=", "sshPassword=", "sshUsername=", "workgroup=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up distribution-point by name")
 
 	return cmd
 }
