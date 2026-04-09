@@ -77,6 +77,46 @@ func TestCompletionInstall_NoShell(t *testing.T) {
 	}
 }
 
+func TestZshCompletionCandidates_IncludesStandardPaths(t *testing.T) {
+	home := "/fake/home"
+	candidates := zshCompletionCandidates(home)
+
+	// Standard paths must always be present regardless of Homebrew.
+	want := []string{
+		"/fake/home/.zsh/completions",
+		"/fake/home/.local/share/zsh/site-functions",
+		"/usr/local/share/zsh/site-functions",
+	}
+	for _, w := range want {
+		found := false
+		for _, c := range candidates {
+			if c == w {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("candidates missing %q; got %v", w, candidates)
+		}
+	}
+}
+
+func TestPrintZshHintBlock(t *testing.T) {
+	var buf bytes.Buffer
+	printZshHintBlock(&buf, "/opt/homebrew/share/zsh/site-functions")
+
+	out := buf.String()
+	if !strings.Contains(out, "fpath=") {
+		t.Error("hint should mention fpath")
+	}
+	if !strings.Contains(out, "compinit") {
+		t.Error("hint should mention compinit")
+	}
+	if !strings.Contains(out, "/opt/homebrew/share/zsh/site-functions") {
+		t.Error("hint should include the directory path")
+	}
+}
+
 func TestCompletionInstall_Fish(t *testing.T) {
 	t.Setenv("SHELL", "/bin/fish")
 	dir := t.TempDir()
@@ -106,8 +146,9 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 	t.Setenv("SHELL", "/bin/zsh")
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	t.Setenv("PATH", "/usr/bin:/bin") // isolate from Homebrew
 
-	// Pre-create the candidate dir so the install logic picks it over system paths
+	// Pre-create the candidate dir so the install logic picks it.
 	zshDir := dir + "/.zsh/completions"
 	if err := os.MkdirAll(zshDir, 0o755); err != nil {
 		t.Fatal(err)
