@@ -5,9 +5,15 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"net/http/cookiejar"
 	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
 // requirePlatformClient returns an error if the Platform SDK client is not
@@ -22,6 +28,37 @@ func requirePlatformClient(cliCtx *registry.CLIContext) error {
 			"  JAMF_URL, JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, JAMF_TENANT_ID")
 	}
 	return nil
+}
+
+// newPlatformSDKClient constructs a jamfplatform.Client with retry, spinner,
+// and token cache — the same configuration used by the main PersistentPreRunE
+// in root.go. This avoids bare SDK clients that lack retry and progress indication.
+func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpinner bool) *jamfplatform.Client {
+	opts := []jamfplatform.Option{
+		jamfplatform.WithTenantID(tenantID),
+		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
+	}
+
+	if cacheDir, _ := os.UserCacheDir(); cacheDir != "" {
+		opts = append(opts, jamfplatform.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))
+	}
+
+	jar, _ := cookiejar.New(nil)
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 3
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 30 * time.Second
+	rc.Logger = nil
+	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+	rc.HTTPClient.Timeout = 60 * time.Second
+	rc.HTTPClient.Jar = jar
+	stdClient := rc.StandardClient()
+	if showSpinner {
+		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+	}
+	opts = append(opts, jamfplatform.WithHTTPClient(stdClient))
+
+	return jamfplatform.NewClient(url, clientID, clientSecret, opts...)
 }
 
 // printScaffold marshals the given value as indented JSON to stdout.

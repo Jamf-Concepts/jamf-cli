@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -15,6 +15,10 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
+
+// uuidPattern matches the standard UUID format (8-4-4-4-12 hex digits).
+var uuidPattern = regexp.MustCompile(
+	`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 func newPlatformDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -56,10 +60,10 @@ func flattenDeviceList(d jamfplatform.DeviceListReadRepresentationV1) map[string
 }
 
 // resolveDeviceID resolves a device identifier that may be a UUID or serial number.
-// UUIDs contain hyphens; serial numbers do not.
+// UUIDs match the 8-4-4-4-12 hex format; anything else is treated as a serial number.
 func resolveDeviceID(ctx context.Context, client registry.PlatformClient, identifier string) (string, error) {
-	if strings.Contains(identifier, "-") {
-		return identifier, nil // assume UUID
+	if uuidPattern.MatchString(identifier) {
+		return identifier, nil
 	}
 	// Treat as serial number
 	dev, err := client.GetDeviceBySerialNumber(ctx, identifier)

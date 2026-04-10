@@ -222,7 +222,7 @@ func TestCheckUndeployedBlueprints(t *testing.T) {
 			{ID: "bp-3", DeploymentState: jamfplatform.BlueprintDeploymentStateV1{State: "NOT_DEPLOYED"}},
 		},
 	}
-	result := checkUndeployedBlueprints(context.Background(), pc)
+	result := checkUndeployedBlueprints(pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
 	}
@@ -237,7 +237,7 @@ func TestCheckUndeployedBlueprints_AllDeployed(t *testing.T) {
 			{ID: "bp-1", DeploymentState: jamfplatform.BlueprintDeploymentStateV1{State: "DEPLOYED"}},
 		},
 	}
-	result := checkUndeployedBlueprints(context.Background(), pc)
+	result := checkUndeployedBlueprints(pc.blueprints)
 	if result != nil {
 		t.Errorf("expected nil, got %+v", result)
 	}
@@ -254,7 +254,7 @@ func TestCheckBlueprintFailures(t *testing.T) {
 			"bp-2": {Succeeded: 8, Failed: 2, Pending: 0},
 		},
 	}
-	result := checkBlueprintFailures(context.Background(), pc)
+	result := checkBlueprintFailures(context.Background(), pc, pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
 	}
@@ -276,7 +276,7 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 			},
 		},
 	}
-	result := checkBenchmarkUpdates(context.Background(), pc)
+	result := checkBenchmarkUpdates(pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
 	}
@@ -301,7 +301,7 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 			},
 		},
 	}
-	result := checkEmptyPlatformScope(context.Background(), pc)
+	result := checkEmptyPlatformScope(context.Background(), pc, pc.blueprints, pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
 	}

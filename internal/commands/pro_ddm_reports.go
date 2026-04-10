@@ -37,14 +37,9 @@ func newDDMDeviceReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id := args[0]
-			// Resolve serial number to ID if needed
-			if !strings.Contains(id, "-") {
-				dev, err := cliCtx.PlatformClient.GetDeviceBySerialNumber(ctx, id)
-				if err != nil {
-					return err
-				}
-				id = dev.ID
+			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			if err != nil {
+				return err
 			}
 			report, err := cliCtx.PlatformClient.GetDeviceDeclarationReport(ctx, id)
 			if err != nil {

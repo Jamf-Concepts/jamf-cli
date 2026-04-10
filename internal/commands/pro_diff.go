@@ -19,8 +19,6 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
-
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
 // diffChangeKind classifies a single diff result.
@@ -318,10 +316,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			return false
 		}
 
-		pc := jamfplatform.NewClient(resolvedURL, p.ClientID(), p.ClientSecret(),
-			jamfplatform.WithTenantID(p.TenantID()),
-			jamfplatform.WithUserAgent("jamf-cli/"+cliVersion),
-		)
+		pc := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && !verbose)
 
 		if wantPlatform("blueprints") {
 			if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
 // auditSeverity levels for findings.
@@ -495,40 +496,50 @@ func checkNotificationAlerts(ctx context.Context, client registry.HTTPClient, _ 
 var timeNow = func() time.Time { return time.Now() }
 
 // runPlatformAuditChecks runs all platform-specific audit checks and returns findings.
+// It fetches blueprints and benchmarks once upfront and passes them to individual checks.
 func runPlatformAuditChecks(ctx context.Context, pc registry.PlatformClient) []auditResult {
 	var results []auditResult
 
-	// Check 1: Undeployed blueprints
-	if r := checkUndeployedBlueprints(ctx, pc); r != nil {
+	// Fetch shared data once
+	bps, bpErr := pc.ListBlueprints(ctx, nil, "")
+	if bpErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: listing blueprints for audit: %v\n", bpErr)
+	}
+
+	bmResp, bmErr := pc.ListBenchmarks(ctx)
+	if bmErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: listing benchmarks for audit: %v\n", bmErr)
+	}
+
+	// Blueprint checks (skip all if listing failed)
+	if bpErr == nil {
+		if r := checkUndeployedBlueprints(bps); r != nil {
+			results = append(results, *r)
+		}
+		if r := checkBlueprintFailures(ctx, pc, bps); r != nil {
+			results = append(results, *r)
+		}
+		if r := checkStaleBlueprints(bps); r != nil {
+			results = append(results, *r)
+		}
+	}
+
+	// Benchmark checks (skip all if listing failed)
+	if bmErr == nil {
+		if r := checkBenchmarkUpdates(bmResp); r != nil {
+			results = append(results, *r)
+		}
+		if r := checkBenchmarkMonitorOnly(ctx, pc, bmResp); r != nil {
+			results = append(results, *r)
+		}
+	}
+
+	// Empty scope check uses both (tolerates either being nil)
+	if r := checkEmptyPlatformScope(ctx, pc, bps, bmResp); r != nil {
 		results = append(results, *r)
 	}
 
-	// Check 2: Blueprint deployment failures
-	if r := checkBlueprintFailures(ctx, pc); r != nil {
-		results = append(results, *r)
-	}
-
-	// Check 3: Stale blueprints (updated after last deployment)
-	if r := checkStaleBlueprints(ctx, pc); r != nil {
-		results = append(results, *r)
-	}
-
-	// Check 4: Benchmarks with updates available
-	if r := checkBenchmarkUpdates(ctx, pc); r != nil {
-		results = append(results, *r)
-	}
-
-	// Check 5: Benchmarks in MONITOR-only mode
-	if r := checkBenchmarkMonitorOnly(ctx, pc); r != nil {
-		results = append(results, *r)
-	}
-
-	// Check 6: Empty scope (blueprints or benchmarks with no device groups)
-	if r := checkEmptyPlatformScope(ctx, pc); r != nil {
-		results = append(results, *r)
-	}
-
-	// Check 7: Devices with failed DDM declarations
+	// Devices with failed DDM declarations
 	if r := checkFailedDDMDeclarations(ctx, pc); r != nil {
 		results = append(results, *r)
 	}
@@ -536,12 +547,7 @@ func runPlatformAuditChecks(ctx context.Context, pc registry.PlatformClient) []a
 	return results
 }
 
-func checkUndeployedBlueprints(ctx context.Context, pc registry.PlatformClient) *auditResult {
-	bps, err := pc.ListBlueprints(ctx, nil, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Undeployed blueprints", err)
-		return nil
-	}
+func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState.State != "DEPLOYED" {
@@ -560,12 +566,7 @@ func checkUndeployedBlueprints(ctx context.Context, pc registry.PlatformClient) 
 	}
 }
 
-func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient) *auditResult {
-	bps, err := pc.ListBlueprints(ctx, nil, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Blueprint deployment failures", err)
-		return nil
-	}
+func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverviewV1) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState.State != "DEPLOYED" {
@@ -591,12 +592,7 @@ func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient) *au
 	}
 }
 
-func checkStaleBlueprints(ctx context.Context, pc registry.PlatformClient) *auditResult {
-	bps, err := pc.ListBlueprints(ctx, nil, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Stale blueprints", err)
-		return nil
-	}
+func checkStaleBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState.State != "DEPLOYED" || bp.DeploymentState.LastDeployment == nil {
@@ -627,12 +623,7 @@ func checkStaleBlueprints(ctx context.Context, pc registry.PlatformClient) *audi
 	}
 }
 
-func checkBenchmarkUpdates(ctx context.Context, pc registry.PlatformClient) *auditResult {
-	resp, err := pc.ListBenchmarks(ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Benchmark updates available", err)
-		return nil
-	}
+func checkBenchmarkUpdates(resp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		if b.UpdateAvailable {
@@ -651,11 +642,7 @@ func checkBenchmarkUpdates(ctx context.Context, pc registry.PlatformClient) *aud
 	}
 }
 
-func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient) *auditResult {
-	resp, err := pc.ListBenchmarks(ctx)
-	if err != nil {
-		return nil
-	}
+func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, resp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		bm, err := pc.GetBenchmark(ctx, b.ID)
@@ -678,27 +665,23 @@ func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient) 
 	}
 }
 
-func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient) *auditResult {
+func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverviewV1, bmResp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
 	count := 0
 
 	// Check blueprints with empty scope
-	bps, err := pc.ListBlueprints(ctx, nil, "")
-	if err == nil {
-		for _, bp := range bps {
-			detail, err := pc.GetBlueprint(ctx, bp.ID)
-			if err != nil {
-				continue
-			}
-			if len(detail.Scope.DeviceGroups) == 0 {
-				count++
-			}
+	for _, bp := range bps {
+		detail, err := pc.GetBlueprint(ctx, bp.ID)
+		if err != nil {
+			continue
+		}
+		if len(detail.Scope.DeviceGroups) == 0 {
+			count++
 		}
 	}
 
 	// Check benchmarks with empty target
-	resp, err := pc.ListBenchmarks(ctx)
-	if err == nil {
-		for _, b := range resp.Benchmarks {
+	if bmResp != nil {
+		for _, b := range bmResp.Benchmarks {
 			if len(b.Target.DeviceGroups) == 0 {
 				count++
 			}
@@ -724,8 +707,14 @@ func checkFailedDDMDeclarations(ctx context.Context, pc registry.PlatformClient)
 		return nil
 	}
 
+	const maxDevicesToScan = 100
+	scanned := 0
 	devicesWithFailures := 0
 	for _, dev := range devices {
+		if scanned >= maxDevicesToScan {
+			break
+		}
+		scanned++
 		report, err := pc.GetDeviceDeclarationReport(ctx, dev.ID)
 		if err != nil {
 			continue
@@ -755,11 +744,15 @@ func checkFailedDDMDeclarations(ctx context.Context, pc registry.PlatformClient)
 	if devicesWithFailures == 0 {
 		return nil
 	}
+	rec := "Run 'pro ddm-reports device <serial>' to diagnose declaration failures"
+	if len(devices) > maxDevicesToScan {
+		rec = fmt.Sprintf("Scanned %d of %d devices; run 'pro ddm-reports errors <decl-id>' for full analysis", maxDevicesToScan, len(devices))
+	}
 	return &auditResult{
 		Category:       "platform",
 		Severity:       severityCritical,
 		Name:           "Devices with failed DDM declarations",
 		AffectedCount:  devicesWithFailures,
-		Recommendation: "Run 'pro ddm-reports device <serial>' to diagnose declaration failures",
+		Recommendation: rec,
 	}
 }
