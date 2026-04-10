@@ -26,6 +26,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
@@ -480,6 +481,39 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
+
+			// When platform gateway auth is active, also construct the
+			// Platform SDK client for platform-native commands (blueprints,
+			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
+			// token lifecycle independently from the Pro HTTP client.
+			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
+				cacheDir, _ := os.UserCacheDir()
+				var platformOpts []jamfplatform.Option
+				platformOpts = append(platformOpts,
+					jamfplatform.WithTenantID(p.TenantID()),
+					jamfplatform.WithUserAgent("jamf-cli/"+cliVersion),
+				)
+				if cacheDir != "" {
+					platformOpts = append(platformOpts,
+						jamfplatform.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")),
+					)
+				}
+
+				jar, _ := cookiejar.New(nil)
+				rc := retryablehttp.NewClient()
+				rc.RetryMax = 3
+				rc.RetryWaitMin = 1 * time.Second
+				rc.RetryWaitMax = 30 * time.Second
+				rc.Logger = nil
+				rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+				rc.HTTPClient.Timeout = 60 * time.Second
+				rc.HTTPClient.Jar = jar
+				platformOpts = append(platformOpts, jamfplatform.WithHTTPClient(rc.StandardClient()))
+
+				cliCtx.PlatformClient = jamfplatform.NewClient(
+					resolvedURL, p.ClientID(), p.ClientSecret(), platformOpts...,
+				)
+			}
 
 			return nil
 		},

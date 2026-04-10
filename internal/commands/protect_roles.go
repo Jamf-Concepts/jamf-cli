@@ -100,7 +100,7 @@ func newProtectRolesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenRole(*item))
+			return printResult(cliCtx.Output, item, flattenRole(*item))
 		},
 	}
 }
@@ -116,12 +116,12 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a role",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.RoleInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -139,11 +139,11 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created role %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenRole(result))
+				return printResult(cliCtx.Output, result, flattenRole(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("role", input.Name, yes)
+			proceed, err := confirmReplace("role", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -156,7 +156,7 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated role %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenRole(result))
+			return printResult(cliCtx.Output, result, flattenRole(result))
 		},
 	}
 
@@ -181,7 +181,7 @@ func newProtectRolesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("role", args[0], yes)
+			proceed, err := confirmDelete("role", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -216,7 +216,7 @@ func newProtectRolesExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(roleToInput(item))
+			return printExport(roleToInput(item))
 		},
 	}
 }

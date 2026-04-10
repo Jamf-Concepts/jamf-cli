@@ -71,7 +71,7 @@ func newProtectExceptionSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenExceptionSet(*item))
+			return printResult(cliCtx.Output, item, flattenExceptionSet(*item))
 		},
 	}
 }
@@ -86,12 +86,12 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Short: "Create or update an exception set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.ExceptionSetInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -109,11 +109,11 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created exception set %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
+				return printResult(cliCtx.Output, result, flattenExceptionSet(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("exception set", input.Name, yes)
+			proceed, err := confirmReplace("exception set", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated exception set %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
+			return printResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -147,7 +147,7 @@ func newProtectExceptionSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Comman
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("exception set", args[0], yes)
+			proceed, err := confirmDelete("exception set", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ func newProtectExceptionSetsAddExceptionCmd(cliCtx *registry.CLIContext) *cobra.
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
+			return printResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&exType, "type", "", "Exception type (e.g. \"Path\")")
@@ -308,7 +308,7 @@ func newProtectExceptionSetsRemoveExceptionCmd(cliCtx *registry.CLIContext) *cob
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenExceptionSet(result))
+			return printResult(cliCtx.Output, result, flattenExceptionSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&exType, "type", "", "Exception type to match")
@@ -334,7 +334,7 @@ func newProtectExceptionSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printProtectExport(rebuildExceptionSetInput(item))
+			return printExport(rebuildExceptionSetInput(item))
 		},
 	}
 }

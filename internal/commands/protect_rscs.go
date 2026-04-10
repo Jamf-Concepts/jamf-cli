@@ -87,7 +87,7 @@ func newProtectRSCSGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenRSCS(*item))
+			return printResult(cliCtx.Output, item, flattenRSCS(*item))
 		},
 	}
 }
@@ -102,12 +102,12 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a removable storage control set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.RemovableStorageControlSetInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -125,11 +125,11 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created removable storage control set %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
+				return printResult(cliCtx.Output, result, flattenRSCS(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("removable storage control set", input.Name, yes)
+			proceed, err := confirmReplace("removable storage control set", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -142,7 +142,7 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated removable storage control set %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
+			return printResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -163,7 +163,7 @@ func newProtectRSCSDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("removable storage control set", args[0], yes)
+			proceed, err := confirmDelete("removable storage control set", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -335,7 +335,7 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			replaced := false
 			for i, r := range input.Rules {
 				if strings.EqualFold(r.Type, ruleType) {
-					proceed, err := confirmProtectReplace(ruleType+" rule", args[0], yes)
+					proceed, err := confirmReplace(ruleType+" rule", args[0], yes)
 					if err != nil {
 						return err
 					}
@@ -355,7 +355,7 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
+			return printResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&ruleType, "type", "", "Rule type: vendor, serial, product, encryption")
@@ -405,7 +405,7 @@ func newProtectRSCSRemoveRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenRSCS(result))
+			return printResult(cliCtx.Output, result, flattenRSCS(result))
 		},
 	}
 	cmd.Flags().StringVar(&ruleType, "type", "", "Rule type to remove: vendor, serial, product, encryption")
@@ -444,7 +444,7 @@ func newProtectRSCSExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(rebuildRSCSInput(item))
+			return printExport(rebuildRSCSInput(item))
 		},
 	}
 }

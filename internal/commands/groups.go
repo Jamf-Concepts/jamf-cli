@@ -54,6 +54,9 @@ const (
 	groupMDM        = "mdm"
 	groupServer     = "server"
 
+	// Platform API groups
+	groupPlatform = "platform"
+
 	// Classic API groups
 	groupClassicComputers = "classic-computers"
 	groupClassicMobile    = "classic-mobile"
@@ -75,6 +78,9 @@ var proGroups = []*cobra.Group{
 	{ID: groupContent, Title: "Content & Configuration:"},
 	{ID: groupMDM, Title: "MDM & Certificates:"},
 	{ID: groupServer, Title: "Server Administration:"},
+
+	// Platform API groups
+	{ID: groupPlatform, Title: "Platform:"},
 
 	// Classic API groups
 	{ID: groupClassicComputers, Title: "Classic - Computers:"},
@@ -266,6 +272,13 @@ var proGroupMap = map[string]string{
 	"impact-alert-notification-settings":   groupServer,
 	"apns-client-push-statuss":             groupServer,
 	"vpp-locations":                        groupServer,
+
+	// Platform
+	"blueprints":             groupPlatform,
+	"compliance-benchmarks":  groupPlatform,
+	"platform-devices":       groupPlatform,
+	"platform-device-groups": groupPlatform,
+	"ddm-reports":            groupPlatform,
 
 	// Classic - Computers
 	"classic-policies":                   groupClassicComputers,

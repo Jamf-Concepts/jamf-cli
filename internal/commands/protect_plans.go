@@ -98,7 +98,7 @@ func newProtectPlansGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, plan, flattenPlan(*plan))
+			return printResult(cliCtx.Output, plan, flattenPlan(*plan))
 		},
 	}
 }
@@ -114,13 +114,13 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a plan",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 
 			var export planExport
-			if err := unmarshalProtectInput(data, &export); err != nil {
+			if err := unmarshalInput(data, &export); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -145,11 +145,11 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created plan %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenPlan(result))
+				return printResult(cliCtx.Output, result, flattenPlan(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("plan", input.Name, yes)
+			proceed, err := confirmReplace("plan", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated plan %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenPlan(result))
+			return printResult(cliCtx.Output, result, flattenPlan(result))
 		},
 	}
 
@@ -187,7 +187,7 @@ func newProtectPlansDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("plan", args[0], yes)
+			proceed, err := confirmDelete("plan", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -309,7 +309,7 @@ func newProtectPlansExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(planToExport(item))
+			return printExport(planToExport(item))
 		},
 	}
 }
