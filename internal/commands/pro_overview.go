@@ -450,16 +450,19 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 	})
 
-	// 1. Instance Info: health
+	// 1. Instance Info: actual Pro server URL (needed for health check + display)
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		h := checkHealth(serverURL)
-		send("health", h.Status, nil)
-		if h.Healthy {
-			send("health_ok", "true", nil)
+		data, err := fetchJSON(ctx, client, "/v1/jamf-pro-server-url")
+		if err != nil {
+			send("pro_url", "", err)
+			return
+		}
+		if u, ok := data["url"].(string); ok && u != "" {
+			send("pro_url", u, nil)
 		} else {
-			send("health_ok", "false", nil)
+			send("pro_url", "", nil)
 		}
 	})
 
@@ -1067,6 +1070,20 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 
 	wg.Wait()
 
+	// ── Health check (runs after wg.Wait so we can use the fetched pro URL) ──
+	// Use the actual Pro instance URL for the health check (not the gateway URL).
+	healthURL := serverURL
+	if u, ok := results["pro_url"]; ok && u != "" {
+		healthURL = u
+	}
+	h := checkHealth(healthURL)
+	results["health"] = h.Status
+	if h.Healthy {
+		results["health_ok"] = "true"
+	} else {
+		results["health_ok"] = "false"
+	}
+
 	// ── Platform API metrics (only when platform auth is active) ──────────
 	var platformSection *overviewSection
 	if cliCtx.PlatformClient != nil {
@@ -1161,11 +1178,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			Items: healthItems,
 		},
 		{
-			Name: "Instance",
-			Items: []overviewItem{
-				item("Server URL", serverURL),
-				item("Jamf Pro Version", get("version")),
-			},
+			Name:  "Instance",
+			Items: buildInstanceItems(get, item),
 		},
 		{
 			Name: "Fleet",
@@ -1210,6 +1224,30 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	}
 
 	return sections, nil
+}
+
+// buildInstanceItems assembles the Instance section.
+// When the Pro server URL was fetched from the API, it is shown as "Server URL".
+// When platform gateway auth is active, the gateway URL is also displayed.
+func buildInstanceItems(get func(string) string, item func(string, string) overviewItem) []overviewItem {
+	// Prefer the URL reported by the Jamf Pro API over the configured serverURL,
+	// which may be a gateway address that doesn't represent the instance itself.
+	displayURL := serverURL
+	if u := get("pro_url"); u != "N/A" && u != "" {
+		displayURL = u
+	}
+
+	items := []overviewItem{
+		item("Server URL", displayURL),
+		item("Jamf Pro Version", get("version")),
+	}
+
+	// When using platform gateway auth, also show the gateway URL
+	if displayURL != serverURL {
+		items = append(items, item("Gateway URL", serverURL))
+	}
+
+	return items
 }
 
 // buildEnrollmentItems assembles the Enrollment & Certificates section,

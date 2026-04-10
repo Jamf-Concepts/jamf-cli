@@ -1319,10 +1319,147 @@ func TestPrintOverviewTable_EnabledWithDetail(t *testing.T) {
 }
 
 // buildFullOverviewMock returns a mock with all API paths populated for a baseline overview.
+func TestBuildInstanceItems_DirectAuth(t *testing.T) {
+	oldURL := serverURL
+	serverURL = "https://acme.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	get := func(key string) string {
+		m := map[string]string{
+			"pro_url": "https://acme.jamfcloud.com",
+			"version": "11.5.0",
+		}
+		if v, ok := m[key]; ok {
+			return v
+		}
+		return "N/A"
+	}
+	item := func(resource, value string) overviewItem {
+		return overviewItem{resource, value, ""}
+	}
+
+	items := buildInstanceItems(get, item)
+
+	// Should have Server URL and Version, no Gateway URL
+	found := make(map[string]string)
+	for _, it := range items {
+		found[it.Resource] = it.Value
+	}
+	if found["Server URL"] != "https://acme.jamfcloud.com" {
+		t.Errorf("Server URL = %q, want %q", found["Server URL"], "https://acme.jamfcloud.com")
+	}
+	if found["Jamf Pro Version"] != "11.5.0" {
+		t.Errorf("Jamf Pro Version = %q, want %q", found["Jamf Pro Version"], "11.5.0")
+	}
+	if _, ok := found["Gateway URL"]; ok {
+		t.Error("Gateway URL should not be present for direct auth")
+	}
+}
+
+func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
+	oldURL := serverURL
+	serverURL = "https://eu.apigw.jamf.com"
+	defer func() { serverURL = oldURL }()
+
+	get := func(key string) string {
+		m := map[string]string{
+			"pro_url": "https://acme.jamfcloud.com",
+			"version": "11.5.0",
+		}
+		if v, ok := m[key]; ok {
+			return v
+		}
+		return "N/A"
+	}
+	item := func(resource, value string) overviewItem {
+		return overviewItem{resource, value, ""}
+	}
+
+	items := buildInstanceItems(get, item)
+
+	found := make(map[string]string)
+	for _, it := range items {
+		found[it.Resource] = it.Value
+	}
+	if found["Server URL"] != "https://acme.jamfcloud.com" {
+		t.Errorf("Server URL = %q, want %q", found["Server URL"], "https://acme.jamfcloud.com")
+	}
+	if found["Gateway URL"] != "https://eu.apigw.jamf.com" {
+		t.Errorf("Gateway URL = %q, want %q", found["Gateway URL"], "https://eu.apigw.jamf.com")
+	}
+}
+
+func TestBuildInstanceItems_ProURLFetchFailed(t *testing.T) {
+	oldURL := serverURL
+	serverURL = "https://eu.apigw.jamf.com"
+	defer func() { serverURL = oldURL }()
+
+	get := func(key string) string {
+		m := map[string]string{
+			"pro_url": "N/A", // API call failed
+			"version": "11.5.0",
+		}
+		if v, ok := m[key]; ok {
+			return v
+		}
+		return "N/A"
+	}
+	item := func(resource, value string) overviewItem {
+		return overviewItem{resource, value, ""}
+	}
+
+	items := buildInstanceItems(get, item)
+
+	found := make(map[string]string)
+	for _, it := range items {
+		found[it.Resource] = it.Value
+	}
+	// Falls back to serverURL when pro_url fetch fails
+	if found["Server URL"] != "https://eu.apigw.jamf.com" {
+		t.Errorf("Server URL = %q, want %q (fallback to serverURL)", found["Server URL"], "https://eu.apigw.jamf.com")
+	}
+	if _, ok := found["Gateway URL"]; ok {
+		t.Error("Gateway URL should not be present when pro_url fallback matches serverURL")
+	}
+}
+
+func TestRunOverview_PlatformAuth_ServerURL(t *testing.T) {
+	mock := buildFullOverviewMock()
+	// Override the pro server URL to differ from serverURL (simulates platform auth)
+	mock.responses["/v1/jamf-pro-server-url"] = overviewMockResponse{200, `{"url":"https://acme.jamfcloud.com"}`}
+
+	oldURL := serverURL
+	serverURL = "https://eu.apigw.jamf.com"
+	defer func() { serverURL = oldURL }()
+
+	cliCtx := &registry.CLIContext{Client: mock}
+	sections, err := runOverview(context.Background(), cliCtx)
+	if err != nil {
+		t.Fatalf("runOverview error: %v", err)
+	}
+
+	values := make(map[string]string)
+	for _, sec := range sections {
+		for _, item := range sec.Items {
+			if item.Resource != "" {
+				values[item.Resource] = item.Value
+			}
+		}
+	}
+
+	if values["Server URL"] != "https://acme.jamfcloud.com" {
+		t.Errorf("Server URL = %q, want %q", values["Server URL"], "https://acme.jamfcloud.com")
+	}
+	if values["Gateway URL"] != "https://eu.apigw.jamf.com" {
+		t.Errorf("Gateway URL = %q, want %q", values["Gateway URL"], "https://eu.apigw.jamf.com")
+	}
+}
+
 func buildFullOverviewMock() *overviewMockClient {
 	return &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			"/v1/jamf-pro-version":                           {200, `{"version":"11.0.0"}`},
+			"/v1/jamf-pro-server-url":                        {200, `{"url":"https://test.jamfcloud.com"}`},
 			"/v1/slasa":                                      {200, `{"slasaAcceptanceStatus":"ACCEPTED"}`},
 			"/v2/jamf-pro-information":                       {200, `{"vppTokenEnabled":true,"depAccountEnabled":false,"cloudDeploymentsEnabled":true,"patchEnabled":true,"ssoSamlEnabled":false,"smtpEnabled":true}`},
 			"/v1/csa/token":                                  {404, `{}`},
