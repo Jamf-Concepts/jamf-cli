@@ -1356,6 +1356,36 @@ func TestBuildInstanceItems_DirectAuth(t *testing.T) {
 	}
 }
 
+func TestBuildInstanceItems_DirectAuth_TrailingSlash(t *testing.T) {
+	oldURL := serverURL
+	serverURL = "https://acme.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	get := func(key string) string {
+		m := map[string]string{
+			"pro_url": "https://acme.jamfcloud.com/", // API returns trailing slash
+			"version": "11.5.0",
+		}
+		if v, ok := m[key]; ok {
+			return v
+		}
+		return "N/A"
+	}
+	item := func(resource, value string) overviewItem {
+		return overviewItem{resource, value, ""}
+	}
+
+	items := buildInstanceItems(get, item)
+
+	found := make(map[string]string)
+	for _, it := range items {
+		found[it.Resource] = it.Value
+	}
+	if _, ok := found["Gateway URL"]; ok {
+		t.Error("Gateway URL should not be present when URLs differ only by trailing slash")
+	}
+}
+
 func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
 	oldURL := serverURL
 	serverURL = "https://eu.apigw.jamf.com"

@@ -1242,8 +1242,9 @@ func buildInstanceItems(get func(string) string, item func(string, string) overv
 		item("Jamf Pro Version", get("version")),
 	}
 
-	// When using platform gateway auth, also show the gateway URL
-	if displayURL != serverURL {
+	// When using platform gateway auth, also show the gateway URL.
+	// Normalize trailing slashes — the API may return a URL with one.
+	if strings.TrimRight(displayURL, "/") != strings.TrimRight(serverURL, "/") {
 		items = append(items, item("Gateway URL", serverURL))
 	}
 
