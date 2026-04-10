@@ -232,7 +232,7 @@ var proGroupMap = map[string]string{
 	"mac-os-managed-software-updates":      groupMDM,
 	"managed-software-updates":             groupMDM,
 	"managed-software-updates-plans":       groupMDM,
-	"ddm-statuss":                          groupMDM,
+	"ddm-status":                           groupMDM,
 	"ddm-syncs":                            groupMDM,
 	"device-compliance-informations":       groupMDM,
 	"jamf-remote-assist-session-histories": groupMDM,
@@ -266,11 +266,11 @@ var proGroupMap = map[string]string{
 	"health-checks":                        groupServer,
 	"log-flushings":                        groupServer,
 	"schedulers":                           groupServer,
-	"startup-statuss":                      groupServer,
+	"startup-status":                       groupServer,
 	"adcs-settings":                        groupServer,
 	"digi-cert-settings":                   groupServer,
 	"impact-alert-notification-settings":   groupServer,
-	"apns-client-push-statuss":             groupServer,
+	"apns-client-push-status":              groupServer,
 	"vpp-locations":                        groupServer,
 
 	// Platform

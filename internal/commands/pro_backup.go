@@ -188,6 +188,32 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		}
 	}
 
+	// Platform resources (blueprints, compliance-benchmarks) via SDK
+	if cliCtx.PlatformClient != nil {
+		wantPlatform := func(name string) bool {
+			if len(nameFilter) == 0 {
+				return true
+			}
+			for _, n := range nameFilter {
+				if n == name {
+					return true
+				}
+			}
+			return false
+		}
+
+		if wantPlatform("blueprints") {
+			n, errs := backupBlueprints(ctx, cliCtx, opts)
+			totalExported += n
+			failures = append(failures, errs...)
+		}
+		if wantPlatform("compliance-benchmarks") {
+			n, errs := backupBenchmarks(ctx, cliCtx, opts)
+			totalExported += n
+			failures = append(failures, errs...)
+		}
+	}
+
 	// Write failures manifest if any
 	if len(failures) > 0 {
 		failPath := filepath.Join(opts.OutputDir, "_failures"+ext)
@@ -308,4 +334,105 @@ func writeBackupFile(path string, data any, format string) error {
 	}
 
 	return os.WriteFile(path, content, 0o644)
+}
+
+// backupBlueprints exports all blueprints via the Platform SDK.
+func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions) (int, []backupFailure) {
+	pc := cliCtx.PlatformClient
+	ext := ".yaml"
+	if opts.Format == "json" {
+		ext = ".json"
+	}
+
+	subDir := filepath.Join(opts.OutputDir, "blueprints")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		return 0, []backupFailure{{Resource: "blueprints", Path: subDir, Error: err.Error()}}
+	}
+
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err != nil {
+		return 0, []backupFailure{{Resource: "blueprints", Path: "list", Error: err.Error()}}
+	}
+
+	var failures []backupFailure
+	exported := 0
+	slugSeen := make(map[string]bool)
+
+	for _, bp := range bps {
+		detail, err := pc.GetBlueprint(ctx, bp.ID)
+		if err != nil {
+			failures = append(failures, backupFailure{Resource: "blueprints", Path: bp.ID, Error: err.Error()})
+			continue
+		}
+
+		obj := blueprintToExport(detail)
+
+		slug := SlugifyName(detail.Name)
+		slug = DeduplicateSlug(slug, slugSeen)
+
+		outPath := filepath.Join(subDir, slug+ext)
+		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+			failures = append(failures, backupFailure{Resource: "blueprints", Path: outPath, Error: err.Error()})
+			continue
+		}
+		exported++
+	}
+
+	return exported, failures
+}
+
+// backupBenchmarks exports all compliance benchmarks via the Platform SDK.
+func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions) (int, []backupFailure) {
+	pc := cliCtx.PlatformClient
+	ext := ".yaml"
+	if opts.Format == "json" {
+		ext = ".json"
+	}
+
+	subDir := filepath.Join(opts.OutputDir, "compliance-benchmarks")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		return 0, []backupFailure{{Resource: "compliance-benchmarks", Path: subDir, Error: err.Error()}}
+	}
+
+	resp, err := pc.ListBenchmarks(ctx)
+	if err != nil {
+		return 0, []backupFailure{{Resource: "compliance-benchmarks", Path: "list", Error: err.Error()}}
+	}
+
+	var failures []backupFailure
+	exported := 0
+	slugSeen := make(map[string]bool)
+
+	for _, b := range resp.Benchmarks {
+		bm, err := pc.GetBenchmark(ctx, b.ID)
+		if err != nil {
+			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: b.ID, Error: err.Error()})
+			continue
+		}
+
+		// Strip server-generated fields for clean export
+		obj := map[string]any{
+			"title":           bm.Title,
+			"description":     bm.Description,
+			"baselineId":      bm.BaselineID,
+			"enforcementMode": bm.EnforcementMode,
+			"target":          bm.Target,
+			"rules":           bm.Rules,
+		}
+		if len(bm.Sources) > 0 {
+			obj["sources"] = bm.Sources
+		}
+
+		slug := SlugifyName(bm.Title)
+		slug = DeduplicateSlug(slug, slugSeen)
+
+		outPath := filepath.Join(subDir, slug+ext)
+		if err := writeBackupFile(outPath, obj, opts.Format); err != nil {
+			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: outPath, Error: err.Error()})
+			continue
+		}
+		exported++
+	}
+
+	return exported, failures
 }

@@ -15,9 +15,12 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
 // diffChangeKind classifies a single diff result.
@@ -244,12 +247,12 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		return nil, fmt.Errorf("loading config: %w", err)
 	}
 
-	url, authProvider, err := ResolveAuthForProfile(cfg, AuthParams{Profile: profileName})
+	resolvedURL, authProvider, err := ResolveAuthForProfile(cfg, AuthParams{Profile: profileName})
 	if err != nil {
 		return nil, fmt.Errorf("resolving auth for profile %q: %w", profileName, err)
 	}
 
-	httpCli := &cliClient{client.New(url, authProvider, client.WithVerbose(verbose))}
+	httpCli := &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verbose))}
 
 	defs := FilterResources(BackupResources, nameFilter)
 	if len(defs) == 0 && len(nameFilter) > 0 {
@@ -301,7 +304,80 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		}
 	}
 
+	// Load platform resources when platform auth is available
+	if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
+		wantPlatform := func(name string) bool {
+			if len(nameFilter) == 0 {
+				return true
+			}
+			for _, n := range nameFilter {
+				if n == name {
+					return true
+				}
+			}
+			return false
+		}
+
+		pc := jamfplatform.NewClient(resolvedURL, p.ClientID(), p.ClientSecret(),
+			jamfplatform.WithTenantID(p.TenantID()),
+			jamfplatform.WithUserAgent("jamf-cli/"+cliVersion),
+		)
+
+		if wantPlatform("blueprints") {
+			if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {
+				objects := make(map[string]map[string]any)
+				for _, bp := range bps {
+					detail, err := pc.GetBlueprint(ctx, bp.ID)
+					if err != nil {
+						continue
+					}
+					exp := blueprintToExport(detail)
+					objects[detail.Name] = normaliseViaJSON(structToMap(exp))
+				}
+				if len(objects) > 0 {
+					snapshot["blueprints"] = objects
+				}
+			}
+		}
+
+		if wantPlatform("compliance-benchmarks") {
+			if resp, err := pc.ListBenchmarks(ctx); err == nil {
+				objects := make(map[string]map[string]any)
+				for _, b := range resp.Benchmarks {
+					bm, err := pc.GetBenchmark(ctx, b.ID)
+					if err != nil {
+						continue
+					}
+					obj := map[string]any{
+						"title":           bm.Title,
+						"description":     bm.Description,
+						"baselineId":      bm.BaselineID,
+						"enforcementMode": bm.EnforcementMode,
+						"target":          bm.Target,
+					}
+					objects[bm.Title] = normaliseViaJSON(obj)
+				}
+				if len(objects) > 0 {
+					snapshot["compliance-benchmarks"] = objects
+				}
+			}
+		}
+	}
+
 	return snapshot, nil
+}
+
+// structToMap converts a struct to map[string]any via JSON round-trip.
+func structToMap(v any) map[string]any {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	return m
 }
 
 // buildNameSet returns a set from a slice of strings; an empty slice returns nil

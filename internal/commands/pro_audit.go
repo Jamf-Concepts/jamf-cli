@@ -49,8 +49,9 @@ func newAuditCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Run cross-resource health checks on a Jamf Pro instance",
 		Long: `Audit performs automated health checks across your Jamf Pro instance.
 
-Check categories: security, compliance, hygiene, enrollment.
-Use --checks to filter to a specific category.`,
+Check categories: security, compliance, hygiene, enrollment, platform.
+Use --checks to filter to a specific category.
+Platform checks run automatically when platform gateway auth is configured.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAudit(cmd.Context(), cliCtx, auditOptions{
 				Checks: checks,
@@ -59,7 +60,7 @@ Use --checks to filter to a specific category.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&checks, "checks", "", "filter to category: security, compliance, hygiene, enrollment")
+	cmd.Flags().StringVar(&checks, "checks", "", "filter to category: security, compliance, hygiene, enrollment, platform")
 	cmd.Flags().IntVar(&days, "days", 14, "stale check-in threshold in days")
 
 	return cmd
@@ -98,7 +99,8 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 	checks := allAuditChecks()
 
 	// Filter by category if specified
-	if opts.Checks != "" {
+	wantPlatformOnly := opts.Checks == "platform"
+	if opts.Checks != "" && !wantPlatformOnly {
 		var filtered []auditCheck
 		for _, c := range checks {
 			if c.Category == opts.Checks {
@@ -106,21 +108,31 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 			}
 		}
 		if len(filtered) == 0 {
-			return fmt.Errorf("no checks match category %q (valid: security, compliance, hygiene, enrollment)", opts.Checks)
+			return fmt.Errorf("no checks match category %q (valid: security, compliance, hygiene, enrollment, platform)", opts.Checks)
 		}
 		checks = filtered
 	}
 
 	var results []auditResult
-	for _, check := range checks {
-		result, err := check.Run(ctx, client, opts.Days)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: check %q failed: %v\n", check.Name, err)
-			continue
+
+	// Run Pro API checks (skip when --checks platform is specified)
+	if !wantPlatformOnly {
+		for _, check := range checks {
+			result, err := check.Run(ctx, client, opts.Days)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: check %q failed: %v\n", check.Name, err)
+				continue
+			}
+			if result != nil {
+				results = append(results, *result)
+			}
 		}
-		if result != nil {
-			results = append(results, *result)
-		}
+	}
+
+	// Run platform checks when platform auth is active (or --checks platform)
+	if cliCtx.PlatformClient != nil && (opts.Checks == "" || wantPlatformOnly) {
+		platformResults := runPlatformAuditChecks(ctx, cliCtx.PlatformClient)
+		results = append(results, platformResults...)
 	}
 
 	if len(results) == 0 {
@@ -481,3 +493,273 @@ func checkNotificationAlerts(ctx context.Context, client registry.HTTPClient, _ 
 
 // timeNow returns current time (extracted for testability).
 var timeNow = func() time.Time { return time.Now() }
+
+// runPlatformAuditChecks runs all platform-specific audit checks and returns findings.
+func runPlatformAuditChecks(ctx context.Context, pc registry.PlatformClient) []auditResult {
+	var results []auditResult
+
+	// Check 1: Undeployed blueprints
+	if r := checkUndeployedBlueprints(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 2: Blueprint deployment failures
+	if r := checkBlueprintFailures(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 3: Stale blueprints (updated after last deployment)
+	if r := checkStaleBlueprints(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 4: Benchmarks with updates available
+	if r := checkBenchmarkUpdates(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 5: Benchmarks in MONITOR-only mode
+	if r := checkBenchmarkMonitorOnly(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 6: Empty scope (blueprints or benchmarks with no device groups)
+	if r := checkEmptyPlatformScope(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	// Check 7: Devices with failed DDM declarations
+	if r := checkFailedDDMDeclarations(ctx, pc); r != nil {
+		results = append(results, *r)
+	}
+
+	return results
+}
+
+func checkUndeployedBlueprints(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Undeployed blueprints", err)
+		return nil
+	}
+	count := 0
+	for _, bp := range bps {
+		if bp.DeploymentState.State != "DEPLOYED" {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityWarning,
+		Name:           "Undeployed blueprints",
+		AffectedCount:  count,
+		Recommendation: "Deploy or remove blueprints that are not in use",
+	}
+}
+
+func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Blueprint deployment failures", err)
+		return nil
+	}
+	count := 0
+	for _, bp := range bps {
+		if bp.DeploymentState.State != "DEPLOYED" {
+			continue
+		}
+		report, err := pc.GetBlueprintReport(ctx, bp.ID)
+		if err != nil {
+			continue
+		}
+		if report.Failed > 0 {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityCritical,
+		Name:           "Blueprint deployment failures",
+		AffectedCount:  count,
+		Recommendation: "Review blueprint deployment reports for failed devices",
+	}
+}
+
+func checkStaleBlueprints(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Stale blueprints", err)
+		return nil
+	}
+	count := 0
+	for _, bp := range bps {
+		if bp.DeploymentState.State != "DEPLOYED" || bp.DeploymentState.LastDeployment == nil {
+			continue
+		}
+		// Blueprint was updated after its last deployment
+		deployedAt, err := time.Parse(time.RFC3339, bp.DeploymentState.LastDeployment.Started)
+		if err != nil {
+			continue
+		}
+		updatedAt, err := time.Parse(time.RFC3339, bp.Updated)
+		if err != nil {
+			continue
+		}
+		if updatedAt.After(deployedAt) {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityWarning,
+		Name:           "Stale blueprints (updated since last deploy)",
+		AffectedCount:  count,
+		Recommendation: "Redeploy blueprints that have been modified since last deployment",
+	}
+}
+
+func checkBenchmarkUpdates(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	resp, err := pc.ListBenchmarks(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Benchmark updates available", err)
+		return nil
+	}
+	count := 0
+	for _, b := range resp.Benchmarks {
+		if b.UpdateAvailable {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityWarning,
+		Name:           "Compliance benchmarks with updates available",
+		AffectedCount:  count,
+		Recommendation: "Review and apply available baseline updates to compliance benchmarks",
+	}
+}
+
+func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	resp, err := pc.ListBenchmarks(ctx)
+	if err != nil {
+		return nil
+	}
+	count := 0
+	for _, b := range resp.Benchmarks {
+		bm, err := pc.GetBenchmark(ctx, b.ID)
+		if err != nil {
+			continue
+		}
+		if bm.EnforcementMode == "MONITOR" && bm.CanSwitchToEnforce {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityInfo,
+		Name:           "Compliance benchmarks in MONITOR mode",
+		AffectedCount:  count,
+		Recommendation: "Consider switching eligible benchmarks from MONITOR to ENFORCE mode",
+	}
+}
+
+func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	count := 0
+
+	// Check blueprints with empty scope
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err == nil {
+		for _, bp := range bps {
+			detail, err := pc.GetBlueprint(ctx, bp.ID)
+			if err != nil {
+				continue
+			}
+			if len(detail.Scope.DeviceGroups) == 0 {
+				count++
+			}
+		}
+	}
+
+	// Check benchmarks with empty target
+	resp, err := pc.ListBenchmarks(ctx)
+	if err == nil {
+		for _, b := range resp.Benchmarks {
+			if len(b.Target.DeviceGroups) == 0 {
+				count++
+			}
+		}
+	}
+
+	if count == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityWarning,
+		Name:           "Empty platform scope",
+		AffectedCount:  count,
+		Recommendation: "Add device groups to blueprints and benchmarks with empty scope",
+	}
+}
+
+func checkFailedDDMDeclarations(ctx context.Context, pc registry.PlatformClient) *auditResult {
+	devices, err := pc.ListDevices(ctx, nil, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: platform check %q failed: %v\n", "Failed DDM declarations", err)
+		return nil
+	}
+
+	devicesWithFailures := 0
+	for _, dev := range devices {
+		report, err := pc.GetDeviceDeclarationReport(ctx, dev.ID)
+		if err != nil {
+			continue
+		}
+		hasFailed := false
+		for _, ch := range report.Channels {
+			for _, d := range ch.Declarations {
+				if d.Status == "SUCCESSFUL" && d.ValidityState == "VALID" {
+					continue
+				}
+				// Skip if the only reason is non-actionable
+				if onlyHasIgnorableReasons(d.Reasons) {
+					continue
+				}
+				hasFailed = true
+				break
+			}
+			if hasFailed {
+				break
+			}
+		}
+		if hasFailed {
+			devicesWithFailures++
+		}
+	}
+
+	if devicesWithFailures == 0 {
+		return nil
+	}
+	return &auditResult{
+		Category:       "platform",
+		Severity:       severityCritical,
+		Name:           "Devices with failed DDM declarations",
+		AffectedCount:  devicesWithFailures,
+		Recommendation: "Run 'pro ddm-reports device <serial>' to diagnose declaration failures",
+	}
+}

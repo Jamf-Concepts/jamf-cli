@@ -232,22 +232,37 @@ func newGroupToolsAnalyzeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Analyze computer groups for hygiene issues",
 		Long: `Run hygiene analysis on computer groups.
 
---unused detects groups not referenced by any policy scope.`,
+--unused detects groups not referenced by any policy scope. When platform
+gateway auth is configured, also checks for platform device groups not
+referenced by any blueprint or compliance benchmark.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGroupToolsAnalyze(cmd.Context(), cliCtx, unused)
+			if !unused {
+				return fmt.Errorf("specify an analysis mode: --unused")
+			}
+			return runGroupToolsAnalyzeUnused(cmd.Context(), cliCtx)
 		},
 	}
 
-	cmd.Flags().BoolVar(&unused, "unused", false, "find groups not referenced by any policy")
+	cmd.Flags().BoolVar(&unused, "unused", false, "find groups not referenced by any policy (includes platform groups when platform auth is active)")
 
 	return cmd
 }
 
-func runGroupToolsAnalyze(ctx context.Context, cliCtx *registry.CLIContext, unused bool) error {
-	if !unused {
-		return fmt.Errorf("specify an analysis mode: --unused")
-	}
-	return runGroupToolsAnalyzeUnused(ctx, cliCtx)
+// scopeableResource defines a Classic API resource type that scopes to computer groups.
+type scopeableResource struct {
+	Name       string // display name for logging
+	ListPath   string // Classic API list endpoint
+	WrapperKey string // JSON wrapper key for the list response
+	DetailPath string // Classic API detail endpoint with %s for ID
+}
+
+// scopeableResources lists all Classic API resources that can scope to computer groups.
+var scopeableResources = []scopeableResource{
+	{"policies", "/JSSResource/policies", "policies", "/JSSResource/policies/id/%s"},
+	{"macOS profiles", "/JSSResource/osxconfigurationprofiles", "os_x_configuration_profiles", "/JSSResource/osxconfigurationprofiles/id/%s"},
+	{"restricted software", "/JSSResource/restrictedsoftware", "restricted_software", "/JSSResource/restrictedsoftware/id/%s"},
+	{"ebooks", "/JSSResource/ebooks", "ebooks", "/JSSResource/ebooks/id/%s"},
+	{"patch policies", "/JSSResource/patchpolicies", "patch_policies", "/JSSResource/patchpolicies/id/%s"},
 }
 
 func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext) error {
@@ -257,44 +272,119 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 		return fmt.Errorf("fetching computer groups: %w", err)
 	}
 
-	// Fetch policy list from Classic API
-	policyItems, err := FetchClassicList(ctx, cliCtx.Client, "/JSSResource/policies", "policies")
-	if err != nil {
-		return fmt.Errorf("fetching policy list: %w", err)
+	referenced := make(map[string]bool)
+
+	// Check all scopeable Classic API resources
+	for _, res := range scopeableResources {
+		fmt.Fprintf(os.Stderr, "Checking %s...\n", res.Name)
+		addReferencedGroupsFromClassic(ctx, cliCtx.Client, res, referenced)
 	}
 
-	// Collect policy IDs for parallel detail fetch
-	type policyStub struct {
-		id   string
-		name string
+	// Check modern API resources with group scoping
+	fmt.Fprintf(os.Stderr, "Checking computer prestages...\n")
+	addReferencedGroupsFromPrestages(ctx, cliCtx.Client, referenced)
+
+	// Also mark groups referenced by platform blueprints/benchmarks
+	if cliCtx.PlatformClient != nil {
+		fmt.Fprintf(os.Stderr, "Checking platform blueprints and benchmarks...\n")
+		addPlatformReferencedGroups(ctx, cliCtx.PlatformClient, referenced)
 	}
-	var stubs []policyStub
-	for _, item := range policyItems {
+
+	fmt.Fprintln(os.Stderr)
+
+	// Find groups not referenced by anything
+	var rows []map[string]any
+	for _, g := range groups {
+		name, _ := g["name"].(string)
+		if referenced[name] {
+			continue
+		}
+		rows = append(rows, groupSummaryRow(g))
+	}
+
+	if len(rows) == 0 {
+		rows = []map[string]any{}
+	}
+
+	formatter := output.New(outputFmt, noColor, wide)
+	return formatter.Print(rows)
+}
+
+// addPlatformReferencedGroups adds group names referenced by blueprints
+// and compliance benchmarks to the referenced set. Silently skips on errors.
+func addPlatformReferencedGroups(ctx context.Context, pc registry.PlatformClient, referenced map[string]bool) {
+	// Build ID→name map from platform device groups
+	groups, err := pc.ListDeviceGroups(ctx, nil, "")
+	if err != nil {
+		return
+	}
+	idToName := make(map[string]string, len(groups))
+	for _, g := range groups {
+		idToName[g.ID] = g.Name
+	}
+
+	// Mark groups referenced by blueprints
+	bps, err := pc.ListBlueprints(ctx, nil, "")
+	if err == nil {
+		for _, bp := range bps {
+			detail, err := pc.GetBlueprint(ctx, bp.ID)
+			if err != nil {
+				continue
+			}
+			for _, gid := range detail.Scope.DeviceGroups {
+				if name, ok := idToName[gid]; ok {
+					referenced[name] = true
+				}
+			}
+		}
+	}
+
+	// Mark groups referenced by benchmarks
+	resp, err := pc.ListBenchmarks(ctx)
+	if err == nil {
+		for _, b := range resp.Benchmarks {
+			for _, gid := range b.Target.DeviceGroups {
+				if name, ok := idToName[gid]; ok {
+					referenced[name] = true
+				}
+			}
+		}
+	}
+}
+
+// addReferencedGroupsFromClassic fetches all items of a scopeable Classic resource,
+// gets their detail in parallel, and adds any referenced group names to the set.
+func addReferencedGroupsFromClassic(ctx context.Context, client registry.HTTPClient, res scopeableResource, referenced map[string]bool) {
+	items, err := FetchClassicList(ctx, client, res.ListPath, res.WrapperKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to list %s: %v\n", res.Name, err)
+		return
+	}
+
+	type stub struct{ id string }
+	var stubs []stub
+	for _, item := range items {
 		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		stubs = append(stubs, policyStub{id: extractID(m), name: extractName(m)})
+		if id := extractID(m); id != "" {
+			stubs = append(stubs, stub{id})
+		}
 	}
 
-	// Fetch policy details in parallel (bounded concurrency)
-	details, fetchErrs := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, stub policyStub) (map[string]any, error) {
-		path := fmt.Sprintf("/JSSResource/policies/id/%s", stub.id)
-		data, err := FetchJSON(ctx, cliCtx.Client, path)
+	details, fetchErrs := BoundedParallelFetch(ctx, stubs, 10, func(ctx context.Context, s stub) (map[string]any, error) {
+		path := fmt.Sprintf(res.DetailPath, s.id)
+		data, err := FetchJSON(ctx, client, path)
 		if err != nil {
 			return nil, err
 		}
 		return unwrapClassicDetail(data), nil
 	})
 	if len(fetchErrs) > 0 {
-		fmt.Fprintf(os.Stderr, "WARNING: %d of %d policy detail fetches failed\n", len(fetchErrs), len(stubs))
-		if len(fetchErrs) == len(stubs) {
-			return fmt.Errorf("all policy detail fetches failed; cannot determine group usage")
-		}
+		fmt.Fprintf(os.Stderr, "WARNING: %d of %d %s detail fetches failed\n", len(fetchErrs), len(stubs), res.Name)
 	}
 
-	// Build set of group names referenced by any policy scope
-	referenced := make(map[string]bool)
 	for _, detail := range details {
 		if detail == nil {
 			continue
@@ -305,25 +395,27 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 		}
 		addGroupNamesFromScope(scope, referenced)
 	}
+}
 
-	// Find groups not referenced
-	var rows []map[string]any
-	for _, g := range groups {
-		name, _ := g["name"].(string)
-		if referenced[name] {
-			continue
+// addReferencedGroupsFromPrestages checks computer prestage scopes (modern API).
+func addReferencedGroupsFromPrestages(ctx context.Context, client registry.HTTPClient, referenced map[string]bool) {
+	prestages, err := FetchAllPaginated(ctx, client, "/v3/computer-prestages", 100)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to list computer prestages: %v\n", err)
+		return
+	}
+	for _, ps := range prestages {
+		// Prestage scope uses locationInformation.departmentId or direct group references
+		// but the key mechanism is versionLock + scope assignments. Check for group references.
+		scope, _ := ps["purchasingInformation"].(map[string]any)
+		if scope != nil {
+			addGroupNamesFromScope(scope, referenced)
 		}
-		row := groupSummaryRow(g)
-		row["referenced_by_policies"] = 0
-		rows = append(rows, row)
+		// Also check if there's a direct scope block
+		if s, ok := ps["scope"].(map[string]any); ok {
+			addGroupNamesFromScope(s, referenced)
+		}
 	}
-
-	if len(rows) == 0 {
-		rows = []map[string]any{}
-	}
-
-	formatter := output.New(outputFmt, noColor, wide)
-	return formatter.Print(rows)
 }
 
 // addGroupNamesFromScope extracts computer group names from a Classic API scope object.

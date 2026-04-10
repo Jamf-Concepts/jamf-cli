@@ -10,31 +10,31 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewStartupStatussCmd creates the startup-statuss command group
-func NewStartupStatussCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewStartupStatusCmd creates the startup-status command group
+func NewStartupStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "startup-statuss",
-		Short: "Manage startup-statuss",
-		Long:  `Manage startup-statuss in Jamf Pro.`,
+		Use:   "startup-status",
+		Short: "Manage startup-status",
+		Long:  `Manage startup-status in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newStartupStatussListCmd(ctx))
+	cmd.AddCommand(newStartupStatusListCmd(ctx))
 
 	return cmd
 }
 
-func newStartupStatussListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newStartupStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve information about application startup",
 		Long:  "Retrieves information about application startup. Current startup operation taking place (if any) and overall startup completion percentage.",
-		Example: `  # List all startup-statuss
-  jamf-cli startup-statuss list
+		Example: `  # List all startup-status
+  jamf-cli startup-status list
 
-  # List startup-statuss and extract IDs
-  jamf-cli startup-statuss list --field id`,
+  # List startup-status and extract IDs
+  jamf-cli startup-status list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

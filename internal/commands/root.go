@@ -147,6 +147,20 @@ func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Rea
 	return c.inner.Do(ctx, method, path, body)
 }
 
+// spinnerTransport wraps an http.RoundTripper to show a loading spinner
+// during requests. Used to add spinner support to SDK HTTP clients that
+// manage their own transport (e.g., Platform SDK, Protect SDK).
+type spinnerTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *spinnerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	s := spinner.New("Loading...")
+	s.Start()
+	defer s.Stop()
+	return t.inner.RoundTrip(req)
+}
+
 // dryRunClient wraps an HTTPClient to intercept mutating requests.
 // GET/HEAD pass through; POST/PUT/PATCH/DELETE print what would happen
 // and return a synthetic empty response.
@@ -508,7 +522,11 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
 				rc.HTTPClient.Timeout = 60 * time.Second
 				rc.HTTPClient.Jar = jar
-				platformOpts = append(platformOpts, jamfplatform.WithHTTPClient(rc.StandardClient()))
+				stdClient := rc.StandardClient()
+				if !quiet && !verbose {
+					stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+				}
+				platformOpts = append(platformOpts, jamfplatform.WithHTTPClient(stdClient))
 
 				cliCtx.PlatformClient = jamfplatform.NewClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), platformOpts...,

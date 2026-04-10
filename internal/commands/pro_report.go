@@ -39,5 +39,11 @@ Available subcommands:
 	cmd.AddCommand(newReportAppStatusCmd(cliCtx))
 	cmd.AddCommand(newReportUpdateStatusCmd(cliCtx))
 
+	// Platform API reports
+	cmd.AddCommand(newReportBlueprintStatusCmd(cliCtx))
+	cmd.AddCommand(newReportComplianceRulesCmd(cliCtx))
+	cmd.AddCommand(newReportComplianceDevicesCmd(cliCtx))
+	cmd.AddCommand(newReportDDMStatusCmd(cliCtx))
+
 	return cmd
 }

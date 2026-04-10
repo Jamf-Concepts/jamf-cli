@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -29,6 +30,7 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newBlueprintsDeployCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsUndeployCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsCloneCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsCmd(cliCtx))
 
 	return cmd
@@ -459,6 +461,58 @@ func newBlueprintsComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	}
 }
 
+func newBlueprintsCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var scopeGroups []string
+	cmd := &cobra.Command{
+		Use:   "clone <source-name> <new-name>",
+		Short: "Clone a blueprint with a new name",
+		Long: `Creates a copy of an existing blueprint with a new name.
+The source scope is copied by default. Use --scope to override device group targets.`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			pc := cliCtx.PlatformClient
+
+			source, err := pc.GetBlueprintByName(ctx, args[0])
+			if err != nil {
+				return fmt.Errorf("source blueprint: %w", err)
+			}
+
+			groups := source.Scope.DeviceGroups
+			if len(scopeGroups) > 0 {
+				groups = scopeGroups
+			}
+			steps := randomizePayloadIdentifiers(source.Steps)
+
+			createReq := &jamfplatform.BlueprintCreateRequestV1{
+				Name:        args[1],
+				Description: source.Description,
+				Scope: jamfplatform.BlueprintCreateScopeV1{
+					DeviceGroups: groups,
+				},
+				Steps: steps,
+			}
+
+			result, err := pc.CreateBlueprint(ctx, createReq)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Cloned blueprint %q → %q (id: %s)\n", args[0], args[1], result.ID)
+
+			bp, err := pc.GetBlueprint(ctx, result.ID)
+			if err != nil {
+				return err
+			}
+			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
+		},
+	}
+	cmd.Flags().StringSliceVar(&scopeGroups, "scope", nil, "Override device group IDs for the clone")
+	return cmd
+}
+
 func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <identifier>",
@@ -475,4 +529,73 @@ func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return platform.PrintOne(cliCtx.Output, comp)
 		},
 	}
+}
+
+// randomizePayloadIdentifiers walks through blueprint steps and replaces
+// payloadIdentifier values in legacy configuration profile components
+// (com.jamf.ddm-configuration-profile) with fresh UUIDs.
+func randomizePayloadIdentifiers(steps []jamfplatform.BlueprintStepV1) []jamfplatform.BlueprintStepV1 {
+	out := make([]jamfplatform.BlueprintStepV1, len(steps))
+	for i, step := range steps {
+		comps := make([]jamfplatform.BlueprintComponentV1, len(step.Components))
+		for j, comp := range step.Components {
+			comps[j] = comp
+			if len(comp.Configuration) == 0 {
+				continue
+			}
+			var config map[string]any
+			if err := json.Unmarshal(comp.Configuration, &config); err != nil {
+				continue
+			}
+			if randomizeMapPayloadIDs(config) {
+				if data, err := json.Marshal(config); err == nil {
+					comps[j].Configuration = data
+				}
+			}
+		}
+		out[i] = jamfplatform.BlueprintStepV1{
+			Name:                step.Name,
+			Components:          comps,
+			ActivationPredicate: step.ActivationPredicate,
+		}
+	}
+	return out
+}
+
+// randomizeMapPayloadIDs recursively walks a JSON map and replaces any
+// "payloadIdentifier" string values with a fresh UUID. Returns true if
+// any replacement was made.
+func randomizeMapPayloadIDs(m map[string]any) bool {
+	changed := false
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]any:
+			if randomizeMapPayloadIDs(val) {
+				changed = true
+			}
+		case []any:
+			for _, item := range val {
+				if sub, ok := item.(map[string]any); ok {
+					if randomizeMapPayloadIDs(sub) {
+						changed = true
+					}
+				}
+			}
+		case string:
+			if k == "payloadIdentifier" {
+				m[k] = newUUID()
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
+// newUUID generates a random UUID v4 string.
+func newUUID() string {
+	var u [16]byte
+	_, _ = rand.Read(u[:])
+	u[6] = (u[6] & 0x0f) | 0x40 // version 4
+	u[8] = (u[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:16])
 }
