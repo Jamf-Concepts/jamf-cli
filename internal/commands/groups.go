@@ -23,6 +23,7 @@ var rootGroupMap = map[string]string{
 	"multi":      "core",
 	"pro":        "products",
 	"protect":    "products",
+	"platform":   "products",
 }
 
 // applyRootGroups registers groups on the root command and assigns each

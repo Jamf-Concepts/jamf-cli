@@ -417,6 +417,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"config":     true,
 				"diff":       true,
 				"setup":      true,
+				"platform":   true,
 				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
@@ -591,6 +592,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Jamf Protect product namespace
 	cmd.AddCommand(newProtectCmd(cliCtx))
+
+	// Jamf Platform namespace
+	cmd.AddCommand(newPlatformCmd())
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
