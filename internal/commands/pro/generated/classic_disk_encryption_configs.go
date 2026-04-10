@@ -100,6 +100,9 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Example: `  # Get a disk_encryption_configuration by ID
   jamf-cli classic-disk-encryption-configs get 1
 
+  # Get a disk_encryption_configuration by name
+  jamf-cli classic-disk-encryption-configs get --name "Example"
+
   # Get a disk_encryption_configuration and output as YAML
   jamf-cli classic-disk-encryption-configs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Delete a disk_encryption_configuration",
 		Example: `  # Delete a disk_encryption_configuration (with confirmation)
   jamf-cli classic-disk-encryption-configs delete 1
+
+  # Delete by name
+  jamf-cli classic-disk-encryption-configs delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-disk-encryption-configs delete 1 --yes`,

@@ -583,8 +583,11 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history [<id>]",
 		Short: "Get specified Building History object",
 		Long:  "Gets specified Building history object",
-		Example: `  # Get history for a building
-  jamf-cli buildings history 1`,
+		Example: `  # Get history for a building by ID
+  jamf-cli buildings history 1
+
+  # Get history by name
+  jamf-cli buildings history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -636,7 +639,7 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/buildings/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

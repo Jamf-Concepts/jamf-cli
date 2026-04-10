@@ -100,6 +100,9 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a webhook by ID
   jamf-cli classic-webhooks get 1
 
+  # Get a webhook by name
+  jamf-cli classic-webhooks get --name "Example"
+
   # Get a webhook and output as YAML
   jamf-cli classic-webhooks get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a webhook",
 		Example: `  # Delete a webhook (with confirmation)
   jamf-cli classic-webhooks delete 1
+
+  # Delete by name
+  jamf-cli classic-webhooks delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-webhooks delete 1 --yes`,

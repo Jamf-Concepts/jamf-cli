@@ -100,6 +100,9 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Example: `  # Get a removable_mac_address by ID
   jamf-cli classic-removable-mac-addresses get 1
 
+  # Get a removable_mac_address by name
+  jamf-cli classic-removable-mac-addresses get --name "Example"
+
   # Get a removable_mac_address and output as YAML
   jamf-cli classic-removable-mac-addresses get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Delete a removable_mac_address",
 		Example: `  # Delete a removable_mac_address (with confirmation)
   jamf-cli classic-removable-mac-addresses delete 1
+
+  # Delete by name
+  jamf-cli classic-removable-mac-addresses delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-removable-mac-addresses delete 1 --yes`,

@@ -100,6 +100,9 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a computer_extension_attribute by ID
   jamf-cli classic-computer-ext-attrs get 1
 
+  # Get a computer_extension_attribute by name
+  jamf-cli classic-computer-ext-attrs get --name "Example"
+
   # Get a computer_extension_attribute and output as YAML
   jamf-cli classic-computer-ext-attrs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Delete a computer_extension_attribute",
 		Example: `  # Delete a computer_extension_attribute (with confirmation)
   jamf-cli classic-computer-ext-attrs delete 1
+
+  # Delete by name
+  jamf-cli classic-computer-ext-attrs delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-computer-ext-attrs delete 1 --yes`,

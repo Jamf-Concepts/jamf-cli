@@ -100,6 +100,9 @@ func newClassicPatchTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a patch_software_title by ID
   jamf-cli classic-patch-titles get 1
 
+  # Get a patch_software_title by name
+  jamf-cli classic-patch-titles get --name "Example"
+
   # Get a patch_software_title and output as YAML
   jamf-cli classic-patch-titles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a patch_software_title",
 		Example: `  # Delete a patch_software_title (with confirmation)
   jamf-cli classic-patch-titles delete 1
+
+  # Delete by name
+  jamf-cli classic-patch-titles delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-patch-titles delete 1 --yes`,

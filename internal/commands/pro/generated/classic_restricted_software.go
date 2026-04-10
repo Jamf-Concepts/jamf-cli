@@ -106,6 +106,9 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Example: `  # Get a restricted_software by ID
   jamf-cli classic-restricted-software get 1
 
+  # Get a restricted_software by name
+  jamf-cli classic-restricted-software get --name "Example"
+
   # Get a restricted_software and output as YAML
   jamf-cli classic-restricted-software get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -244,6 +247,9 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Delete a restricted_software",
 		Example: `  # Delete a restricted_software (with confirmation)
   jamf-cli classic-restricted-software delete 1
+
+  # Delete by name
+  jamf-cli classic-restricted-software delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-restricted-software delete 1 --yes`,

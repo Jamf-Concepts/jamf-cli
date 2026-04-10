@@ -186,6 +186,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Get history for a %s\n  %s %s history %s",
 						nameSingular, bin, resourceName, strings.Join(argNums, " "))
 				}
+				if opHasNameLookup(op, r) {
+					return fmt.Sprintf("  # Get history for a %s by ID\n  %s %s history 1\n\n  # Get history by name\n  %s %s history --name \"Example\"",
+						nameSingular, bin, resourceName, bin, resourceName)
+				}
 				return fmt.Sprintf("  # Get history for a %s\n  %s %s history 1",
 					nameSingular, bin, resourceName)
 			case "patch":
@@ -1230,13 +1234,28 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .IsDestructive }}
 			var resolvedByName string
 {{- end }}
+{{- $opIsDestructive := .IsDestructive }}
 {{ range $.LookupFields }}
 			if flag{{ toCamel .Flag }} != "" {
+{{- if $opIsDestructive }}
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }}, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no {{ $.NameSingular }} found with --{{ .Flag }} %q", flag{{ toCamel .Flag }})
+				}
+{{- else }}
 				rid, err := resolveNameToID(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", flag{{ toCamel .Flag }})
 				if err != nil {
 					return fmt.Errorf("looking up --{{ .Flag }} %q: %w", flag{{ toCamel .Flag }}, err)
 				}
+{{- end }}
 				resolvedID = rid
+{{- if $opIsDestructive }}
+				resolvedByName = flag{{ toCamel .Flag }}
+{{- end }}
 			} else {{ end }}if flagName != "" {
 {{- if .IsDestructive }}
 				noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1341,8 +1360,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				for {
 					// Build page-specific query
 					pagePath := "{{ .Path }}"
+{{- if and (not (isPatchOp .)) (opHasNameLookup . $) }}
+					pagePath = strings.Replace(pagePath, "{{ pathParamName . }}", url.PathEscape(resolvedID), 1)
+{{- else if and (isPatchOp .) (patchHasLookup $) }}
+					pagePath = strings.Replace(pagePath, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
+{{- else }}
 {{- range indexedPathParams .Parameters }}
 					pagePath = strings.Replace(pagePath, "{{"{"}}{{ .Param.Name }}{{"}"}}", url.PathEscape(args[{{ .Index }}]), 1)
+{{- end }}
 {{- end }}
 					var pageQuery []string
 					// Carry forward non-pagination query params

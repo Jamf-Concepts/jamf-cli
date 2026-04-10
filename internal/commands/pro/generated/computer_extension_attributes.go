@@ -506,8 +506,11 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "history [<id>]",
 		Short: "Get specified Computer Extension Attribute History object",
 		Long:  "Get specified Computer Extension Attribute history object",
-		Example: `  # Get history for a computer-extension-attribute
-  jamf-cli computer-extension-attributes history 1`,
+		Example: `  # Get history for a computer-extension-attribute by ID
+  jamf-cli computer-extension-attributes history 1
+
+  # Get history by name
+  jamf-cli computer-extension-attributes history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -559,7 +562,7 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 				for {
 					// Build page-specific query
 					pagePath := "/v1/computer-extension-attributes/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

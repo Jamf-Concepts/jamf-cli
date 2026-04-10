@@ -100,6 +100,9 @@ func newClassicUserExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a user_extension_attribute by ID
   jamf-cli classic-user-ext-attrs get 1
 
+  # Get a user_extension_attribute by name
+  jamf-cli classic-user-ext-attrs get --name "Example"
+
   # Get a user_extension_attribute and output as YAML
   jamf-cli classic-user-ext-attrs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a user_extension_attribute",
 		Example: `  # Delete a user_extension_attribute (with confirmation)
   jamf-cli classic-user-ext-attrs delete 1
+
+  # Delete by name
+  jamf-cli classic-user-ext-attrs delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-user-ext-attrs delete 1 --yes`,

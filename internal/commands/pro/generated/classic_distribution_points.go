@@ -100,6 +100,9 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Example: `  # Get a distribution_point by ID
   jamf-cli classic-distribution-points get 1
 
+  # Get a distribution_point by name
+  jamf-cli classic-distribution-points get --name "Example"
+
   # Get a distribution_point and output as YAML
   jamf-cli classic-distribution-points get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Delete a distribution_point",
 		Example: `  # Delete a distribution_point (with confirmation)
   jamf-cli classic-distribution-points delete 1
+
+  # Delete by name
+  jamf-cli classic-distribution-points delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-distribution-points delete 1 --yes`,

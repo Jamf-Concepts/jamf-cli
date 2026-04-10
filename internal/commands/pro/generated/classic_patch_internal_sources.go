@@ -89,6 +89,9 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Example: `  # Get a patch_internal_source by ID
   jamf-cli classic-patch-internal-sources get 1
 
+  # Get a patch_internal_source by name
+  jamf-cli classic-patch-internal-sources get --name "Example"
+
   # Get a patch_internal_source and output as YAML
   jamf-cli classic-patch-internal-sources get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),

@@ -1566,6 +1566,11 @@ func TestGenerate_GetNameFlag(t *testing.T) {
 				Name: "get", Method: "GET", Path: "/v1/buildings/{id}", Summary: "Get",
 				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
 			},
+			{
+				Name: "update", Method: "PUT", Path: "/v1/buildings/{id}", Summary: "Update",
+				Parameters:  []*Parameter{{Name: "id", In: "path", Type: "string"}},
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Name: "name", Type: "string"}}}},
+			},
 		},
 		Schemas: make(map[string]*Schema),
 	}
@@ -1590,6 +1595,13 @@ func TestGenerate_GetNameFlag(t *testing.T) {
 	// should NOT generate a separate get-by-name subcommand
 	if strings.Contains(code, "GetByNameCmd") {
 		t.Error("should not generate a separate GetByNameCmd")
+	}
+	// update command should accept optional ID (MaximumNArgs(1)) and --name flag
+	if !strings.Contains(code, `Use:   "update [<id>]"`) {
+		t.Error("expected update command to have optional ID arg (MaximumNArgs(1))")
+	}
+	if !strings.Contains(code, `MaximumNArgs(1)`) {
+		t.Error("expected MaximumNArgs(1) on update command")
 	}
 }
 

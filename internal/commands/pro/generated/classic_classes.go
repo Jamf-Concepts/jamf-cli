@@ -100,6 +100,9 @@ func newClassicClassesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a class by ID
   jamf-cli classic-classes get 1
 
+  # Get a class by name
+  jamf-cli classic-classes get --name "Example"
+
   # Get a class and output as YAML
   jamf-cli classic-classes get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicClassesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a class",
 		Example: `  # Delete a class (with confirmation)
   jamf-cli classic-classes delete 1
+
+  # Delete by name
+  jamf-cli classic-classes delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-classes delete 1 --yes`,

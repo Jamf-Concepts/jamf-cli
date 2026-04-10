@@ -106,6 +106,9 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a policy by ID
   jamf-cli classic-policies get 1
 
+  # Get a policy by name
+  jamf-cli classic-policies get --name "Example"
+
   # Get a policy and output as YAML
   jamf-cli classic-policies get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -244,6 +247,9 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a policy",
 		Example: `  # Delete a policy (with confirmation)
   jamf-cli classic-policies delete 1
+
+  # Delete by name
+  jamf-cli classic-policies delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-policies delete 1 --yes`,

@@ -100,6 +100,9 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a dock_item by ID
   jamf-cli classic-dock-items get 1
 
+  # Get a dock_item by name
+  jamf-cli classic-dock-items get --name "Example"
+
   # Get a dock_item and output as YAML
   jamf-cli classic-dock-items get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a dock_item",
 		Example: `  # Delete a dock_item (with confirmation)
   jamf-cli classic-dock-items delete 1
+
+  # Delete by name
+  jamf-cli classic-dock-items delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-dock-items delete 1 --yes`,

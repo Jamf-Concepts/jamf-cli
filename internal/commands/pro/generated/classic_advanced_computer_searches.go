@@ -100,6 +100,9 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 		Example: `  # Get a advanced_computer_search by ID
   jamf-cli classic-advanced-computer-searches get 1
 
+  # Get a advanced_computer_search by name
+  jamf-cli classic-advanced-computer-searches get --name "Example"
+
   # Get a advanced_computer_search and output as YAML
   jamf-cli classic-advanced-computer-searches get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 		Short: "Delete a advanced_computer_search",
 		Example: `  # Delete a advanced_computer_search (with confirmation)
   jamf-cli classic-advanced-computer-searches delete 1
+
+  # Delete by name
+  jamf-cli classic-advanced-computer-searches delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-advanced-computer-searches delete 1 --yes`,

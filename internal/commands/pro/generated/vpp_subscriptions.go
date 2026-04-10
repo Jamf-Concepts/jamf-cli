@@ -487,8 +487,11 @@ func newVppSubscriptionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history [<id>]",
 		Short: "Get specified Volume Purchasing Subscription history object",
 		Long:  "Gets specified Volume Purchasing Subscription history object",
-		Example: `  # Get history for a vpp-subscription
-  jamf-cli vpp-subscriptions history 1`,
+		Example: `  # Get history for a vpp-subscription by ID
+  jamf-cli vpp-subscriptions history 1
+
+  # Get history by name
+  jamf-cli vpp-subscriptions history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -540,7 +543,7 @@ func newVppSubscriptionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/volume-purchasing-subscriptions/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

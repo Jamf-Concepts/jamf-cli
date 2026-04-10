@@ -102,6 +102,10 @@ func templateFuncs() template.FuncMap {
 				return fmt.Sprintf("  # List all %s\n  %s %s list\n\n  # List %s and extract IDs\n  %s %s list --field id",
 					r.Name, bin, name, r.Name, bin, name)
 			case "get":
+				if r.HasLookup("name") {
+					return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s by name\n  %s %s get --name \"Example\"\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
+						singular, bin, name, singular, bin, name, singular, bin, name)
+				}
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					singular, bin, name, singular, bin, name)
 			case "create":
@@ -111,6 +115,10 @@ func templateFuncs() template.FuncMap {
 				return fmt.Sprintf("  # Update a %s from XML\n  cat %s.xml | %s %s update 1",
 					singular, singular, bin, name)
 			case "delete":
+				if r.HasOperation("delete") && r.HasLookup("name") {
+					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete by name\n  %s %s delete --name \"Example\" --yes\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
+						singular, bin, name, bin, name, bin, name)
+				}
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					singular, bin, name, bin, name)
 			case "apply":

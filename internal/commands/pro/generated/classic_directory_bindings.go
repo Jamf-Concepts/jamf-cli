@@ -100,6 +100,9 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Example: `  # Get a directory_binding by ID
   jamf-cli classic-directory-bindings get 1
 
+  # Get a directory_binding by name
+  jamf-cli classic-directory-bindings get --name "Example"
+
   # Get a directory_binding and output as YAML
   jamf-cli classic-directory-bindings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Delete a directory_binding",
 		Example: `  # Delete a directory_binding (with confirmation)
   jamf-cli classic-directory-bindings delete 1
+
+  # Delete by name
+  jamf-cli classic-directory-bindings delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-directory-bindings delete 1 --yes`,

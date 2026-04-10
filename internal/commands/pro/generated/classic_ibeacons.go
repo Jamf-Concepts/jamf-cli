@@ -100,6 +100,9 @@ func newClassicIbeaconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a ibeacon by ID
   jamf-cli classic-ibeacons get 1
 
+  # Get a ibeacon by name
+  jamf-cli classic-ibeacons get --name "Example"
+
   # Get a ibeacon and output as YAML
   jamf-cli classic-ibeacons get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a ibeacon",
 		Example: `  # Delete a ibeacon (with confirmation)
   jamf-cli classic-ibeacons delete 1
+
+  # Delete by name
+  jamf-cli classic-ibeacons delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-ibeacons delete 1 --yes`,

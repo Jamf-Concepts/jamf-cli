@@ -412,8 +412,11 @@ func newDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "history [<id>]",
 		Short: "Get specified Mobile Device Extension Attribute History object",
 		Long:  "Get specified Mobile Device Extension Attribute history object",
-		Example: `  # Get history for a device-extension-attribute
-  jamf-cli device-extension-attributes history 1`,
+		Example: `  # Get history for a device-extension-attribute by ID
+  jamf-cli device-extension-attributes history 1
+
+  # Get history by name
+  jamf-cli device-extension-attributes history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -465,7 +468,7 @@ func newDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 				for {
 					// Build page-specific query
 					pagePath := "/v1/mobile-device-extension-attributes/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

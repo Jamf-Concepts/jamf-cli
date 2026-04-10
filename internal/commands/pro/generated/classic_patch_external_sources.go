@@ -100,6 +100,9 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Example: `  # Get a patch_external_source by ID
   jamf-cli classic-patch-external-sources get 1
 
+  # Get a patch_external_source by name
+  jamf-cli classic-patch-external-sources get --name "Example"
+
   # Get a patch_external_source and output as YAML
   jamf-cli classic-patch-external-sources get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Delete a patch_external_source",
 		Example: `  # Delete a patch_external_source (with confirmation)
   jamf-cli classic-patch-external-sources delete 1
+
+  # Delete by name
+  jamf-cli classic-patch-external-sources delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-patch-external-sources delete 1 --yes`,

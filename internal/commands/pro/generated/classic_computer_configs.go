@@ -100,6 +100,9 @@ func newClassicComputerConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a computer_configuration by ID
   jamf-cli classic-computer-configs get 1
 
+  # Get a computer_configuration by name
+  jamf-cli classic-computer-configs get --name "Example"
+
   # Get a computer_configuration and output as YAML
   jamf-cli classic-computer-configs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicComputerConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Delete a computer_configuration",
 		Example: `  # Delete a computer_configuration (with confirmation)
   jamf-cli classic-computer-configs delete 1
+
+  # Delete by name
+  jamf-cli classic-computer-configs delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-computer-configs delete 1 --yes`,

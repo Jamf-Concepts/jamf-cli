@@ -325,8 +325,11 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 		Use:   "history [<id>]",
 		Short: "Get specified Patch Software Title Configuration history object",
 		Long:  "Gets specified Patch Software Title Configuration history object",
-		Example: `  # Get history for a patch-software-title-configuration
-  jamf-cli patch-software-title-configurations history 1`,
+		Example: `  # Get history for a patch-software-title-configuration by ID
+  jamf-cli patch-software-title-configurations history 1
+
+  # Get history by name
+  jamf-cli patch-software-title-configurations history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -378,7 +381,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 				for {
 					// Build page-specific query
 					pagePath := "/v2/patch-software-title-configurations/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

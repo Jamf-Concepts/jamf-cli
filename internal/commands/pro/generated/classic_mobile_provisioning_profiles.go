@@ -100,6 +100,9 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 		Example: `  # Get a mobile_device_provisioning_profile by ID
   jamf-cli classic-mobile-provisioning-profiles get 1
 
+  # Get a mobile_device_provisioning_profile by name
+  jamf-cli classic-mobile-provisioning-profiles get --name "Example"
+
   # Get a mobile_device_provisioning_profile and output as YAML
   jamf-cli classic-mobile-provisioning-profiles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 		Short: "Delete a mobile_device_provisioning_profile",
 		Example: `  # Delete a mobile_device_provisioning_profile (with confirmation)
   jamf-cli classic-mobile-provisioning-profiles delete 1
+
+  # Delete by name
+  jamf-cli classic-mobile-provisioning-profiles delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-mobile-provisioning-profiles delete 1 --yes`,

@@ -100,6 +100,9 @@ func newClassicPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a package by ID
   jamf-cli classic-packages get 1
 
+  # Get a package by name
+  jamf-cli classic-packages get --name "Example"
+
   # Get a package and output as YAML
   jamf-cli classic-packages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a package",
 		Example: `  # Delete a package (with confirmation)
   jamf-cli classic-packages delete 1
+
+  # Delete by name
+  jamf-cli classic-packages delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-packages delete 1 --yes`,

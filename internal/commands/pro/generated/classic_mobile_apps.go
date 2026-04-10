@@ -106,6 +106,9 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a mobile_device_application by ID
   jamf-cli classic-mobile-apps get 1
 
+  # Get a mobile_device_application by name
+  jamf-cli classic-mobile-apps get --name "Example"
+
   # Get a mobile_device_application and output as YAML
   jamf-cli classic-mobile-apps get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -244,6 +247,9 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a mobile_device_application",
 		Example: `  # Delete a mobile_device_application (with confirmation)
   jamf-cli classic-mobile-apps delete 1
+
+  # Delete by name
+  jamf-cli classic-mobile-apps delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-mobile-apps delete 1 --yes`,

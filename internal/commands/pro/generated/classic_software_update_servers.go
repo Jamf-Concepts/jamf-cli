@@ -100,6 +100,9 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Example: `  # Get a software_update_server by ID
   jamf-cli classic-software-update-servers get 1
 
+  # Get a software_update_server by name
+  jamf-cli classic-software-update-servers get --name "Example"
+
   # Get a software_update_server and output as YAML
   jamf-cli classic-software-update-servers get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Delete a software_update_server",
 		Example: `  # Delete a software_update_server (with confirmation)
   jamf-cli classic-software-update-servers delete 1
+
+  # Delete by name
+  jamf-cli classic-software-update-servers delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-software-update-servers delete 1 --yes`,

@@ -282,8 +282,11 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history [<id>]",
 		Short: "Get specified AD CS Settings history object",
 		Long:  "Get specified AD CS Settings history object.",
-		Example: `  # Get history for a adcs-setting
-  jamf-cli adcs-settings history 1`,
+		Example: `  # Get history for a adcs-setting by ID
+  jamf-cli adcs-settings history 1
+
+  # Get history by name
+  jamf-cli adcs-settings history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -335,7 +338,7 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/pki/adcs-settings/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

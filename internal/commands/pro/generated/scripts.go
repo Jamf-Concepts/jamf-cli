@@ -511,8 +511,11 @@ func newScriptsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history [<id>]",
 		Short: "Get specified Script history object",
 		Long:  "Gets specified Script history object",
-		Example: `  # Get history for a script
-  jamf-cli scripts history 1`,
+		Example: `  # Get history for a script by ID
+  jamf-cli scripts history 1
+
+  # Get history by name
+  jamf-cli scripts history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -564,7 +567,7 @@ func newScriptsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/scripts/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

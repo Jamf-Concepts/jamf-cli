@@ -96,6 +96,9 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 		Example: `  # Get a computer_invitation by ID
   jamf-cli classic-computer-invitations get 1
 
+  # Get a computer_invitation by name
+  jamf-cli classic-computer-invitations get --name "Example"
+
   # Get a computer_invitation and output as YAML
   jamf-cli classic-computer-invitations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -192,6 +195,9 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Delete a computer_invitation",
 		Example: `  # Delete a computer_invitation (with confirmation)
   jamf-cli classic-computer-invitations delete 1
+
+  # Delete by name
+  jamf-cli classic-computer-invitations delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-computer-invitations delete 1 --yes`,

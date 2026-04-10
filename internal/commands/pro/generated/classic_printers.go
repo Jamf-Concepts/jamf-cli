@@ -100,6 +100,9 @@ func newClassicPrintersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a printer by ID
   jamf-cli classic-printers get 1
 
+  # Get a printer by name
+  jamf-cli classic-printers get --name "Example"
+
   # Get a printer and output as YAML
   jamf-cli classic-printers get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a printer",
 		Example: `  # Delete a printer (with confirmation)
   jamf-cli classic-printers delete 1
+
+  # Delete by name
+  jamf-cli classic-printers delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-printers delete 1 --yes`,

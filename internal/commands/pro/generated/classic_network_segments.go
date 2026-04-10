@@ -100,6 +100,9 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a network_segment by ID
   jamf-cli classic-network-segments get 1
 
+  # Get a network_segment by name
+  jamf-cli classic-network-segments get --name "Example"
+
   # Get a network_segment and output as YAML
   jamf-cli classic-network-segments get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Delete a network_segment",
 		Example: `  # Delete a network_segment (with confirmation)
   jamf-cli classic-network-segments delete 1
+
+  # Delete by name
+  jamf-cli classic-network-segments delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-network-segments delete 1 --yes`,

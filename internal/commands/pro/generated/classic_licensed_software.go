@@ -100,6 +100,9 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a licensed_software by ID
   jamf-cli classic-licensed-software get 1
 
+  # Get a licensed_software by name
+  jamf-cli classic-licensed-software get --name "Example"
+
   # Get a licensed_software and output as YAML
   jamf-cli classic-licensed-software get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -238,6 +241,9 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Delete a licensed_software",
 		Example: `  # Delete a licensed_software (with confirmation)
   jamf-cli classic-licensed-software delete 1
+
+  # Delete by name
+  jamf-cli classic-licensed-software delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-licensed-software delete 1 --yes`,

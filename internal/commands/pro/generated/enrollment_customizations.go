@@ -485,8 +485,11 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "history [<id>]",
 		Short: "Get sorted and paged Enrollment Customization history objects",
 		Long:  "Gets sorted and paged enrollment customization history objects",
-		Example: `  # Get history for a enrollment-customization
-  jamf-cli enrollment-customizations history 1`,
+		Example: `  # Get history for a enrollment-customization by ID
+  jamf-cli enrollment-customizations history 1
+
+  # Get history by name
+  jamf-cli enrollment-customizations history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -535,7 +538,7 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 				for {
 					// Build page-specific query
 					pagePath := "/v2/enrollment-customizations/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

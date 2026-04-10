@@ -368,17 +368,27 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial)
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInputLookup)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --serial %q", flagSerial)
+				}
 				resolvedID = rid
+				resolvedByName = flagSerial
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "udid", "id", flagUdid)
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "udid", "id", flagUdid, noInputLookup)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --udid %q", flagUdid)
+				}
 				resolvedID = rid
+				resolvedByName = flagUdid
 			} else if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
 				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", flagName, noInput)

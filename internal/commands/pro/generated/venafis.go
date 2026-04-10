@@ -279,8 +279,11 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history [<id>]",
 		Short: "Get specified Venafi CA history object",
 		Long:  "Get specified Venafi CA history object",
-		Example: `  # Get history for a venafi
-  jamf-cli venafis history 1`,
+		Example: `  # Get history for a venafi by ID
+  jamf-cli venafis history 1
+
+  # Get history by name
+  jamf-cli venafis history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -332,7 +335,7 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/pki/venafi/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

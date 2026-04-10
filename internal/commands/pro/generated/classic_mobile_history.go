@@ -41,6 +41,9 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a mobile_device_history by ID
   jamf-cli classic-mobile-history get 1
 
+  # Get a mobile_device_history by name
+  jamf-cli classic-mobile-history get --name "Example"
+
   # Get a mobile_device_history and output as YAML
   jamf-cli classic-mobile-history get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),

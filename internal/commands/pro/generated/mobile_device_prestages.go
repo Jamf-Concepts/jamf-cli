@@ -579,8 +579,11 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "history [<id>]",
 		Short: "Get sorted and paged Mobile Device Prestage history objects",
 		Long:  "Gets sorted and paged mobile device prestage history objects",
-		Example: `  # Get history for a mobile-device-prestage
-  jamf-cli mobile-device-prestages history 1`,
+		Example: `  # Get history for a mobile-device-prestage by ID
+  jamf-cli mobile-device-prestages history 1
+
+  # Get history by name
+  jamf-cli mobile-device-prestages history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -629,7 +632,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 				for {
 					// Build page-specific query
 					pagePath := "/v3/mobile-device-prestages/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {

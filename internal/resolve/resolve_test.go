@@ -77,10 +77,10 @@ const computerV3DetailResponse = `{
 const mobileV2Response = `{
 	"totalCount": 1,
 	"results": [{
-		"id": "99",
+		"mobileDeviceId": "99",
 		"managementId": "mgmt-uuid-mobile",
 		"udid": "MOBILE-UDID",
-		"name": "Lab iPad",
+		"displayName": "Lab iPad",
 		"serialNumber": "F4GH5678"
 	}]
 }`
@@ -193,7 +193,7 @@ func TestResolveComputer_NoFlags(t *testing.T) {
 
 func TestResolveMobileDevice_BySerial(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
-		"v2/mobile-devices?": {200, mobileV2Response},
+		"v2/mobile-devices/detail?": {200, mobileV2Response},
 	}}
 	d, err := ResolveMobileDevice(context.Background(), client, "F4GH5678", "", "")
 	if err != nil {

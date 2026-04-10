@@ -106,6 +106,9 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a mac_application by ID
   jamf-cli classic-mac-apps get 1
 
+  # Get a mac_application by name
+  jamf-cli classic-mac-apps get --name "Example"
+
   # Get a mac_application and output as YAML
   jamf-cli classic-mac-apps get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
@@ -244,6 +247,9 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a mac_application",
 		Example: `  # Delete a mac_application (with confirmation)
   jamf-cli classic-mac-apps delete 1
+
+  # Delete by name
+  jamf-cli classic-mac-apps delete --name "Example" --yes
 
   # Delete without confirmation prompt
   jamf-cli classic-mac-apps delete 1 --yes`,
