@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -783,10 +784,14 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
 
-	sdkClient := jamfprotect.NewClient(url, cid, csecret,
-		jamfprotect.WithUserAgent("jamf-cli/"+cliVersion),
+	protectOpts := []jamfprotect.Option{
+		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
 		jamfprotect.WithHTTPClient(rc.StandardClient()),
-	)
+	}
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		protectOpts = append(protectOpts, jamfprotect.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))
+	}
+	sdkClient := jamfprotect.NewClient(url, cid, csecret, protectOpts...)
 	cliCtx.ProtectClient = sdkClient
 	return nil
 }
