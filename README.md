@@ -61,7 +61,7 @@ echo '{"name":"HQ","streetAddress1":"1 Apple Park Way"}' | jamf-cli pro building
 jamf-cli pro buildings apply --from-file building.json --yes
 
 # Delete a building by name
-jamf-cli pro buildings delete-by-name "HQ" --yes
+jamf-cli pro buildings delete --name "HQ" --yes
 
 # Device actions by serial number
 jamf-cli pro comp blank-push --serial C02X1234
@@ -113,7 +113,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
 - **`patch`** — JSON Merge Patch (RFC 7386): update individual fields without a full replace. Use `--set key=value` for scalar fields or pipe a merge-patch document. Accepts `--name`, `--serial`, `--udid` (resource-dependent) in place of an ID. `--scaffold` prints the patchable field template
-- **`delete-by-name`** — Delete a resource by name instead of ID (with collision detection)
+- **`--name` flag** — `get`, `update`, `delete`, and `patch` commands all accept `--name` (and resource-specific alternates like `--serial`, `--udid`) in place of a positional ID
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results

@@ -166,18 +166,22 @@ func newJamfConnectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Long:  "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Example: `  # Update a jamf-connect from JSON
   echo '{"name":"Updated"}' | jamf-cli jamf-connects update 1
 
+  # Update by name
+  jamf-cli jamf-connects get --name "Example" -o json | jq '.field = "value"' | jamf-cli jamf-connects update --name "Example"
+
   # Get a jamf-connect, modify, and update
   jamf-cli jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli jamf-connects update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -189,9 +193,23 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jamf-connect/config-profiles", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/jamf-connect/config-profiles/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -217,6 +235,7 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-connect by name")
 
 	return cmd
 }

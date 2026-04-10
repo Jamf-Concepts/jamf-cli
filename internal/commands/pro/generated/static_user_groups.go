@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -21,7 +22,6 @@ func NewStaticUserGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newStaticUserGroupsListCmd(ctx))
 	cmd.AddCommand(newStaticUserGroupsGetCmd(ctx))
-	cmd.AddCommand(newStaticUserGroupsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -65,27 +65,43 @@ func newStaticUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Return a specific Static User Group by id",
 		Long:  "Returns a specific static user group by id.",
 		Example: `  # Get a static-user-group by ID
   jamf-cli static-user-groups get 1
 
   # Get a static-user-group by name
-  jamf-cli static-user-groups get-by-name "Example"
+  jamf-cli static-user-groups get --name "Example"
 
   # Get a static-user-group and output as YAML
   jamf-cli static-user-groups get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/static-user-groups", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/static-user-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -104,32 +120,7 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up static-user-group by name")
+
 	return cmd
-}
-
-func newStaticUserGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a static-user-group by name",
-		Example: `  # Get a static-user-group by name
-  jamf-cli static-user-groups get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli static-user-groups get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/static-user-groups", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/static-user-groups/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

@@ -71,19 +71,34 @@ func newSchedulersTriggersCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "triggers <id>",
+		Use:   "triggers [<id>]",
 		Short: "Retrieve all triggers for a Jamf Pro Scheduler job",
 		Long:  "Retrieves all triggers for a Jamf Pro Scheduler job",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scheduler/jobs", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/scheduler/jobs/{jobKey}/triggers"
-			path = strings.Replace(path, "{jobKey}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{jobKey}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -120,6 +135,7 @@ func newSchedulersTriggersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is nextFireTime:asc. If using multiple criteria, separate with commas.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter the Jamf Pro Scheduler triggers collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: triggerKey, previousFireTime, nextFireTime.")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up scheduler by name")
 
 	return cmd
 }

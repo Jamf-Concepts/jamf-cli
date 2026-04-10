@@ -28,7 +28,6 @@ func NewClassicComputerExtAttrsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicComputerExtAttrsListCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerExtAttrsGetCmd(ctx))
-	cmd.AddCommand(newClassicComputerExtAttrsGetByNameCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerExtAttrsCreateCmd(ctx))
 
@@ -37,8 +36,6 @@ func NewClassicComputerExtAttrsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicComputerExtAttrsDeleteCmd(ctx))
 
 	cmd.AddCommand(newClassicComputerExtAttrsApplyCmd(ctx))
-
-	cmd.AddCommand(newClassicComputerExtAttrsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -93,18 +90,35 @@ func newClassicComputerExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a computer_extension_attribute by ID",
 		Example: `  # Get a computer_extension_attribute by ID
   jamf-cli classic-computer-ext-attrs get 1
 
+  # Get a computer_extension_attribute by name
+  jamf-cli classic-computer-ext-attrs get --name "Example"
+
   # Get a computer_extension_attribute and output as YAML
   jamf-cli classic-computer-ext-attrs get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -135,45 +149,10 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicComputerExtAttrsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a computer_extension_attribute by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_extension_attribute by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["computer_extension_attribute"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -206,13 +185,15 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "update <id>",
+	var flagName string
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
 		Short: "Update a computer_extension_attribute",
 		Long:  "Update an existing computer_extension_attribute by ID. Reads XML body from stdin.",
 		Example: `  # Update a computer_extension_attribute from XML
   cat computer_extension_attribute.xml | jamf-cli classic-computer-ext-attrs update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -224,7 +205,15 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -234,36 +223,61 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_extension_attribute by name")
+
+	return cmd
 }
 
 func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a computer_extension_attribute",
 		Example: `  # Delete a computer_extension_attribute (with confirmation)
   jamf-cli classic-computer-ext-attrs delete 1
 
+  # Delete by name
+  jamf-cli classic-computer-ext-attrs delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli classic-computer-ext-attrs delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no computer_extension_attribute found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete computer_extension_attribute %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_extension_attribute %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete computer_extension_attribute %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete computer_extension_attribute %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -271,7 +285,8 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -289,6 +304,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_extension_attribute by name")
 
 	return cmd
 }
@@ -383,73 +399,6 @@ If not, a new resource is created.`,
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicComputerExtAttrsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a computer_extension_attribute by name",
-		Example: `  # Delete a computer_extension_attribute by name (with confirmation)
-  jamf-cli classic-computer-ext-attrs delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-computer-ext-attrs delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerextensionattributes", "computerextensionattributes", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no computer_extension_attribute found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer_extension_attribute %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete computer_extension_attribute %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted computer_extension_attribute %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

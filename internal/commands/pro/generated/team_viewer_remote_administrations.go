@@ -33,34 +33,48 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetByNameCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx))
 
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Team Viewer Remote Administration connection configuration",
 		Long:  "Returns Team Viewer Remote Administration connection configuration",
 		Example: `  # Get a team-viewer-remote-administration by ID
   jamf-cli team-viewer-remote-administrations get 1
 
   # Get a team-viewer-remote-administration by name
-  jamf-cli team-viewer-remote-administrations get-by-name "Example"
+  jamf-cli team-viewer-remote-administrations get --name "Example"
 
   # Get a team-viewer-remote-administration and output as YAML
   jamf-cli team-viewer-remote-administrations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -78,6 +92,8 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
@@ -148,24 +164,52 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete Team Viewer Remote Administration connection configuration",
 		Long:  "Deletes Team Viewer Remote Administration connection configuration",
 		Example: `  # Delete a team-viewer-remote-administration (with confirmation)
   jamf-cli team-viewer-remote-administrations delete 1
 
+  # Delete by name
+  jamf-cli team-viewer-remote-administrations delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli team-viewer-remote-administrations delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no team-viewer-remote-administration found with name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -173,7 +217,11 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete team-viewer-remote-administration %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete team-viewer-remote-administration %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -183,7 +231,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -209,6 +257,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
@@ -218,19 +267,34 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 		flagPage     int
 		flagPageSize int
 		flagFilter   string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "sessions <id>",
+		Use:   "sessions [<id>]",
 		Short: "Get a paginated list of sessions",
 		Long:  "Returns a paginated list of sessions for a given configuration ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -261,25 +325,41 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "close <configurationId> <sessionId>",
+		Use:   "close [<id>]",
 		Short: "Close a session",
 		Long:  "Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/close"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -303,25 +383,42 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "resend-notification <configurationId> <sessionId>",
+		Use:   "resend-notification [<id>]",
 		Short: "Resend nofications for a session",
 		Long:  "Resends configured notifications (e.g. Self Service push notifications).",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/resend-notification"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -346,24 +443,41 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
+
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "sessions-status <configurationId> <sessionId>",
+		Use:   "sessions-status [<id>]",
 		Short: "Get a session status by its ID",
 		Long:  "Returns a session status if found.",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -381,6 +495,8 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
@@ -494,19 +610,35 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 }
 
 func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "status <id>",
+		Use:   "status [<id>]",
 		Short: "Get Team Viewer Remote Administration connection status",
 		Long:  "Returns Team Viewer Remote Administration connection status",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}/status"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -525,98 +657,7 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 		},
 	}
 
-	return cmd
-}
-
-func newTeamViewerRemoteAdministrationsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a team-viewer-remote-administration by name",
-		Example: `  # Get a team-viewer-remote-administration by name
-  jamf-cli team-viewer-remote-administrations get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli team-viewer-remote-administrations get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newTeamViewerRemoteAdministrationsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a team-viewer-remote-administration by name",
-		Example: `  # Delete a team-viewer-remote-administration by name (with confirmation)
-  jamf-cli team-viewer-remote-administrations delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli team-viewer-remote-administrations delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no team-viewer-remote-administration found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete team-viewer-remote-administration %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted team-viewer-remote-administration %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }

@@ -28,7 +28,8 @@ func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a patch_report by ID",
 		Example: `  # Get a patch_report by ID
@@ -40,6 +41,7 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchreports/patchsoftwaretitleid/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -70,4 +72,6 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
+
+	return cmd
 }

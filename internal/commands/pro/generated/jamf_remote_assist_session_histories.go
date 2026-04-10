@@ -26,7 +26,6 @@ func NewJamfRemoteAssistSessionHistoriesCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesListCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetCmd(ctx))
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesExportCmd(ctx))
-	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -163,27 +162,43 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 }
 
 func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Gets single session history item.",
 		Long:  "Returns tenants session history for specific session.",
 		Example: `  # Get a jamf-remote-assist-session-history by ID
   jamf-cli jamf-remote-assist-session-histories get 1
 
   # Get a jamf-remote-assist-session-history by name
-  jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
+  jamf-cli jamf-remote-assist-session-histories get --name "Example"
 
   # Get a jamf-remote-assist-session-history and output as YAML
   jamf-cli jamf-remote-assist-session-histories get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v2/jamf-remote-assist/session/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -201,6 +216,8 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-remote-assist-session-history by name")
 
 	return cmd
 }
@@ -278,31 +295,4 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 
 	return cmd
-}
-
-func newJamfRemoteAssistSessionHistoriesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a jamf-remote-assist-session-history by name",
-		Example: `  # Get a jamf-remote-assist-session-history by name
-  jamf-cli jamf-remote-assist-session-histories get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli jamf-remote-assist-session-histories get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v2/jamf-remote-assist/session/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

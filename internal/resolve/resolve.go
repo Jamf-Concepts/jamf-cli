@@ -218,7 +218,8 @@ func parseComputerInventory(obj map[string]any) (*DeviceIdentifiers, error) {
 // --- Mobile device resolution helpers ---
 
 func resolveMobileByFilter(ctx context.Context, client registry.HTTPClient, filter, desc string) (*DeviceIdentifiers, error) {
-	path := fmt.Sprintf("/v2/mobile-devices?page-size=2&filter=%s",
+	// Use /v2/mobile-devices/detail because /v2/mobile-devices ignores RSQL filters.
+	path := fmt.Sprintf("/v2/mobile-devices/detail?page-size=2&filter=%s",
 		url.QueryEscape(filter))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
@@ -267,6 +268,10 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		UDID:         jsonString(obj, "udid"),
 		Name:         jsonString(obj, "name"),
 		SerialNumber: jsonString(obj, "serialNumber"),
+	}
+	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id".
+	if d.ID == "" {
+		d.ID = jsonString(obj, "mobileDeviceId")
 	}
 	if d.Name == "" {
 		d.Name = jsonString(obj, "displayName")

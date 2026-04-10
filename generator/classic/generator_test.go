@@ -49,7 +49,6 @@ func TestGenerate_ProducesFile(t *testing.T) {
 		`Use:   "classic-policies"`,
 		"newClassicPoliciesListCmd",
 		"newClassicPoliciesGetCmd",
-		"newClassicPoliciesGetByNameCmd",
 		"newClassicPoliciesCreateCmd",
 		"newClassicPoliciesUpdateCmd",
 		"newClassicPoliciesDeleteCmd",
@@ -139,11 +138,12 @@ func TestGenerate_ExtraLookups(t *testing.T) {
 
 	code := string(content)
 
-	if !strings.Contains(code, "GetByNameCmd") {
-		t.Error("expected get-by-name command for resource with name lookup")
+	// name lookup should be folded into the get command as --name flag, not a separate subcommand
+	if !strings.Contains(code, `StringVar(&flagName, "name"`) {
+		t.Error("expected --name flag on get command for resource with name lookup")
 	}
-	if !strings.Contains(code, `"get-by-name`) {
-		t.Error("expected get-by-name use string")
+	if strings.Contains(code, "GetByNameCmd") {
+		t.Error("should not generate a separate GetByNameCmd")
 	}
 }
 
@@ -306,12 +306,13 @@ func TestGenerate_CustomIDPath(t *testing.T) {
 	checks := []string{
 		"/JSSResource/accounts/groupid/",
 		"newClassicAccountGroupsGetCmd",
-		"newClassicAccountGroupsGetByGroupnameCmd",
 		"newClassicAccountGroupsCreateCmd",
 		"newClassicAccountGroupsUpdateCmd",
 		"newClassicAccountGroupsDeleteCmd",
 		`"net/url"`,
 		`"io"`,
+		// groupname lookup is folded into get as --groupname flag
+		`StringVar(&flagGroupname, "groupname"`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(code, check) {
@@ -347,21 +348,13 @@ func TestGenerate_ExtraLookupsOnlyResource(t *testing.T) {
 	}
 	code := string(content)
 
-	// Should have get-by-application but no list/get/create/update/delete
-	if !strings.Contains(code, "GetByApplicationCmd") {
-		t.Error("expected get-by-application command")
-	}
-	for _, unexpected := range []string{"ListCmd", "GetCmd(", "CreateCmd", "UpdateCmd", "DeleteCmd"} {
+	// Resource with only extra lookups and no standard operations produces
+	// an empty command group (no subcommands — lookups are folded into get,
+	// but there is no get operation to fold them into).
+	for _, unexpected := range []string{"ListCmd", "GetCmd(", "CreateCmd", "UpdateCmd", "DeleteCmd", "GetByApplicationCmd"} {
 		if strings.Contains(code, unexpected) {
 			t.Errorf("unexpected %s for extra-lookups-only resource", unexpected)
 		}
-	}
-	// Must import net/url and io for the get-by-* command
-	if !strings.Contains(code, `"net/url"`) {
-		t.Error("expected net/url import for get-by-application")
-	}
-	if !strings.Contains(code, `"io"`) {
-		t.Error("expected io import for get-by-application")
 	}
 }
 
@@ -706,12 +699,10 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 	}
 	code := string(content)
 
+	// delete command should have --name flag with inline name resolution
 	checks := []string{
-		"newClassicPrintersDeleteByNameCmd",
-		`"delete-by-name <name>"`,
-		"Delete a printer by name",
+		`StringVar(&flagName, "name"`,
 		"resolveClassicNameToIDForApply",
-		`Deleted printer`,
 		`[dry-run] Would delete printer`,
 		`"yes"`,
 		"dry-run",
@@ -719,8 +710,13 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 
 	for _, check := range checks {
 		if !strings.Contains(code, check) {
-			t.Errorf("generated classic delete-by-name code missing %q", check)
+			t.Errorf("generated classic delete --name code missing %q", check)
 		}
+	}
+
+	// should NOT generate a separate delete-by-name subcommand
+	if strings.Contains(code, "DeleteByNameCmd") {
+		t.Error("should not generate a separate DeleteByNameCmd")
 	}
 }
 

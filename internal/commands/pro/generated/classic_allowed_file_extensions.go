@@ -27,7 +27,6 @@ func NewClassicAllowedFileExtensionsCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newClassicAllowedFileExtensionsListCmd(ctx))
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsGetCmd(ctx))
-	cmd.AddCommand(newClassicAllowedFileExtensionsGetByExtensionCmd(ctx))
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsCreateCmd(ctx))
 
@@ -86,18 +85,32 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagExtension string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a allowed_file_extension by ID",
 		Example: `  # Get a allowed_file_extension by ID
   jamf-cli classic-allowed-file-extensions get 1
 
   # Get a allowed_file_extension and output as YAML
   jamf-cli classic-allowed-file-extensions get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagExtension != "" {
+				path = fmt.Sprintf("/JSSResource/allowedfileextensions/extension/%s", url.PathEscape(flagExtension))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --extension")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -128,45 +141,10 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicAllowedFileExtensionsGetByExtensionCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-extension <extension>",
-		Short: "Get a allowed_file_extension by extension",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/allowedfileextensions/extension/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagExtension, "extension", "", "Look up allowed_file_extension by extension")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["allowed_file_extension"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -234,6 +212,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

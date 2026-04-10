@@ -25,7 +25,6 @@ func NewMobileDeviceGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDeviceGroupsListCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsGetCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsEraseCmd(ctx))
-	cmd.AddCommand(newMobileDeviceGroupsGetByNameCmd(ctx))
 
 	return cmd
 }
@@ -74,27 +73,42 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get Smart Group Membership by Id",
 		Long:  "Get Smart Group Membership by Id",
 		Example: `  # Get a mobile-device-group by ID
   jamf-cli mobile-device-groups get 1
 
   # Get a mobile-device-group by name
-  jamf-cli mobile-device-groups get-by-name "Example"
+  jamf-cli mobile-device-groups get --name "Example"
 
   # Get a mobile-device-group and output as YAML
   jamf-cli mobile-device-groups get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups", "displayName", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/mobile-device-groups/smart-group-membership/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -131,6 +145,7 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with a comma.   Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled',  'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osRapidSecurityResponse', 'osSupplementalBuildVersion', 'osVersion', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode',  'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode',  'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be sorted by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  Example: 'sort=displayName:desc,username:asc' ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId',  'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress',  'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model',  'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize',  'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage',  'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber',  'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection',  'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled',  'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be filtered by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-group by name")
 
 	return cmd
 }
@@ -140,13 +155,14 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagYes      bool
 		flagDryRun   bool
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "erase <id>",
+		Use:   "erase [<id>]",
 		Short: "Erase all devices in the group",
 		Long:  "Erase all devices in the group",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -160,9 +176,33 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device-group found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would erase resource %s\n", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device-group %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device-group %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -170,7 +210,11 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will erase resource %s. Type 'yes' to confirm: ", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device-group %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -180,7 +224,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mobile-device-groups/{id}/erase"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -208,33 +252,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-group by name")
 
 	return cmd
-}
-
-func newMobileDeviceGroupsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile-device-group by name",
-		Example: `  # Get a mobile-device-group by name
-  jamf-cli mobile-device-groups get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli mobile-device-groups get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups", "displayName", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/mobile-device-groups/smart-group-membership/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

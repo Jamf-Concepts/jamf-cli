@@ -29,7 +29,6 @@ func NewClassicPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPoliciesListCmd(ctx))
 
 	cmd.AddCommand(newClassicPoliciesGetCmd(ctx))
-	cmd.AddCommand(newClassicPoliciesGetByNameCmd(ctx))
 
 	cmd.AddCommand(newClassicPoliciesCreateCmd(ctx))
 
@@ -38,8 +37,6 @@ func NewClassicPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicPoliciesDeleteCmd(ctx))
 
 	cmd.AddCommand(newClassicPoliciesApplyCmd(ctx))
-
-	cmd.AddCommand(newClassicPoliciesDeleteByNameCmd(ctx))
 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "policies",
@@ -99,18 +96,35 @@ func newClassicPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a policy by ID",
 		Example: `  # Get a policy by ID
   jamf-cli classic-policies get 1
 
+  # Get a policy by name
+  jamf-cli classic-policies get --name "Example"
+
   # Get a policy and output as YAML
   jamf-cli classic-policies get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/policies/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -141,45 +155,10 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicPoliciesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a policy by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/policies/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up policy by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["policy"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -212,13 +191,15 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "update <id>",
+	var flagName string
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
 		Short: "Update a policy",
 		Long:  "Update an existing policy by ID. Reads XML body from stdin.",
 		Example: `  # Update a policy from XML
   cat policy.xml | jamf-cli classic-policies update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -230,7 +211,15 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/policies/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -240,36 +229,61 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up policy by name")
+
+	return cmd
 }
 
 func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a policy",
 		Example: `  # Delete a policy (with confirmation)
   jamf-cli classic-policies delete 1
 
+  # Delete by name
+  jamf-cli classic-policies delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli classic-policies delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no policy found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete policy %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete policy %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete policy %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete policy %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -277,7 +291,8 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -295,6 +310,7 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up policy by name")
 
 	return cmd
 }
@@ -389,73 +405,6 @@ If not, a new resource is created.`,
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicPoliciesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a policy by name",
-		Example: `  # Delete a policy by name (with confirmation)
-  jamf-cli classic-policies delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-policies delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "policies", "policies", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no policy found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete policy %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete policy %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/policies/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted policy %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

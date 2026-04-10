@@ -28,33 +28,48 @@ func NewIconsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newIconsGetCmd(ctx))
 	cmd.AddCommand(newIconsUploadCmd(ctx))
 	cmd.AddCommand(newIconsDownloadCmd(ctx))
-	cmd.AddCommand(newIconsGetByNameCmd(ctx))
 
 	return cmd
 }
 
 func newIconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get an icon",
 		Long:  "Get an icon",
 		Example: `  # Get a icon by ID
   jamf-cli icons get 1
 
   # Get a icon by name
-  jamf-cli icons get-by-name "Example"
+  jamf-cli icons get --name "Example"
 
   # Get a icon and output as YAML
   jamf-cli icons get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/icon", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/icon/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -72,6 +87,8 @@ func newIconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up icon by name")
 
 	return cmd
 }
@@ -137,10 +154,11 @@ func newIconsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagRes    string
 		flagScale  string
 		flagSaveTo string
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download <id>",
+		Use:   "download [<id>]",
 		Short: "Download a self service icon",
 		Long:  "Download a self service icon",
 		Example: `  # Save to file
@@ -148,14 +166,28 @@ func newIconsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro icons download <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/icon", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/icon/download/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -197,33 +229,7 @@ func newIconsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagRes, "res", "original", "request a specific resolution of original, 300, or 512; invalid options will result in original resolution")
 	cmd.Flags().StringVar(&flagScale, "scale", "0", "request a scale; 0 results in original image, non-0 results in scaled to 300")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up icon by name")
 
 	return cmd
-}
-
-func newIconsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a icon by name",
-		Example: `  # Get a icon by name
-  jamf-cli icons get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli icons get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/icon", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/icon/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

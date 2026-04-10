@@ -31,8 +31,6 @@ func NewEnrollmentLanguagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentLanguagesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesFilteredLanguageCodesCmd(ctx))
 	cmd.AddCommand(newEnrollmentLanguagesLanguageCodesCmd(ctx))
-	cmd.AddCommand(newEnrollmentLanguagesGetByNameCmd(ctx))
-	cmd.AddCommand(newEnrollmentLanguagesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -164,27 +162,43 @@ func newEnrollmentLanguagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve the Enrollment messaging for a language",
 		Long:  "Retrieves the enrollment messaging for a language.",
 		Example: `  # Get a enrollment-language by ID
   jamf-cli enrollment-languages get 1
 
   # Get a enrollment-language by name
-  jamf-cli enrollment-languages get-by-name "Example"
+  jamf-cli enrollment-languages get --name "Example"
 
   # Get a enrollment-language and output as YAML
   jamf-cli enrollment-languages get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/enrollment/languages/{languageId}"
-			path = strings.Replace(path, "{languageId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{languageId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -203,24 +217,30 @@ func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-language by name")
+
 	return cmd
 }
 
 func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [<id>]",
 		Short: "Edit Enrollment messaging for a language",
 		Long:  "Edit enrollment messaging for a language.",
 		Example: `  # Update a enrollment-language from JSON
   echo '{"name":"Updated"}' | jamf-cli enrollment-languages update 1
 
+  # Update by name
+  jamf-cli enrollment-languages get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-languages update --name "Example"
+
   # Get a enrollment-language, modify, and update
   jamf-cli enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-languages update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -270,9 +290,23 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v3/enrollment/languages/{languageId}"
-			path = strings.Replace(path, "{languageId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{languageId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -298,6 +332,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-language by name")
 
 	return cmd
 }
@@ -306,24 +341,52 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete the Enrollment messaging for a language",
 		Long:  "Delete the enrollment messaging for a language.",
 		Example: `  # Delete a enrollment-language (with confirmation)
   jamf-cli enrollment-languages delete 1
 
+  # Delete by name
+  jamf-cli enrollment-languages delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli enrollment-languages delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no enrollment-language found with name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-language %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-language %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -331,7 +394,11 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete enrollment-language %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete enrollment-language %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -341,7 +408,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/enrollment/languages/{languageId}"
-			path = strings.Replace(path, "{languageId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{languageId}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -367,6 +434,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-language by name")
 
 	return cmd
 }
@@ -521,99 +589,6 @@ func newEnrollmentLanguagesLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Com
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	return cmd
-}
-
-func newEnrollmentLanguagesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a enrollment-language by name",
-		Example: `  # Get a enrollment-language by name
-  jamf-cli enrollment-languages get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli enrollment-languages get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{languageId}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newEnrollmentLanguagesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a enrollment-language by name",
-		Example: `  # Delete a enrollment-language by name (with confirmation)
-  jamf-cli enrollment-languages delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli enrollment-languages delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no enrollment-language found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-language %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete enrollment-language %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v3/enrollment/languages/{languageId}", "{languageId}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted enrollment-language %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

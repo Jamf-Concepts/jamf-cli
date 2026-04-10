@@ -70,19 +70,34 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "objects <id>",
+		Use:   "objects [<id>]",
 		Short: "Find and filter site objects for a site ID",
 		Long:  "Find site objects for Site ID, with the ability to filter out different object types and object IDs for the site ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/sites", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/sites/{id}/objects"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -119,6 +134,7 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'objectType:asc'. Multiple sort criteria are supported and must be separated with a comma.  Example: 'sort=objectId:asc,objectType:desc'. ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "objectType==\"User\"", "Query in the RSQL format, allowing filter of site object information. Default filter returns all objects for the site ID.  Fields allowed in the query: 'objectType', 'objectId'  Example: 'filter=objectType==\"User\"'  List of 'objectType' options (case-insensitive) [\"Computer\", \"Peripheral\", \"Licensed Software\", \"Licensed Software Template\", \"Policy\", \"macOS Configuration Profile\", \"Restricted Software\", \"Managed Preference Profile\", \"Computer Group\", \"Mobile Device\", \"Apple TV\", \"Android Device\", \"User Group\", \"iOS Configuration Profile\", \"Mobile Device App\", \"E-book\", \"Mobile Device Group\", \"Classroom\", \"Advanced Computer Search\", \"Advanced Mobile Search\", \"Advanced User Search\", \"Advanced User Content Search\", \"Computer Invitation\", \"Mobile Device Invitation\", \"Mobile Device Enrollment Profile\", \"Device Enrollment Program Instance\", \"Mobile Device Prestage\", \"Computer DEP Prestage\", \"Enrollment Customization\", \"VPP Location\", \"VPP Subscription\", \"VPP Invitation\", \"VPP Assignment\", \"User\", \"Network Integration\", \"Mac App\", \"App Installer\", \"Self Service Plugin\", \"Software Title\", \"Patch Software Title Summary\", \"Patch Policy\", \"Patch Software Title Configuration\", \"Change Password\", \"Mobile Device Inventory\", \"Computer Inventory\", \"Change Management\", \"Licensed Software License\"] ")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up site by name")
 
 	return cmd
 }

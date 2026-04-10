@@ -1069,58 +1069,57 @@ func TestGenerate_Filename(t *testing.T) {
 	}
 }
 
-// --- hasDeleteByName tests ---
+// --- opHasNameLookup tests ---
 
-func TestHasDeleteByName(t *testing.T) {
+func TestOpHasNameLookup(t *testing.T) {
+	listOp := &Operation{Name: "list", Method: "GET", Path: "/v1/things", IsList: true}
 	tests := []struct {
 		name string
-		ops  []*Operation
+		op   *Operation
+		r    *Resource
 		want bool
 	}{
 		{
-			"delete and get with path param",
-			[]*Operation{
-				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
-				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
-			},
+			"get with path param on listable resource — lookup generated",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{listOp, {Name: "get", Method: "GET", Path: "/v1/things/{id}"}}, IDField: "id"},
 			true,
 		},
 		{
-			"delete only, no get",
-			[]*Operation{
-				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
-			},
+			"delete with path param on listable resource — lookup generated",
+			&Operation{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{listOp, {Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"}}, IDField: "id"},
+			true,
+		},
+		{
+			"op without path param — no lookup",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things"},
+			&Resource{Operations: []*Operation{listOp, {Name: "get", Method: "GET", Path: "/v1/things"}}, IDField: "id"},
 			false,
 		},
 		{
-			"get only, no delete",
-			[]*Operation{
-				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
-			},
+			"no ops at all — no collection path — no lookup",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{}, IDField: "id"},
 			false,
 		},
 		{
-			"get without path param",
-			[]*Operation{
-				{Name: "get", Method: "GET", Path: "/v1/things"},
-				{Name: "delete", Method: "DELETE", Path: "/v1/things/{id}"},
-			},
+			"singleton — no lookup",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{IsSingleton: true, Operations: []*Operation{listOp, {Name: "get", Method: "GET", Path: "/v1/things/{id}"}}, IDField: "id"},
 			false,
 		},
-		{"empty", []*Operation{}, false},
 		{
-			"sub-resource with multi-param paths — delete-by-name suppressed",
-			[]*Operation{
-				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
-				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
-			},
+			"sub-resource with multi-param path — lookup suppressed",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
+			&Resource{Operations: []*Operation{listOp, {Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"}}, IDField: "id"},
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := hasDeleteByName(tt.ops); got != tt.want {
-				t.Errorf("hasDeleteByName() = %v, want %v", got, tt.want)
+			if got := opHasNameLookup(tt.op, tt.r); got != tt.want {
+				t.Errorf("opHasNameLookup() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1135,6 +1134,7 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 		NameSingular: "building",
 		GoName:       "Buildings",
 		NameField:    "name",
+		IDField:      "id",
 		Operations: []*Operation{
 			{Name: "list", Method: "GET", Path: "/v1/buildings", Summary: "List", IsList: true},
 			{
@@ -1160,23 +1160,26 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 	}
 	code := string(content)
 
+	// delete command should have --name flag and inline name resolution (not a separate subcommand)
 	checks := []string{
-		"newBuildingsDeleteByNameCmd",
-		`"delete-by-name <name>"`,
-		"Delete a building by name",
-		"resolveNameToIDForApply",
-		`"name"`,
+		`flagName`,
+		`resolveNameToID`,
+		`"name", "id", flagName`,
 		"/v1/buildings/{id}",
-		`Deleted building`,
-		`[dry-run] Would delete building`,
 		`"yes"`,
 		"dry-run",
+		`StringVar(&flagName, "name"`,
 	}
 
 	for _, check := range checks {
 		if !strings.Contains(code, check) {
-			t.Errorf("generated delete-by-name code missing %q", check)
+			t.Errorf("generated delete --name code missing %q", check)
 		}
+	}
+
+	// should NOT generate a separate delete-by-name subcommand
+	if strings.Contains(code, "DeleteByNameCmd") {
+		t.Error("should not generate a separate DeleteByNameCmd")
 	}
 }
 
@@ -1546,44 +1549,59 @@ func TestShouldGenerateApply(t *testing.T) {
 	}
 }
 
-func TestShouldGenerateGetByName(t *testing.T) {
-	tests := []struct {
-		name string
-		ops  []*Operation
-		want bool
-	}{
-		{
-			"standard CRUD resource with list + get — get-by-name generated",
-			[]*Operation{
-				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
-				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+func TestGenerate_GetNameFlag(t *testing.T) {
+	// Verify that get/update/delete commands gain --name flag when the resource
+	// is non-singleton, has a list op, and the operation has a single path param.
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "buildings",
+		NameSingular: "building",
+		GoName:       "Buildings",
+		NameField:    "name",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/buildings", Summary: "List", IsList: true},
+			{
+				Name: "get", Method: "GET", Path: "/v1/buildings/{id}", Summary: "Get",
+				Parameters: []*Parameter{{Name: "id", In: "path", Type: "string"}},
 			},
-			true,
-		},
-		{
-			"sub-resource with multi-param get — get-by-name suppressed",
-			[]*Operation{
-				{Name: "get", Method: "GET", Path: "/v1/foo/{id}/bars/{barId}"},
-				{Name: "delete", Method: "DELETE", Path: "/v1/foo/{id}/bars/{barId}"},
+			{
+				Name: "update", Method: "PUT", Path: "/v1/buildings/{id}", Summary: "Update",
+				Parameters:  []*Parameter{{Name: "id", In: "path", Type: "string"}},
+				RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Name: "name", Type: "string"}}}},
 			},
-			false,
 		},
-		{
-			"no get op — get-by-name suppressed",
-			[]*Operation{
-				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
-			},
-			false,
-		},
+		Schemas: make(map[string]*Schema),
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &Resource{Operations: tt.ops}
-			got := shouldGenerateGetByName(r)
-			if got != tt.want {
-				t.Errorf("shouldGenerateGetByName() = %v, want %v", got, tt.want)
-			}
-		})
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// get command should have --name flag for name-based lookup
+	if !strings.Contains(code, `StringVar(&flagName, "name"`) {
+		t.Error("expected --name flag on get command for listable resource")
+	}
+	if !strings.Contains(code, `resolveNameToID`) {
+		t.Error("expected resolveNameToID call for --name lookup")
+	}
+	// should NOT generate a separate get-by-name subcommand
+	if strings.Contains(code, "GetByNameCmd") {
+		t.Error("should not generate a separate GetByNameCmd")
+	}
+	// update command should accept optional ID (MaximumNArgs(1)) and --name flag
+	if !strings.Contains(code, `Use:   "update [<id>]"`) {
+		t.Error("expected update command to have optional ID arg (MaximumNArgs(1))")
+	}
+	if !strings.Contains(code, `MaximumNArgs(1)`) {
+		t.Error("expected MaximumNArgs(1) on update command")
 	}
 }
 
@@ -1933,9 +1951,9 @@ func TestGenerate_IDFieldInNameResolution(t *testing.T) {
 	}
 	code := string(content)
 
-	// get-by-name should use the custom ID field
+	// get (with --name flag) should use the custom ID field
 	if !strings.Contains(code, `"name", "clientManagementId"`) {
-		t.Error("get-by-name should use clientManagementId as ID field")
+		t.Error("get --name should use clientManagementId as ID field")
 	}
 
 	// apply should use the custom ID field

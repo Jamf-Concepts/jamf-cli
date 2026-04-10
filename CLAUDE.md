@@ -138,7 +138,7 @@ Key types available in templates:
 
 `ParseSpec` returns `[]*Resource` — most specs produce one resource, but specs with multiple sibling CRUD families (e.g. `SelfServiceBranding.yaml` → macos + ios) produce one per family.
 
-`IsSingleton` is true for settings-style resources (GET+PUT, no `{id}` in any path). Singletons get a `get` command instead of `list`, use a singular CLI name, and skip `apply`/`delete-by-name`.
+`IsSingleton` is true for settings-style resources (GET+PUT, no `{id}` in any path). Singletons get a `get` command instead of `list`, use a singular CLI name, and skip `apply` (no name-based upsert for single-instance resources).
 
 See `generator/README.md` for full template function reference and testing workflow.
 
@@ -214,11 +214,16 @@ Resources with both `create` (POST) and `update` (PUT) operations automatically 
 
 Flags: `--from-file`, `--yes` (skip replacement confirmation only — not collision resolution), `--dry-run` (resolves existence then prints what would happen).
 
-### Generated Delete-by-Name Commands
+### Generated Lookup Flags on get/update/delete/patch
 
-Resources with a `delete` operation and name resolution capability (modern: `get` with path param; classic: `name` in lookups) automatically get a `delete-by-name` subcommand. It resolves name to ID using the same collision-aware lookup as apply, confirms the deletion, then deletes by ID.
+Any operation with a single `{id}` path parameter on a non-singleton, listable resource gets `--name` (and per-resource fields like `--serial`, `--udid`) folded directly into that command — no separate `get-by-name` or `delete-by-name` subcommands. These flags are defined in `opHasNameLookup` (modern) and the classic template (classic).
 
-Flags: `--yes` (skip confirmation), `--dry-run` (resolve and preview without deleting).
+- `get [<id>]` — accepts `--name` to resolve by name via RSQL filter
+- `update [<id>]` — accepts `--name` to resolve before reading stdin body
+- `delete [<id>]` — accepts `--name` to resolve, then confirms and deletes
+- `patch [<id>]` — accepts `--name` (same pattern, implemented via `patchHasLookup`)
+
+Classic API: `get` and `update` use URL-based name resolution (`/JSSResource/path/name/<value>`); `delete` uses `resolveClassicNameToIDForApply` (list + client-side filter).
 
 ### Generated Patch Commands
 
@@ -238,7 +243,7 @@ Resource name overrides (e.g. `computers-inventories` → `computers-inventory`)
 
 ### Name Resolution Helpers (Generated)
 
-Helper functions in generated code (shared by `apply`, `delete-by-name`, `get-by-name`, and `patch`):
+Helper functions in generated code (shared by `apply`, `get`, `update`, `delete`, and `patch`):
 - `readApplyInput(fromFile)` — reads from file or stdin (in `registry.go`)
 - `extractJSONField(data, field)` — extracts name from JSON (in `registry.go`)
 - `resolveNameToIDForApply(ctx, client, listPath, nameField, name, noInput)` — collision-aware RSQL filter lookup (in `registry.go`)

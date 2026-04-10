@@ -25,7 +25,6 @@ func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newClassicAccountGroupsGetCmd(ctx))
-	cmd.AddCommand(newClassicAccountGroupsGetByGroupnameCmd(ctx))
 
 	cmd.AddCommand(newClassicAccountGroupsCreateCmd(ctx))
 
@@ -37,18 +36,32 @@ func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagGroupname string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a account_group by ID",
 		Example: `  # Get a account_group by ID
   jamf-cli classic-account-groups get 1
 
   # Get a account_group and output as YAML
   jamf-cli classic-account-groups get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/accounts/groupid/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagGroupname != "" {
+				path = fmt.Sprintf("/JSSResource/accounts/groupname/%s", url.PathEscape(flagGroupname))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/accounts/groupid/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --groupname")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -79,45 +92,10 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicAccountGroupsGetByGroupnameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-groupname <groupname>",
-		Short: "Get a account_group by groupname",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/accounts/groupname/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagGroupname, "groupname", "", "Look up account_group by groupname")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["account_group"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -150,7 +128,7 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a account_group",
 		Long:  "Update an existing account_group by ID. Reads XML body from stdin.",
@@ -169,6 +147,7 @@ func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/JSSResource/accounts/groupid/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -178,6 +157,8 @@ func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicAccountGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -216,6 +197,7 @@ func newClassicAccountGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/JSSResource/accounts/groupid/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err

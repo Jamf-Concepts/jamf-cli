@@ -29,7 +29,6 @@ func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicMobileAppsListCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileAppsGetCmd(ctx))
-	cmd.AddCommand(newClassicMobileAppsGetByNameCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileAppsCreateCmd(ctx))
 
@@ -38,8 +37,6 @@ func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicMobileAppsDeleteCmd(ctx))
 
 	cmd.AddCommand(newClassicMobileAppsApplyCmd(ctx))
-
-	cmd.AddCommand(newClassicMobileAppsDeleteByNameCmd(ctx))
 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "mobiledeviceapplications",
@@ -99,18 +96,35 @@ func newClassicMobileAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a mobile_device_application by ID",
 		Example: `  # Get a mobile_device_application by ID
   jamf-cli classic-mobile-apps get 1
 
+  # Get a mobile_device_application by name
+  jamf-cli classic-mobile-apps get --name "Example"
+
   # Get a mobile_device_application and output as YAML
   jamf-cli classic-mobile-apps get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceapplications/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -141,45 +155,10 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicMobileAppsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a mobile_device_application by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_application by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_application"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -212,13 +191,15 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "update <id>",
+	var flagName string
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
 		Short: "Update a mobile_device_application",
 		Long:  "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
 		Example: `  # Update a mobile_device_application from XML
   cat mobile_device_application.xml | jamf-cli classic-mobile-apps update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -230,7 +211,15 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceapplications/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -240,36 +229,61 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_application by name")
+
+	return cmd
 }
 
 func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a mobile_device_application",
 		Example: `  # Delete a mobile_device_application (with confirmation)
   jamf-cli classic-mobile-apps delete 1
 
+  # Delete by name
+  jamf-cli classic-mobile-apps delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli classic-mobile-apps delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no mobile_device_application found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete mobile_device_application %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device_application %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete mobile_device_application %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete mobile_device_application %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -277,7 +291,8 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -295,6 +310,7 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_application by name")
 
 	return cmd
 }
@@ -389,73 +405,6 @@ If not, a new resource is created.`,
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicMobileAppsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a mobile_device_application by name",
-		Example: `  # Delete a mobile_device_application by name (with confirmation)
-  jamf-cli classic-mobile-apps delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-mobile-apps delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceapplications", "mobiledeviceapplications", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no mobile_device_application found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device_application %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete mobile_device_application %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/mobiledeviceapplications/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted mobile_device_application %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

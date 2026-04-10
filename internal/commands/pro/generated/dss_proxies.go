@@ -34,9 +34,6 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Get a dss-proxy by ID
   jamf-cli dss-proxies get 1
 
-  # Get a dss-proxy by name
-  jamf-cli dss-proxies get-by-name "Example"
-
   # Get a dss-proxy and output as YAML
   jamf-cli dss-proxies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),

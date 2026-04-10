@@ -29,8 +29,6 @@ func NewJcdsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newJcdsFilesCmd(ctx))
 	cmd.AddCommand(newJcdsRefreshInventoryCmd(ctx))
 	cmd.AddCommand(newJcdsRenewCredentialsCmd(ctx))
-	cmd.AddCommand(newJcdsGetByNameCmd(ctx))
-	cmd.AddCommand(newJcdsDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -74,27 +72,43 @@ func newJcdsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newJcdsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.",
 		Example: `  # Get a jcd by ID
   jamf-cli jcds get 1
 
   # Get a jcd by name
-  jamf-cli jcds get-by-name "Example"
+  jamf-cli jcds get --name "Example"
 
   # Get a jcd and output as YAML
   jamf-cli jcds get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jcds/files", "name", "fileName", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/jcds/files/{fileName}"
-			path = strings.Replace(path, "{fileName}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{fileName}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -113,6 +127,8 @@ func newJcdsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jcd by name")
+
 	return cmd
 }
 
@@ -120,24 +136,52 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a file from the Jamf Cloud Distribution Service",
 		Long:  "Delete a file by filename from the Jamf Cloud Distribution Service.",
 		Example: `  # Delete a jcd (with confirmation)
   jamf-cli jcds delete 1
 
+  # Delete by name
+  jamf-cli jcds delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli jcds delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Confirmation for destructive action
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/jcds/files", "name", "fileName", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no jcd found with name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcd %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcd %s\n", resolvedID)
+				}
 				return nil
 			}
 			if !flagYes {
@@ -145,7 +189,11 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", args[0])
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete jcd %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete jcd %s. Type 'yes' to confirm: ", resolvedID)
+				}
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -155,7 +203,7 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/jcds/files/{fileName}"
-			path = strings.Replace(path, "{fileName}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{fileName}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -181,6 +229,7 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jcd by name")
 
 	return cmd
 }
@@ -305,99 +354,6 @@ func newJcdsRenewCredentialsCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	return cmd
-}
-
-func newJcdsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a jcd by name",
-		Example: `  # Get a jcd by name
-  jamf-cli jcds get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli jcds get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/jcds/files", "name", "fileName", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/jcds/files/{fileName}", "{fileName}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-}
-
-func newJcdsDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a jcd by name",
-		Example: `  # Delete a jcd by name (with confirmation)
-  jamf-cli jcds delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli jcds delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/jcds/files", "name", "fileName", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no jcd found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcd %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete jcd %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := strings.Replace("/v1/jcds/files/{fileName}", "{fileName}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent {
-				fmt.Fprintf(os.Stderr, "Deleted jcd %q (id: %s)\n", name, id)
-				return nil
-			}
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

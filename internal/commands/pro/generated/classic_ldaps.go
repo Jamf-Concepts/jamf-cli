@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -20,33 +21,48 @@ func NewClassicLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.AddCommand(newClassicLdapsGetCmd(ctx))
-	cmd.AddCommand(newClassicLdapsGetByNameCmd(ctx))
 
 	return cmd
 }
 
 func newClassicLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get [<id>]",
 		Short: "Get mappings for OnPrem Ldap configuration with given id.",
 		Long:  "Get mappings for OnPrem Ldap configuration with given id.",
 		Example: `  # Get a classic-ldap by ID
   jamf-cli classic-ldaps get 1
 
   # Get a classic-ldap by name
-  jamf-cli classic-ldaps get-by-name "Example"
+  jamf-cli classic-ldaps get --name "Example"
 
   # Get a classic-ldap and output as YAML
   jamf-cli classic-ldaps get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/classic-ldap", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
 			path := "/v1/classic-ldap/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -65,32 +81,7 @@ func newClassicLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up classic-ldap by name")
+
 	return cmd
-}
-
-func newClassicLdapsGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a classic-ldap by name",
-		Example: `  # Get a classic-ldap by name
-  jamf-cli classic-ldaps get-by-name "Example"
-
-  # Get by name and output as YAML
-  jamf-cli classic-ldaps get-by-name "Example" -o yaml`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			id, err := resolveNameToID(reqCtx, ctx.Client, "/v1/classic-ldap", "name", "id", args[0])
-			if err != nil {
-				return err
-			}
-			path := strings.Replace("/v1/classic-ldap/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 }

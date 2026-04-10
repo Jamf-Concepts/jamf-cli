@@ -28,7 +28,6 @@ func NewClassicRemovableMacAddressesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newClassicRemovableMacAddressesListCmd(ctx))
 
 	cmd.AddCommand(newClassicRemovableMacAddressesGetCmd(ctx))
-	cmd.AddCommand(newClassicRemovableMacAddressesGetByNameCmd(ctx))
 
 	cmd.AddCommand(newClassicRemovableMacAddressesCreateCmd(ctx))
 
@@ -37,8 +36,6 @@ func NewClassicRemovableMacAddressesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.AddCommand(newClassicRemovableMacAddressesDeleteCmd(ctx))
 
 	cmd.AddCommand(newClassicRemovableMacAddressesApplyCmd(ctx))
-
-	cmd.AddCommand(newClassicRemovableMacAddressesDeleteByNameCmd(ctx))
 
 	return cmd
 }
@@ -93,18 +90,35 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>",
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
 		Short: "Get a removable_mac_address by ID",
 		Example: `  # Get a removable_mac_address by ID
   jamf-cli classic-removable-mac-addresses get 1
 
+  # Get a removable_mac_address by name
+  jamf-cli classic-removable-mac-addresses get --name "Example"
+
   # Get a removable_mac_address and output as YAML
   jamf-cli classic-removable-mac-addresses get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+
+			// Resolve lookup: check flags first, then positional ID
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -135,45 +149,10 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			return ctx.Output.PrintRaw(body)
 		},
 	}
-}
 
-func newClassicRemovableMacAddressesGetByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get-by-name <name>",
-		Short: "Get a removable_mac_address by name",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", url.PathEscape(args[0]))
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
-			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
-			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
-				return ctx.Output.PrintBytes(body)
-			}
-			if xmlconv.IsXML(body) {
-				if jsonBody, err := xmlconv.ToJSON(body); err == nil {
-					body = jsonBody
-				}
-			}
-			var wrapper map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["removable_mac_address"]; ok {
-					return ctx.Output.PrintRaw(inner)
-				}
-			}
-			return ctx.Output.PrintRaw(body)
-		},
-	}
+	return cmd
 }
 
 func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -206,13 +185,15 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 }
 
 func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "update <id>",
+	var flagName string
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
 		Short: "Update a removable_mac_address",
 		Long:  "Update an existing removable_mac_address by ID. Reads XML body from stdin.",
 		Example: `  # Update a removable_mac_address from XML
   cat removable_mac_address.xml | jamf-cli classic-removable-mac-addresses update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -224,7 +205,15 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+			var path string
+			if flagName != "" {
+				path = fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", url.PathEscape(flagName))
+			} else if len(args) > 0 {
+				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -234,36 +223,61 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
+
+	return cmd
 }
 
 func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete [<id>]",
 		Short: "Delete a removable_mac_address",
 		Example: `  # Delete a removable_mac_address (with confirmation)
   jamf-cli classic-removable-mac-addresses delete 1
 
+  # Delete by name
+  jamf-cli classic-removable-mac-addresses delete --name "Example" --yes
+
   # Delete without confirmation prompt
   jamf-cli classic-removable-mac-addresses delete 1 --yes`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve ID from --name or positional arg
+			var resolvedID string
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			if flagName != "" {
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if id == "" {
+					return fmt.Errorf("no removable_mac_address found with name %q", flagName)
+				}
+				resolvedID = id
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete removable_mac_address %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete removable_mac_address %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
-				noInput, _ := cmd.Flags().GetBool("no-input")
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete removable_mac_address %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will delete removable_mac_address %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -271,7 +285,8 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				}
 			}
 
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(resolvedID))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
@@ -289,6 +304,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
 
 	return cmd
 }
@@ -383,73 +399,6 @@ If not, a new resource is created.`,
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
-	return cmd
-}
-
-func newClassicRemovableMacAddressesDeleteByNameCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagYes    bool
-		flagDryRun bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "delete-by-name <name>",
-		Short: "Delete a removable_mac_address by name",
-		Example: `  # Delete a removable_mac_address by name (with confirmation)
-  jamf-cli classic-removable-mac-addresses delete-by-name "Example"
-
-  # Delete without confirmation prompt
-  jamf-cli classic-removable-mac-addresses delete-by-name "Example" --yes`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-			name := args[0]
-
-			// Resolve name to ID (collision-aware)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", name, noInput)
-			if err != nil {
-				return err
-			}
-			if id == "" {
-				return fmt.Errorf("no removable_mac_address found with name %q", name)
-			}
-
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete removable_mac_address %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will delete removable_mac_address %q (id: %s). Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(id))
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				fmt.Fprintf(os.Stderr, "Deleted removable_mac_address %q (id: %s)\n", name, id)
-				return nil
-			}
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd

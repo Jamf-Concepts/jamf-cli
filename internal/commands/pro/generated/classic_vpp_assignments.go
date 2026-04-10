@@ -87,7 +87,8 @@ func newClassicVppAssignmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a vpp_assignment by ID",
 		Example: `  # Get a vpp_assignment by ID
@@ -99,6 +100,7 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
@@ -129,6 +131,8 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintRaw(body)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -161,7 +165,7 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_assignment",
 		Long:  "Update an existing vpp_assignment by ID. Reads XML body from stdin.",
@@ -180,6 +184,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
 				return err
@@ -189,6 +194,8 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	return cmd
 }
 
 func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -227,6 +234,7 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			path := fmt.Sprintf("/JSSResource/vppassignments/id/%s", url.PathEscape(args[0]))
+
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
 				return err
