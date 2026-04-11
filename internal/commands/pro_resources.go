@@ -78,7 +78,7 @@ var BackupResources = []ResourceDef{
 	{
 		Name:     "smart-groups",
 		ListPath: "/v1/mobile-device-groups/smart-groups",
-		GetPath:  "/v1/mobile-device-groups/{id}",
+		GetPath:  "/v1/mobile-device-groups/smart-groups/{id}",
 		SubDir:   "smart-groups/mobile",
 	},
 	// Categories
@@ -178,6 +178,13 @@ var BackupResources = []ResourceDef{
 		ListPath: "/v2/computer-groups/static-groups",
 		GetPath:  "/v2/computer-groups/static-groups/{id}",
 		SubDir:   "static-groups/computers",
+	},
+	// Static Groups - Mobile
+	{
+		Name:     "static-groups",
+		ListPath: "/v1/mobile-device-groups/static-groups",
+		GetPath:  "/v1/mobile-device-groups/static-groups/{id}",
+		SubDir:   "static-groups/mobile",
 	},
 }
 

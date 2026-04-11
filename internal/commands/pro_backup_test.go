@@ -280,8 +280,9 @@ func TestBackup_ComputerGroups(t *testing.T) {
 			"/v2/computer-groups/static-groups": {200, `{"totalCount":1,"results":[{"id":"20","name":"Lab Macs","count":5}]}`},
 			// v2 static group detail
 			"/v2/computer-groups/static-groups/20": {200, `{"id":"20","name":"Lab Macs","description":"Computer lab","siteId":"-1"}`},
-			// mobile smart groups (empty — shares Name "smart-groups" with computer smart groups)
-			"/v1/mobile-device-groups/smart-groups": {200, `[]`},
+			// mobile smart/static (empty — same Resource Name as computer groups; FilterResources runs all)
+			"/v1/mobile-device-groups/smart-groups":  {200, `[]`},
+			"/v1/mobile-device-groups/static-groups": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -351,6 +352,58 @@ func TestBackup_ComputerGroups(t *testing.T) {
 	}
 	if staticParsed["name"] != "Lab Macs" {
 		t.Errorf("expected static group name 'Lab Macs', got %v", staticParsed["name"])
+	}
+}
+
+func TestBackup_MobileDeviceGroups(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			// Computer smart/static: empty (this test targets mobile list shape groupId/groupName)
+			"/v2/computer-groups/smart-groups":  {200, `{"totalCount":0,"results":[]}`},
+			"/v2/computer-groups/static-groups": {200, `{"totalCount":0,"results":[]}`},
+			// Mobile smart: list uses groupId + groupName per Jamf API
+			"/v1/mobile-device-groups/smart-groups": {200, `{"totalCount":1,"results":[{"groupId":"5","groupName":"iPad Lab","siteId":"-1","count":3}]}`},
+			"/v1/mobile-device-groups/smart-groups/5": {200, `{"groupId":"5","groupName":"iPad Lab","criteria":[{"name":"Model","andOr":"and","searchType":"is","value":"iPad"}],"siteId":"-1"}`},
+			// Mobile static
+			"/v1/mobile-device-groups/static-groups": {200, `{"totalCount":1,"results":[{"groupId":"7","groupName":"Loaner iPads","siteId":"-1","count":0}]}`},
+			"/v1/mobile-device-groups/static-groups/7": {200, `{"groupId":"7","groupName":"Loaner iPads","groupDescription":"desc","siteId":"-1"}`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "smart-groups,static-groups",
+		IncludeIDs:  false,
+		Concurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	smartMobileDir := filepath.Join(outDir, "smart-groups", "mobile")
+	entries, err := os.ReadDir(smartMobileDir)
+	if err != nil {
+		t.Fatalf("reading smart-groups/mobile: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected 1 mobile smart group file, got %d", len(entries))
+	}
+
+	staticMobileDir := filepath.Join(outDir, "static-groups", "mobile")
+	entries, err = os.ReadDir(staticMobileDir)
+	if err != nil {
+		t.Fatalf("reading static-groups/mobile: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected 1 mobile static group file, got %d", len(entries))
 	}
 }
 

@@ -254,7 +254,19 @@ func listModernItems(ctx context.Context, client registry.HTTPClient, def Resour
 	var items []resourceItem
 	for _, m := range all {
 		id := extractID(m)
+		if id == "" {
+			// Mobile device group list APIs use groupId / groupName (see MobileDeviceGroup.yaml SmartGroup / StaticGroup).
+			id = extractField(m, "groupId")
+		}
 		name := extractName(m)
+		if name == "" {
+			if n, ok := m["groupName"].(string); ok && n != "" {
+				name = n
+			}
+		}
+		if name == "" {
+			name = id
+		}
 		if id != "" {
 			items = append(items, resourceItem{ID: id, Name: name})
 		}
