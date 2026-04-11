@@ -269,6 +269,91 @@ func TestBackup_DuplicateNames(t *testing.T) {
 	}
 }
 
+func TestBackup_ComputerGroups(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			// v2 smart group list (paginated)
+			"/v2/computer-groups/smart-groups": {200, `{"totalCount":1,"results":[{"id":"10","name":"All Laptops","membershipCount":42}]}`},
+			// v2 smart group detail
+			"/v2/computer-groups/smart-groups/10": {200, `{"name":"All Laptops","description":"Laptops only","criteria":[{"name":"Model","priority":0,"andOr":"and","searchType":"like","value":"MacBook"}],"siteId":"-1"}`},
+			// v2 static group list (paginated)
+			"/v2/computer-groups/static-groups": {200, `{"totalCount":1,"results":[{"id":"20","name":"Lab Macs","count":5}]}`},
+			// v2 static group detail
+			"/v2/computer-groups/static-groups/20": {200, `{"id":"20","name":"Lab Macs","description":"Computer lab","siteId":"-1"}`},
+			// mobile smart groups (empty — shares Name "smart-groups" with computer smart groups)
+			"/v1/mobile-device-groups/smart-groups": {200, `[]`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "smart-groups,static-groups",
+		IncludeIDs:  false,
+		Concurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	// Smart group should be in smart-groups/computers/
+	smartDir := filepath.Join(outDir, "smart-groups", "computers")
+	entries, err := os.ReadDir(smartDir)
+	if err != nil {
+		t.Fatalf("reading smart-groups/computers: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected 1 smart group file, got %d", len(entries))
+	}
+
+	smartPath := filepath.Join(smartDir, "all-laptops.yaml")
+	content, err := os.ReadFile(smartPath)
+	if err != nil {
+		t.Fatalf("reading smart group file: %v", err)
+	}
+	var smartParsed map[string]any
+	if err := yaml.Unmarshal(content, &smartParsed); err != nil {
+		t.Fatalf("parsing smart group YAML: %v", err)
+	}
+	if smartParsed["name"] != "All Laptops" {
+		t.Errorf("expected smart group name 'All Laptops', got %v", smartParsed["name"])
+	}
+	criteria, ok := smartParsed["criteria"].([]any)
+	if !ok || len(criteria) == 0 {
+		t.Error("smart group should contain criteria")
+	}
+
+	// Static group should be in static-groups/computers/
+	staticDir := filepath.Join(outDir, "static-groups", "computers")
+	entries, err = os.ReadDir(staticDir)
+	if err != nil {
+		t.Fatalf("reading static-groups/computers: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected 1 static group file, got %d", len(entries))
+	}
+
+	staticPath := filepath.Join(staticDir, "lab-macs.yaml")
+	content, err = os.ReadFile(staticPath)
+	if err != nil {
+		t.Fatalf("reading static group file: %v", err)
+	}
+	var staticParsed map[string]any
+	if err := yaml.Unmarshal(content, &staticParsed); err != nil {
+		t.Fatalf("parsing static group YAML: %v", err)
+	}
+	if staticParsed["name"] != "Lab Macs" {
+		t.Errorf("expected static group name 'Lab Macs', got %v", staticParsed["name"])
+	}
+}
+
 func TestExtractID(t *testing.T) {
 	tests := []struct {
 		input map[string]any
