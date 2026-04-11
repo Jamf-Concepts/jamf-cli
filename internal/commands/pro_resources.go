@@ -6,13 +6,10 @@ package commands
 type ResourceDef struct {
 	Name       string // CLI display name: "policies"
 	ListPath   string // API list endpoint: "/JSSResource/policies" or "/v1/scripts"
-	GetPath    string // API detail endpoint with {id} placeholder (empty when ListOnly is true)
+	GetPath    string // API detail endpoint with {id} placeholder
 	WrapperKey string // Classic API JSON wrapper key (empty for modern)
 	IsClassic  bool
 	SubDir     string // backup output subdirectory
-	// ListOnly is true when there is no GET-by-id; each list row is the full export
-	// (e.g. GET /v1/sites returns complete V1Site objects; GET /v1/sites/{id} does not exist).
-	ListOnly bool
 }
 
 // BackupResources lists all resource types that the backup command exports.
