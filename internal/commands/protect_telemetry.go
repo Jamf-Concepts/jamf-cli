@@ -77,7 +77,7 @@ func newProtectTelemetryGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenTelemetry(*item))
+			return printResult(cliCtx.Output, item, flattenTelemetry(*item))
 		},
 	}
 }
@@ -92,12 +92,12 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a telemetry configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.TelemetryV2Input
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -115,11 +115,11 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created telemetry configuration %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenTelemetry(result))
+				return printResult(cliCtx.Output, result, flattenTelemetry(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("telemetry config", input.Name, yes)
+			proceed, err := confirmReplace("telemetry config", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -132,7 +132,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated telemetry configuration %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenTelemetry(result))
+			return printResult(cliCtx.Output, result, flattenTelemetry(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -153,7 +153,7 @@ func newProtectTelemetryDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("telemetry configuration", args[0], yes)
+			proceed, err := confirmDelete("telemetry configuration", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -188,7 +188,7 @@ func newProtectTelemetryExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(telemetryToInput(item))
+			return printExport(telemetryToInput(item))
 		},
 	}
 }

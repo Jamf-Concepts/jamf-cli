@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
@@ -182,12 +183,76 @@ type ProtectClient interface {
 	AccessToken(ctx context.Context) (*jamfprotect.Token, error)
 }
 
+// PlatformClient defines the interface for Jamf Platform API operations.
+// The SDK's *jamfplatform.Client satisfies this interface directly.
+type PlatformClient interface {
+	// Blueprints
+	ListBlueprints(ctx context.Context, sort []string, search string) ([]jamfplatform.BlueprintOverviewV1, error)
+	GetBlueprint(ctx context.Context, id string) (*jamfplatform.BlueprintDetailV1, error)
+	GetBlueprintByName(ctx context.Context, name string) (*jamfplatform.BlueprintDetailV1, error)
+	CreateBlueprint(ctx context.Context, request *jamfplatform.BlueprintCreateRequestV1) (*jamfplatform.BlueprintCreateResponseV1, error)
+	UpdateBlueprint(ctx context.Context, id string, request *jamfplatform.BlueprintUpdateRequestV1) error
+	DeleteBlueprint(ctx context.Context, id string) error
+	DeployBlueprint(ctx context.Context, id string) error
+	UndeployBlueprint(ctx context.Context, id string) error
+	GetBlueprintReport(ctx context.Context, id string) (*jamfplatform.BlueprintStatusDetailV1, error)
+	ListBlueprintComponents(ctx context.Context) ([]jamfplatform.BlueprintComponentDescriptionV1, error)
+	GetBlueprintComponent(ctx context.Context, id string) (*jamfplatform.BlueprintComponentDescriptionV1, error)
+
+	// Compliance Benchmarks
+	ListBaselines(ctx context.Context) (*jamfplatform.CBEngineBaselinesResponseV1, error)
+	ListBenchmarks(ctx context.Context) (*jamfplatform.CBEngineBenchmarksResponseV2, error)
+	GetBenchmark(ctx context.Context, id string) (*jamfplatform.CBEngineBenchmarkResponseV2, error)
+	GetBenchmarkByTitle(ctx context.Context, title string) (*jamfplatform.CBEngineBenchmarkResponseV2, error)
+	CreateBenchmark(ctx context.Context, request *jamfplatform.CBEngineBenchmarkRequestV2) (*jamfplatform.CBEngineBenchmarkResponseV2, error)
+	DeleteBenchmark(ctx context.Context, id string) error
+	GetBaselineRules(ctx context.Context, baselineID string) (*jamfplatform.CBEngineSourcedRulesV1, error)
+	ListBenchmarkRulesStats(ctx context.Context, benchmarkID string, sort string, ruleSearch string) ([]jamfplatform.CBEngineRuleResultV1, error)
+	ListBenchmarkRuleDevices(ctx context.Context, benchmarkID string, ruleID string, sort string, deviceSearch string, ruleResult string) ([]jamfplatform.CBEngineDeviceRuleResultV1, error)
+	GetBenchmarkCompliancePercentage(ctx context.Context, benchmarkID string) (*jamfplatform.CBEngineCompliancePercentageV1, error)
+
+	// Devices
+	ListDevices(ctx context.Context, sort []string, filter string) ([]jamfplatform.DeviceListReadRepresentationV1, error)
+	GetDevice(ctx context.Context, id string) (*jamfplatform.DeviceReadRepresentationV1, error)
+	GetDeviceBySerialNumber(ctx context.Context, serialNumber string) (*jamfplatform.DeviceReadRepresentationV1, error)
+	UpdateDevice(ctx context.Context, id string, payload *jamfplatform.DeviceUpdateRepresentationV1) error
+	DeleteDevice(ctx context.Context, id string) error
+	ListDeviceApplications(ctx context.Context, deviceID string, sort []string, filter string) ([]jamfplatform.DeviceInstalledApplicationReadRepresentationV1, error)
+	ListDevicesForUser(ctx context.Context, userID string, sort []string, filter string) ([]jamfplatform.DeviceListReadRepresentationV1, error)
+
+	// Device Groups
+	ListDeviceGroups(ctx context.Context, sort []string, filter string) ([]jamfplatform.DeviceGroupListReadRepresentationV1, error)
+	GetDeviceGroup(ctx context.Context, id string) (*jamfplatform.DeviceGroupReadRepresentationV1, error)
+	CreateDeviceGroup(ctx context.Context, request *jamfplatform.DeviceGroupCreateRepresentationV1) (*jamfplatform.DeviceGroupCreateResponseV1, error)
+	UpdateDeviceGroup(ctx context.Context, id string, request *jamfplatform.DeviceGroupUpdateRepresentationV1) error
+	DeleteDeviceGroup(ctx context.Context, id string) error
+	ListDeviceGroupMembers(ctx context.Context, id string) ([]string, error)
+	UpdateDeviceGroupMembers(ctx context.Context, id string, patch *jamfplatform.DeviceGroupMemberPatchRepresentationV1) error
+	ListDeviceGroupsForDevice(ctx context.Context, deviceID string) ([]jamfplatform.DeviceGroupMemberOfRepresentationV1, error)
+
+	// Device Actions
+	CheckInDevice(ctx context.Context, id string) error
+	EraseDevice(ctx context.Context, id string, request *jamfplatform.EraseDeviceRequestV1) ([]jamfplatform.DeviceCommandResponseV1, error)
+	RestartDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponseV1, error)
+	ShutdownDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponseV1, error)
+	UnmanageDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponseV1, error)
+
+	// DDM Declaration Reports
+	GetDeviceDeclarationReport(ctx context.Context, deviceID string) (*jamfplatform.DeviceReportV1, error)
+	ListDeclarationReportClients(ctx context.Context, declarationIdentifier string, sort []string) ([]jamfplatform.DeclarationReportClientV1, error)
+
+	// Client metadata
+	ValidateCredentials(ctx context.Context) error
+	BaseURL() string
+}
+
 // CLIContext holds the shared client and output formatter for all commands.
 // It is populated in PersistentPreRunE after token/URL resolution.
 type CLIContext struct {
 	Client              HTTPClient
 	Output              OutputFormatter
 	ProtectClient       ProtectClient
+	PlatformClient      PlatformClient
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth
 	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled

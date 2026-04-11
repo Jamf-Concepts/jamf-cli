@@ -395,7 +395,7 @@ func newDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err

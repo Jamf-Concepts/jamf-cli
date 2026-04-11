@@ -23,6 +23,10 @@ var resourceNameOverrides = map[string]string{
 	// rule, but the Jamf API path (/v3/computers-inventory) treats "inventory" as a
 	// collective noun — no further pluralization needed.
 	"computers-inventories": "computers-inventory",
+	// "status" already ends in 's'-sound — auto-pluralizer appends an extra 's'.
+	"ddm-statuss":              "ddm-status",
+	"startup-statuss":          "startup-status",
+	"apns-client-push-statuss": "apns-client-push-status",
 }
 
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.

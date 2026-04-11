@@ -469,7 +469,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err

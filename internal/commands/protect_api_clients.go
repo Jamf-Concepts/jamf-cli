@@ -88,7 +88,7 @@ func newProtectApiClientsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenApiClient(*item))
+			return printResult(cliCtx.Output, item, flattenApiClient(*item))
 		},
 	}
 }
@@ -104,12 +104,12 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an API client",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.ApiClientInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -127,11 +127,11 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created API client %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenApiClient(result))
+				return printResult(cliCtx.Output, result, flattenApiClient(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("API client", input.Name, yes)
+			proceed, err := confirmReplace("API client", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated API client %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenApiClient(result))
+			return printResult(cliCtx.Output, result, flattenApiClient(result))
 		},
 	}
 
@@ -169,7 +169,7 @@ func newProtectApiClientsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("API client", args[0], yes)
+			proceed, err := confirmDelete("API client", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -204,7 +204,7 @@ func newProtectApiClientsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(apiClientToInput(item))
+			return printExport(apiClientToInput(item))
 		},
 	}
 }

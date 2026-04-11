@@ -104,7 +104,7 @@ func newProtectUsersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenUser(*item))
+			return printResult(cliCtx.Output, item, flattenUser(*item))
 		},
 	}
 }
@@ -120,12 +120,12 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a user",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.UserInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -143,11 +143,11 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created user %q\n", input.Email)
-				return printProtectResult(cliCtx.Output, result, flattenUser(result))
+				return printResult(cliCtx.Output, result, flattenUser(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("user", input.Email, yes)
+			proceed, err := confirmReplace("user", input.Email, yes)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated user %q\n", input.Email)
-			return printProtectResult(cliCtx.Output, result, flattenUser(result))
+			return printResult(cliCtx.Output, result, flattenUser(result))
 		},
 	}
 
@@ -185,7 +185,7 @@ func newProtectUsersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("user", args[0], yes)
+			proceed, err := confirmDelete("user", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -220,7 +220,7 @@ func newProtectUsersExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(userToInput(item))
+			return printExport(userToInput(item))
 		},
 	}
 }

@@ -196,8 +196,8 @@ func newClassicAccountUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			noInputCooldown2, _ := cmd.Flags().GetBool("no-input")
-			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown2, ctx.DestructiveCooldown); err != nil {
+			noInputForCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputForCooldown, ctx.DestructiveCooldown); err != nil {
 				return err
 			}
 			path := fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))

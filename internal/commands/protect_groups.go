@@ -92,7 +92,7 @@ func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenGroup(*item))
+			return printResult(cliCtx.Output, item, flattenGroup(*item))
 		},
 	}
 }
@@ -108,12 +108,12 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.GroupInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -131,11 +131,11 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created group %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenGroup(result))
+				return printResult(cliCtx.Output, result, flattenGroup(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("group", input.Name, yes)
+			proceed, err := confirmReplace("group", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -148,7 +148,7 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated group %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenGroup(result))
+			return printResult(cliCtx.Output, result, flattenGroup(result))
 		},
 	}
 
@@ -173,7 +173,7 @@ func newProtectGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("group", args[0], yes)
+			proceed, err := confirmDelete("group", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -208,7 +208,7 @@ func newProtectGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectExport(groupToInput(item))
+			return printExport(groupToInput(item))
 		},
 	}
 }

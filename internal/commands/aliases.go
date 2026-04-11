@@ -7,16 +7,21 @@ import "github.com/spf13/cobra"
 // commandAliases maps Jamf Pro command names to their short aliases.
 // Applied to children of the "pro" command.
 var commandAliases = map[string][]string{
-	"computers":        {"comp"},
-	"mobile-devices":   {"md"},
-	"scripts":          {"scr"},
-	"buildings":        {"bld"},
-	"categories":       {"cat"},
-	"departments":      {"dept"},
-	"group-tools":      {"gt"},
-	"api-roles":        {"ar"},
-	"api-integrations": {"ai"},
-	"device":           {"dev"},
+	"computers":              {"comp"},
+	"mobile-devices":         {"md"},
+	"scripts":                {"scr"},
+	"buildings":              {"bld"},
+	"categories":             {"cat"},
+	"departments":            {"dept"},
+	"group-tools":            {"gt"},
+	"api-roles":              {"ar"},
+	"api-integrations":       {"ai"},
+	"device":                 {"dev"},
+	"blueprints":             {"bp"},
+	"compliance-benchmarks":  {"cb"},
+	"platform-devices":       {"pdev"},
+	"platform-device-groups": {"pdg"},
+	"ddm-reports":            {"ddm"},
 	// jamf-protect is now the canonical name (singleton detection). Restore the jp short alias.
 	// jamf-connects still needs an alias since JamfConnect.yaml has {id} paths (config-profiles)
 	// so it isn't detected as a singleton and retains the plural generated name.

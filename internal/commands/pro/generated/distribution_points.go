@@ -507,7 +507,7 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err
@@ -604,7 +604,7 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 			defer resp.Body.Close()
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err

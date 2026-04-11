@@ -160,7 +160,7 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 			defer resp.Body.Close()
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err

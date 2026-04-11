@@ -23,6 +23,7 @@ var rootGroupMap = map[string]string{
 	"multi":      "core",
 	"pro":        "products",
 	"protect":    "products",
+	"platform":   "products",
 }
 
 // applyRootGroups registers groups on the root command and assigns each
@@ -54,6 +55,9 @@ const (
 	groupMDM        = "mdm"
 	groupServer     = "server"
 
+	// Platform API groups
+	groupPlatform = "platform"
+
 	// Classic API groups
 	groupClassicComputers = "classic-computers"
 	groupClassicMobile    = "classic-mobile"
@@ -75,6 +79,9 @@ var proGroups = []*cobra.Group{
 	{ID: groupContent, Title: "Content & Configuration:"},
 	{ID: groupMDM, Title: "MDM & Certificates:"},
 	{ID: groupServer, Title: "Server Administration:"},
+
+	// Platform API groups
+	{ID: groupPlatform, Title: "Platform:"},
 
 	// Classic API groups
 	{ID: groupClassicComputers, Title: "Classic - Computers:"},
@@ -226,7 +233,7 @@ var proGroupMap = map[string]string{
 	"mac-os-managed-software-updates":      groupMDM,
 	"managed-software-updates":             groupMDM,
 	"managed-software-updates-plans":       groupMDM,
-	"ddm-statuss":                          groupMDM,
+	"ddm-status":                           groupMDM,
 	"ddm-syncs":                            groupMDM,
 	"device-compliance-informations":       groupMDM,
 	"jamf-remote-assist-session-histories": groupMDM,
@@ -260,12 +267,19 @@ var proGroupMap = map[string]string{
 	"health-checks":                        groupServer,
 	"log-flushings":                        groupServer,
 	"schedulers":                           groupServer,
-	"startup-statuss":                      groupServer,
+	"startup-status":                       groupServer,
 	"adcs-settings":                        groupServer,
 	"digi-cert-settings":                   groupServer,
 	"impact-alert-notification-settings":   groupServer,
-	"apns-client-push-statuss":             groupServer,
+	"apns-client-push-status":              groupServer,
 	"vpp-locations":                        groupServer,
+
+	// Platform
+	"blueprints":             groupPlatform,
+	"compliance-benchmarks":  groupPlatform,
+	"platform-devices":       groupPlatform,
+	"platform-device-groups": groupPlatform,
+	"ddm-reports":            groupPlatform,
 
 	// Classic - Computers
 	"classic-policies":                   groupClassicComputers,

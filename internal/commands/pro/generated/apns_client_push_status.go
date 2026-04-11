@@ -15,23 +15,23 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewApnsClientPushStatussCmd creates the apns-client-push-statuss command group
-func NewApnsClientPushStatussCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewApnsClientPushStatusCmd creates the apns-client-push-status command group
+func NewApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "apns-client-push-statuss",
-		Short: "Manage apns-client-push-statuss",
-		Long:  `Manage apns-client-push-statuss in Jamf Pro.`,
+		Use:   "apns-client-push-status",
+		Short: "Manage apns-client-push-status",
+		Long:  `Manage apns-client-push-status in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newApnsClientPushStatussApnsClientPushStatusCmd(ctx))
-	cmd.AddCommand(newApnsClientPushStatussEnableAllClientsCmd(ctx))
-	cmd.AddCommand(newApnsClientPushStatussStatusCmd(ctx))
-	cmd.AddCommand(newApnsClientPushStatussEnableClientCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatusApnsClientPushStatusCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatusEnableAllClientsCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatusStatusCmd(ctx))
+	cmd.AddCommand(newApnsClientPushStatusEnableClientCmd(ctx))
 
 	return cmd
 }
 
-func newApnsClientPushStatussApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -157,7 +157,7 @@ func newApnsClientPushStatussApnsClientPushStatusCmd(ctx *registry.CLIContext) *
 	return cmd
 }
 
-func newApnsClientPushStatussEnableAllClientsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatusEnableAllClientsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -196,7 +196,7 @@ func newApnsClientPushStatussEnableAllClientsCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newApnsClientPushStatussStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatusStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -229,7 +229,7 @@ func newApnsClientPushStatussStatusCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newApnsClientPushStatussEnableClientCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApnsClientPushStatusEnableClientCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)

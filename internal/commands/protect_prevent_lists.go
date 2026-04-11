@@ -90,11 +90,11 @@ func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			var input jamfprotect.CustomPreventListInput
 
 			if fromFile != "" || !hasInlineFlags(name, listType) {
-				data, err := readProtectInput(fromFile)
+				data, err := readInput(fromFile)
 				if err != nil {
 					return err
 				}
-				if err := unmarshalProtectInput(data, &input); err != nil {
+				if err := unmarshalInput(data, &input); err != nil {
 					return fmt.Errorf("parsing input JSON: %w", err)
 				}
 			} else {
@@ -136,7 +136,7 @@ func newProtectPreventListsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("custom prevent list", input.Name, yes)
+			proceed, err := confirmReplace("custom prevent list", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -183,7 +183,7 @@ func newProtectPreventListsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("custom prevent list", args[0], yes)
+			proceed, err := confirmDelete("custom prevent list", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -218,7 +218,7 @@ func newProtectPreventListsExportCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			return printProtectExport(preventListToInput(item))
+			return printExport(preventListToInput(item))
 		},
 	}
 }

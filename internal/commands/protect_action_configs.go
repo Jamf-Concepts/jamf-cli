@@ -83,12 +83,12 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Short: "Create or update an action configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.ActionConfigInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
@@ -110,7 +110,7 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("action config", input.Name, yes)
+			proceed, err := confirmReplace("action config", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ func newProtectActionConfigsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Comman
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("action configuration", args[0], yes)
+			proceed, err := confirmDelete("action configuration", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -179,7 +179,7 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printProtectExport(actionConfigToInput(item))
+			return printExport(actionConfigToInput(item))
 		},
 	}
 }

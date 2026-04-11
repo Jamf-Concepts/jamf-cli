@@ -437,7 +437,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err
@@ -534,7 +534,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 			defer resp.Body.Close()
 
 			err = ctx.Output.PrintResponse(resp)
-			if err == nil {
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				cooldown.Record(ctx.ProfileName)
 			}
 			return err

@@ -450,16 +450,19 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		}
 	})
 
-	// 1. Instance Info: health
+	// 1. Instance Info: actual Pro server URL (needed for health check + display)
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		h := checkHealth(serverURL)
-		send("health", h.Status, nil)
-		if h.Healthy {
-			send("health_ok", "true", nil)
+		data, err := fetchJSON(ctx, client, "/v1/jamf-pro-server-url")
+		if err != nil {
+			send("pro_url", "", err)
+			return
+		}
+		if u, ok := data["url"].(string); ok && u != "" {
+			send("pro_url", u, nil)
 		} else {
-			send("health_ok", "false", nil)
+			send("pro_url", "", nil)
 		}
 	})
 
@@ -1067,6 +1070,26 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 
 	wg.Wait()
 
+	// ── Health check (runs after wg.Wait so we can use the fetched pro URL) ──
+	// Use the actual Pro instance URL for the health check (not the gateway URL).
+	healthURL := serverURL
+	if u, ok := results["pro_url"]; ok && u != "" {
+		healthURL = u
+	}
+	h := checkHealth(healthURL)
+	results["health"] = h.Status
+	if h.Healthy {
+		results["health_ok"] = "true"
+	} else {
+		results["health_ok"] = "false"
+	}
+
+	// ── Platform API metrics (only when platform auth is active) ──────────
+	var platformSection *overviewSection
+	if cliCtx.PlatformClient != nil {
+		platformSection = fetchPlatformOverview(ctx, cliCtx)
+	}
+
 	// Get results (with "N/A" fallback)
 	get := func(key string) string {
 		if v, ok := results[key]; ok {
@@ -1155,11 +1178,8 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 			Items: healthItems,
 		},
 		{
-			Name: "Instance",
-			Items: []overviewItem{
-				item("Server URL", serverURL),
-				item("Jamf Pro Version", get("version")),
-			},
+			Name:  "Instance",
+			Items: buildInstanceItems(get, item),
 		},
 		{
 			Name: "Fleet",
@@ -1199,7 +1219,36 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		},
 	}
 
+	if platformSection != nil {
+		sections = append(sections, *platformSection)
+	}
+
 	return sections, nil
+}
+
+// buildInstanceItems assembles the Instance section.
+// When the Pro server URL was fetched from the API, it is shown as "Server URL".
+// When platform gateway auth is active, the gateway URL is also displayed.
+func buildInstanceItems(get func(string) string, item func(string, string) overviewItem) []overviewItem {
+	// Prefer the URL reported by the Jamf Pro API over the configured serverURL,
+	// which may be a gateway address that doesn't represent the instance itself.
+	displayURL := serverURL
+	if u := get("pro_url"); u != "N/A" && u != "" {
+		displayURL = u
+	}
+
+	items := []overviewItem{
+		item("Server URL", displayURL),
+		item("Jamf Pro Version", get("version")),
+	}
+
+	// When using platform gateway auth, also show the gateway URL.
+	// Normalize trailing slashes — the API may return a URL with one.
+	if strings.TrimRight(displayURL, "/") != strings.TrimRight(serverURL, "/") {
+		items = append(items, item("Gateway URL", serverURL))
+	}
+
+	return items
 }
 
 // buildEnrollmentItems assembles the Enrollment & Certificates section,
@@ -1385,5 +1434,127 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 			formatter := output.New(outputFmt, noColor, wide)
 			return formatter.Print(rows)
 		},
+	}
+}
+
+// fetchPlatformOverview fetches Platform API metrics in parallel and returns
+// a "Platform" overview section. Returns nil if all calls fail.
+func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *overviewSection {
+	pc := cliCtx.PlatformClient
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	results := make(map[string]string)
+	colorHints := make(map[string]string)
+
+	send := func(key, value string) {
+		mu.Lock()
+		results[key] = value
+		mu.Unlock()
+	}
+	sendColor := func(key, value, color string) {
+		mu.Lock()
+		results[key] = value
+		if color != "" {
+			colorHints[key] = color
+		}
+		mu.Unlock()
+	}
+
+	// Blueprints: list + count deployed
+	wg.Go(func() {
+		bps, err := pc.ListBlueprints(ctx, nil, "")
+		if err != nil {
+			send("bp_total", "N/A")
+			return
+		}
+		deployed := 0
+		for _, bp := range bps {
+			if bp.DeploymentState.State == "DEPLOYED" {
+				deployed++
+			}
+		}
+		send("bp_total", formatCount(float64(len(bps))))
+		send("bp_deployed", formatCount(float64(deployed)))
+	})
+
+	// Compliance Benchmarks: list + average compliance
+	wg.Go(func() {
+		resp, err := pc.ListBenchmarks(ctx)
+		if err != nil {
+			send("cb_total", "N/A")
+			return
+		}
+		benchmarks := resp.Benchmarks
+		total := len(benchmarks)
+		updatesAvailable := 0
+		for _, b := range benchmarks {
+			if b.UpdateAvailable {
+				updatesAvailable++
+			}
+		}
+		send("cb_total", formatCount(float64(total)))
+		if updatesAvailable > 0 {
+			sendColor("cb_updates", formatCount(float64(updatesAvailable)), "yellow")
+		} else {
+			send("cb_updates", "0")
+		}
+
+		// Fetch compliance percentage for each benchmark
+		var totalPct float32
+		var pctCount int
+		for _, b := range benchmarks {
+			pct, err := pc.GetBenchmarkCompliancePercentage(ctx, b.ID)
+			if err != nil {
+				continue
+			}
+			totalPct += pct.CompliancePercentage
+			pctCount++
+		}
+		if pctCount > 0 {
+			avgPct := totalPct / float32(pctCount)
+			color := ""
+			if avgPct < 80 {
+				color = "red"
+			} else if avgPct < 95 {
+				color = "yellow"
+			}
+			sendColor("cb_compliance", fmt.Sprintf("%.1f%%", avgPct), color)
+		} else {
+			send("cb_compliance", "N/A")
+		}
+	})
+
+	wg.Wait()
+
+	get := func(key string) string {
+		if v, ok := results[key]; ok {
+			return v
+		}
+		return "N/A"
+	}
+
+	// Skip the section entirely if we got nothing
+	if get("bp_total") == "N/A" && get("cb_total") == "N/A" {
+		return nil
+	}
+
+	var items []overviewItem
+	items = append(items, overviewItem{"Blueprints", get("bp_total"), ""})
+	if get("bp_deployed") != "N/A" {
+		items = append(items, overviewItem{"  Deployed", get("bp_deployed"), ""})
+	}
+
+	items = append(items, overviewItem{"Compliance Benchmarks", get("cb_total"), ""})
+	if v := get("cb_updates"); v != "0" && v != "N/A" {
+		items = append(items, overviewItem{"  Updates Available", v, colorHints["cb_updates"]})
+	}
+	if v := get("cb_compliance"); v != "N/A" {
+		items = append(items, overviewItem{"  Overall Compliance", v, colorHints["cb_compliance"]})
+	}
+
+	return &overviewSection{
+		Name:  "Platform",
+		Items: items,
 	}
 }
