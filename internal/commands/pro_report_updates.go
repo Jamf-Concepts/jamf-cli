@@ -305,12 +305,17 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 	}
 
 	// Enrich error devices with inventory data.
+	// Devices whose ID no longer exists in inventory (stale plan/status
+	// references) are silently dropped — they have no useful data to show.
 	var lookup map[string]updateDeviceMeta
 	var errorRows []map[string]any
 	if len(errors) > 0 {
 		lookup = fetchUpdateDeviceLookup(ctx, client)
 		for _, e := range errors {
-			meta := lookup[e.deviceID]
+			meta, found := lookup[e.deviceID]
+			if !found {
+				continue
+			}
 			dt := meta.deviceType
 			if dt == "" {
 				dt = normalizeDeviceType(e.deviceType)
@@ -325,6 +330,9 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 				"product_key": e.productKey,
 				"updated":     e.updated,
 			})
+		}
+		if stale := len(errors) - len(errorRows); stale > 0 {
+			fmt.Fprintf(os.Stderr, "Skipped %d error device(s) no longer in inventory.\n", stale)
 		}
 	}
 
@@ -362,7 +370,10 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 			lookup = fetchUpdateDeviceLookup(ctx, client)
 		}
 		for _, fp := range failedPlans {
-			meta := lookup[fp.deviceID]
+			meta, found := lookup[fp.deviceID]
+			if !found {
+				continue
+			}
 			dt := meta.deviceType
 			if dt == "" {
 				dt = normalizeDeviceType(fp.deviceType)
@@ -380,6 +391,9 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 				"error":       fp.errors,
 				"last_event":  lastEvt,
 			})
+		}
+		if stale := len(failedPlans) - len(failedPlanRows); stale > 0 {
+			fmt.Fprintf(os.Stderr, "Skipped %d failed plan(s) for devices no longer in inventory.\n", stale)
 		}
 	}
 
@@ -405,7 +419,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 
 	// Table: error devices
 	if len(errorRows) > 0 {
-		fmt.Printf("\n── Devices With Update Errors (%d) ──\n", errorSample)
+		fmt.Printf("\n── Devices With Update Errors (%d) ──\n", len(errorRows))
 		if err := formatter.Print(errorRows); err != nil {
 			return err
 		}
@@ -421,7 +435,7 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 
 	// Table: failed plans
 	if len(failedPlanRows) > 0 {
-		fmt.Printf("\n── Failed Update Plans (%d) ──\n", planSample)
+		fmt.Printf("\n── Failed Update Plans (%d) ──\n", len(failedPlanRows))
 		if err := formatter.Print(failedPlanRows); err != nil {
 			return err
 		}

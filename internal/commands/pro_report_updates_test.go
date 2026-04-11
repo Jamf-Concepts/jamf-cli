@@ -3,7 +3,11 @@
 package commands
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"os"
 	"testing"
 )
 
@@ -200,6 +204,71 @@ func TestRunReportUpdateStatus_WithErrors(t *testing.T) {
 	err := runReportUpdateStatus(context.Background(), client, true, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunReportUpdateStatus_StaleDevicesDropped(t *testing.T) {
+	// Device 999 does not exist in inventory — its error and plan rows
+	// should be silently dropped rather than showing blank fields.
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/managed-software-updates/update-statuses": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"status": "ERROR", "device": {"deviceId": "2", "objectType": "COMPUTER"}, "productKey": "macOS15", "updated": "2026-04-01"},
+					{"status": "INSTALL_FAILED", "device": {"deviceId": "999", "objectType": "APPLE_TV"}, "productKey": "tvOS18", "updated": "2026-04-02"}
+				]
+			}`},
+			"/v1/managed-software-updates/plans": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"planUuid": "aaa", "device": {"deviceId": "2", "objectType": "COMPUTER"}, "updateAction": "DOWNLOAD_INSTALL", "versionType": "LATEST_ANY", "status": {"state": "PlanFailed", "errorReasons": ["SOME_ERROR"]}},
+					{"planUuid": "bbb", "device": {"deviceId": "999", "objectType": "APPLE_TV"}, "updateAction": "DOWNLOAD_INSTALL", "versionType": "LATEST_ANY", "status": {"state": "PlanFailed", "errorReasons": ["EXISTING_PLAN_FOR_DEVICE_IN_PROGRESS"]}}
+				]
+			}`},
+			"/v3/computers-inventory": {200, `{
+				"totalCount": 1,
+				"results": [
+					{"id": "2", "general": {"name": "Mac-Bad"}, "hardware": {"serialNumber": "S2"}, "operatingSystem": {"version": "14.5"}, "userAndLocation": {"username": "bob"}}
+				]
+			}`},
+			"/v2/mobile-devices":        {200, `[]`},
+			"/v2/mobile-devices/detail": {200, `{"totalCount": 0, "results": []}`},
+		},
+	}
+
+	// Capture stdout to verify device 999 is absent from JSON output.
+	outputFmt = "json"
+	defer func() { outputFmt = "table" }()
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runReportUpdateStatus(context.Background(), client, true, 0)
+	w.Close()
+	os.Stdout = old
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	out := buf.String()
+
+	var result []map[string]any
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("bad JSON output: %v", err)
+	}
+	data := result[0]
+
+	errorDevices, _ := data["error_devices"].([]any)
+	if len(errorDevices) != 1 {
+		t.Errorf("error_devices: got %d entries, want 1 (stale device 999 should be dropped)", len(errorDevices))
+	}
+	failedPlans, _ := data["failed_plans"].([]any)
+	if len(failedPlans) != 1 {
+		t.Errorf("failed_plans: got %d entries, want 1 (stale device 999 should be dropped)", len(failedPlans))
 	}
 }
 
