@@ -399,3 +399,24 @@ func TestResolveComputerGroup(t *testing.T) {
 		t.Errorf("got %d results, want 2", len(results))
 	}
 }
+
+func TestParseMobileDevice_DetailEndpoint_GeneralSection(t *testing.T) {
+	obj := map[string]any{
+		"mobileDeviceId": "99",
+		"serialNumber":   "F4GH5678",
+		"general": map[string]any{
+			"managementId": "mgmt-uuid-from-general",
+			"displayName":  "Lab iPad",
+		},
+	}
+	d, err := parseMobileDevice(obj)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if d.ManagementID != "mgmt-uuid-from-general" {
+		t.Errorf("ManagementID = %q, want %q", d.ManagementID, "mgmt-uuid-from-general")
+	}
+	if d.Name != "Lab iPad" {
+		t.Errorf("Name = %q, want %q", d.Name, "Lab iPad")
+	}
+}
