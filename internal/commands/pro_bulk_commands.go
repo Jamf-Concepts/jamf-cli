@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -128,10 +129,18 @@ func runSendCommand(
 
 	var successCount, failCount int
 	for _, t := range targets {
+		if destructiveMDMCommands[command] {
+			if err := cooldown.Enforce(cliCtx.ProfileName, noInput, cliCtx.DestructiveCooldown); err != nil {
+				return err
+			}
+		}
 		if err := sendMDMCommand(ctx, client, t["id"], command); err != nil {
 			bulkLogW(stderr, "send-command", t["name"], "ERROR: "+err.Error())
 			failCount++
 		} else {
+			if destructiveMDMCommands[command] {
+				cooldown.Record(cliCtx.ProfileName)
+			}
 			bulkLogW(stderr, "send-command", t["name"], "ok")
 			successCount++
 		}

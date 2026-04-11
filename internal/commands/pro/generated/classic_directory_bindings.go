@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicDirectoryBindingsCmd creates the classic-directory-bindings command group
@@ -285,6 +285,9 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				}
 			}
 
+			if err := cooldown.Enforce(ctx.ProfileName, noInput, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/directorybindings/id/%s", url.PathEscape(resolvedID))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
@@ -294,6 +297,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}

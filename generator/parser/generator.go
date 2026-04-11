@@ -1082,6 +1082,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+{{- if hasDestructive .Operations }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+{{- end }}
 )
 
 // New{{ .GoName }}Cmd creates the {{ .Name }} command group
@@ -1310,6 +1313,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 			}
 {{- end }}
+{{- if .IsDestructive }}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+{{- end }}
 
 			// Build request path
 			path := "{{ .Path }}"
@@ -1506,6 +1517,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 {{ if eq .Method "DELETE" }}
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
@@ -1527,7 +1539,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			_, err = io.Copy(os.Stdout, resp.Body)
 			return err
 {{- else }}
+{{- if .IsDestructive }}
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+{{- else }}
 			return ctx.Output.PrintResponse(resp)
+{{- end }}
 {{- end }}
 		},
 	}

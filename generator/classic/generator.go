@@ -228,6 +228,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+{{- if hasOp .Operations "delete" }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+{{- end }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if needsXMLConv . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -510,6 +513,9 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			if err := cooldown.Enforce(ctx.ProfileName, noInput, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
 {{ else }}
 			if flagDryRun {
@@ -529,6 +535,10 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			noInputForCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputForCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 {{ end }}
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
@@ -538,6 +548,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}

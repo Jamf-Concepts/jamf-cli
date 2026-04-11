@@ -6,10 +6,9 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicMobileCommandsCmd creates the classic-mobile-commands command group

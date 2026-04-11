@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicAllowedFileExtensionsCmd creates the classic-allowed-file-extensions command group
@@ -211,6 +211,10 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				}
 			}
 
+			noInputForCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputForCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
@@ -220,6 +224,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}

@@ -496,6 +496,21 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			}
 			cliCtx.Client = httpClient
 
+			// Resolve effective profile name and per-profile cooldown setting.
+			resolvedProfile := profile
+			if resolvedProfile == "" {
+				resolvedProfile = os.Getenv("JAMF_PROFILE")
+			}
+			if resolvedProfile == "" {
+				resolvedProfile = cfg.DefaultProfile
+			}
+			cliCtx.ProfileName = resolvedProfile
+			if resolvedProfile != "" {
+				if p, ok := cfg.Profiles[resolvedProfile]; ok {
+					cliCtx.DestructiveCooldown = p.DestructiveCooldown
+				}
+			}
+
 			// When platform gateway auth is active, also construct the
 			// Platform SDK client for platform-native commands (blueprints,
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2

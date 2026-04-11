@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -500,6 +501,12 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/packages/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
@@ -518,11 +525,16 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 
@@ -575,6 +587,12 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/packages/delete-multiple"
 
@@ -609,7 +627,11 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 
