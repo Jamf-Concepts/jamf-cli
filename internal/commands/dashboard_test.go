@@ -47,7 +47,7 @@ func TestRenderDashboard_ProOnly(t *testing.T) {
 		Devices: &deviceCompliance{
 			StaleDevices:       15,
 			FailedMDMCommands:  3,
-			StaleThresholdDays: 90,
+			StaleThresholdDays: 14,
 		},
 		OSDist: &osDistribution{
 			Versions: []osVersionCount{

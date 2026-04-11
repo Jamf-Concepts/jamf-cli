@@ -85,5 +85,10 @@ func collectProtectData(ctx context.Context, client registry.ProtectClient, data
 	}()
 
 	wg.Wait()
-	data.Protect = &protect
+
+	// Only set the section if at least one API call succeeded (non-zero data).
+	if protect.Plans > 0 || protect.AnalyticsTotal > 0 || protect.Endpoints > 0 ||
+		protect.AnalyticSets > 0 || protect.ExceptionSets > 0 {
+		data.Protect = &protect
+	}
 }

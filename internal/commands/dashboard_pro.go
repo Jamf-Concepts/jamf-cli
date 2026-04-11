@@ -284,11 +284,11 @@ func collectOSDistribution(ctx context.Context, client registry.HTTPClient) (*os
 
 	counts := make(map[string]int)
 	for _, comp := range all {
-		os, _ := comp["operatingSystem"].(map[string]any)
-		if os == nil {
+		osInfo, _ := comp["operatingSystem"].(map[string]any)
+		if osInfo == nil {
 			continue
 		}
-		version, _ := os["version"].(string)
+		version, _ := osInfo["version"].(string)
 		if version != "" {
 			counts[version]++
 		}

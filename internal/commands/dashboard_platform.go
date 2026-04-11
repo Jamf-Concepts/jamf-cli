@@ -76,5 +76,9 @@ func collectPlatformData(ctx context.Context, client registry.PlatformClient, da
 	}()
 
 	wg.Wait()
-	data.Platform = &platform
+
+	// Only set the section if at least one API call returned data.
+	if len(platform.Blueprints) > 0 || len(platform.Benchmarks) > 0 {
+		data.Platform = &platform
+	}
 }
