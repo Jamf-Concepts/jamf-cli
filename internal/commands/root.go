@@ -418,6 +418,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"setup":      true,
 				"platform":   true,
 				"multi":      true,
+				"dashboard":  true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
@@ -568,6 +569,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Jamf Platform namespace
 	cmd.AddCommand(newPlatformCmd())
+
+	// Cross-product dashboard
+	cmd.AddCommand(newDashboardCmd())
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)

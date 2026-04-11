@@ -31,7 +31,8 @@ var commandAliases = map[string][]string{
 
 // rootAliases maps root-level command names to short aliases.
 var rootAliases = map[string][]string{
-	"config": {"cfg"},
+	"config":    {"cfg"},
+	"dashboard": {"db"},
 }
 
 // applyAliases appends Aliases to any subcommand that has a mapping.
