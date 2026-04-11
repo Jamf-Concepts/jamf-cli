@@ -3,202 +3,362 @@
 package commands
 
 import (
-	_ "embed"
 	"html/template"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-//go:embed chartjs.min.js
-var chartJSMinified string
-
 const dashboardTemplate = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.Title}}</title>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.5}
-a{color:#0073EC;text-decoration:none}
-a:hover{text-decoration:underline}
-
-.header{background:#0c101a;color:#e2e8f0;padding:2rem 2rem 1.5rem}
-.header h1{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
-.header .meta{font-size:.85rem;color:#94a3b8;margin-bottom:1rem}
-.header .profiles{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
-.badge{display:inline-block;padding:.2rem .6rem;border-radius:9999px;font-size:.75rem;font-weight:600;color:#fff}
-.badge-pro{background:#0073EC}
-.badge-protect{background:#0E9F6E}
-.badge-platform{background:#8B5CF6}
-.toggle-bar{display:flex;gap:.5rem}
-.toggle-btn{background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:.375rem;padding:.35rem .75rem;cursor:pointer;font-size:.8rem;font-weight:500;transition:all .15s}
-.toggle-btn:hover{color:#e2e8f0;border-color:#475569}
-.toggle-btn.active{background:#0073EC;color:#fff;border-color:#0073EC}
-
-.container{max-width:1200px;margin:0 auto;padding:1.5rem}
-.section{background:#fff;border-radius:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:1.5rem;overflow:hidden}
-.section-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;cursor:pointer;user-select:none;border-bottom:1px solid #e2e8f0}
-.section-header:hover{background:#f8fafc}
-.section-header h2{font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:.5rem}
-.section-header .chevron{transition:transform .2s;font-size:.8rem;color:#94a3b8}
-.section.collapsed .section-body{display:none}
-.section.collapsed .chevron{transform:rotate(-90deg)}
-.section-body{padding:1.5rem}
-.section-badges{display:flex;gap:.5rem}
-
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
-.stat-card{background:#f3f7ff;border-radius:.5rem;padding:1.25rem;text-align:center}
-.stat-card.muted{background:#f1f5f9}
-.stat-card.alert{background:#fef2f2;border:1px solid #fecaca}
-.stat-card .stat-value{font-size:2rem;font-weight:700;color:#0c101a}
-.stat-card.alert .stat-value{color:#dc2626}
-.stat-card .stat-label{font-size:.8rem;color:#64748b;font-weight:500;margin-top:.25rem}
-
-.chart-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
-.chart-item{text-align:center}
-.chart-item canvas{max-width:160px;margin:0 auto}
-.chart-item .chart-label{font-size:.85rem;font-weight:600;margin-top:.5rem;color:#334155}
-.chart-item .chart-pct{font-size:.8rem;color:#64748b}
-.bar-chart-wrap{max-width:700px}
-.bar-chart-wrap canvas{width:100%;max-height:300px}
-
-table{width:100%;border-collapse:collapse;font-size:.85rem}
-th{text-align:left;padding:.6rem .75rem;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-weight:600;color:#475569;font-size:.75rem;text-transform:uppercase;letter-spacing:.03em}
-td{padding:.6rem .75rem;border-bottom:1px solid #f1f5f9}
-tr:hover td{background:#f8fafc}
-
-.sev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.35rem;vertical-align:middle}
-.sev-dot.critical{background:#dc2626}
-.sev-dot.warning{background:#d97706}
-.sev-dot.info{background:#2563eb}
-.sev-badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.7rem;font-weight:600}
-.sev-badge.critical{background:#fef2f2;color:#dc2626}
-.sev-badge.warning{background:#fffbeb;color:#d97706}
-.sev-badge.info{background:#eff6ff;color:#2563eb}
-
-.compliance-bar{display:inline-flex;align-items:center;gap:.5rem;width:100%}
-.compliance-bar .bar-track{flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
-.compliance-bar .bar-fill{height:100%;border-radius:4px;transition:width .3s}
-.compliance-bar .bar-text{font-size:.8rem;font-weight:600;min-width:3rem;text-align:right}
-
-.deploy-badge{display:inline-block;padding:.15rem .5rem;border-radius:.25rem;font-size:.7rem;font-weight:600;text-transform:capitalize}
-.deploy-badge.active{background:#dcfce7;color:#166534}
-.deploy-badge.inactive{background:#f1f5f9;color:#475569}
-.deploy-badge.draft{background:#fef9c3;color:#854d0e}
-
-.filter-bar{display:flex;gap:.5rem;margin-bottom:1rem}
-.filter-btn{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:.375rem;padding:.3rem .65rem;cursor:pointer;font-size:.75rem;font-weight:500;transition:all .15s}
-.filter-btn:hover{border-color:#94a3b8}
-.filter-btn.active{background:#0073EC;color:#fff;border-color:#0073EC}
-
-.detail-only{display:none}
-
-.footer{text-align:center;padding:2rem;color:#94a3b8;font-size:.8rem}
-
-@media(max-width:768px){
-  .stat-grid,.chart-grid{grid-template-columns:repeat(2,1fr)}
-  .header{padding:1.5rem 1rem}
-  .container{padding:1rem}
-  .section-body{padding:1rem}
-  table{font-size:.78rem}
-  th,td{padding:.5rem}
+/* ── Theme ────────────────────────────────── */
+:root,[data-theme="dark"]{
+  --bg:#0b0f19;--bg2:#111827;--card:rgba(255,255,255,0.035);--card-hover:rgba(255,255,255,0.06);
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--teal:#14b8a6;
+  --ring-track:rgba(255,255,255,0.06);--bar-track:rgba(255,255,255,0.06);
+  --stripe:rgba(255,255,255,0.02);--header-bg:#060910;
+  --glow1:rgba(59,130,246,0.07);--glow2:rgba(139,92,246,0.05);
+  --alert-bg:rgba(239,68,68,0.08);--alert-border:rgba(239,68,68,0.2);
+}
+[data-theme="light"]{
+  --bg:#f0f2f5;--bg2:#ffffff;--card:#ffffff;--card-hover:#f8fafc;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --green:#059669;--amber:#d97706;--red:#dc2626;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --ring-track:#e5e7eb;--bar-track:#e5e7eb;
+  --stripe:#f8fafc;--header-bg:#0c101a;
+  --glow1:rgba(59,130,246,0.04);--glow2:rgba(139,92,246,0.03);
+  --alert-bg:rgba(239,68,68,0.06);--alert-border:rgba(239,68,68,0.15);
 }
 
+/* ── Reset & Base ─────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+
+/* ── Header ───────────────────────────────── */
+.header{background:var(--header-bg);color:#e2e8f0;padding:1.25rem 2rem 0;
+  background-image:radial-gradient(ellipse at 15% 50%,var(--glow1),transparent 50%),
+  radial-gradient(ellipse at 85% 80%,var(--glow2),transparent 50%)}
+.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.header h1{font-size:1.25rem;font-weight:700;letter-spacing:-0.01em}
+.header .meta{font-size:.75rem;color:#64748b;margin-top:.15rem}
+.header-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.profiles{display:flex;gap:.35rem;flex-wrap:wrap}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.65rem;font-weight:600;color:#fff;letter-spacing:.02em}
+.badge-pro{background:var(--blue)}.badge-protect{background:var(--green)}.badge-platform{background:var(--purple)}
+.theme-toggle{background:none;border:1px solid rgba(255,255,255,0.15);border-radius:.375rem;
+  color:#94a3b8;cursor:pointer;padding:.25rem .5rem;font-size:.75rem;transition:all .15s}
+.theme-toggle:hover{color:#e2e8f0;border-color:rgba(255,255,255,0.3)}
+.view-bar{display:flex;gap:.35rem;padding:.75rem 2rem .75rem;background:var(--header-bg);
+  border-top:1px solid rgba(255,255,255,0.04)}
+.view-btn{background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);
+  border-radius:.3rem;padding:.2rem .6rem;cursor:pointer;font-size:.7rem;font-weight:500;transition:all .15s}
+.view-btn:hover{color:#94a3b8;border-color:rgba(255,255,255,0.15)}
+.view-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* ── Hero Metrics ─────────────────────────── */
+.hero{display:flex;gap:0;padding:1rem 2rem;background:var(--header-bg);
+  border-top:1px solid rgba(255,255,255,0.04)}
+.hero-stat{display:flex;flex-direction:column;padding:0 1.5rem}
+.hero-stat:first-child{padding-left:0}
+.hero-stat+.hero-stat{border-left:1px solid rgba(255,255,255,0.08)}
+.hero-val{font-family:'SF Mono','Cascadia Code',Consolas,'Liberation Mono',monospace;
+  font-size:1.35rem;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hero-lbl{font-size:.65rem;color:#64748b;font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-top:.1rem}
+.hero-stat.hero-alert .hero-val{color:var(--red)}
+
+/* ── Layout ───────────────────────────────── */
+.container{max-width:1280px;margin:0 auto;padding:1rem 1.5rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.grid-2>:only-child{grid-column:1/-1}
+
+/* ── Section Cards ────────────────────────── */
+.section{background:var(--card);border:1px solid var(--border);border-radius:.5rem;overflow:hidden;
+  opacity:0;animation:fadeUp .4s ease forwards}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.section-head{display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem .85rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);transition:background .15s}
+.section-head:hover{background:var(--card-hover)}
+.section-head h2{font-size:.7rem;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
+  display:flex;align-items:center;gap:.4rem}
+.chevron{font-size:.55rem;color:var(--text3);transition:transform .2s;display:inline-block}
+.section.collapsed .section-body{display:none}
+.section.collapsed .chevron{transform:rotate(-90deg)}
+.section-body{padding:.85rem}
+.section-badges{display:flex;gap:.35rem}
+.section+.section{margin-top:.75rem}
+
+/* ── Product Accent Borders ───────────────── */
+.accent-pro{border-left:2px solid var(--blue)}
+.accent-protect{border-left:2px solid var(--green)}
+.accent-platform{border-left:2px solid var(--purple)}
+
+/* ── Stat Row ─────────────────────────────── */
+.stat-row{display:flex;gap:1.25rem;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column}
+.stat-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;
+  font-size:1.5rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat-lbl{font-size:.65rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── CSS Doughnut Rings ───────────────────── */
+.ring-row{display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start}
+.ring-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:.75rem}
+.ring-item{display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.ring-wrap{position:relative;display:inline-grid;place-items:center}
+.ring-wrap.ring-md{width:72px;height:72px}
+.ring-wrap.ring-sm{width:60px;height:60px}
+.ring{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--v) * 3.6deg),var(--ring-track) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px - .5px),#000 calc(100% - 6px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 6px - .5px),#000 calc(100% - 6px))}
+.ring-wrap.ring-sm .ring{
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px - .5px),#000 calc(100% - 5px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 5px - .5px),#000 calc(100% - 5px))}
+.ring-val{position:relative;font-family:'SF Mono','Cascadia Code',Consolas,monospace;
+  font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.ring-wrap.ring-md .ring-val{font-size:.72rem}
+.ring-wrap.ring-sm .ring-val{font-size:.6rem}
+.ring-label{font-size:.62rem;font-weight:600;color:var(--text2);text-align:center;max-width:80px;line-height:1.2}
+.ring-sub{font-size:.55rem;color:var(--text3);font-variant-numeric:tabular-nums}
+
+/* ── Color Classes (avoid inline var() which html/template sanitizes) */
+.c-good{--c:var(--green)}.c-warn{--c:var(--amber)}.c-bad{--c:var(--red)}
+.bar-good{background:var(--green)}.bar-warn{background:var(--amber)}.bar-bad{background:var(--red)}
+
+/* ── Tables ───────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--border2);
+  font-weight:600;color:var(--text3);font-size:.62rem;text-transform:uppercase;letter-spacing:.04em}
+td{padding:.45rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+tr:nth-child(even) td{background:var(--stripe)}
+tr:hover td{background:var(--card-hover)}
+
+/* ── Severity ─────────────────────────────── */
+.sev-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.3rem;vertical-align:middle}
+.sev-dot.critical{background:var(--red)}.sev-dot.warning{background:var(--amber)}.sev-dot.info{background:var(--blue)}
+.sev-badge{display:inline-block;padding:.1rem .4rem;border-radius:9999px;font-size:.6rem;font-weight:600}
+.sev-badge.critical{background:var(--alert-bg);color:var(--red)}
+.sev-badge.warning{background:rgba(245,158,11,0.1);color:var(--amber)}
+.sev-badge.info{background:rgba(59,130,246,0.1);color:var(--blue)}
+
+/* ── Compliance Bars ──────────────────────── */
+.cbar{display:inline-flex;align-items:center;gap:.4rem;width:100%}
+.cbar-track{flex:1;height:6px;background:var(--bar-track);border-radius:3px;overflow:hidden}
+.cbar-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.cbar-text{font-size:.72rem;font-weight:600;min-width:2.5rem;text-align:right;
+  font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* ── OS Distribution Bars ─────────────────── */
+.os-row{display:flex;align-items:center;gap:.5rem;padding:.25rem 0}
+.os-row+.os-row{border-top:1px solid var(--border)}
+.os-label{font-size:.72rem;color:var(--text2);min-width:6.5rem;font-weight:500}
+.os-bar-track{flex:1;height:6px;background:var(--bar-track);border-radius:3px;overflow:hidden}
+.os-bar-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .5s ease}
+.os-count{font-size:.68rem;color:var(--text3);min-width:2.5rem;text-align:right;
+  font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* ── Deploy Badges ────────────────────────── */
+.deploy-badge{display:inline-block;padding:.1rem .4rem;border-radius:.2rem;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.deploy-badge.active{background:rgba(16,185,129,0.12);color:var(--green)}
+.deploy-badge.inactive{background:rgba(255,255,255,0.06);color:var(--text3)}
+.deploy-badge.draft{background:rgba(245,158,11,0.12);color:var(--amber)}
+
+/* ── Alert Cards ──────────────────────────── */
+.alert-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.alert-card{background:var(--alert-bg);border:1px solid var(--alert-border);border-radius:.35rem;
+  padding:.4rem .65rem;display:flex;align-items:center;gap:.4rem}
+.alert-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:.85rem;font-weight:700;color:var(--red)}
+.alert-lbl{font-size:.68rem;color:var(--text2)}
+
+/* ── Filter Bar ───────────────────────────── */
+.filter-bar{display:flex;gap:.3rem;margin-bottom:.6rem}
+.filter-btn{background:var(--card);border:1px solid var(--border);border-radius:.25rem;
+  padding:.2rem .5rem;cursor:pointer;font-size:.65rem;font-weight:500;color:var(--text2);transition:all .15s}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* ── Detail Toggle ────────────────────────── */
+.detail-only{display:none}
+
+/* ── Protect Stat Grid ────────────────────── */
+.prot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.6rem}
+.prot-stat{text-align:center;padding:.5rem;background:rgba(255,255,255,0.02);border-radius:.35rem;border:1px solid var(--border)}
+.prot-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:1.1rem;font-weight:700;color:var(--text)}
+.prot-lbl{font-size:.6rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.03em;margin-top:.1rem}
+
+/* ── Subsection ───────────────────────────── */
+.subsection-title{font-size:.68rem;font-weight:650;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text3);margin-bottom:.5rem;margin-top:.75rem}
+.subsection-title:first-child{margin-top:0}
+
+/* ── Footer ───────────────────────────────── */
+.footer{text-align:center;padding:1.25rem;color:var(--text3);font-size:.7rem}
+
+/* ── Responsive ───────────────────────────── */
+@media(max-width:900px){
+  .grid-2{grid-template-columns:1fr}
+  .hero{flex-wrap:wrap;gap:.5rem}
+  .hero-stat{padding:0 1rem}
+  .header,.view-bar,.hero{padding-left:1rem;padding-right:1rem}
+  .container{padding:.75rem}
+}
+@media(max-width:600px){
+  .stat-row{gap:.75rem}
+  .ring-row{gap:.75rem}
+  .ring-grid{grid-template-columns:repeat(auto-fill,minmax(60px,1fr))}
+  .os-label{min-width:5rem;font-size:.65rem}
+  table{font-size:.72rem}
+  th,td{padding:.35rem .4rem}
+}
+
+/* ── Print ────────────────────────────────── */
 @media print{
-  .toggle-bar,.filter-bar{display:none!important}
-  .section{break-inside:avoid;box-shadow:none;border:1px solid #e2e8f0}
-  .header{background:#0c101a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{animation:none!important}
+  .theme-toggle,.view-bar,.filter-bar{display:none!important}
   .detail-only{display:revert!important}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .section{break-inside:avoid;border:1px solid #ccc}
+  .header,.hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>{{.Title}}</h1>
-  <div class="meta">Generated {{.GeneratedAt.Format "Jan 02, 2006 at 3:04 PM"}} &middot; jamf-cli {{.CLIVersion}}</div>
-  <div class="profiles">
-    {{range .Profiles}}<span class="badge badge-{{.Product}}">{{.Product}} &mdash; {{.Name}}</span>{{end}}
+  <div class="header-top">
+    <div>
+      <h1>{{.Title}}</h1>
+      <div class="meta">Generated {{.GeneratedAt.Format "Jan 02, 2006 at 3:04 PM"}} · jamf-cli {{.CLIVersion}}</div>
+    </div>
+    <div class="header-actions">
+      <div class="profiles">
+        {{range .Profiles}}<span class="badge badge-{{.Product}}">{{.Product}} · {{.Name}}</span>{{end}}
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span class="theme-icon-dark">☀︎ Light</span>
+        <span class="theme-icon-light" style="display:none">☾ Dark</span>
+      </button>
+    </div>
   </div>
-  <div class="toggle-bar">
-    <button class="toggle-btn active" onclick="toggleView('summary')">Summary</button>
-    <button class="toggle-btn" onclick="toggleView('detail')">Detail</button>
-  </div>
+</div>
+
+{{if or .Fleet .Protect .Audit}}
+<div class="hero">
+  {{if .Fleet}}
+  <div class="hero-stat"><span class="hero-val">{{comma .Fleet.ManagedComputers}}</span><span class="hero-lbl">Computers</span></div>
+  <div class="hero-stat"><span class="hero-val">{{comma .Fleet.ManagedMobile}}</span><span class="hero-lbl">Mobile</span></div>
+  <div class="hero-stat"><span class="hero-val">{{comma .Fleet.Users}}</span><span class="hero-lbl">Users</span></div>
+  {{end}}
+  {{if .Protect}}
+  <div class="hero-stat"><span class="hero-val">{{comma .Protect.Endpoints}}</span><span class="hero-lbl">Protected</span></div>
+  {{end}}
+  {{if .Audit}}{{if .Audit.CriticalCount}}
+  <div class="hero-stat hero-alert"><span class="hero-val">{{.Audit.CriticalCount}}</span><span class="hero-lbl">Critical</span></div>
+  {{end}}{{end}}
+</div>
+{{end}}
+
+<div class="view-bar">
+  <button class="view-btn active" onclick="toggleView('summary')">Summary</button>
+  <button class="view-btn" onclick="toggleView('detail')">Detail</button>
 </div>
 
 <div class="container">
 
-{{if .Fleet}}
-<div class="section" id="fleet">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Fleet Summary</h2>
+{{if or .Security .Fleet .Devices}}
+<div class="grid-2">
+{{if .Security}}
+<div class="section accent-pro" id="security">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Security Posture</h2>
   </div>
   <div class="section-body">
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-value">{{.Fleet.ManagedComputers}}</div>
-        <div class="stat-label">Managed Computers</div>
+    <div class="ring-row">
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Security.Pct .Security.FileVaultEnabled)}}" style="--v:{{printf "%.0f" (.Security.Pct .Security.FileVaultEnabled)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Security.Pct .Security.FileVaultEnabled)}}%</span>
+        </div>
+        <span class="ring-label">FileVault</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Fleet.ManagedMobile}}</div>
-        <div class="stat-label">Managed Mobile</div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Security.Pct .Security.FirewallEnabled)}}" style="--v:{{printf "%.0f" (.Security.Pct .Security.FirewallEnabled)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Security.Pct .Security.FirewallEnabled)}}%</span>
+        </div>
+        <span class="ring-label">Firewall</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Fleet.Users}}</div>
-        <div class="stat-label">Users</div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Security.Pct .Security.GatekeeperEnabled)}}" style="--v:{{printf "%.0f" (.Security.Pct .Security.GatekeeperEnabled)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Security.Pct .Security.GatekeeperEnabled)}}%</span>
+        </div>
+        <span class="ring-label">Gatekeeper</span>
       </div>
-      <div class="stat-card muted">
-        <div class="stat-value">{{.Fleet.UnmanagedComputers}}</div>
-        <div class="stat-label">Unmanaged Computers</div>
-      </div>
-      <div class="stat-card muted">
-        <div class="stat-value">{{.Fleet.UnmanagedMobile}}</div>
-        <div class="stat-label">Unmanaged Mobile</div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Security.Pct .Security.SIPEnabled)}}" style="--v:{{printf "%.0f" (.Security.Pct .Security.SIPEnabled)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Security.Pct .Security.SIPEnabled)}}%</span>
+        </div>
+        <span class="ring-label">SIP</span>
       </div>
     </div>
   </div>
 </div>
 {{end}}
 
-{{if .Security}}
-<div class="section" id="security">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Security Posture</h2>
+{{if or .Fleet .Devices}}
+<div class="section accent-pro" id="fleet">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Fleet & Devices</h2>
   </div>
   <div class="section-body">
-    <div class="chart-grid">
-      <div class="chart-item">
-        <canvas id="chart-filevault" width="160" height="160"></canvas>
-        <div class="chart-label">FileVault</div>
-        <div class="chart-pct">{{printf "%.0f" (.Security.Pct .Security.FileVaultEnabled)}}%</div>
+    {{if .Fleet}}
+    <div class="ring-row">
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass .Fleet.ComputerManagedPct}}" style="--v:{{printf "%.0f" .Fleet.ComputerManagedPct}}"></div>
+          <span class="ring-val">{{printf "%.0f" .Fleet.ComputerManagedPct}}%</span>
+        </div>
+        <span class="ring-label">Computers</span>
+        <span class="ring-sub">{{comma .Fleet.ManagedComputers}} / {{comma .Fleet.TotalComputers}}</span>
       </div>
-      <div class="chart-item">
-        <canvas id="chart-firewall" width="160" height="160"></canvas>
-        <div class="chart-label">Firewall</div>
-        <div class="chart-pct">{{printf "%.0f" (.Security.Pct .Security.FirewallEnabled)}}%</div>
-      </div>
-      <div class="chart-item">
-        <canvas id="chart-gatekeeper" width="160" height="160"></canvas>
-        <div class="chart-label">Gatekeeper</div>
-        <div class="chart-pct">{{printf "%.0f" (.Security.Pct .Security.GatekeeperEnabled)}}%</div>
-      </div>
-      <div class="chart-item">
-        <canvas id="chart-sip" width="160" height="160"></canvas>
-        <div class="chart-label">SIP</div>
-        <div class="chart-pct">{{printf "%.0f" (.Security.Pct .Security.SIPEnabled)}}%</div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass .Fleet.MobileManagedPct}}" style="--v:{{printf "%.0f" .Fleet.MobileManagedPct}}"></div>
+          <span class="ring-val">{{printf "%.0f" .Fleet.MobileManagedPct}}%</span>
+        </div>
+        <span class="ring-label">Mobile</span>
+        <span class="ring-sub">{{comma .Fleet.ManagedMobile}} / {{comma .Fleet.TotalMobile}}</span>
       </div>
     </div>
+    {{end}}
+    {{if .Devices}}
+    <div class="alert-row">
+      {{if gt .Devices.StaleDevices 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.StaleDevices}}</span><span class="alert-lbl">Stale devices (&gt;{{.Devices.StaleThresholdDays}}d)</span></div>{{end}}
+      {{if gt .Devices.FailedMDMCommands 0}}<div class="alert-card"><span class="alert-val">{{comma .Devices.FailedMDMCommands}}</span><span class="alert-lbl">Failed MDM commands</span></div>{{end}}
+    </div>
+    {{end}}
   </div>
+</div>
+{{end}}
 </div>
 {{end}}
 
 {{if .Audit}}
-<div class="section" id="audit">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Audit Findings</h2>
+<div class="section accent-pro" id="audit" style="margin-top:.75rem">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Audit Findings</h2>
     <div class="section-badges">
       {{if .Audit.CriticalCount}}<span class="sev-badge critical">{{.Audit.CriticalCount}} Critical</span>{{end}}
       {{if .Audit.WarningCount}}<span class="sev-badge warning">{{.Audit.WarningCount}} Warning</span>{{end}}
@@ -230,137 +390,118 @@ tr:hover td{background:#f8fafc}
 </div>
 {{end}}
 
+{{if or .Patch .OSDist}}
+<div class="grid-2" style="margin-top:.75rem">
 {{if .Patch}}
-<div class="section" id="patch">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Patch Compliance</h2>
+<div class="section accent-pro" id="patch">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Patch Compliance</h2>
   </div>
   <div class="section-body">
-    <div class="bar-chart-wrap detail-only" style="margin-bottom:1.5rem">
-      <canvas id="chart-patch" height="200"></canvas>
+    <div class="ring-grid">
+      {{range .Patch.Titles}}
+      <div class="ring-item">
+        <div class="ring-wrap ring-sm">
+          <div class="ring {{pctClass .CompliancePct}}" style="--v:{{printf "%.0f" .CompliancePct}}"></div>
+          <span class="ring-val">{{printf "%.0f" .CompliancePct}}%</span>
+        </div>
+        <span class="ring-label">{{.Name}}</span>
+      </div>
+      {{end}}
     </div>
-    <table>
-      <thead><tr><th>Title</th><th>Latest Version</th><th>Up to Date</th><th>Out of Date</th><th>Compliance</th></tr></thead>
-      <tbody>
-        {{range .Patch.Titles}}
-        <tr>
-          <td>{{.Name}}</td>
-          <td>{{.LatestVersion}}</td>
-          <td>{{.UpToDate}}</td>
-          <td>{{.OutOfDate}}</td>
-          <td>
-            <div class="compliance-bar">
-              <div class="bar-track"><div class="bar-fill" style="width:{{printf "%.0f" .CompliancePct}}%;background:{{if ge .CompliancePct 90.0}}#16a34a{{else if ge .CompliancePct 70.0}}#d97706{{else}}#dc2626{{end}}"></div></div>
-              <span class="bar-text">{{printf "%.0f" .CompliancePct}}%</span>
-            </div>
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-</div>
-{{end}}
-
-{{if .Devices}}
-<div class="section" id="devices">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Device Compliance</h2>
-  </div>
-  <div class="section-body">
-    <div class="stat-grid">
-      <div class="stat-card{{if gt .Devices.StaleDevices 0}} alert{{end}}">
-        <div class="stat-value">{{.Devices.StaleDevices}}</div>
-        <div class="stat-label">Stale Devices (&gt;{{.Devices.StaleThresholdDays}}d)</div>
-      </div>
-      <div class="stat-card{{if gt .Devices.FailedMDMCommands 0}} alert{{end}}">
-        <div class="stat-value">{{.Devices.FailedMDMCommands}}</div>
-        <div class="stat-label">Failed MDM Commands</div>
-      </div>
+    <div class="detail-only" style="margin-top:.75rem">
+      <table>
+        <thead><tr><th>Title</th><th>Version</th><th>Up to Date</th><th>Out of Date</th><th>Compliance</th></tr></thead>
+        <tbody>
+          {{range .Patch.Titles}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>{{.LatestVersion}}</td>
+            <td>{{comma .UpToDate}}</td>
+            <td>{{comma .OutOfDate}}</td>
+            <td><div class="cbar"><div class="cbar-track"><div class="cbar-fill {{barClass .CompliancePct}}" style="width:{{printf "%.0f" .CompliancePct}}%"></div></div><span class="cbar-text">{{printf "%.0f" .CompliancePct}}%</span></div></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
 {{end}}
 
 {{if .OSDist}}
-<div class="section" id="osdist">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> OS Distribution</h2>
+<div class="section accent-pro" id="osdist">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> OS Distribution</h2>
   </div>
   <div class="section-body">
-    <div class="bar-chart-wrap">
-      <canvas id="chart-os" height="250"></canvas>
+    {{range .OSDist.Versions}}
+    <div class="os-row">
+      <span class="os-label">{{.Version}}</span>
+      <div class="os-bar-track"><div class="os-bar-fill" style="width:{{printf "%.1f" (barPct .Count $.MaxOSCount)}}%"></div></div>
+      <span class="os-count">{{comma .Count}}</span>
     </div>
+    {{end}}
   </div>
 </div>
 {{end}}
+</div>
+{{end}}
 
+{{if or .Protect .Platform}}
+<div class="grid-2" style="margin-top:.75rem">
 {{if .Protect}}
-<div class="section" id="protect">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Jamf Protect</h2>
+<div class="section accent-protect" id="protect">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Jamf Protect</h2>
   </div>
   <div class="section-body">
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-value">{{.Protect.Plans}}</div>
-        <div class="stat-label">Plans</div>
+    <div class="ring-row" style="margin-bottom:.6rem">
+      <div class="ring-item">
+        <div class="ring-wrap ring-sm">
+          <div class="ring {{pctClass .Protect.ActiveAnalyticsPct}}" style="--v:{{printf "%.0f" .Protect.ActiveAnalyticsPct}}"></div>
+          <span class="ring-val">{{printf "%.0f" .Protect.ActiveAnalyticsPct}}%</span>
+        </div>
+        <span class="ring-label">Analytics Active</span>
+        <span class="ring-sub">{{comma .Protect.AnalyticsActive}} / {{comma .Protect.AnalyticsTotal}}</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Protect.Endpoints}}</div>
-        <div class="stat-label">Endpoints</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Protect.AnalyticsActive}} / {{.Protect.AnalyticsTotal}}</div>
-        <div class="stat-label">Analytics Active</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Protect.AnalyticSets}}</div>
-        <div class="stat-label">Analytic Sets</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{.Protect.ExceptionSets}}</div>
-        <div class="stat-label">Exception Sets</div>
-      </div>
+    </div>
+    <div class="prot-grid">
+      <div class="prot-stat"><div class="prot-val">{{comma .Protect.Plans}}</div><div class="prot-lbl">Plans</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .Protect.Endpoints}}</div><div class="prot-lbl">Endpoints</div></div>
+      <div class="prot-stat"><div class="prot-val">{{.Protect.AnalyticSets}}</div><div class="prot-lbl">Analytic Sets</div></div>
+      <div class="prot-stat"><div class="prot-val">{{.Protect.ExceptionSets}}</div><div class="prot-lbl">Exception Sets</div></div>
     </div>
   </div>
 </div>
 {{end}}
 
 {{if .Platform}}
-<div class="section" id="platform">
-  <div class="section-header" onclick="toggleSection(this)">
-    <h2><span class="chevron">&#9660;</span> Jamf Platform</h2>
+<div class="section accent-platform" id="platform">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Jamf Platform</h2>
   </div>
   <div class="section-body">
     {{if .Platform.Blueprints}}
-    <h3 style="font-size:.95rem;font-weight:600;margin-bottom:.75rem">Blueprints</h3>
-    <table style="margin-bottom:1.5rem">
-      <thead><tr><th>Name</th><th>Deployment State</th></tr></thead>
+    <div class="subsection-title">Blueprints</div>
+    <table>
+      <thead><tr><th>Name</th><th>State</th></tr></thead>
       <tbody>
         {{range .Platform.Blueprints}}
-        <tr>
-          <td>{{.Name}}</td>
-          <td><span class="deploy-badge {{toLower .DeploymentState}}">{{.DeploymentState}}</span></td>
-        </tr>
+        <tr><td>{{.Name}}</td><td><span class="deploy-badge {{toLower .DeploymentState}}">{{.DeploymentState}}</span></td></tr>
         {{end}}
       </tbody>
     </table>
     {{end}}
     {{if .Platform.Benchmarks}}
-    <h3 style="font-size:.95rem;font-weight:600;margin-bottom:.75rem">Benchmarks</h3>
+    <div class="subsection-title">Benchmarks</div>
     <table>
-      <thead><tr><th>Title</th><th>Compliance</th><th>Failing Rules</th></tr></thead>
+      <thead><tr><th>Title</th><th>Compliance</th><th>Failing</th></tr></thead>
       <tbody>
         {{range .Platform.Benchmarks}}
         <tr>
           <td>{{.Title}}</td>
-          <td>
-            <div class="compliance-bar">
-              <div class="bar-track"><div class="bar-fill" style="width:{{printf "%.0f" .CompliancePct}}%;background:{{if ge .CompliancePct 90.0}}#16a34a{{else if ge .CompliancePct 70.0}}#d97706{{else}}#dc2626{{end}}"></div></div>
-              <span class="bar-text">{{printf "%.0f" .CompliancePct}}%</span>
-            </div>
-          </td>
+          <td><div class="cbar"><div class="cbar-track"><div class="cbar-fill {{barClass .CompliancePct}}" style="width:{{printf "%.0f" .CompliancePct}}%"></div></div><span class="cbar-text">{{printf "%.0f" .CompliancePct}}%</span></div></td>
           <td>{{.FailingRules}}</td>
         </tr>
         {{end}}
@@ -370,185 +511,57 @@ tr:hover td{background:#f8fafc}
   </div>
 </div>
 {{end}}
+</div>
+{{end}}
 
 </div>
 
-<div class="footer">
-  Generated by jamf-cli {{.CLIVersion}} &middot; {{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}
-</div>
+<div class="footer">Generated by jamf-cli {{.CLIVersion}} · {{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}</div>
 
-<script>
-` + "{{.ChartJS}}" + `
-</script>
 <script>
 (function(){
   "use strict";
 
-  // Toggle section collapse
+  // Theme toggle
+  window.toggleTheme = function() {
+    var html = document.documentElement;
+    var isDark = html.getAttribute("data-theme") !== "light";
+    html.setAttribute("data-theme", isDark ? "light" : "dark");
+    document.querySelectorAll(".theme-icon-dark").forEach(function(e){ e.style.display = isDark ? "none" : ""; });
+    document.querySelectorAll(".theme-icon-light").forEach(function(e){ e.style.display = isDark ? "" : "none"; });
+  };
+
+  // Section collapse
   window.toggleSection = function(header) {
     header.parentElement.classList.toggle("collapsed");
   };
 
-  // Toggle summary/detail view
+  // Summary/Detail view toggle
   window.toggleView = function(mode) {
-    var btns = document.querySelectorAll(".toggle-btn");
-    btns.forEach(function(b){ b.classList.remove("active"); });
-    var idx = mode === "summary" ? 0 : 1;
-    if (btns[idx]) btns[idx].classList.add("active");
-
-    var els = document.querySelectorAll(".detail-only");
-    els.forEach(function(el){
+    document.querySelectorAll(".view-btn").forEach(function(b,i){
+      b.classList.toggle("active", mode === "summary" ? i === 0 : i === 1);
+    });
+    document.querySelectorAll(".detail-only").forEach(function(el){
       el.style.display = mode === "detail" ? "" : "none";
     });
   };
 
-  // Filter audit table rows
+  // Audit severity filter
   window.filterAudit = function(severity) {
-    var btns = document.querySelectorAll(".filter-btn");
-    btns.forEach(function(b){ b.classList.remove("active"); });
-    // Find the clicked button
-    btns.forEach(function(b){
-      if (b.textContent.toLowerCase().replace(/\s/g,"") === severity.toLowerCase().replace(/\s/g,"")) {
-        b.classList.add("active");
-      }
+    document.querySelectorAll(".filter-btn").forEach(function(b){
+      b.classList.toggle("active", b.textContent.toLowerCase().replace(/\s/g,"") === severity.toLowerCase().replace(/\s/g,""));
     });
-
-    var rows = document.querySelectorAll("#audit tbody tr");
-    rows.forEach(function(row){
-      if (severity === "all") {
-        row.style.display = "";
-      } else {
-        row.style.display = row.getAttribute("data-severity") === severity ? "" : "none";
-      }
+    document.querySelectorAll("#audit tbody tr").forEach(function(row){
+      row.style.display = severity === "all" || row.getAttribute("data-severity") === severity ? "" : "none";
     });
   };
 
-  function pctColor(pct) {
-    if (pct >= 90) return "#16a34a";
-    if (pct >= 70) return "#d97706";
-    return "#dc2626";
-  }
-
-  function createDoughnut(canvasId, enabled, disabled) {
-    var canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    var total = enabled + disabled;
-    var pct = total > 0 ? Math.round(enabled / total * 100) : 0;
-    var color = pctColor(pct);
-    new Chart(canvas, {
-      type: "doughnut",
-      data: {
-        labels: ["Enabled", "Disabled"],
-        datasets: [{
-          data: [enabled, disabled],
-          backgroundColor: [color, "#e2e8f0"],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        cutout: "70%",
-        responsive: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { enabled: true }
-        }
-      },
-      plugins: [{
-        id: "centerText",
-        afterDraw: function(chart) {
-          var ctx = chart.ctx;
-          var w = chart.width;
-          var h = chart.height;
-          ctx.save();
-          ctx.font = "bold 1.3rem -apple-system, sans-serif";
-          ctx.fillStyle = "#1e293b";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(pct + "%", w / 2, h / 2);
-          ctx.restore();
-        }
-      }]
-    });
-  }
-
-  function createBarChart(canvasId, labels, values) {
-    var canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    new Chart(canvas, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [{
-          data: values,
-          backgroundColor: "#0073EC",
-          borderRadius: 4
-        }]
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { beginAtZero: true, grid: { color: "#f1f5f9" } },
-          y: { grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  function createHorizontalBar(canvasId, labels, values) {
-    var canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    var colors = values.map(function(v){ return pctColor(v); });
-    new Chart(canvas, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [{
-          data: values,
-          backgroundColor: colors,
-          borderRadius: 4
-        }]
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { min: 0, max: 100, grid: { color: "#f1f5f9" }, ticks: { callback: function(v){ return v + "%"; } } },
-          y: { grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  // Initialize charts on load
+  // Staggered section animation
   document.addEventListener("DOMContentLoaded", function() {
-    // Default to summary view
     toggleView("summary");
-
-    {{if .Security}}
-    createDoughnut("chart-filevault", {{.Security.FileVaultEnabled}}, {{.Security.Total}} - {{.Security.FileVaultEnabled}});
-    createDoughnut("chart-firewall", {{.Security.FirewallEnabled}}, {{.Security.Total}} - {{.Security.FirewallEnabled}});
-    createDoughnut("chart-gatekeeper", {{.Security.GatekeeperEnabled}}, {{.Security.Total}} - {{.Security.GatekeeperEnabled}});
-    createDoughnut("chart-sip", {{.Security.SIPEnabled}}, {{.Security.Total}} - {{.Security.SIPEnabled}});
-    {{end}}
-
-    {{if .OSDist}}
-    createBarChart("chart-os",
-      [{{range $i, $v := .OSDist.Versions}}{{if $i}},{{end}}"{{$v.Version}}"{{end}}],
-      [{{range $i, $v := .OSDist.Versions}}{{if $i}},{{end}}{{$v.Count}}{{end}}]
-    );
-    {{end}}
-
-    {{if .Patch}}
-    createHorizontalBar("chart-patch",
-      [{{range $i, $t := .Patch.Titles}}{{if $i}},{{end}}"{{$t.Name}}"{{end}}],
-      [{{range $i, $t := .Patch.Titles}}{{if $i}},{{end}}{{printf "%.1f" $t.CompliancePct}}{{end}}]
-    );
-    {{end}}
+    document.querySelectorAll(".section").forEach(function(s, i){
+      s.style.animationDelay = (i * 0.06) + "s";
+    });
   });
 })();
 </script>
@@ -593,8 +606,60 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 		})
 	}
 
+	// Compute max OS count for bar chart scaling
+	maxOS := 0
+	if data.OSDist != nil {
+		for _, v := range data.OSDist.Versions {
+			if v.Count > maxOS {
+				maxOS = v.Count
+			}
+		}
+	}
+
 	funcMap := template.FuncMap{
 		"toLower": strings.ToLower,
+		"pctClass": func(pct float64) string {
+			if pct >= 90 {
+				return "c-good"
+			}
+			if pct >= 70 {
+				return "c-warn"
+			}
+			return "c-bad"
+		},
+		"barClass": func(pct float64) string {
+			if pct >= 90 {
+				return "bar-good"
+			}
+			if pct >= 70 {
+				return "bar-warn"
+			}
+			return "bar-bad"
+		},
+		"comma": func(n int) string {
+			s := strconv.Itoa(n)
+			if len(s) <= 3 {
+				return s
+			}
+			out := make([]byte, 0, len(s)+len(s)/3)
+			mod := len(s) % 3
+			if mod == 0 {
+				mod = 3
+			}
+			out = append(out, s[:mod]...)
+			for i := mod; i < len(s); i += 3 {
+				out = append(out, ',')
+				out = append(out, s[i:i+3]...)
+			}
+			return string(out)
+		},
+		"add": func(a, b int) int { return a + b },
+		"barPct": func(count, max int) float64 {
+			if max == 0 {
+				return 0
+			}
+			return float64(count) / float64(max) * 100
+		},
 	}
 
 	tmpl, err := template.New("dashboard").Funcs(funcMap).Parse(dashboardTemplate)
@@ -604,12 +669,12 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 
 	type templateData struct {
 		*DashboardData
-		ChartJS template.JS
+		MaxOSCount int
 	}
 
 	td := templateData{
 		DashboardData: data,
-		ChartJS:       template.JS(chartJSMinified), //nolint:gosec // Chart.js is a vendored trusted asset
+		MaxOSCount:    maxOS,
 	}
 
 	return tmpl.Execute(w, td)

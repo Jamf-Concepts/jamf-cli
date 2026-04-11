@@ -67,7 +67,7 @@ func TestRenderDashboard_ProOnly(t *testing.T) {
 	mustContain := []string{
 		"Jamf Environment Dashboard",
 		"production",
-		"Fleet Summary",
+		"Security Posture",
 		"FileVault",
 		"Gatekeeper",
 		"CRITICAL",
@@ -76,13 +76,21 @@ func TestRenderDashboard_ProOnly(t *testing.T) {
 		"Google Chrome",
 		"macOS 14.2",
 		"1.5.0",
-		"Apr 11, 2026 at 2:30 PM",
+		"data-theme=\"dark\"",
+		"Fleet & Devices",
+		"Patch Compliance",
+		"OS Distribution",
 	}
 
 	for _, s := range mustContain {
 		if !strings.Contains(html, s) {
 			t.Errorf("HTML output missing expected string: %q", s)
 		}
+	}
+
+	// Verify no Chart.js reference
+	if strings.Contains(html, "new Chart") {
+		t.Error("HTML should not contain Chart.js references")
 	}
 }
 
@@ -113,11 +121,46 @@ func TestRenderDashboard_ProtectSection(t *testing.T) {
 	if !strings.Contains(html, "Jamf Protect") {
 		t.Error("HTML output missing 'Jamf Protect' section")
 	}
-	if !strings.Contains(html, "95") {
-		t.Error("HTML output missing analytics active count '95'")
+	if !strings.Contains(html, "accent-protect") {
+		t.Error("HTML output missing protect accent border")
 	}
-	if !strings.Contains(html, "120") {
-		t.Error("HTML output missing analytics total count '120'")
+	if !strings.Contains(html, "2,000") {
+		t.Error("HTML output missing formatted endpoint count '2,000'")
+	}
+}
+
+func TestRenderDashboard_PlatformSection(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Platform Dashboard",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.5.0",
+		Platform: &platformStatus{
+			Blueprints: []blueprintEntry{
+				{Name: "Corp Mac Standard", DeploymentState: "ACTIVE"},
+			},
+			Benchmarks: []benchmarkEntry{
+				{Title: "CIS macOS 15", CompliancePct: 87.4, FailingRules: 19},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "Jamf Platform") {
+		t.Error("HTML output missing 'Jamf Platform' section")
+	}
+	if !strings.Contains(html, "accent-platform") {
+		t.Error("HTML output missing platform accent border")
+	}
+	if !strings.Contains(html, "Corp Mac Standard") {
+		t.Error("HTML output missing blueprint name")
+	}
+	if !strings.Contains(html, "CIS macOS 15") {
+		t.Error("HTML output missing benchmark title")
 	}
 }
 
@@ -134,29 +177,43 @@ func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
 	}
 
 	html := buf.String()
-	if strings.Contains(html, "Fleet Summary") {
-		t.Error("HTML should not contain 'Fleet Summary' when Fleet is nil")
+	absent := []string{
+		"Fleet & Devices",
+		"Jamf Protect",
+		"Security Posture",
+		"Audit Findings",
+		"Patch Compliance",
+		"OS Distribution",
+		"Jamf Platform",
 	}
-	if strings.Contains(html, "Jamf Protect") {
-		t.Error("HTML should not contain 'Jamf Protect' when Protect is nil")
+	for _, s := range absent {
+		if strings.Contains(html, s) {
+			t.Errorf("HTML should not contain %q when all sections are nil", s)
+		}
 	}
-	if strings.Contains(html, "Security Posture") {
-		t.Error("HTML should not contain 'Security Posture' when Security is nil")
+}
+
+func TestRenderDashboard_DarkThemeDefault(t *testing.T) {
+	data := &DashboardData{
+		Title:       "Theme Test",
+		GeneratedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		CLIVersion:  "1.0.0",
 	}
-	if strings.Contains(html, "Audit Findings") {
-		t.Error("HTML should not contain 'Audit Findings' when Audit is nil")
+
+	var buf bytes.Buffer
+	if err := renderDashboard(&buf, data); err != nil {
+		t.Fatalf("renderDashboard error: %v", err)
 	}
-	if strings.Contains(html, "Patch Compliance") {
-		t.Error("HTML should not contain 'Patch Compliance' when Patch is nil")
+
+	html := buf.String()
+	if !strings.Contains(html, `data-theme="dark"`) {
+		t.Error("HTML should default to dark theme")
 	}
-	if strings.Contains(html, "Device Compliance") {
-		t.Error("HTML should not contain 'Device Compliance' when Devices is nil")
+	if !strings.Contains(html, "toggleTheme") {
+		t.Error("HTML should include theme toggle function")
 	}
-	if strings.Contains(html, "OS Distribution") {
-		t.Error("HTML should not contain 'OS Distribution' when OSDist is nil")
-	}
-	if strings.Contains(html, "Jamf Platform") {
-		t.Error("HTML should not contain 'Jamf Platform' when Platform is nil")
+	if !strings.Contains(html, `[data-theme="light"]`) {
+		t.Error("HTML should include light theme CSS")
 	}
 }
 
@@ -171,5 +228,37 @@ func TestSecurityPosturePct(t *testing.T) {
 	got = zero.Pct(0)
 	if got != 0 {
 		t.Errorf("Pct(0) with Total=0 = %v, want 0", got)
+	}
+}
+
+func TestFleetManagedPct(t *testing.T) {
+	f := &fleetSummary{ManagedComputers: 1200, UnmanagedComputers: 50, ManagedMobile: 800, UnmanagedMobile: 25}
+
+	cpct := f.ComputerManagedPct()
+	if cpct < 95.0 || cpct > 96.5 {
+		t.Errorf("ComputerManagedPct() = %v, want ~96.0", cpct)
+	}
+
+	mpct := f.MobileManagedPct()
+	if mpct < 96.0 || mpct > 97.5 {
+		t.Errorf("MobileManagedPct() = %v, want ~96.97", mpct)
+	}
+
+	empty := &fleetSummary{}
+	if empty.ComputerManagedPct() != 0 {
+		t.Error("ComputerManagedPct() should be 0 for empty fleet")
+	}
+}
+
+func TestProtectActiveAnalyticsPct(t *testing.T) {
+	p := &protectCoverage{AnalyticsTotal: 120, AnalyticsActive: 95}
+	pct := p.ActiveAnalyticsPct()
+	if pct < 79.0 || pct > 80.0 {
+		t.Errorf("ActiveAnalyticsPct() = %v, want ~79.17", pct)
+	}
+
+	empty := &protectCoverage{}
+	if empty.ActiveAnalyticsPct() != 0 {
+		t.Error("ActiveAnalyticsPct() should be 0 for empty protect")
 	}
 }

@@ -36,6 +36,25 @@ type fleetSummary struct {
 	Users              int
 }
 
+func (f *fleetSummary) TotalComputers() int { return f.ManagedComputers + f.UnmanagedComputers }
+func (f *fleetSummary) TotalMobile() int    { return f.ManagedMobile + f.UnmanagedMobile }
+
+func (f *fleetSummary) ComputerManagedPct() float64 {
+	t := f.ManagedComputers + f.UnmanagedComputers
+	if t == 0 {
+		return 0
+	}
+	return float64(f.ManagedComputers) / float64(t) * 100
+}
+
+func (f *fleetSummary) MobileManagedPct() float64 {
+	t := f.ManagedMobile + f.UnmanagedMobile
+	if t == 0 {
+		return 0
+	}
+	return float64(f.ManagedMobile) / float64(t) * 100
+}
+
 type securityPosture struct {
 	Total             int
 	FileVaultEnabled  int
@@ -120,6 +139,13 @@ type protectCoverage struct {
 	Endpoints       int
 	AnalyticSets    int
 	ExceptionSets   int
+}
+
+func (p *protectCoverage) ActiveAnalyticsPct() float64 {
+	if p.AnalyticsTotal == 0 {
+		return 0
+	}
+	return float64(p.AnalyticsActive) / float64(p.AnalyticsTotal) * 100
 }
 
 type platformStatus struct {
