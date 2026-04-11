@@ -12,14 +12,20 @@ type DashboardData struct {
 	Profiles    []dashboardProfile
 
 	// Conditional sections — nil means "don't render this section"
-	Fleet    *fleetSummary
-	Security *securityPosture
-	Audit    *auditSummary
-	Patch    *patchCompliance
-	Devices  *deviceCompliance
-	OSDist   *osDistribution
-	Protect  *protectCoverage
-	Platform *platformStatus
+	Fleet               *fleetSummary
+	Security            *securityPosture
+	Audit               *auditSummary
+	Patch               *patchCompliance
+	PatchSpread         []patchVersionSpread
+	Devices             *deviceCompliance
+	OSDist              *osDistribution
+	ComputerSmartGroups *smartGroupSummary
+	MobileSmartGroups   *smartGroupSummary
+	EnvStats            *environmentStats
+	Checkin             *checkinStatus
+	Hardware            *hardwareModels
+	Protect             *protectCoverage
+	Platform            *platformStatus
 }
 
 type dashboardProfile struct {
@@ -146,6 +152,72 @@ func (p *protectCoverage) ActiveAnalyticsPct() float64 {
 		return 0
 	}
 	return float64(p.AnalyticsActive) / float64(p.AnalyticsTotal) * 100
+}
+
+type smartGroupSummary struct {
+	Groups     []smartGroupEntry
+	TotalFleet int
+}
+
+type smartGroupEntry struct {
+	Name  string
+	Count int
+}
+
+type environmentStats struct {
+	Policies          int
+	ConfigProfiles    int
+	Scripts           int
+	Packages          int
+	ComputerSmartGrps int
+	MobileSmartGrps   int
+	ExtAttributes     int
+	Categories        int
+}
+
+type checkinStatus struct {
+	ComputersTotal   int
+	ComputersOverdue int
+	MobileTotal      int
+	MobileOverdue    int
+	ThresholdDays    int
+}
+
+func (c *checkinStatus) TotalOverdue() int { return c.ComputersOverdue + c.MobileOverdue }
+func (c *checkinStatus) TotalDevices() int { return c.ComputersTotal + c.MobileTotal }
+
+func (c *checkinStatus) OverduePct(overdue, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(overdue) / float64(total) * 100
+}
+
+func (c *checkinStatus) CheckedInPct(overdue, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(total-overdue) / float64(total) * 100
+}
+
+type hardwareModels struct {
+	ComputerModels []modelCount
+	MobileModels   []modelCount
+}
+
+type modelCount struct {
+	Model string
+	Count int
+}
+
+type patchVersionSpread struct {
+	Title    string
+	Versions []patchVersionEntry
+}
+
+type patchVersionEntry struct {
+	Version string
+	Count   int
 }
 
 type platformStatus struct {

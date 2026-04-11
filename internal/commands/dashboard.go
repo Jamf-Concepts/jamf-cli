@@ -22,9 +22,10 @@ import (
 
 func newDashboardCmd() *cobra.Command {
 	var (
-		profiles []string
-		title    string
-		outFile  string
+		profiles    []string
+		title       string
+		outFile     string
+		smartGroups []string
 	)
 
 	cmd := &cobra.Command{
@@ -58,9 +59,10 @@ Examples:
 				return fmt.Errorf("at least one --profile is required\n\nConfigure one first: jamf-cli config add-profile")
 			}
 			return runDashboard(cmd.Context(), dashboardOptions{
-				Profiles: profiles,
-				Title:    title,
-				OutFile:  outFile,
+				Profiles:    profiles,
+				Title:       title,
+				OutFile:     outFile,
+				SmartGroups: smartGroups,
 			})
 		},
 	}
@@ -68,14 +70,16 @@ Examples:
 	cmd.Flags().StringArrayVar(&profiles, "profile", nil, "config profile(s) to include (repeatable, required)")
 	cmd.Flags().StringVar(&title, "title", "Jamf Fleet Dashboard", "report title")
 	cmd.Flags().StringVar(&outFile, "out-file", "", "write HTML to file instead of stdout")
+	cmd.Flags().StringArrayVar(&smartGroups, "smart-groups", nil, "smart group names to visualize (repeatable)")
 
 	return cmd
 }
 
 type dashboardOptions struct {
-	Profiles []string
-	Title    string
-	OutFile  string
+	Profiles    []string
+	Title       string
+	OutFile     string
+	SmartGroups []string
 }
 
 type resolvedClients struct {
@@ -113,11 +117,11 @@ func runDashboard(ctx context.Context, opts dashboardOptions) error {
 
 		switch rc.profile.Product {
 		case "pro":
-			collectProData(ctx, rc.pro, data)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups)
 		case "protect":
 			collectProtectData(ctx, rc.protect, data)
 		case "platform":
-			collectProData(ctx, rc.pro, data)
+			collectProData(ctx, rc.pro, data, opts.SmartGroups)
 			collectPlatformData(ctx, rc.platform, data)
 		}
 	}

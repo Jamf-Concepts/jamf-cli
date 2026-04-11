@@ -54,18 +54,13 @@ a{color:var(--blue);text-decoration:none}
 .header .meta{font-size:.75rem;color:#64748b;margin-top:.15rem}
 .header-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
 .profiles{display:flex;gap:.35rem;flex-wrap:wrap}
-.badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.65rem;font-weight:600;color:#fff;letter-spacing:.02em}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.7rem;font-weight:600;color:#fff;letter-spacing:.02em;
+  cursor:pointer;user-select:none;transition:opacity .2s,filter .2s}
+.badge.dimmed{opacity:.3;filter:grayscale(.5)}
 .badge-pro{background:var(--blue)}.badge-protect{background:var(--green)}.badge-platform{background:var(--purple)}
 .theme-toggle{background:none;border:1px solid rgba(255,255,255,0.15);border-radius:.375rem;
   color:#94a3b8;cursor:pointer;padding:.25rem .5rem;font-size:.75rem;transition:all .15s}
 .theme-toggle:hover{color:#e2e8f0;border-color:rgba(255,255,255,0.3)}
-.view-bar{display:flex;gap:.35rem;padding:.75rem 2rem .75rem;background:var(--header-bg);
-  border-top:1px solid rgba(255,255,255,0.04)}
-.view-btn{background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.08);
-  border-radius:.3rem;padding:.2rem .6rem;cursor:pointer;font-size:.7rem;font-weight:500;transition:all .15s}
-.view-btn:hover{color:#94a3b8;border-color:rgba(255,255,255,0.15)}
-.view-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-
 /* ── Hero Metrics ─────────────────────────── */
 .hero{display:flex;gap:0;padding:1rem 2rem;background:var(--header-bg);
   border-top:1px solid rgba(255,255,255,0.04)}
@@ -78,25 +73,23 @@ a{color:var(--blue);text-decoration:none}
 .hero-stat.hero-alert .hero-val{color:var(--red)}
 
 /* ── Layout ───────────────────────────────── */
-.container{max-width:1280px;margin:0 auto;padding:1rem 1.5rem}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
-.grid-2>:only-child{grid-column:1/-1}
+.container{max-width:1280px;margin:0 auto;padding:1rem 1.5rem;columns:2;column-gap:.75rem}
 
 /* ── Section Cards ────────────────────────── */
-.section{background:var(--card);border:1px solid var(--border);border-radius:.5rem;overflow:hidden;
-  opacity:0;animation:fadeUp .4s ease forwards}
+.section{background:var(--card);border:1px solid var(--border);border-radius:.5rem;
+  opacity:0;animation:fadeUp .4s ease forwards;break-inside:avoid;margin-bottom:.75rem}
+.section.full-width{column-span:all}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .section-head{display:flex;align-items:center;justify-content:space-between;
   padding:.6rem .85rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);transition:background .15s}
 .section-head:hover{background:var(--card-hover)}
-.section-head h2{font-size:.7rem;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
+.section-head h2{font-size:.82rem;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text);
   display:flex;align-items:center;gap:.4rem}
 .chevron{font-size:.55rem;color:var(--text3);transition:transform .2s;display:inline-block}
 .section.collapsed .section-body{display:none}
 .section.collapsed .chevron{transform:rotate(-90deg)}
-.section-body{padding:.85rem}
+.section-body{padding:.85rem .85rem 1.25rem}
 .section-badges{display:flex;gap:.35rem}
-.section+.section{margin-top:.75rem}
 
 /* ── Product Accent Borders ───────────────── */
 .accent-pro{border-left:2px solid var(--blue)}
@@ -108,28 +101,41 @@ a{color:var(--blue);text-decoration:none}
 .stat{display:flex;flex-direction:column}
 .stat-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;
   font-size:1.5rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stat-lbl{font-size:.65rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat-lbl{font-size:.7rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 
 /* ── CSS Doughnut Rings ───────────────────── */
+@property --rv{syntax:"<number>";inherits:false;initial-value:0}
 .ring-row{display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start}
-.ring-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:.75rem}
+.ring-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:.75rem}
 .ring-item{display:flex;flex-direction:column;align-items:center;gap:.3rem}
 .ring-wrap{position:relative;display:inline-grid;place-items:center}
-.ring-wrap.ring-md{width:72px;height:72px}
-.ring-wrap.ring-sm{width:60px;height:60px}
-.ring{position:absolute;inset:0;border-radius:50%;
-  background:conic-gradient(var(--c) calc(var(--v) * 3.6deg),var(--ring-track) 0);
-  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px - .5px),#000 calc(100% - 6px));
-  mask:radial-gradient(farthest-side,transparent calc(100% - 6px - .5px),#000 calc(100% - 6px))}
+.ring-wrap.ring-md{width:88px;height:88px}
+.ring-wrap.ring-sm{width:72px;height:72px}
+.ring{position:absolute;inset:0;border-radius:50%;--rv:0;
+  background:conic-gradient(var(--c) calc(var(--rv) * 3.6deg),var(--ring-track) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 9px - .5px),#000 calc(100% - 9px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 9px - .5px),#000 calc(100% - 9px));
+  animation:ringFill .8s ease-out forwards}
 .ring-wrap.ring-sm .ring{
-  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px - .5px),#000 calc(100% - 5px));
-  mask:radial-gradient(farthest-side,transparent calc(100% - 5px - .5px),#000 calc(100% - 5px))}
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px - .5px),#000 calc(100% - 8px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 8px - .5px),#000 calc(100% - 8px))}
+@keyframes ringFill{to{--rv:var(--v)}}
+/* Rounded end cap at arc tip */
+.ring::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:var(--c);
+  top:calc(50% - 4.5px);left:calc(50% - 4.5px);
+  transform:rotate(calc(var(--rv) * 3.6deg)) translateY(calc(-50% + 4.5px));
+  transform-origin:center calc(50%);opacity:0;animation:capFade .1s .7s ease forwards}
+.ring-wrap.ring-sm .ring::after{width:8px;height:8px;top:calc(50% - 4px);left:calc(50% - 4px);
+  transform:rotate(calc(var(--rv) * 3.6deg)) translateY(calc(-50% + 4px))}
+@keyframes capFade{to{opacity:1}}
 .ring-val{position:relative;font-family:'SF Mono','Cascadia Code',Consolas,monospace;
   font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
-.ring-wrap.ring-md .ring-val{font-size:.72rem}
-.ring-wrap.ring-sm .ring-val{font-size:.6rem}
-.ring-label{font-size:.62rem;font-weight:600;color:var(--text2);text-align:center;max-width:80px;line-height:1.2}
-.ring-sub{font-size:.55rem;color:var(--text3);font-variant-numeric:tabular-nums}
+.ring-wrap.ring-md .ring-val{font-size:1.1rem}
+.ring-wrap.ring-sm .ring-val{font-size:.95rem}
+.ring-label{font-size:.7rem;font-weight:600;color:var(--text2);text-align:center;max-width:90px;line-height:1.2;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ring-sub{font-size:.65rem;color:var(--text3);font-variant-numeric:tabular-nums}
+
 
 /* ── Color Classes (avoid inline var() which html/template sanitizes) */
 .c-good{--c:var(--green)}.c-warn{--c:var(--amber)}.c-bad{--c:var(--red)}
@@ -138,7 +144,7 @@ a{color:var(--blue);text-decoration:none}
 /* ── Tables ───────────────────────────────── */
 table{width:100%;border-collapse:collapse;font-size:.78rem}
 th{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--border2);
-  font-weight:600;color:var(--text3);font-size:.62rem;text-transform:uppercase;letter-spacing:.04em}
+  font-weight:600;color:var(--text3);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
 td{padding:.45rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
 tr:nth-child(even) td{background:var(--stripe)}
 tr:hover td{background:var(--card-hover)}
@@ -146,7 +152,10 @@ tr:hover td{background:var(--card-hover)}
 /* ── Severity ─────────────────────────────── */
 .sev-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.3rem;vertical-align:middle}
 .sev-dot.critical{background:var(--red)}.sev-dot.warning{background:var(--amber)}.sev-dot.info{background:var(--blue)}
-.sev-badge{display:inline-block;padding:.1rem .4rem;border-radius:9999px;font-size:.6rem;font-weight:600}
+.sev-badge{display:inline-block;padding:.1rem .4rem;border-radius:9999px;font-size:.65rem;font-weight:600;
+  cursor:pointer;transition:opacity .15s,transform .15s;user-select:none}
+.sev-badge:hover{transform:scale(1.05)}
+.sev-badge.dimmed{opacity:.35}
 .sev-badge.critical{background:var(--alert-bg);color:var(--red)}
 .sev-badge.warning{background:rgba(245,158,11,0.1);color:var(--amber)}
 .sev-badge.info{background:rgba(59,130,246,0.1);color:var(--blue)}
@@ -161,14 +170,33 @@ tr:hover td{background:var(--card-hover)}
 /* ── OS Distribution Bars ─────────────────── */
 .os-row{display:flex;align-items:center;gap:.5rem;padding:.25rem 0}
 .os-row+.os-row{border-top:1px solid var(--border)}
-.os-label{font-size:.72rem;color:var(--text2);min-width:6.5rem;font-weight:500}
+.os-label{font-size:.75rem;color:var(--text2);width:14rem;flex-shrink:0;font-weight:500;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .os-bar-track{flex:1;height:6px;background:var(--bar-track);border-radius:3px;overflow:hidden}
 .os-bar-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .5s ease}
-.os-count{font-size:.68rem;color:var(--text3);min-width:2.5rem;text-align:right;
+.os-count{font-size:.72rem;color:var(--text3);min-width:2.5rem;text-align:right;
   font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums}
+.os-pct{font-size:.7rem;color:var(--text3);min-width:2.8rem;text-align:right;
+  font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums;opacity:.7}
+
+/* ── Version Spread ──────────────────────── */
+.spread-title{font-size:.72rem;font-weight:600;color:var(--text2);margin-bottom:.3rem}
+.spread-title:not(:first-child){margin-top:.6rem}
+.spread-bar{display:flex;height:22px;border-radius:4px;overflow:hidden;gap:1px}
+.spread-seg{min-width:2px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.spread-seg:nth-child(1){background:var(--green)}
+.spread-seg:nth-child(2){background:var(--blue)}
+.spread-seg:nth-child(3){background:var(--amber)}
+.spread-seg:nth-child(4){background:#8b5cf6}
+.spread-seg:nth-child(5){background:#ec4899}
+.spread-seg:nth-child(6){background:#06b6d4}
+.spread-seg:nth-child(7){background:#f97316}
+.spread-seg:nth-child(n+8){background:var(--text3)}
+.spread-seg-label{font-size:.58rem;font-weight:600;color:#fff;white-space:nowrap;padding:0 .25rem;
+  text-shadow:0 0 2px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis}
 
 /* ── Deploy Badges ────────────────────────── */
-.deploy-badge{display:inline-block;padding:.1rem .4rem;border-radius:.2rem;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.deploy-badge{display:inline-block;padding:.1rem .4rem;border-radius:.2rem;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .deploy-badge.active{background:rgba(16,185,129,0.12);color:var(--green)}
 .deploy-badge.inactive{background:rgba(255,255,255,0.06);color:var(--text3)}
 .deploy-badge.draft{background:rgba(245,158,11,0.12);color:var(--amber)}
@@ -178,23 +206,15 @@ tr:hover td{background:var(--card-hover)}
 .alert-card{background:var(--alert-bg);border:1px solid var(--alert-border);border-radius:.35rem;
   padding:.4rem .65rem;display:flex;align-items:center;gap:.4rem}
 .alert-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:.85rem;font-weight:700;color:var(--red)}
-.alert-lbl{font-size:.68rem;color:var(--text2)}
+.alert-lbl{font-size:.72rem;color:var(--text2)}
 
-/* ── Filter Bar ───────────────────────────── */
-.filter-bar{display:flex;gap:.3rem;margin-bottom:.6rem}
-.filter-btn{background:var(--card);border:1px solid var(--border);border-radius:.25rem;
-  padding:.2rem .5rem;cursor:pointer;font-size:.65rem;font-weight:500;color:var(--text2);transition:all .15s}
-.filter-btn:hover{border-color:var(--border2);color:var(--text)}
-.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 
-/* ── Detail Toggle ────────────────────────── */
-.detail-only{display:none}
 
 /* ── Protect Stat Grid ────────────────────── */
 .prot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.6rem}
 .prot-stat{text-align:center;padding:.5rem;background:rgba(255,255,255,0.02);border-radius:.35rem;border:1px solid var(--border)}
 .prot-val{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:1.1rem;font-weight:700;color:var(--text)}
-.prot-lbl{font-size:.6rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.03em;margin-top:.1rem}
+.prot-lbl{font-size:.67rem;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.03em;margin-top:.1rem}
 
 /* ── Subsection ───────────────────────────── */
 .subsection-title{font-size:.68rem;font-weight:650;text-transform:uppercase;letter-spacing:.05em;
@@ -206,17 +226,16 @@ tr:hover td{background:var(--card-hover)}
 
 /* ── Responsive ───────────────────────────── */
 @media(max-width:900px){
-  .grid-2{grid-template-columns:1fr}
+  .container{columns:1;padding:.75rem}
   .hero{flex-wrap:wrap;gap:.5rem}
   .hero-stat{padding:0 1rem}
-  .header,.view-bar,.hero{padding-left:1rem;padding-right:1rem}
-  .container{padding:.75rem}
+  .header,.hero{padding-left:1rem;padding-right:1rem}
 }
 @media(max-width:600px){
   .stat-row{gap:.75rem}
   .ring-row{gap:.75rem}
-  .ring-grid{grid-template-columns:repeat(auto-fill,minmax(60px,1fr))}
-  .os-label{min-width:5rem;font-size:.65rem}
+  .ring-grid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
+  .os-label{width:9rem;font-size:.65rem}
   table{font-size:.72rem}
   th,td{padding:.35rem .4rem}
 }
@@ -224,8 +243,7 @@ tr:hover td{background:var(--card-hover)}
 /* ── Print ────────────────────────────────── */
 @media print{
   *{animation:none!important}
-  .theme-toggle,.view-bar,.filter-bar{display:none!important}
-  .detail-only{display:revert!important}
+  .theme-toggle{display:none!important}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .section{break-inside:avoid;border:1px solid #ccc}
   .header,.hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -242,7 +260,7 @@ tr:hover td{background:var(--card-hover)}
     </div>
     <div class="header-actions">
       <div class="profiles">
-        {{range .Profiles}}<span class="badge badge-{{.Product}}">{{.Product}} · {{.Name}}</span>{{end}}
+        {{range .Profiles}}<span class="badge badge-{{.Product}}" data-product="{{.Product}}" onclick="filterProduct('{{.Product}}',this)">{{.Product}} · {{.Name}}</span>{{end}}
       </div>
       <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
         <span class="theme-icon-dark">☀︎ Light</span>
@@ -268,15 +286,10 @@ tr:hover td{background:var(--card-hover)}
 </div>
 {{end}}
 
-<div class="view-bar">
-  <button class="view-btn active" onclick="toggleView('summary')">Summary</button>
-  <button class="view-btn" onclick="toggleView('detail')">Detail</button>
-</div>
-
 <div class="container">
 
-{{if or .Security .Fleet .Devices}}
-<div class="grid-2">
+{{/* ── 1. Security Posture + Check-in Status ── */}}
+
 {{if .Security}}
 <div class="section accent-pro" id="security">
   <div class="section-head" onclick="toggleSection(this)">
@@ -317,6 +330,139 @@ tr:hover td{background:var(--card-hover)}
 </div>
 {{end}}
 
+{{if .Checkin}}
+<div class="section accent-pro" id="checkin">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Check-in Status ({{.Checkin.ThresholdDays}}d)</h2>
+  </div>
+  <div class="section-body">
+    <div class="ring-row">
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.ComputersOverdue .Checkin.ComputersTotal)}}%</span>
+        </div>
+        <span class="ring-label">Computers</span>
+        <span class="ring-sub">{{comma .Checkin.ComputersOverdue}} overdue</span>
+      </div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct .Checkin.MobileOverdue .Checkin.MobileTotal)}}%</span>
+        </div>
+        <span class="ring-label">Mobile</span>
+        <span class="ring-sub">{{comma .Checkin.MobileOverdue}} overdue</span>
+      </div>
+      <div class="ring-item">
+        <div class="ring-wrap ring-md">
+          <div class="ring {{pctClass (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}" style="--v:{{printf "%.0f" (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}"></div>
+          <span class="ring-val">{{printf "%.0f" (.Checkin.CheckedInPct (.Checkin.TotalOverdue) (.Checkin.TotalDevices))}}%</span>
+        </div>
+        <span class="ring-label">Overall</span>
+        <span class="ring-sub">{{comma (.Checkin.TotalOverdue)}} / {{comma (.Checkin.TotalDevices)}}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{/* ── 2. Audit Findings (full-width) ── */}}
+
+{{if .Audit}}
+<div class="section accent-pro full-width" id="audit">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Audit Findings</h2>
+    <div class="section-badges" onclick="event.stopPropagation()">
+      {{if .Audit.CriticalCount}}<span class="sev-badge critical" onclick="filterAudit('critical',this)" role="button">{{.Audit.CriticalCount}} Critical</span>{{end}}
+      {{if .Audit.WarningCount}}<span class="sev-badge warning" onclick="filterAudit('warning',this)" role="button">{{.Audit.WarningCount}} Warning</span>{{end}}
+      {{if .Audit.InfoCount}}<span class="sev-badge info" onclick="filterAudit('info',this)" role="button">{{.Audit.InfoCount}} Info</span>{{end}}
+    </div>
+  </div>
+  <div class="section-body">
+    <table>
+      <thead><tr><th>Severity</th><th>Category</th><th>Check</th><th>Affected</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        {{range .Audit.Results}}
+        <tr data-severity="{{toLower .Severity}}">
+          <td><span class="sev-dot {{toLower .Severity}}"></span>{{.Severity}}</td>
+          <td>{{.Category}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.AffectedCount}}</td>
+          <td>{{.Recommendation}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+{{/* ── 3. Environment + Smart Group Distribution ── */}}
+
+{{if .EnvStats}}
+<div class="section accent-pro" id="envstats">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Environment</h2>
+  </div>
+  <div class="section-body">
+    <div class="prot-grid">
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Policies}}</div><div class="prot-lbl">Policies</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ConfigProfiles}}</div><div class="prot-lbl">Config Profiles</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Scripts}}</div><div class="prot-lbl">Scripts</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Packages}}</div><div class="prot-lbl">Packages</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ComputerSmartGrps}}</div><div class="prot-lbl">Computer Smart Groups</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.MobileSmartGrps}}</div><div class="prot-lbl">Mobile Smart Groups</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.ExtAttributes}}</div><div class="prot-lbl">Extension Attributes</div></div>
+      <div class="prot-stat"><div class="prot-val">{{comma .EnvStats.Categories}}</div><div class="prot-lbl">Categories</div></div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{if .ComputerSmartGroups}}
+<div class="section accent-pro" id="smartgroups-computer">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Computer Smart Groups</h2>
+  </div>
+  <div class="section-body">
+    <div class="ring-grid">
+      {{range .ComputerSmartGroups.Groups}}
+      <div class="ring-item">
+        <div class="ring-wrap ring-sm">
+          <div class="ring c-good" style="--v:{{printf "%.0f" (barPct .Count $.ComputerSmartGroups.TotalFleet)}}"></div>
+          <span class="ring-val">{{comma .Count}}</span>
+        </div>
+        <span class="ring-label" title="{{.Name}}">{{.Name}}</span>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{if .MobileSmartGroups}}
+<div class="section accent-pro" id="smartgroups-mobile">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Mobile Smart Groups</h2>
+  </div>
+  <div class="section-body">
+    <div class="ring-grid">
+      {{range .MobileSmartGroups.Groups}}
+      <div class="ring-item">
+        <div class="ring-wrap ring-sm">
+          <div class="ring c-good" style="--v:{{printf "%.0f" (barPct .Count $.MobileSmartGroups.TotalFleet)}}"></div>
+          <span class="ring-val">{{comma .Count}}</span>
+        </div>
+        <span class="ring-label" title="{{.Name}}">{{.Name}}</span>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{/* ── 4. Fleet & Devices + OS Distribution ── */}}
+
 {{if or .Fleet .Devices}}
 <div class="section accent-pro" id="fleet">
   <div class="section-head" onclick="toggleSection(this)">
@@ -352,46 +498,66 @@ tr:hover td{background:var(--card-hover)}
   </div>
 </div>
 {{end}}
-</div>
-{{end}}
 
-{{if .Audit}}
-<div class="section accent-pro" id="audit" style="margin-top:.75rem">
+{{if .OSDist}}
+<div class="section accent-pro" id="osdist">
   <div class="section-head" onclick="toggleSection(this)">
-    <h2><span class="chevron">▾</span> Audit Findings</h2>
-    <div class="section-badges">
-      {{if .Audit.CriticalCount}}<span class="sev-badge critical">{{.Audit.CriticalCount}} Critical</span>{{end}}
-      {{if .Audit.WarningCount}}<span class="sev-badge warning">{{.Audit.WarningCount}} Warning</span>{{end}}
-      {{if .Audit.InfoCount}}<span class="sev-badge info">{{.Audit.InfoCount}} Info</span>{{end}}
-    </div>
+    <h2><span class="chevron">▾</span> OS Distribution</h2>
   </div>
   <div class="section-body">
-    <div class="filter-bar detail-only">
-      <button class="filter-btn active" onclick="filterAudit('all')">All</button>
-      <button class="filter-btn" onclick="filterAudit('critical')">Critical</button>
-      <button class="filter-btn" onclick="filterAudit('warning')">Warning</button>
-      <button class="filter-btn" onclick="filterAudit('info')">Info</button>
+    {{range .OSDist.Versions}}
+    <div class="os-row">
+      <span class="os-label">{{.Version}}</span>
+      <div class="os-bar-track"><div class="os-bar-fill" style="width:{{printf "%.1f" (barPct .Count $.TotalOSCount)}}%"></div></div>
+      <span class="os-count">{{comma .Count}}</span>
+      <span class="os-pct">{{printf "%.1f" (barPct .Count $.TotalOSCount)}}%</span>
     </div>
-    <table>
-      <thead><tr><th>Severity</th><th>Category</th><th>Check</th><th>Affected</th><th class="detail-only">Recommendation</th></tr></thead>
-      <tbody>
-        {{range .Audit.Results}}
-        <tr data-severity="{{toLower .Severity}}">
-          <td><span class="sev-dot {{toLower .Severity}}"></span>{{.Severity}}</td>
-          <td>{{.Category}}</td>
-          <td>{{.Name}}</td>
-          <td>{{.AffectedCount}}</td>
-          <td class="detail-only">{{.Recommendation}}</td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
+    {{end}}
   </div>
 </div>
 {{end}}
 
-{{if or .Patch .OSDist}}
-<div class="grid-2" style="margin-top:.75rem">
+{{/* ── 5. Computer Models + Mobile Models ── */}}
+
+{{if .Hardware}}
+{{if .Hardware.ComputerModels}}
+<div class="section accent-pro" id="hw-computers">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Computer Models</h2>
+  </div>
+  <div class="section-body">
+    {{range .Hardware.ComputerModels}}
+    <div class="os-row">
+      <span class="os-label">{{.Model}}</span>
+      <div class="os-bar-track"><div class="os-bar-fill" style="width:{{printf "%.1f" (barPct .Count $.TotalComputerModels)}}%"></div></div>
+      <span class="os-count">{{comma .Count}}</span>
+      <span class="os-pct">{{printf "%.1f" (barPct .Count $.TotalComputerModels)}}%</span>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{if .Hardware.MobileModels}}
+<div class="section accent-pro" id="hw-mobile">
+  <div class="section-head" onclick="toggleSection(this)">
+    <h2><span class="chevron">▾</span> Mobile Models</h2>
+  </div>
+  <div class="section-body">
+    {{range .Hardware.MobileModels}}
+    <div class="os-row">
+      <span class="os-label">{{.Model}}</span>
+      <div class="os-bar-track"><div class="os-bar-fill" style="width:{{printf "%.1f" (barPct .Count $.TotalMobileModels)}}%"></div></div>
+      <span class="os-count">{{comma .Count}}</span>
+      <span class="os-pct">{{printf "%.1f" (barPct .Count $.TotalMobileModels)}}%</span>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{/* ── 6. Patch Compliance + Version Spread ── */}}
+
 {{if .Patch}}
 <div class="section accent-pro" id="patch">
   <div class="section-head" onclick="toggleSection(this)">
@@ -405,11 +571,11 @@ tr:hover td{background:var(--card-hover)}
           <div class="ring {{pctClass .CompliancePct}}" style="--v:{{printf "%.0f" .CompliancePct}}"></div>
           <span class="ring-val">{{printf "%.0f" .CompliancePct}}%</span>
         </div>
-        <span class="ring-label">{{.Name}}</span>
+        <span class="ring-label" title="{{.Name}}">{{.Name}}</span>
       </div>
       {{end}}
     </div>
-    <div class="detail-only" style="margin-top:.75rem">
+    <div style="margin-top:.75rem">
       <table>
         <thead><tr><th>Title</th><th>Version</th><th>Up to Date</th><th>Out of Date</th><th>Compliance</th></tr></thead>
         <tbody>
@@ -429,27 +595,28 @@ tr:hover td{background:var(--card-hover)}
 </div>
 {{end}}
 
-{{if .OSDist}}
-<div class="section accent-pro" id="osdist">
+{{if .PatchSpread}}
+<div class="section accent-pro full-width" id="patchspread">
   <div class="section-head" onclick="toggleSection(this)">
-    <h2><span class="chevron">▾</span> OS Distribution</h2>
+    <h2><span class="chevron">▾</span> Patch Version Spread</h2>
   </div>
   <div class="section-body">
-    {{range .OSDist.Versions}}
-    <div class="os-row">
-      <span class="os-label">{{.Version}}</span>
-      <div class="os-bar-track"><div class="os-bar-fill" style="width:{{printf "%.1f" (barPct .Count $.MaxOSCount)}}%"></div></div>
-      <span class="os-count">{{comma .Count}}</span>
+    {{range .PatchSpread}}
+    <div class="spread-title">{{.Title}}</div>
+    <div class="spread-bar">
+      {{range .Versions}}
+      <div class="spread-seg" style="flex:{{.Count}}" title="{{.Version}}: {{comma .Count}}">
+        <span class="spread-seg-label">{{.Version}}</span>
+      </div>
+      {{end}}
     </div>
     {{end}}
   </div>
 </div>
 {{end}}
-</div>
-{{end}}
 
-{{if or .Protect .Platform}}
-<div class="grid-2" style="margin-top:.75rem">
+{{/* ── 7. Jamf Protect + Jamf Platform ── */}}
+
 {{if .Protect}}
 <div class="section accent-protect" id="protect">
   <div class="section-head" onclick="toggleSection(this)">
@@ -511,8 +678,6 @@ tr:hover td{background:var(--card-hover)}
   </div>
 </div>
 {{end}}
-</div>
-{{end}}
 
 </div>
 
@@ -536,29 +701,46 @@ tr:hover td{background:var(--card-hover)}
     header.parentElement.classList.toggle("collapsed");
   };
 
-  // Summary/Detail view toggle
-  window.toggleView = function(mode) {
-    document.querySelectorAll(".view-btn").forEach(function(b,i){
-      b.classList.toggle("active", mode === "summary" ? i === 0 : i === 1);
+  // Audit severity filter
+  var activeFilter = null;
+  window.filterAudit = function(severity, badge) {
+    if (activeFilter === severity) {
+      activeFilter = null;
+    } else {
+      activeFilter = severity;
+    }
+    document.querySelectorAll(".sev-badge").forEach(function(b){
+      b.classList.toggle("dimmed", activeFilter !== null && b !== badge);
     });
-    document.querySelectorAll(".detail-only").forEach(function(el){
-      el.style.display = mode === "detail" ? "" : "none";
+    if (badge) badge.classList.remove("dimmed");
+    document.querySelectorAll("#audit tbody tr").forEach(function(row){
+      row.style.display = !activeFilter || row.getAttribute("data-severity") === activeFilter ? "" : "none";
     });
   };
 
-  // Audit severity filter
-  window.filterAudit = function(severity) {
-    document.querySelectorAll(".filter-btn").forEach(function(b){
-      b.classList.toggle("active", b.textContent.toLowerCase().replace(/\s/g,"") === severity.toLowerCase().replace(/\s/g,""));
+  // Profile product filter
+  var activeProduct = null;
+  window.filterProduct = function(product, badge) {
+    if (activeProduct === product) {
+      activeProduct = null;
+    } else {
+      activeProduct = product;
+    }
+    document.querySelectorAll(".badge").forEach(function(b){
+      b.classList.toggle("dimmed", activeProduct !== null && b.getAttribute("data-product") !== activeProduct);
     });
-    document.querySelectorAll("#audit tbody tr").forEach(function(row){
-      row.style.display = severity === "all" || row.getAttribute("data-severity") === severity ? "" : "none";
+    document.querySelectorAll(".section").forEach(function(s){
+      if (!activeProduct) {
+        s.style.display = "";
+        return;
+      }
+      var isMatch = s.classList.contains("accent-" + activeProduct);
+      s.style.display = isMatch ? "" : "none";
     });
   };
 
   // Staggered section animation
   document.addEventListener("DOMContentLoaded", function() {
-    toggleView("summary");
     document.querySelectorAll(".section").forEach(function(s, i){
       s.style.animationDelay = (i * 0.06) + "s";
     });
@@ -606,13 +788,25 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 		})
 	}
 
-	// Compute max OS count for bar chart scaling
-	maxOS := 0
+	// Compute total and max OS count for bar chart scaling
+	maxOS, totalOS := 0, 0
 	if data.OSDist != nil {
 		for _, v := range data.OSDist.Versions {
+			totalOS += v.Count
 			if v.Count > maxOS {
 				maxOS = v.Count
 			}
+		}
+	}
+
+	// Compute total hardware model counts for bar scaling
+	totalCompModels, totalMobileModels := 0, 0
+	if data.Hardware != nil {
+		for _, m := range data.Hardware.ComputerModels {
+			totalCompModels += m.Count
+		}
+		for _, m := range data.Hardware.MobileModels {
+			totalMobileModels += m.Count
 		}
 	}
 
@@ -669,12 +863,18 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 
 	type templateData struct {
 		*DashboardData
-		MaxOSCount int
+		MaxOSCount          int
+		TotalOSCount        int
+		TotalComputerModels int
+		TotalMobileModels   int
 	}
 
 	td := templateData{
-		DashboardData: data,
-		MaxOSCount:    maxOS,
+		DashboardData:       data,
+		MaxOSCount:          maxOS,
+		TotalOSCount:        totalOS,
+		TotalComputerModels: totalCompModels,
+		TotalMobileModels:   totalMobileModels,
 	}
 
 	return tmpl.Execute(w, td)

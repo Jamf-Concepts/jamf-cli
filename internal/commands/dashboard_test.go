@@ -183,8 +183,15 @@ func TestRenderDashboard_NoSectionsWhenNil(t *testing.T) {
 		"Security Posture",
 		"Audit Findings",
 		"Patch Compliance",
+		"Patch Version Spread",
 		"OS Distribution",
 		"Jamf Platform",
+		"Check-in Status",
+		"Computer Models",
+		"Mobile Models",
+		"Environment",
+		"Computer Smart Groups",
+		"Mobile Smart Groups",
 	}
 	for _, s := range absent {
 		if strings.Contains(html, s) {

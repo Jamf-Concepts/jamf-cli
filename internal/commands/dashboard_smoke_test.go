@@ -61,6 +61,79 @@ func TestSmokeDashboard(t *testing.T) {
 			{Version: "macOS 12.6", Count: 18},
 			{Version: "macOS 11.7.10", Count: 14},
 		}},
+		PatchSpread: []patchVersionSpread{
+			{Title: "Chrome", Versions: []patchVersionEntry{
+				{Version: "125.0.6422.60", Count: 1890},
+				{Version: "124.0.6367.91", Count: 340},
+				{Version: "123.0.6312.86", Count: 120},
+				{Version: "122.0.6261.94", Count: 47},
+			}},
+			{Title: "Firefox", Versions: []patchVersionEntry{
+				{Version: "126.0", Count: 1680},
+				{Version: "125.0.3", Count: 310},
+				{Version: "124.0.2", Count: 210},
+				{Version: "123.0", Count: 100},
+			}},
+			{Title: "Zoom", Versions: []patchVersionEntry{
+				{Version: "6.0.2", Count: 1200},
+				{Version: "5.17.11", Count: 520},
+				{Version: "5.16.10", Count: 210},
+				{Version: "5.15.5", Count: 117},
+			}},
+		},
+		EnvStats: &environmentStats{
+			Policies: 187, ConfigProfiles: 42, Scripts: 31, Packages: 156,
+			ComputerSmartGrps: 64, MobileSmartGrps: 18, ExtAttributes: 23, Categories: 12,
+		},
+		Checkin: &checkinStatus{
+			ComputersTotal: 2910, ComputersOverdue: 143,
+			MobileTotal: 1633, MobileOverdue: 67,
+			ThresholdDays: 7,
+		},
+		Hardware: &hardwareModels{
+			ComputerModels: []modelCount{
+				{Model: "MacBook Pro (16-inch, 2024)", Count: 612},
+				{Model: "MacBook Pro (14-inch, 2024)", Count: 489},
+				{Model: "MacBook Air (15-inch, M3)", Count: 387},
+				{Model: "MacBook Pro (16-inch, 2023)", Count: 341},
+				{Model: "MacBook Air (M2)", Count: 298},
+				{Model: "Mac mini (M4)", Count: 201},
+				{Model: "iMac (24-inch, M3)", Count: 178},
+				{Model: "Mac Studio (M2 Ultra)", Count: 124},
+				{Model: "Mac Pro (2023)", Count: 89},
+				{Model: "MacBook Pro (13-inch, M2)", Count: 128},
+			},
+			MobileModels: []modelCount{
+				{Model: "iPad Air (M2)", Count: 412},
+				{Model: "iPad Pro 12.9-inch (6th gen)", Count: 334},
+				{Model: "iPad (10th gen)", Count: 289},
+				{Model: "iPhone 15 Pro", Count: 201},
+				{Model: "iPad mini (6th gen)", Count: 178},
+				{Model: "iPhone 14 Pro", Count: 112},
+				{Model: "iPad Air (5th gen)", Count: 66},
+			},
+		},
+		ComputerSmartGroups: &smartGroupSummary{
+			TotalFleet: 2910,
+			Groups: []smartGroupEntry{
+				{Name: "Encrypted Macs", Count: 2705},
+				{Name: "FileVault Disabled", Count: 142},
+				{Name: "Stale Check-in (30d+)", Count: 89},
+				{Name: "Missing Management", Count: 34},
+				{Name: "VPN Configured", Count: 2401},
+				{Name: "Dev Team", Count: 612},
+			},
+		},
+		MobileSmartGroups: &smartGroupSummary{
+			TotalFleet: 1633,
+			Groups: []smartGroupEntry{
+				{Name: "Managed iPads", Count: 1420},
+				{Name: "Supervised Devices", Count: 1105},
+				{Name: "BYOD iPhones", Count: 201},
+				{Name: "Shared iPads", Count: 89},
+				{Name: "DEP Enrolled", Count: 1350},
+			},
+		},
 		Protect: &protectCoverage{Plans: 8, AnalyticsTotal: 247, AnalyticsActive: 247, Endpoints: 2891, AnalyticSets: 12, ExceptionSets: 4},
 		Platform: &platformStatus{
 			Blueprints: []blueprintEntry{
