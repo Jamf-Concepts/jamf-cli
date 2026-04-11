@@ -246,14 +246,14 @@ func TestRunReportUpdateStatus_StaleDevicesDropped(t *testing.T) {
 	os.Stdout = w
 
 	err := runReportUpdateStatus(context.Background(), client, true, 0)
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	out := buf.String()
 
 	var result []map[string]any
