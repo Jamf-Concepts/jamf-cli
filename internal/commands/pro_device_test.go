@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // deviceMockClient routes responses based on method+path, supporting both exact
@@ -128,7 +130,7 @@ func TestRunDeviceDeepDive_Basic(t *testing.T) {
 		},
 	}
 
-	sections, err := runDeviceDeepDive(context.Background(), client, "42")
+	sections, err := runDeviceDeepDive(context.Background(), &registry.CLIContext{Client: client}, "42")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +183,7 @@ func TestRunDeviceDeepDive_NotFound(t *testing.T) {
 		},
 	}
 
-	_, err := runDeviceDeepDive(context.Background(), client, "ghost-machine")
+	_, err := runDeviceDeepDive(context.Background(), &registry.CLIContext{Client: client}, "ghost-machine")
 	if err == nil {
 		t.Fatal("expected error for unresolvable device, got nil")
 	}
@@ -208,7 +210,7 @@ func TestRunDeviceDeepDive_PartialFailure(t *testing.T) {
 		},
 	}
 
-	sections, err := runDeviceDeepDive(context.Background(), client, "42")
+	sections, err := runDeviceDeepDive(context.Background(), &registry.CLIContext{Client: client}, "42")
 	if err != nil {
 		t.Fatalf("expected no error on partial failure, got: %v", err)
 	}

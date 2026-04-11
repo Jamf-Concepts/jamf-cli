@@ -518,6 +518,18 @@ func (p *PlatformOAuth2Provider) TenantID() string {
 	return p.tenantID
 }
 
+// ClientID returns the OAuth2 client ID. Used to construct SDK clients that
+// manage their own token lifecycle (e.g., the Jamf Platform SDK).
+func (p *PlatformOAuth2Provider) ClientID() string {
+	return p.clientID
+}
+
+// ClientSecret returns the OAuth2 client secret. Used to construct SDK clients
+// that manage their own token lifecycle (e.g., the Jamf Platform SDK).
+func (p *PlatformOAuth2Provider) ClientSecret() string {
+	return p.clientSecret
+}
+
 func (p *PlatformOAuth2Provider) Name() string {
 	return "platform"
 }

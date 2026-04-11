@@ -29,7 +29,7 @@ MDM and policy history are fetched in parallel; partial failures are shown
 as warnings on stderr and do not prevent the rest of the report.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sections, err := runDeviceDeepDive(cmd.Context(), cliCtx.Client, args[0])
+			sections, err := runDeviceDeepDive(cmd.Context(), cliCtx, args[0])
 			if err != nil {
 				return err
 			}
@@ -47,7 +47,9 @@ as warnings on stderr and do not prevent the rest of the report.`,
 }
 
 // runDeviceDeepDive resolves a device and fetches a comprehensive view.
-func runDeviceDeepDive(ctx context.Context, client registry.HTTPClient, identifier string) ([]overviewSection, error) {
+func runDeviceDeepDive(ctx context.Context, cliCtx *registry.CLIContext, identifier string) ([]overviewSection, error) {
+	client := cliCtx.Client
+
 	// 1. Resolve device.
 	deviceID, deviceName, err := resolveDeviceByIdentifier(ctx, client, identifier)
 	if err != nil {
@@ -113,6 +115,13 @@ func runDeviceDeepDive(ctx context.Context, client registry.HTTPClient, identifi
 	}
 	if polSection != nil {
 		sections = append(sections, *polSection)
+	}
+
+	// 7. Platform sections (blueprints + compliance) when platform auth is active.
+	if cliCtx.PlatformClient != nil {
+		serial := strVal(hardware, "serialNumber")
+		platformSections := fetchDevicePlatformSections(ctx, cliCtx, serial)
+		sections = append(sections, platformSections...)
 	}
 
 	return sections, nil
@@ -357,4 +366,206 @@ func boolDisplay(v bool) string {
 		return "Yes"
 	}
 	return "No"
+}
+
+// fetchDevicePlatformSections returns Platform Blueprints and Compliance sections
+// for a device identified by serial number. It resolves the device's platform
+// device groups and cross-references them against blueprints and benchmarks.
+func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContext, serial string) []overviewSection {
+	pc := cliCtx.PlatformClient
+	if serial == "" {
+		return nil
+	}
+
+	// Resolve serial to platform device ID
+	dev, err := pc.GetDeviceBySerialNumber(ctx, serial)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to resolve platform device: %v\n", err)
+		return nil
+	}
+
+	// Get device's group memberships
+	deviceGroups, err := pc.ListDeviceGroupsForDevice(ctx, dev.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to fetch platform device groups: %v\n", err)
+		return nil
+	}
+	groupIDs := make(map[string]bool, len(deviceGroups))
+	for _, g := range deviceGroups {
+		groupIDs[g.GroupID] = true
+	}
+
+	var (
+		mu         sync.Mutex
+		wg         sync.WaitGroup
+		bpSection  *overviewSection
+		cbSection  *overviewSection
+		ddmSection *overviewSection
+	)
+
+	// Fetch blueprints, benchmarks, and DDM report in parallel
+	wg.Add(3)
+
+	// DDM declaration report — aggregate by source, show errors
+	go func() {
+		defer wg.Done()
+		report, err := pc.GetDeviceDeclarationReport(ctx, dev.ID)
+		if err != nil {
+			return
+		}
+
+		// Build lookup maps
+		bpNames := make(map[string]string)
+		if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {
+			for _, bp := range bps {
+				bpNames[bp.ID] = bp.Name
+			}
+		}
+		type sourceAgg struct {
+			kind         string
+			successful   int
+			unsuccessful int
+			pending      int
+			total        int
+		}
+		bySource := make(map[string]*sourceAgg)
+		type ddmError struct {
+			source string
+			reason string
+		}
+		var errors []ddmError
+
+		for _, ch := range report.Channels {
+			for _, d := range ch.Declarations {
+				source, kind := classifyDeclaration(d.DeclarationIdentifier, bpNames, nil)
+
+				a, ok := bySource[source]
+				if !ok {
+					a = &sourceAgg{kind: kind}
+					bySource[source] = a
+				}
+				a.total++
+				switch d.Status {
+				case "SUCCESSFUL":
+					a.successful++
+				case "PENDING", "AWAITING_SYNC":
+					a.pending++
+				default:
+					a.unsuccessful++
+				}
+
+				for _, r := range d.Reasons {
+					if ignorableDDMReasonCodes[r.Code] {
+						continue
+					}
+					errors = append(errors, ddmError{source, r.Code + ": " + r.Description})
+				}
+			}
+		}
+
+		if len(bySource) == 0 {
+			mu.Lock()
+			ddmSection = &overviewSection{Name: "DDM Declarations", Items: []overviewItem{{Resource: "(none)", Value: ""}}}
+			mu.Unlock()
+			return
+		}
+
+		var items []overviewItem
+		for name, a := range bySource {
+			if a.kind == "standalone" {
+				continue
+			}
+			status := fmt.Sprintf("%d ok", a.successful)
+			if a.unsuccessful > 0 {
+				status += fmt.Sprintf(", %d failed", a.unsuccessful)
+			}
+			if a.pending > 0 {
+				status += fmt.Sprintf(", %d pending", a.pending)
+			}
+			items = append(items, overviewItem{Resource: name, Value: status})
+		}
+		for _, e := range errors {
+			items = append(items, overviewItem{})
+			items = append(items, overviewItem{Resource: e.source, Value: e.reason})
+		}
+
+		mu.Lock()
+		ddmSection = &overviewSection{Name: "DDM Declarations", Items: items}
+		mu.Unlock()
+	}()
+
+	// Blueprints scoped to this device's groups
+	go func() {
+		defer wg.Done()
+		bps, err := pc.ListBlueprints(ctx, nil, "")
+		if err != nil {
+			return
+		}
+		var items []overviewItem
+		for _, bp := range bps {
+			detail, err := pc.GetBlueprint(ctx, bp.ID)
+			if err != nil {
+				continue
+			}
+			if !scopeOverlaps(detail.Scope.DeviceGroups, groupIDs) {
+				continue
+			}
+			items = append(items, overviewItem{detail.Name, detail.DeploymentState.State, ""})
+		}
+		if len(items) == 0 {
+			items = []overviewItem{{Resource: "(none)", Value: ""}}
+		}
+		mu.Lock()
+		bpSection = &overviewSection{Name: "Platform Blueprints", Items: items}
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		resp, err := pc.ListBenchmarks(ctx)
+		if err != nil {
+			return
+		}
+		var items []overviewItem
+		for _, b := range resp.Benchmarks {
+			bm, err := pc.GetBenchmark(ctx, b.ID)
+			if err != nil {
+				continue
+			}
+			if !scopeOverlaps(bm.Target.DeviceGroups, groupIDs) {
+				continue
+			}
+			items = append(items, overviewItem{bm.Title, bm.EnforcementMode, ""})
+		}
+		if len(items) == 0 {
+			items = []overviewItem{{Resource: "(none)", Value: ""}}
+		}
+		mu.Lock()
+		cbSection = &overviewSection{Name: "Platform Compliance", Items: items}
+		mu.Unlock()
+	}()
+
+	wg.Wait()
+
+	var sections []overviewSection
+	if bpSection != nil {
+		sections = append(sections, *bpSection)
+	}
+	if cbSection != nil {
+		sections = append(sections, *cbSection)
+	}
+	if ddmSection != nil {
+		sections = append(sections, *ddmSection)
+	}
+	return sections
+}
+
+// scopeOverlaps returns true if any of the given scope IDs are in the target set.
+func scopeOverlaps(scopeIDs []string, targetSet map[string]bool) bool {
+	for _, id := range scopeIDs {
+		if targetSet[id] {
+			return true
+		}
+	}
+	return false
 }

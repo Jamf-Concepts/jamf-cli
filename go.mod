@@ -3,6 +3,7 @@ module github.com/Jamf-Concepts/jamf-cli
 go 1.26.2
 
 require (
+	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.2.0
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.2.0
 	github.com/getkin/kin-openapi v0.135.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -29,6 +30,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.9 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/woodsbury/decimal128 v1.4.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 )

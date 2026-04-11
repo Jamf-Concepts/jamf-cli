@@ -102,13 +102,13 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a unified logging filter",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 
 			var input jamfprotect.UnifiedLoggingFilterInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -130,7 +130,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("unified logging filter", input.Name, yes)
+			proceed, err := confirmReplace("unified logging filter", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func newProtectULFDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("unified logging filter", args[0], yes)
+			proceed, err := confirmDelete("unified logging filter", args[0], yes)
 			if err != nil {
 				return err
 			}

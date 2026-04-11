@@ -13,9 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// printProtectResult outputs a single item. For table/csv/plain, it uses the
+// printResult outputs a single item. For table/csv/plain, it uses the
 // flattened map for clean column output. For json/yaml, it outputs the full struct.
-func printProtectResult(out registry.OutputFormatter, item any, flattened map[string]any) error {
+func printResult(out registry.OutputFormatter, item any, flattened map[string]any) error {
 	switch outputFmt {
 	case "table", "csv", "plain":
 		data, err := json.Marshal(flattened)
@@ -28,8 +28,8 @@ func printProtectResult(out registry.OutputFormatter, item any, flattened map[st
 	}
 }
 
-// printProtectExport outputs data as JSON (default) or YAML based on the global output format.
-func printProtectExport(data any) error {
+// printExport outputs data as JSON (default) or YAML based on the global output format.
+func printExport(data any) error {
 	switch outputFmt {
 	case "yaml":
 		enc := yaml.NewEncoder(os.Stdout)
@@ -42,8 +42,8 @@ func printProtectExport(data any) error {
 	}
 }
 
-// unmarshalProtectInput tries JSON first, then YAML, into the target.
-func unmarshalProtectInput(data []byte, target any) error {
+// unmarshalInput tries JSON first, then YAML, into the target.
+func unmarshalInput(data []byte, target any) error {
 	if err := json.Unmarshal(data, target); err == nil {
 		return nil
 	}
@@ -53,8 +53,8 @@ func unmarshalProtectInput(data []byte, target any) error {
 	return fmt.Errorf("input is not valid JSON or YAML")
 }
 
-// readProtectInput reads JSON input from --from-file flag or stdin.
-func readProtectInput(fromFile string) ([]byte, error) {
+// readInput reads JSON input from --from-file flag or stdin.
+func readInput(fromFile string) ([]byte, error) {
 	if fromFile != "" {
 		data, err := os.ReadFile(fromFile)
 		if err != nil {
@@ -77,9 +77,9 @@ func readProtectInput(fromFile string) ([]byte, error) {
 	return nil, fmt.Errorf("input required: use --from-file or pipe JSON to stdin")
 }
 
-// confirmProtectDelete prompts for confirmation before a destructive operation.
+// confirmDelete prompts for confirmation before a destructive operation.
 // Returns true if the operation should proceed, false if it was dry-run/aborted.
-func confirmProtectDelete(resourceType, name string, yes bool) (bool, error) {
+func confirmDelete(resourceType, name string, yes bool) (bool, error) {
 	if dryRun {
 		fmt.Fprintf(os.Stderr, "[dry-run] Would delete %s %q\n", resourceType, name)
 		return false, nil
@@ -100,9 +100,9 @@ func confirmProtectDelete(resourceType, name string, yes bool) (bool, error) {
 	return true, nil
 }
 
-// confirmProtectReplace prompts for confirmation before replacing an existing resource.
+// confirmReplace prompts for confirmation before replacing an existing resource.
 // Returns true if the operation should proceed, false if it was dry-run/aborted.
-func confirmProtectReplace(resourceType, name string, yes bool) (bool, error) {
+func confirmReplace(resourceType, name string, yes bool) (bool, error) {
 	if dryRun {
 		fmt.Fprintf(os.Stderr, "[dry-run] Would replace %s %q\n", resourceType, name)
 		return false, nil

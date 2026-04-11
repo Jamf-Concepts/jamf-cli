@@ -103,7 +103,7 @@ func newProtectAnalyticsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, analytic, flattenAnalytic(*analytic))
+			return printResult(cliCtx.Output, analytic, flattenAnalytic(*analytic))
 		},
 	}
 }
@@ -119,13 +119,13 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an analytic",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 
 			var input jamfprotect.AnalyticInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -143,11 +143,11 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created analytic %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenAnalytic(result))
+				return printResult(cliCtx.Output, result, flattenAnalytic(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("analytic", input.Name, yes)
+			proceed, err := confirmReplace("analytic", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated analytic %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenAnalytic(result))
+			return printResult(cliCtx.Output, result, flattenAnalytic(result))
 		},
 	}
 
@@ -185,7 +185,7 @@ func newProtectAnalyticsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("analytic", args[0], yes)
+			proceed, err := confirmDelete("analytic", args[0], yes)
 			if err != nil {
 				return err
 			}

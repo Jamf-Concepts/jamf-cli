@@ -28,6 +28,13 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newGroupToolsCmd(cliCtx))
 	cmd.AddCommand(newDeviceCmd(cliCtx))
+	// Platform API commands (require platform gateway auth)
+	cmd.AddCommand(newBlueprintsCmd(cliCtx))
+	cmd.AddCommand(newComplianceBenchmarksCmd(cliCtx))
+	cmd.AddCommand(newPlatformDevicesCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsCmd(cliCtx))
+	cmd.AddCommand(newDDMReportsCmd(cliCtx))
+
 	// Generated modern API commands
 	generated.RegisterCommands(cmd, cliCtx)
 

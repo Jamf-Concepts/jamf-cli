@@ -54,12 +54,12 @@ func newProtectDataForwardingUpdateCmd(cliCtx *registry.CLIContext) *cobra.Comma
 		Use:   "update",
 		Short: "Update data forwarding settings",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.DataForwardingInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
@@ -111,12 +111,12 @@ func newProtectDataRetentionUpdateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 		Use:   "update",
 		Short: "Update data retention settings",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var input jamfprotect.DataRetentionInput
-			if err := unmarshalProtectInput(data, &input); err != nil {
+			if err := unmarshalInput(data, &input); err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 

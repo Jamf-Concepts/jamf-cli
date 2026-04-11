@@ -41,6 +41,8 @@ After modifying a template: `make generate && make test`
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
+| Add a new Platform API command (blueprints, etc.) | `internal/commands/pro_blueprints.go`, `pro_compliance_benchmarks.go`, etc. (wire in `pro.go`) |
+| Change Platform name-to-ID resolution | `internal/platform/resolve.go` |
 | Add a new Jamf Protect command | `internal/commands/protect_*.go` (new file + wire in `protect.go`) |
 | Change Protect name-to-ID resolution | `internal/protect/resolve.go` |
 | Change Protect YAML import/export schemas | `internal/commands/protect_analytics.go`, `protect_ulf.go` |
@@ -83,6 +85,12 @@ JAMF_URL=https://... JAMF_TOKEN=... bin/jamf-cli pro computers list  # One-off w
 bin/jamf-cli -p my-protect-profile protect overview                 # Use a named protect profile
 JAMF_CLI_ARGS='--quiet --no-input' bin/jamf-cli pro computers list  # Prepend default flags (CI/CD)
 JAMF_CLI_ARGS='--profile "My CI Profile"' bin/jamf-cli pro computers list  # Quoted values supported
+
+# Platform gateway auth (enables both Pro API and Platform API commands)
+bin/jamf-cli config add-profile my-platform --url https://eu.apigw.jamf.com --auth-method platform --tenant-id <id>
+bin/jamf-cli -p my-platform pro blueprints list           # Platform API command
+bin/jamf-cli -p my-platform pro computers list            # Pro API routed through gateway
+JAMF_URL=https://eu.apigw.jamf.com JAMF_CLIENT_ID=... JAMF_CLIENT_SECRET=... JAMF_TENANT_ID=... bin/jamf-cli pro bp list  # Env vars
 ```
 
 ## Architecture
@@ -93,20 +101,27 @@ This is a CLI for the Jamf platform. The root command holds shared infrastructur
 
 ```
 internal/
-  registry/              Shared interfaces: CLIContext, HTTPClient, OutputFormatter, ProtectClient
+  registry/              Shared interfaces: CLIContext, HTTPClient, OutputFormatter, ProtectClient, PlatformClient
   auth/                  Auth providers (OAuth2, Platform, Token) — Jamf Pro only
   client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
+  platform/              Jamf Platform helpers: name-to-ID Resolver, PrintList/PrintOne output
   protect/               Jamf Protect helpers: name-to-ID Resolver, PrintList/PrintOne output
   commands/
     root.go              Root command, shared flags, product-aware auth resolution
     config.go            Config subcommands (shared)
     completion.go        Shell completion (shared)
-    groups.go            Help groups for root + pro + protect
-    aliases.go           Aliases for root + pro + protect
-    protect_helpers.go   Shared Protect helpers: input reading, confirmation, export formatting
-    pro.go               Bridge: wires all Jamf Pro commands under "pro"
+    groups.go            Help groups for root + pro + protect + platform
+    aliases.go           Aliases for root + pro + protect + platform
+    protect_helpers.go   Shared helpers: input reading, confirmation, export formatting (used by both Protect and Platform commands)
+    pro_platform_helpers.go  Platform-specific helpers: requirePlatformClient gate, printScaffold
+    pro.go               Bridge: wires all Jamf Pro + Platform commands under "pro"
     pro_*.go             Jamf Pro handwritten commands (overview, audit, etc.)
+    pro_blueprints.go    Platform API: blueprint CRUD, deploy/undeploy, components
+    pro_compliance_benchmarks.go  Platform API: benchmark CRUD, baselines, rules, reporting
+    pro_platform_devices.go       Platform API: unified device inventory + actions
+    pro_platform_device_groups.go Platform API: device groups CRUD + membership
+    pro_ddm_reports.go   Platform API: DDM declaration status reports
     protect.go           Bridge: wires all Jamf Protect commands under "protect"
     protect_*.go         Jamf Protect commands (CRUD, import/export, granular mutations)
     pro/
@@ -161,14 +176,15 @@ The site at `docs/site/` auto-deploys on every push to `main` via `.github/workf
 
 `cmd/jamf-cli/main.go` --> `commands.NewRootCmd()` --> `PersistentPreRunE` (resolves auth + config) --> `pro` subcommand --> generated commands
 
-`PersistentPreRunE` in `root.go` is the critical path: it determines the product type from the command hierarchy (commands under `protect` → Protect, under `pro` → Pro), resolves credentials through a priority chain (flags > env vars > config profile), and builds the appropriate client. For Pro, it builds the HTTP client with spinner/dry-run decorators. For Protect, it constructs a `jamfprotect.NewClient()` SDK client. Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
+`PersistentPreRunE` in `root.go` is the critical path: it determines the product type from the command hierarchy (commands under `protect` → Protect, under `pro` → Pro), resolves credentials through a priority chain (flags > env vars > config profile), and builds the appropriate client. For Pro, it builds the HTTP client with spinner/dry-run decorators. When platform gateway auth is detected (`PlatformOAuth2Provider`), it additionally constructs a `jamfplatform.NewClient()` SDK client for Platform API commands (blueprints, compliance-benchmarks, etc.) — both the HTTP client and Platform SDK client coexist in `CLIContext`. For Protect, it constructs a `jamfprotect.NewClient()` SDK client. Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
 
 ### Key Packages
 
 | Package | Purpose |
 |---------|---------|
-| `internal/registry/` | Shared interfaces: `CLIContext`, `HTTPClient`, `OutputFormatter`, `ProtectClient` |
-| `internal/commands/` | Root command, config, completion, product bridges, Pro (`pro_*.go`) and Protect (`protect_*.go`) handwritten commands |
+| `internal/registry/` | Shared interfaces: `CLIContext`, `HTTPClient`, `OutputFormatter`, `ProtectClient`, `PlatformClient` |
+| `internal/commands/` | Root command, config, completion, product bridges, Pro (`pro_*.go`), Platform (`pro_blueprints.go`, `pro_platform_*.go`, `pro_compliance_benchmarks.go`, `pro_ddm_reports.go`), and Protect (`protect_*.go`) handwritten commands |
+| `internal/platform/` | Platform helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/protect/` | Protect helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/commands/pro/generated/` | **Generated** — all Jamf Pro API resource commands + registries |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
@@ -187,7 +203,7 @@ The site at `docs/site/` auto-deploys on every push to `main` via `.github/workf
 Three auth methods are supported:
 - **token** — Pre-existing bearer token, passed directly in Authorization header
 - **oauth2** — Client credentials flow against the instance's `/api/oauth/token` endpoint
-- **platform** — Client credentials flow against the Jamf Platform Gateway (e.g., `https://{region}.apigw.jamf.com/auth/token`). Requires `--tenant-id` for URL path rewriting: Classic API paths are routed through `/api/proclassic/tenant/{id}/`, modern API paths through `/api/pro/tenant/{id}/`
+- **platform** — Client credentials flow against the Jamf Platform Gateway (e.g., `https://{region}.apigw.jamf.com/auth/token`). Requires `--tenant-id` for URL path rewriting: Classic API paths are routed through `/api/proclassic/tenant/{id}/`, modern API paths through `/api/pro/tenant/{id}/`. Additionally constructs a `jamfplatform-go-sdk` client (`CLIContext.PlatformClient`) enabling Platform API commands (blueprints, compliance-benchmarks, devices, device-groups, DDM reports)
 
 Secret values in config use prefixed references: `env:VAR`, `file:/path`, `keychain:service/account`. Bare values passed to `config add-profile` are stored in the system keychain automatically.
 
@@ -259,22 +275,49 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 - **Name resolution**: All `get`/`delete`/`export` commands take a positional `<name>` arg (not `--name` flag), matching Pro's pattern. `internal/protect/Resolver` maps names to IDs via lazy-cached list calls.
 - **CRUD pattern**: Protect uses `apply` (upsert) instead of separate `create`/`update`. `apply` reads JSON or YAML input (from `--from-file` or stdin), checks if the resource exists by name, and creates or updates accordingly. Replacing an existing resource prompts for confirmation (skippable with `--yes`).
 - **Export**: Every resource has an `export <name>` command that outputs the SDK input format (not the API response). Respects `-o` flag: JSON by default, YAML with `-o yaml`. Export output can be piped directly to `apply`.
-- **Output**: List commands use flatten functions to show only essential fields in table mode. `get`/`apply`/mutation commands use `printProtectResult()` which flattens for table/csv/plain and shows full JSON for json/yaml output.
+- **Output**: List commands use flatten functions to show only essential fields in table mode. `get`/`apply`/mutation commands use `printResult()` which flattens for table/csv/plain and shows full JSON for json/yaml output.
 - **YAML import/export**: Analytics and unified logging filters additionally support `import --file`/`--dir` with YAML files matching the `jamf/jamfprotect` community repo schema. Import is upsert (creates or updates by name).
 - **Granular mutations**: `add-analytic`/`remove-analytic` on analytic sets, `add-exception`/`remove-exception` on exception sets, `add-rule`/`remove-rule` on removable storage control sets use read-modify-write pattern. These are idempotent: adding a duplicate is a no-op (or replaces for rules, with `--yes` confirmation).
 - **Downloads**: `protect downloads` has subcommands for downloading actual files: `installer`, `uninstaller`, `pppc-profile`, `tamper-prevention-profile`, `root-ca`, `csr`, `websocket-auth`, `summary`. Profiles/certs are base64-decoded and written as files. Packages are downloaded via authenticated HTTP.
 - **Plans config-profile**: `protect plans config-profile <name>` downloads a `.mobileconfig` file with all payloads included by default. Use `--no-*` flags to exclude specific payloads (pppc, token, ca, csr, websocket, system-extension, service-management). `--sign` cryptographically signs the profile.
 
-### Protect Command Helpers (`protect_helpers.go`)
+### Jamf Platform API Integration
+
+Platform commands use the `jamfplatform-go-sdk` (REST-based). The SDK handles its own OAuth2 auth, retry, and pagination. Platform commands live under the `pro` namespace (not a separate product) and appear in the "Platform:" help group.
+
+- **Auth**: SDK manages tokens internally. `PersistentPreRunE` detects `PlatformOAuth2Provider`, extracts credentials via `ClientID()`/`ClientSecret()` getters, and passes them to `jamfplatform.NewClient()`. The Platform SDK client coexists with the Pro HTTP client in `CLIContext` — a single `auth-method: platform` profile enables both Pro API commands (routed through gateway) and Platform API commands (via SDK).
+- **Runtime gating**: Platform commands are always registered (visible in `pro --help`) but check `requirePlatformClient(cliCtx)` at the top of `RunE`. When platform auth isn't configured, users get a clear error with setup instructions.
+- **Name resolution**: `internal/platform/Resolver` maps names to IDs via lazy-cached list calls (blueprints by name, benchmarks by title, baselines by title, device groups by name). Devices use SDK filter methods directly (serial number auto-detection: UUIDs contain hyphens, serials don't).
+- **CRUD pattern**: Same as Protect — `apply` (upsert with `--from-file`/stdin), `get <name>`, `delete <name>` with confirmation, `export <name>` as JSON/YAML. Blueprint `apply` uses merge-patch for updates. Benchmark `apply` is create-only (SDK has no update).
+- **Scaffold**: `apply --scaffold` prints a JSON template of the create request type with placeholder values. Auth is skipped for scaffold (global behavior in `PersistentPreRunE`).
+- **Naming**: `platform-` prefix where overlap with existing Pro API resources (`platform-devices`, `platform-device-groups`). No prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
+
+**Platform commands:**
+- `pro blueprints` (`bp`) — CRUD, deploy/undeploy, report, components
+- `pro compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance
+- `pro platform-devices` (`pdev`) — list, get, update, delete, apps, groups, user, check-in, erase, restart, shutdown, unmanage
+- `pro platform-device-groups` (`pdg`) — CRUD, members, add-members, remove-members
+- `pro ddm-reports` (`ddm`) — device declaration report, declaration clients
+
+### Shared Command Helpers (`protect_helpers.go`)
+
+These helpers are shared by both Protect and Platform commands (originally Protect-only, renamed to generic names):
 
 | Helper | Purpose |
 |--------|---------|
-| `readProtectInput(fromFile)` | Reads JSON/YAML from `--from-file` or stdin pipe |
-| `unmarshalProtectInput(data, target)` | Tries JSON then YAML unmarshal |
-| `printProtectResult(out, item, flattened)` | Table-aware output (flatten for table, full struct for json/yaml) |
-| `printProtectExport(data)` | Export as JSON or YAML based on `-o` flag |
-| `confirmProtectDelete(type, name, yes)` | Delete confirmation with dry-run support |
-| `confirmProtectReplace(type, name, yes)` | Replace confirmation for `apply` upsert |
+| `readInput(fromFile)` | Reads JSON/YAML from `--from-file` or stdin pipe |
+| `unmarshalInput(data, target)` | Tries JSON then YAML unmarshal |
+| `printResult(out, item, flattened)` | Table-aware output (flatten for table, full struct for json/yaml) |
+| `printExport(data)` | Export as JSON or YAML based on `-o` flag |
+| `confirmDelete(type, name, yes)` | Delete confirmation with dry-run support |
+| `confirmReplace(type, name, yes)` | Replace confirmation for `apply` upsert |
+
+### Platform-Specific Helpers (`pro_platform_helpers.go`)
+
+| Helper | Purpose |
+|--------|---------|
+| `requirePlatformClient(cliCtx)` | Returns error if Platform SDK client is nil (no platform auth) |
+| `printScaffold(v)` | Marshals a struct to indented JSON for `--scaffold` output |
 
 ### Config File
 
@@ -284,9 +327,10 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 
 - Global flags are package-level vars in `root.go` (not struct fields) — accessed by generated commands via the `CLIContext` struct.
 - Jamf Pro commands use the `pro_` filename prefix (e.g., `pro_overview.go`, `pro_audit.go`).
+- Platform API commands under Pro use `pro_blueprints.go`, `pro_compliance_benchmarks.go`, `pro_platform_devices.go`, `pro_platform_device_groups.go`, `pro_ddm_reports.go`. The `platform_` infix is used where the resource name overlaps with existing Pro resources.
 - Jamf Protect commands use the `protect_` filename prefix (e.g., `protect_overview.go`, `protect_analytics.go`).
-- Command grouping for `--help` output is maintained in `groups.go` — root groups, pro groups, and protect groups are separate.
-- Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root, pro, and protect aliases.
+- Command grouping for `--help` output is maintained in `groups.go` — root groups, pro groups (including platform), and protect groups are separate. Platform commands use the `groupPlatform` group.
+- Short aliases (e.g., `comp` for `computers`) are in `aliases.go` — split into root, pro (including platform: `bp`, `cb`, `pdev`, `pdg`, `ddm`), and protect aliases.
 - The Pro `overview` command makes ~37 parallel API calls to produce an instance dashboard — it's the most complex handwritten command. The Protect `overview` makes ~14 parallel calls.
 - Protect `apply` commands accept both JSON and YAML input. `export` output can be piped directly to `apply` for round-tripping.
 - Protect list commands use flatten functions for clean table output (essential fields only). Full detail is available via `get` (json/yaml output) or `export` (input-compatible format).
@@ -321,10 +365,10 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 1. Create `internal/commands/protect_myresource.go` with:
    - `newProtectMyResourceCmd()` — parent, wires subcommands
    - `newProtectMyResourceListCmd()` — flatten output for table, use `json.Marshal(rows)` + `PrintRaw`
-   - `newProtectMyResourceGetCmd()` — positional `<name>` arg, resolve via `protect.NewResolver`, use `printProtectResult` for table-aware output
-   - `newProtectMyResourceApplyCmd()` — upsert with `readProtectInput`/`unmarshalProtectInput`, resolve name, create-or-update, `--yes` for replace confirmation
-   - `newProtectMyResourceDeleteCmd()` — positional `<name>` arg, `--yes` flag, `confirmProtectDelete`
-   - `newProtectMyResourceExportCmd()` — positional `<name>` arg, convert API response to input type, output via `printProtectExport`
+   - `newProtectMyResourceGetCmd()` — positional `<name>` arg, resolve via `protect.NewResolver`, use `printResult` for table-aware output
+   - `newProtectMyResourceApplyCmd()` — upsert with `readInput`/`unmarshalInput`, resolve name, create-or-update, `--yes` for replace confirmation
+   - `newProtectMyResourceDeleteCmd()` — positional `<name>` arg, `--yes` flag, `confirmDelete`
+   - `newProtectMyResourceExportCmd()` — positional `<name>` arg, convert API response to input type, output via `printExport`
    - `flattenMyResource()` — essential fields only for table output
    - `myResourceToInput()` — strip server fields for export
 2. Wire into `protect.go`: `cmd.AddCommand(newProtectMyResourceCmd(cliCtx))`
@@ -332,6 +376,24 @@ Protect uses the `jamfprotect-go-sdk` (GraphQL-based, not REST). The SDK handles
 4. Optionally add alias in `aliases.go` (`protectAliases`)
 5. Add resolver method in `internal/protect/resolve.go`
 6. Add tests in `protect_test.go` (subcommands), `protect_conversions_test.go` (flatten/toInput)
+
+### Adding a new Platform API resource
+
+1. Create `internal/commands/pro_myresource.go` (use `pro_platform_` prefix if name overlaps with existing Pro resources) with:
+   - `newMyResourceCmd()` — parent, wires subcommands
+   - Each subcommand starts with `requirePlatformClient(cliCtx)` gate
+   - `newMyResourceListCmd()` — flatten output for table, `json.Marshal(rows)` + `PrintRaw`
+   - `newMyResourceGetCmd()` — positional `<name>` arg, resolve via `platform.NewResolver`, use `printResult` for table-aware output or `platform.PrintOne` for full JSON
+   - `newMyResourceApplyCmd()` — upsert with `readInput`/`unmarshalInput`, resolve name, create-or-update. Add `--scaffold` flag with `printScaffold()`. `--yes` for replace confirmation
+   - `newMyResourceDeleteCmd()` — positional `<name>` arg, `--yes` flag, `confirmDelete`
+   - `newMyResourceExportCmd()` — positional `<name>` arg, strip server fields, output via `printExport`
+   - `flattenMyResource()` — essential fields only for table output
+   - `myResourceScaffold()` — returns example create request struct for `--scaffold`
+2. Add the `PlatformClient` interface methods in `internal/registry/registry.go` if wrapping new SDK methods
+3. Wire into `pro.go`: `cmd.AddCommand(newMyResourceCmd(cliCtx))`
+4. Add to `groups.go` (`proGroupMap` → `groupPlatform`)
+5. Optionally add alias in `aliases.go` (`commandAliases`)
+6. Add resolver method in `internal/platform/resolve.go` if name-to-ID lookup needed
 
 ### Adding a new product namespace
 

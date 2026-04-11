@@ -146,6 +146,20 @@ func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Rea
 	return c.inner.Do(ctx, method, path, body)
 }
 
+// spinnerTransport wraps an http.RoundTripper to show a loading spinner
+// during requests. Used to add spinner support to SDK HTTP clients that
+// manage their own transport (e.g., Platform SDK, Protect SDK).
+type spinnerTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *spinnerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	s := spinner.New("Loading...")
+	s.Start()
+	defer s.Stop()
+	return t.inner.RoundTrip(req)
+}
+
 // dryRunClient wraps an HTTPClient to intercept mutating requests.
 // GET/HEAD pass through; POST/PUT/PATCH/DELETE print what would happen
 // and return a synthetic empty response.
@@ -402,6 +416,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"config":     true,
 				"diff":       true,
 				"setup":      true,
+				"platform":   true,
 				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
@@ -481,6 +496,17 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			}
 			cliCtx.Client = httpClient
 
+			// When platform gateway auth is active, also construct the
+			// Platform SDK client for platform-native commands (blueprints,
+			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
+			// token lifecycle independently from the Pro HTTP client.
+			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
+				cliCtx.PlatformClient = newPlatformSDKClient(
+					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
+					!quiet && !verbose,
+				)
+			}
+
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
@@ -539,6 +565,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Jamf Protect product namespace
 	cmd.AddCommand(newProtectCmd(cliCtx))
+
+	// Jamf Platform namespace
+	cmd.AddCommand(newPlatformCmd())
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)

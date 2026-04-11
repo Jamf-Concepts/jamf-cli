@@ -90,7 +90,7 @@ func newProtectAnalyticSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, item, flattenAnalyticSet(*item))
+			return printResult(cliCtx.Output, item, flattenAnalyticSet(*item))
 		},
 	}
 }
@@ -105,12 +105,12 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 		Short: "Create or update an analytic set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			data, err := readProtectInput(fromFile)
+			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 			var export analyticSetExport
-			if err := unmarshalProtectInput(data, &export); err != nil {
+			if err := unmarshalInput(data, &export); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -135,11 +135,11 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created analytic set %q\n", input.Name)
-				return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
+				return printResult(cliCtx.Output, result, flattenAnalyticSet(result))
 			}
 
 			// Found — confirm before replacing
-			proceed, err := confirmProtectReplace("analytic set", input.Name, yes)
+			proceed, err := confirmReplace("analytic set", input.Name, yes)
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,7 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated analytic set %q\n", input.Name)
-			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
+			return printResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
@@ -173,7 +173,7 @@ func newProtectAnalyticSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 				return err
 			}
 
-			proceed, err := confirmProtectDelete("analytic set", args[0], yes)
+			proceed, err := confirmDelete("analytic set", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -241,7 +241,7 @@ func newProtectAnalyticSetsAddAnalyticCmd(cliCtx *registry.CLIContext) *cobra.Co
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
+			return printResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to add")
@@ -291,7 +291,7 @@ func newProtectAnalyticSetsRemoveAnalyticCmd(cliCtx *registry.CLIContext) *cobra
 			if err != nil {
 				return err
 			}
-			return printProtectResult(cliCtx.Output, result, flattenAnalyticSet(result))
+			return printResult(cliCtx.Output, result, flattenAnalyticSet(result))
 		},
 	}
 	cmd.Flags().StringVar(&analyticName, "analytic", "", "Name of the analytic to remove")
@@ -315,7 +315,7 @@ func newProtectAnalyticSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err != nil {
 				return err
 			}
-			return printProtectExport(analyticSetToExport(item))
+			return printExport(analyticSetToExport(item))
 		},
 	}
 }

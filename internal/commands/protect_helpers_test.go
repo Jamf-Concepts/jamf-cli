@@ -15,7 +15,7 @@ type testInput struct {
 
 func TestUnmarshalProtectInput_JSON(t *testing.T) {
 	var out testInput
-	err := unmarshalProtectInput([]byte(`{"Name":"hello","Count":42}`), &out)
+	err := unmarshalInput([]byte(`{"Name":"hello","Count":42}`), &out)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestUnmarshalProtectInput_JSON(t *testing.T) {
 
 func TestUnmarshalProtectInput_YAML(t *testing.T) {
 	var out testInput
-	err := unmarshalProtectInput([]byte("Name: world\nCount: 7\n"), &out)
+	err := unmarshalInput([]byte("Name: world\nCount: 7\n"), &out)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestUnmarshalProtectInput_YAML(t *testing.T) {
 
 func TestUnmarshalProtectInput_Invalid(t *testing.T) {
 	var out testInput
-	err := unmarshalProtectInput([]byte("<<<garbage>>>"), &out)
+	err := unmarshalInput([]byte("<<<garbage>>>"), &out)
 	if err == nil {
 		t.Fatal("expected error for garbage input")
 	}
@@ -53,7 +53,7 @@ func TestUnmarshalProtectInput_YAMLPreferred(t *testing.T) {
 	// YAML that is not valid JSON should still parse correctly.
 	input := []byte("Name: yaml-only\nCount: 99\n")
 	var out testInput
-	err := unmarshalProtectInput(input, &out)
+	err := unmarshalInput(input, &out)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestReadProtectInput_FromFile(t *testing.T) {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
-	data, err := readProtectInput(path)
+	data, err := readInput(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestReadProtectInput_FromFile(t *testing.T) {
 }
 
 func TestReadProtectInput_EmptyFromFile(t *testing.T) {
-	_, err := readProtectInput("/nonexistent/path/does-not-exist.json")
+	_, err := readInput("/nonexistent/path/does-not-exist.json")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
 	}
@@ -91,7 +91,7 @@ func TestReadProtectInput_EmptyFromFile(t *testing.T) {
 
 func TestReadProtectInput_NoInput(t *testing.T) {
 	// When fromFile is empty and stdin is a terminal, we should get an error.
-	_, err := readProtectInput("")
+	_, err := readInput("")
 	if err == nil {
 		t.Fatal("expected error when no file and no stdin pipe")
 	}

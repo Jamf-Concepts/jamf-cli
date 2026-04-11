@@ -11,20 +11,20 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewDdmStatussCmd creates the ddm-statuss command group
-func NewDdmStatussCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewDdmStatusCmd creates the ddm-status command group
+func NewDdmStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ddm-statuss",
-		Short: "Manage ddm-statuss",
-		Long:  `Manage ddm-statuss in Jamf Pro.`,
+		Use:   "ddm-status",
+		Short: "Manage ddm-status",
+		Long:  `Manage ddm-status in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newDdmStatussStatusItemsCmd(ctx))
+	cmd.AddCommand(newDdmStatusStatusItemsCmd(ctx))
 
 	return cmd
 }
 
-func newDdmStatussStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDdmStatusStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
