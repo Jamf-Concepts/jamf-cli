@@ -131,7 +131,7 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 
 	go func() {
 		defer wg.Done()
-		sg, err := collectSmartGroups(ctx, client, "/v2/computer-groups/smart-groups", smartGroupNames, "managedComputers", "unmanagedComputers")
+		sg, err := collectSmartGroups(ctx, client, "/v2/computer-groups/smart-groups", smartGroupNames, "membershipCount")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer smart groups: %v\n", err)
 			return
@@ -143,7 +143,7 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 
 	go func() {
 		defer wg.Done()
-		sg, err := collectSmartGroups(ctx, client, "/v1/mobile-device-groups/smart-groups", smartGroupNames, "managedMobileDevices", "unmanagedMobileDevices")
+		sg, err := collectSmartGroups(ctx, client, "/v1/mobile-device-groups/smart-groups", smartGroupNames, "count")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: mobile smart groups: %v\n", err)
 			return
@@ -154,6 +154,16 @@ func collectProData(ctx context.Context, client registry.HTTPClient, data *Dashb
 	}()
 
 	wg.Wait()
+
+	// Populate smart group fleet totals from already-fetched fleet data (avoids re-fetching inventory-information).
+	if data.Fleet != nil {
+		if data.ComputerSmartGroups != nil {
+			data.ComputerSmartGroups.TotalFleet = data.Fleet.ManagedComputers + data.Fleet.UnmanagedComputers
+		}
+		if data.MobileSmartGroups != nil {
+			data.MobileSmartGroups.TotalFleet = data.Fleet.ManagedMobile + data.Fleet.UnmanagedMobile
+		}
+	}
 }
 
 // collectFleetCounts fetches managed/unmanaged computer and mobile counts
@@ -428,16 +438,7 @@ func collectEnvironmentStats(ctx context.Context, client registry.HTTPClient) (*
 
 	paginatedCount := func(path string) func() (int, error) {
 		return func() (int, error) {
-			sep := "?"
-			if strings.Contains(path, "?") {
-				sep = "&"
-			}
-			data, err := fetchJSON(ctx, client, path+sep+"page-size=1")
-			if err != nil {
-				return 0, err
-			}
-			tc, _ := data["totalCount"].(float64)
-			return int(tc), nil
+			return fetchPaginatedCountInt(ctx, client, path)
 		}
 	}
 
@@ -493,56 +494,74 @@ func collectCheckinStatus(ctx context.Context, client registry.HTTPClient) (*che
 
 	go func() {
 		defer wg.Done()
-		data, err := fetchJSON(ctx, client, "/v3/computers-inventory?section=GENERAL&page-size=1")
+		n, err := fetchPaginatedCountInt(ctx, client, "/v3/computers-inventory?section=GENERAL")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: computer total count: %v\n", err)
 			return
 		}
 		mu.Lock()
-		status.ComputersTotal = int(data["totalCount"].(float64))
+		status.ComputersTotal = n
 		mu.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
-		data, err := fetchJSON(ctx, client,
-			fmt.Sprintf("/v3/computers-inventory?section=GENERAL&page-size=1&filter=general.lastContactTime%%3C%s", cutoff))
+		n, err := fetchPaginatedCountInt(ctx, client,
+			fmt.Sprintf("/v3/computers-inventory?section=GENERAL&filter=general.lastContactTime%%3C%s", cutoff))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: overdue computer count: %v\n", err)
 			return
 		}
 		mu.Lock()
-		status.ComputersOverdue = int(data["totalCount"].(float64))
+		status.ComputersOverdue = n
 		mu.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
-		data, err := fetchJSON(ctx, client, "/v2/mobile-devices?page-size=1")
+		n, err := fetchPaginatedCountInt(ctx, client, "/v2/mobile-devices")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: mobile total count: %v\n", err)
 			return
 		}
 		mu.Lock()
-		status.MobileTotal = int(data["totalCount"].(float64))
+		status.MobileTotal = n
 		mu.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
-		data, err := fetchJSON(ctx, client,
-			fmt.Sprintf("/v2/mobile-devices?page-size=1&filter=lastInventoryUpdateDate%%3C%s", cutoff))
+		n, err := fetchPaginatedCountInt(ctx, client,
+			fmt.Sprintf("/v2/mobile-devices?filter=lastInventoryUpdateDate%%3C%s", cutoff))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: overdue mobile count: %v\n", err)
 			return
 		}
 		mu.Lock()
-		status.MobileOverdue = int(data["totalCount"].(float64))
+		status.MobileOverdue = n
 		mu.Unlock()
 	}()
 
 	wg.Wait()
 	return status, nil
+}
+
+// topNModels sorts counts by descending frequency, caps at n, and rolls the
+// remainder into an "Other" entry.
+func topNModels(counts map[string]int, n int) []modelCount {
+	models := make([]modelCount, 0, len(counts))
+	for m, c := range counts {
+		models = append(models, modelCount{Model: m, Count: c})
+	}
+	sort.Slice(models, func(i, j int) bool { return models[i].Count > models[j].Count })
+	if len(models) > n {
+		other := 0
+		for _, m := range models[n:] {
+			other += m.Count
+		}
+		models = append(models[:n], modelCount{Model: "Other", Count: other})
+	}
+	return models
 }
 
 func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*hardwareModels, error) {
@@ -565,25 +584,12 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*ha
 			if hardware == nil {
 				continue
 			}
-			model, _ := hardware["model"].(string)
-			if model != "" {
+			if model, _ := hardware["model"].(string); model != "" {
 				counts[model]++
 			}
 		}
-		models := make([]modelCount, 0, len(counts))
-		for m, c := range counts {
-			models = append(models, modelCount{Model: m, Count: c})
-		}
-		sort.Slice(models, func(i, j int) bool { return models[i].Count > models[j].Count })
-		if len(models) > 10 {
-			other := 0
-			for _, m := range models[10:] {
-				other += m.Count
-			}
-			models = append(models[:10], modelCount{Model: "Other", Count: other})
-		}
 		mu.Lock()
-		hw.ComputerModels = models
+		hw.ComputerModels = topNModels(counts, 10)
 		mu.Unlock()
 	}()
 
@@ -596,25 +602,12 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*ha
 		}
 		counts := make(map[string]int)
 		for _, dev := range all {
-			model, _ := dev["model"].(string)
-			if model != "" {
+			if model, _ := dev["model"].(string); model != "" {
 				counts[model]++
 			}
 		}
-		models := make([]modelCount, 0, len(counts))
-		for m, c := range counts {
-			models = append(models, modelCount{Model: m, Count: c})
-		}
-		sort.Slice(models, func(i, j int) bool { return models[i].Count > models[j].Count })
-		if len(models) > 10 {
-			other := 0
-			for _, m := range models[10:] {
-				other += m.Count
-			}
-			models = append(models[:10], modelCount{Model: "Other", Count: other})
-		}
 		mu.Lock()
-		hw.MobileModels = models
+		hw.MobileModels = topNModels(counts, 10)
 		mu.Unlock()
 	}()
 
@@ -626,15 +619,10 @@ func collectHardwareModels(ctx context.Context, client registry.HTTPClient) (*ha
 	return hw, nil
 }
 
-func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoint string, names []string, managedKey, unmanagedKey string) (*smartGroupSummary, error) {
+func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoint string, names []string, countField string) (*smartGroupSummary, error) {
 	allGroups, err := FetchAllPaginated(ctx, client, endpoint, 100)
 	if err != nil {
 		return nil, fmt.Errorf("smart groups: %w", err)
-	}
-
-	countField := "membershipCount"
-	if endpoint != "/v2/computer-groups/smart-groups" {
-		countField = "count"
 	}
 
 	groupName := func(g map[string]any) string {
@@ -680,13 +668,6 @@ func collectSmartGroups(ctx context.Context, client registry.HTTPClient, endpoin
 		if len(summary.Groups) > 10 {
 			summary.Groups = summary.Groups[:10]
 		}
-	}
-
-	inv, err := fetchJSON(ctx, client, "/v1/inventory-information")
-	if err == nil {
-		managed, _ := inv[managedKey].(float64)
-		unmanaged, _ := inv[unmanagedKey].(float64)
-		summary.TotalFleet = int(managed) + int(unmanaged)
 	}
 
 	return summary, nil

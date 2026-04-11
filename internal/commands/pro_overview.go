@@ -68,21 +68,27 @@ func fetchJSON(ctx context.Context, client registry.HTTPClient, path string) (ma
 	return result, nil
 }
 
-// fetchPaginatedCount appends ?page-size=1 to the path and returns the totalCount.
-func fetchPaginatedCount(ctx context.Context, client registry.HTTPClient, path string) (string, error) {
+// fetchPaginatedCountInt appends ?page-size=1 to the path and returns the totalCount as an int.
+func fetchPaginatedCountInt(ctx context.Context, client registry.HTTPClient, path string) (int, error) {
 	sep := "?"
 	if strings.Contains(path, "?") {
 		sep = "&"
 	}
 	data, err := fetchJSON(ctx, client, path+sep+"page-size=1")
 	if err != nil {
+		return 0, err
+	}
+	tc, _ := data["totalCount"].(float64)
+	return int(tc), nil
+}
+
+// fetchPaginatedCount appends ?page-size=1 to the path and returns the totalCount as a formatted string.
+func fetchPaginatedCount(ctx context.Context, client registry.HTTPClient, path string) (string, error) {
+	n, err := fetchPaginatedCountInt(ctx, client, path)
+	if err != nil {
 		return "", err
 	}
-
-	if tc, ok := data["totalCount"]; ok {
-		return formatCount(tc), nil
-	}
-	return "0", nil
+	return formatCount(float64(n)), nil
 }
 
 // fetchArrayCount performs a GET and returns the length of the JSON array.

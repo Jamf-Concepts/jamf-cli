@@ -788,14 +788,11 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 		})
 	}
 
-	// Compute total and max OS count for bar chart scaling
-	maxOS, totalOS := 0, 0
+	// Compute total OS count for bar chart scaling
+	totalOS := 0
 	if data.OSDist != nil {
 		for _, v := range data.OSDist.Versions {
 			totalOS += v.Count
-			if v.Count > maxOS {
-				maxOS = v.Count
-			}
 		}
 	}
 
@@ -863,7 +860,6 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 
 	type templateData struct {
 		*DashboardData
-		MaxOSCount          int
 		TotalOSCount        int
 		TotalComputerModels int
 		TotalMobileModels   int
@@ -871,7 +867,6 @@ func renderDashboard(w io.Writer, data *DashboardData) error {
 
 	td := templateData{
 		DashboardData:       data,
-		MaxOSCount:          maxOS,
 		TotalOSCount:        totalOS,
 		TotalComputerModels: totalCompModels,
 		TotalMobileModels:   totalMobileModels,
