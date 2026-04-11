@@ -123,18 +123,19 @@ func runDashboard(ctx context.Context, opts dashboardOptions) error {
 	}
 
 	// Phase 3: Render HTML
-	var w *os.File
 	if opts.OutFile != "" {
-		w, err = os.Create(opts.OutFile)
-		if err != nil {
-			return fmt.Errorf("creating output file: %w", err)
+		f, createErr := os.Create(opts.OutFile)
+		if createErr != nil {
+			return fmt.Errorf("creating output file: %w", createErr)
 		}
-		defer w.Close()
-	} else {
-		w = os.Stdout
+		if renderErr := renderDashboard(f, data); renderErr != nil {
+			_ = f.Close()
+			return renderErr
+		}
+		return f.Close()
 	}
 
-	return renderDashboard(w, data)
+	return renderDashboard(os.Stdout, data)
 }
 
 func resolveDashboardProfile(cfg *config.Config, profileName string) (resolvedClients, error) {
