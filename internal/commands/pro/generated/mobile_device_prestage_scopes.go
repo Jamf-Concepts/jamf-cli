@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -117,6 +118,12 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v2/mobile-device-prestages/{id}/scope/delete-multiple"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
@@ -152,7 +159,11 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 

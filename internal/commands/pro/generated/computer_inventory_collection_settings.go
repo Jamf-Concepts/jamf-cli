@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -198,6 +199,12 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v2/computer-inventory-collection-settings/custom-path/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
@@ -216,11 +223,16 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 

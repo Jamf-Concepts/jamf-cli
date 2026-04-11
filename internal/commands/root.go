@@ -481,6 +481,21 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			}
 			cliCtx.Client = httpClient
 
+			// Resolve effective profile name and per-profile cooldown setting.
+			resolvedProfile := profile
+			if resolvedProfile == "" {
+				resolvedProfile = os.Getenv("JAMF_PROFILE")
+			}
+			if resolvedProfile == "" {
+				resolvedProfile = cfg.DefaultProfile
+			}
+			cliCtx.ProfileName = resolvedProfile
+			if resolvedProfile != "" {
+				if p, ok := cfg.Profiles[resolvedProfile]; ok {
+					cliCtx.DestructiveCooldown = p.DestructiveCooldown
+				}
+			}
+
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {

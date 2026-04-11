@@ -8,10 +8,9 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicComputerHistoryCmd creates the classic-computer-history command group

@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
@@ -184,8 +185,10 @@ type ProtectClient interface {
 // CLIContext holds the shared client and output formatter for all commands.
 // It is populated in PersistentPreRunE after token/URL resolution.
 type CLIContext struct {
-	Client        HTTPClient
-	Output        OutputFormatter
-	ProtectClient ProtectClient
-	Uploader      FileUploader // non-nil for Pro commands; supports streaming uploads
+	Client              HTTPClient
+	Output              OutputFormatter
+	ProtectClient       ProtectClient
+	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
+	ProfileName         string         // resolved profile name; empty when using env-var auth
+	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled
 }

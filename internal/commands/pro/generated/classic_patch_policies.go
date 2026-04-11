@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicPatchPoliciesCmd creates the classic-patch-policies command group
@@ -233,6 +233,10 @@ func newClassicPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			noInputCooldown2, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown2, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
@@ -242,6 +246,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}

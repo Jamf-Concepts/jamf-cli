@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -476,6 +477,12 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/distribution-points/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
@@ -494,11 +501,16 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 
@@ -551,6 +563,12 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/distribution-points/delete-multiple"
 
@@ -585,7 +603,11 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 

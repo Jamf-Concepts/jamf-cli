@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicPrintersCmd creates the classic-printers command group
@@ -285,6 +285,9 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			if err := cooldown.Enforce(ctx.ProfileName, noInput, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 			path := fmt.Sprintf("/JSSResource/printers/id/%s", url.PathEscape(resolvedID))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
@@ -294,6 +297,7 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
