@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -1012,4 +1013,523 @@ func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.C
   jamf-cli pro md clear-restrictions-password --group "Managed iPads" --yes`,
 		false,
 	)
+}
+
+// --- SETTINGS command (mobile + computer) ---
+
+func newMobileSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt               deviceTarget
+		yes              bool
+		defaultBrowser   string
+		defaultCalling   string
+		defaultMessaging string
+		bluetooth        string
+		deviceName       string
+		dataRoaming      string
+		voiceRoaming     string
+		personalHotspot  string
+		timeZone         string
+		updateCadence    string
+	)
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Send a Settings command to a mobile device",
+		Long: `Send an MDM Settings command to configure device settings.
+
+At least one setting flag must be provided. Boolean settings accept "true" or "false".
+Default application flags accept an app bundle identifier.`,
+		Example: `  # Set default browser
+  jamf-cli pro md settings --serial F4GH5678 --default-browser com.google.chrome.ios
+
+  # Reset default apps to Apple defaults
+  jamf-cli pro md settings --serial F4GH5678 --default-browser com.apple.mobilesafari
+
+  # Toggle bluetooth and personal hotspot
+  jamf-cli pro md settings --serial F4GH5678 --bluetooth false --personal-hotspot false
+
+  # Set device name and timezone
+  jamf-cli pro md settings --serial F4GH5678 --device-name "Reception iPad" --time-zone "America/New_York"
+
+  # Bulk via group
+  jamf-cli pro md settings --group "Lobby iPads" --default-browser com.google.chrome.ios --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commandData := map[string]any{"commandType": "SETTINGS"}
+			set := 0
+			if defaultBrowser != "" || defaultCalling != "" || defaultMessaging != "" {
+				da := map[string]any{}
+				if defaultBrowser != "" {
+					da["webBrowser"] = defaultBrowser
+				}
+				if defaultCalling != "" {
+					da["calling"] = defaultCalling
+				}
+				if defaultMessaging != "" {
+					da["messaging"] = defaultMessaging
+				}
+				commandData["defaultApplications"] = da
+				set++
+			}
+			if cmd.Flags().Changed("bluetooth") {
+				commandData["bluetooth"] = bluetooth == "true"
+				set++
+			}
+			if deviceName != "" {
+				commandData["deviceName"] = deviceName
+				set++
+			}
+			if cmd.Flags().Changed("data-roaming") {
+				if dataRoaming == "true" {
+					commandData["dataRoaming"] = "ENABLE_DATA_ROAMING"
+				} else {
+					commandData["dataRoaming"] = "DISABLE_DATA_ROAMING"
+				}
+				set++
+			}
+			if cmd.Flags().Changed("voice-roaming") {
+				if voiceRoaming == "true" {
+					commandData["voiceRoaming"] = "ENABLE_VOICE_ROAMING"
+				} else {
+					commandData["voiceRoaming"] = "DISABLE_VOICE_ROAMING"
+				}
+				set++
+			}
+			if cmd.Flags().Changed("personal-hotspot") {
+				if personalHotspot == "true" {
+					commandData["personalHotspot"] = "ENABLE_PERSONAL_HOTSPOT"
+				} else {
+					commandData["personalHotspot"] = "DISABLE_PERSONAL_HOTSPOT"
+				}
+				set++
+			}
+			if timeZone != "" {
+				commandData["timeZone"] = timeZone
+				set++
+			}
+			if updateCadence != "" {
+				commandData["softwareUpdateSettings"] = map[string]any{
+					"recommendationCadence": updateCadence,
+				}
+				set++
+			}
+			if set == 0 {
+				return fmt.Errorf("at least one setting flag is required")
+			}
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "settings",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&defaultBrowser, "default-browser", "", "bundle ID of default web browser")
+	cmd.Flags().StringVar(&defaultCalling, "default-calling", "", "bundle ID of default calling app")
+	cmd.Flags().StringVar(&defaultMessaging, "default-messaging", "", "bundle ID of default messaging app")
+	cmd.Flags().StringVar(&bluetooth, "bluetooth", "", "enable or disable bluetooth (true/false)")
+	cmd.Flags().StringVar(&deviceName, "device-name", "", "set the device name")
+	cmd.Flags().StringVar(&dataRoaming, "data-roaming", "", "enable or disable data roaming (true/false)")
+	cmd.Flags().StringVar(&voiceRoaming, "voice-roaming", "", "enable or disable voice roaming (true/false)")
+	cmd.Flags().StringVar(&personalHotspot, "personal-hotspot", "", "enable or disable personal hotspot (true/false)")
+	cmd.Flags().StringVar(&timeZone, "time-zone", "", "IANA time zone (e.g. America/New_York)")
+	cmd.Flags().StringVar(&updateCadence, "software-update-cadence", "", "ALLOW_ALL_UPDATES, ONLY_ALLOW_LEAST_CURRENT_UPDATE, or ONLY_ALLOW_MOST_CURRENT_UPDATE")
+	return cmd
+}
+
+func newComputerSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt            deviceTarget
+		yes           bool
+		bluetooth     string
+		timeZone      string
+		updateCadence string
+	)
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Send a Settings command to a computer",
+		Long: `Send an MDM Settings command to configure computer settings.
+
+At least one setting flag must be provided. Boolean settings accept "true" or "false".`,
+		Example: `  jamf-cli pro comp settings --serial C02X1234 --bluetooth false
+  jamf-cli pro comp settings --serial C02X1234 --time-zone "Europe/London"
+  jamf-cli pro comp settings --group "Lab Macs" --software-update-cadence ONLY_ALLOW_MOST_CURRENT_UPDATE --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			commandData := map[string]any{"commandType": "SETTINGS"}
+			set := 0
+			if cmd.Flags().Changed("bluetooth") {
+				commandData["bluetooth"] = bluetooth == "true"
+				set++
+			}
+			if timeZone != "" {
+				commandData["timeZone"] = timeZone
+				set++
+			}
+			if updateCadence != "" {
+				commandData["softwareUpdateSettings"] = map[string]any{
+					"recommendationCadence": updateCadence,
+				}
+				set++
+			}
+			if set == 0 {
+				return fmt.Errorf("at least one setting flag is required")
+			}
+			return runDeviceAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "settings",
+				deviceType: "computer",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendComputerModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&bluetooth, "bluetooth", "", "enable or disable bluetooth (true/false)")
+	cmd.Flags().StringVar(&timeZone, "time-zone", "", "IANA time zone (e.g. America/New_York)")
+	cmd.Flags().StringVar(&updateCadence, "software-update-cadence", "", "ALLOW_ALL_UPDATES, ONLY_ALLOW_LEAST_CURRENT_UPDATE, or ONLY_ALLOW_MOST_CURRENT_UPDATE")
+	return cmd
+}
+
+// --- Additional mobile action commands ---
+
+func newMobileRequestMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt              deviceTarget
+		yes             bool
+		destinationID   string
+		destinationName string
+		scanTime        int
+	)
+	cmd := &cobra.Command{
+		Use:   "request-mirroring",
+		Short: "Request AirPlay mirroring to a destination",
+		Long: `Request a mobile device to start AirPlay mirroring to a specified destination.
+One of --destination-id or --destination-name is required.`,
+		Example: `  jamf-cli pro md request-mirroring --serial F4GH5678 --destination-name "Conference Room TV"
+  jamf-cli pro md request-mirroring --serial F4GH5678 --destination-id "AA:BB:CC:DD:EE:FF"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if destinationID == "" && destinationName == "" {
+				return fmt.Errorf("one of --destination-id or --destination-name is required")
+			}
+			commandData := map[string]any{"commandType": "REQUEST_MIRRORING"}
+			if destinationID != "" {
+				commandData["destinationDeviceId"] = destinationID
+			}
+			if destinationName != "" {
+				commandData["destinationName"] = destinationName
+			}
+			if cmd.Flags().Changed("scan-time") {
+				commandData["scanTime"] = scanTime
+			}
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "request-mirroring",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&destinationID, "destination-id", "", "hardware address of the AirPlay destination (e.g. AA:BB:CC:DD:EE:FF)")
+	cmd.Flags().StringVar(&destinationName, "destination-name", "", "name of the AirPlay destination")
+	cmd.Flags().IntVar(&scanTime, "scan-time", 0, "seconds to scan for the destination device")
+	cmd.MarkFlagsMutuallyExclusive("destination-id", "destination-name")
+	return cmd
+}
+
+func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernMobileMDMCmd(cliCtx, "stop-mirroring", "STOP_MIRRORING",
+		"Stop AirPlay mirroring on a mobile device",
+		"Stop an active AirPlay mirroring session on a mobile device.",
+		`  jamf-cli pro md stop-mirroring --serial F4GH5678`,
+		false,
+	)
+}
+
+func newMobileRefreshCellularPlansCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt            deviceTarget
+		yes           bool
+		esimServerURL string
+	)
+	cmd := &cobra.Command{
+		Use:     "refresh-cellular-plans",
+		Short:   "Refresh eSIM cellular plans on a mobile device",
+		Long:    "Send a command to refresh cellular plans from an eSIM server.",
+		Example: `  jamf-cli pro md refresh-cellular-plans --serial F4GH5678 --esim-server-url "https://esim.example.com"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "refresh-cellular-plans",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType":   "REFRESH_CELLULAR_PLANS",
+						"esimServerUrl": esimServerURL,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&esimServerURL, "esim-server-url", "", "URL of the eSIM server (required)")
+	_ = cmd.MarkFlagRequired("esim-server-url")
+	return cmd
+}
+
+func newMobileApplyRedemptionCodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt             deviceTarget
+		yes            bool
+		appIdentifier  string
+		redemptionCode string
+	)
+	cmd := &cobra.Command{
+		Use:     "apply-redemption-code",
+		Short:   "Apply a redemption code for a managed app",
+		Long:    "Redeem an App Store code on a managed mobile device for a pending app installation.",
+		Example: `  jamf-cli pro md apply-redemption-code --serial F4GH5678 --app com.example.app --code SB56LT7YX8RH`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "apply-redemption-code",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType":    "APPLY_REDEMPTION_CODE",
+						"identifier":     appIdentifier,
+						"redemptionCode": redemptionCode,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&appIdentifier, "app", "", "bundle identifier of the app (required)")
+	cmd.Flags().StringVar(&redemptionCode, "code", "", "redemption code (required)")
+	_ = cmd.MarkFlagRequired("app")
+	_ = cmd.MarkFlagRequired("code")
+	return cmd
+}
+
+// --- Shared iPad / multi-user commands ---
+
+func newMobileDeleteUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		userName           string
+		forceDeletion      bool
+		deleteAll          bool
+	)
+	cmd := &cobra.Command{
+		Use:   "delete-user",
+		Short: "Delete a user from a Shared iPad",
+		Long: `Delete a user account from a Shared iPad.
+Specify --user-name to delete a single user, or --all to delete all users.
+This is a destructive operation.`,
+		Example: `  jamf-cli pro md delete-user --serial F4GH5678 --user-name "student01" --yes
+  jamf-cli pro md delete-user --serial F4GH5678 --all --force --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if userName == "" && !deleteAll {
+				return fmt.Errorf("one of --user-name or --all is required")
+			}
+			commandData := map[string]any{"commandType": "DELETE_USER"}
+			if userName != "" {
+				commandData["userName"] = userName
+			}
+			if forceDeletion {
+				commandData["forceDeletion"] = true
+			}
+			if deleteAll {
+				commandData["deleteAllUsers"] = true
+			}
+			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "delete-user",
+				deviceType:  "mobile device",
+				destructive: true,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, commandData)
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	cmd.Flags().StringVar(&userName, "user-name", "", "username of the user to delete")
+	cmd.Flags().BoolVar(&forceDeletion, "force", false, "force deletion even if the user is logged in")
+	cmd.Flags().BoolVar(&deleteAll, "all", false, "delete all users from the device")
+	cmd.MarkFlagsMutuallyExclusive("user-name", "all")
+	return cmd
+}
+
+func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return newModernMobileMDMCmd(cliCtx, "log-out-user", "LOG_OUT_USER",
+		"Log out the current user on a Shared iPad",
+		"Log out the currently signed-in user on a Shared iPad.",
+		`  jamf-cli pro md log-out-user --serial F4GH5678
+  jamf-cli pro md log-out-user --group "Shared iPads" --yes`,
+		false,
+	)
+}
+
+func newMobileUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt       deviceTarget
+		yes      bool
+		userName string
+	)
+	cmd := &cobra.Command{
+		Use:     "unlock-user-account",
+		Short:   "Unlock a user account on a Shared iPad",
+		Long:    "Unlock a locked user account on a Shared iPad.",
+		Example: `  jamf-cli pro md unlock-user-account --serial F4GH5678 --user-name "student01"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMobileAction(cmd, cliCtx, &dt, yes, false, deviceActionConfig{
+				actionName: "unlock-user-account",
+				deviceType: "mobile device",
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					return sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": "UNLOCK_USER_ACCOUNT",
+						"userName":    userName,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
+	cmd.Flags().StringVar(&userName, "user-name", "", "username of the account to unlock (required)")
+	_ = cmd.MarkFlagRequired("user-name")
+	return cmd
+}
+
+// --- Additional computer action commands ---
+
+// resolveAdminAccountGUID looks up the LAPS-capable admin accounts for a device
+// and returns the GUID of the MDM-created account (or the account matching userName).
+func resolveAdminAccountGUID(cmd *cobra.Command, client registry.HTTPClient, managementID, userName string) (string, error) {
+	resp, err := client.Do(cmd.Context(), "GET", fmt.Sprintf("/v2/local-admin-password/%s/accounts", url.PathEscape(managementID)), nil)
+	if err != nil {
+		return "", fmt.Errorf("fetching LAPS accounts: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("fetching LAPS accounts: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var data struct {
+		Results []struct {
+			GUID       string `json:"guid"`
+			Username   string `json:"username"`
+			UserSource string `json:"userSource"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", fmt.Errorf("parsing LAPS accounts: %w", err)
+	}
+	if len(data.Results) == 0 {
+		return "", fmt.Errorf("no LAPS-capable admin accounts found on this device")
+	}
+
+	// If user specified a username, match it.
+	if userName != "" {
+		for _, a := range data.Results {
+			if strings.EqualFold(a.Username, userName) {
+				return a.GUID, nil
+			}
+		}
+		return "", fmt.Errorf("no LAPS account found with username %q", userName)
+	}
+
+	// Default: prefer the MDM-created account.
+	for _, a := range data.Results {
+		if a.UserSource == "MDM" {
+			return a.GUID, nil
+		}
+	}
+	// Fall back to the first account if no MDM source found.
+	return data.Results[0].GUID, nil
+}
+
+func newComputerSetAutoAdminPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		dt                 deviceTarget
+		yes                bool
+		confirmDestructive bool
+		userName           string
+		passwordFile       string
+	)
+	cmd := &cobra.Command{
+		Use:   "set-auto-admin-password",
+		Short: "Set the auto-admin password on a computer",
+		Long: `Set the password for a local administrator account created during DEP enrollment.
+
+The account GUID is resolved automatically from the device's LAPS-capable accounts
+(defaults to the MDM-created account). Use --user-name to target a specific account.
+
+The password is read from a file (--password-file) or prompted interactively.
+It is never accepted as a flag value.`,
+		Example: `  # Interactive password prompt (auto-resolves MDM admin account)
+  jamf-cli pro comp set-auto-admin-password --serial C02X1234 --yes
+
+  # Target a specific admin username
+  jamf-cli pro comp set-auto-admin-password --serial C02X1234 --user-name "jamfadmin" --yes
+
+  # Password from file (CI/CD)
+  jamf-cli pro comp set-auto-admin-password --serial C02X1234 --password-file /tmp/pw.txt --yes`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var password string
+			if passwordFile != "" {
+				data, err := os.ReadFile(passwordFile)
+				if err != nil {
+					return fmt.Errorf("reading password file: %w", err)
+				}
+				password = strings.TrimRight(string(data), "\r\n")
+			} else if noInput {
+				return fmt.Errorf("--password-file is required when --no-input is set")
+			} else {
+				fmt.Fprint(os.Stderr, "Enter new admin password: ")
+				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+				fmt.Fprintln(os.Stderr)
+				if err != nil {
+					return fmt.Errorf("reading password: %w", err)
+				}
+				password = string(passBytes)
+			}
+			if password == "" {
+				return fmt.Errorf("password must not be empty")
+			}
+			return runDeviceAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
+				actionName:  "set-auto-admin-password",
+				deviceType:  "computer",
+				destructive: true,
+				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
+					guid, err := resolveAdminAccountGUID(cmd, cliCtx.Client, d.ManagementID, userName)
+					if err != nil {
+						return fmt.Errorf("device %s: %w", resolve.FormatDeviceDesc(d), err)
+					}
+					return sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{
+						"commandType": "SET_AUTO_ADMIN_PASSWORD",
+						"guid":        guid,
+						"password":    password,
+					})
+				},
+			})
+		},
+	}
+	dt.addFlags(cmd)
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
+	cmd.Flags().StringVar(&userName, "user-name", "", "username of the admin account (default: MDM-created account)")
+	cmd.Flags().StringVar(&passwordFile, "password-file", "", "file containing the new password")
+	return cmd
 }

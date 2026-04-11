@@ -269,9 +269,18 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 		Name:         jsonString(obj, "name"),
 		SerialNumber: jsonString(obj, "serialNumber"),
 	}
-	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id".
+	// /v2/mobile-devices/detail returns "mobileDeviceId" instead of "id"
+	// and nests managementId/displayName/osVersion inside "general".
 	if d.ID == "" {
 		d.ID = jsonString(obj, "mobileDeviceId")
+	}
+	if general, ok := obj["general"].(map[string]any); ok {
+		if d.ManagementID == "" {
+			d.ManagementID = jsonString(general, "managementId")
+		}
+		if d.Name == "" {
+			d.Name = jsonString(general, "displayName")
+		}
 	}
 	if d.Name == "" {
 		d.Name = jsonString(obj, "displayName")
