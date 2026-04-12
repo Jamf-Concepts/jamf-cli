@@ -559,6 +559,48 @@ func TestScopeOverlaps(t *testing.T) {
 	}
 }
 
+func TestExtractPayloadsFromXML(t *testing.T) {
+	tests := []struct {
+		name string
+		xml  string
+		want string
+	}{
+		{
+			name: "standard payloads tag",
+			xml:  `<os_x_configuration_profile><general><payloads><![CDATA[<?xml version="1.0"?>]]></payloads></general></os_x_configuration_profile>`,
+			want: `<?xml version="1.0"?>`,
+		},
+		{
+			name: "CDATA wrapped",
+			xml:  `<os_x_configuration_profile><general><payloads><![CDATA[<?xml version="1.0" encoding="UTF-8"?><plist></plist>]]></payloads></general></os_x_configuration_profile>`,
+			want: `<?xml version="1.0" encoding="UTF-8"?><plist></plist>`,
+		},
+		{
+			name: "no payloads tag",
+			xml:  `<os_x_configuration_profile><general><name>Test</name></general></os_x_configuration_profile>`,
+			want: "",
+		},
+		{
+			name: "entity-encoded payloads",
+			xml:  `<payloads>&lt;?xml version=&#34;1.0&#34;?&gt;&lt;plist&gt;&lt;/plist&gt;</payloads>`,
+			want: `<?xml version="1.0"?><plist></plist>`,
+		},
+		{
+			name: "empty payloads",
+			xml:  `<payloads></payloads>`,
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractPayloadsFromXML(tt.xml)
+			if got != tt.want {
+				t.Errorf("extractPayloadsFromXML() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestResolveComponentIdentifier(t *testing.T) {
 	tests := []struct {
 		input string

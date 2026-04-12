@@ -3,9 +3,15 @@
 package commands
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"html"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -13,7 +19,9 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
@@ -34,6 +42,7 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCloneCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsImportProfileCmd(cliCtx))
 
 	return cmd
 }
@@ -453,6 +462,8 @@ func newBlueprintsComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newBlueprintsComponentsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsGetCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsScaffoldCmd())
+	cmd.AddCommand(newBlueprintsComponentsConfigProfileCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsComponentsConfigProfilePlistCmd())
 	return cmd
 }
 
@@ -610,6 +621,440 @@ func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return platform.PrintOne(cliCtx.Output, comp)
 		},
 	}
+}
+
+func newBlueprintsComponentsConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile    string
+		profileName string
+	)
+	cmd := &cobra.Command{
+		Use:   "configuration-profile",
+		Short: "Convert a mobileconfig to a blueprint component",
+		Long: `Convert a configuration profile (.mobileconfig) to a com.jamf.ddm-configuration-profile
+blueprint component. The profile display name is used as the component label.
+
+Input can be a local file or piped from stdin:
+  jamf-cli pro blueprints components configuration-profile --from-file profile.mobileconfig
+  cat profile.mobileconfig | jamf-cli pro blueprints components configuration-profile
+
+Or download an existing profile from Jamf Pro by name:
+  jamf-cli pro blueprints components configuration-profile --name "My Restrictions"
+
+Only preference domains that Apple supports for declarative management can be
+used. Unsupported payload types will trigger a warning but are still included
+in the output — the API will validate and reject if necessary.
+
+Supported payloads: https://github.com/apple/device-management/tree/release/mdm/profiles`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			var data []byte
+			var err error
+
+			if profileName != "" {
+				// Download from Jamf Pro classic API
+				data, err = downloadClassicProfile(cmd, cliCtx, profileName)
+				if err != nil {
+					return err
+				}
+			} else {
+				data, err = readInput(fromFile)
+				if err != nil {
+					return err
+				}
+			}
+
+			config, warnings, err := profileconvert.ConvertMobileconfig(data, false)
+			if err != nil {
+				return err
+			}
+
+			for _, w := range warnings {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+			}
+			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
+
+			component, err := profileconvert.FormatComponentJSON(config)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(component))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to .mobileconfig file (or pipe to stdin)")
+	cmd.Flags().StringVar(&profileName, "name", "", "Download profile from Jamf Pro by name (requires Pro auth)")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	return cmd
+}
+
+// downloadClassicProfile fetches a macOS configuration profile from the Jamf Pro
+// Classic API and extracts the mobileconfig XML from the response.
+func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, name string) ([]byte, error) {
+	if cliCtx.Client == nil {
+		return nil, fmt.Errorf("--name requires Jamf Pro authentication (use 'jamf-cli pro setup' or set JAMF_* env vars)")
+	}
+
+	path := "/JSSResource/osxconfigurationprofiles/name/" + name
+	resp, err := cliCtx.Client.Do(cmd.Context(), "GET", path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching profile %q: %w", name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := readResponseBody(resp)
+	if err != nil {
+		return nil, fmt.Errorf("reading profile response: %w", err)
+	}
+
+	// Extract the <payloads> content from the Classic API XML response
+	mobileconfig := extractPayloadsFromXML(string(body))
+	if mobileconfig == "" {
+		return nil, fmt.Errorf("no <payloads> found in profile %q response", name)
+	}
+
+	fmt.Fprintf(os.Stderr, "Downloaded profile %q from Jamf Pro\n", name)
+	return []byte(mobileconfig), nil
+}
+
+func newBlueprintsComponentsConfigProfilePlistCmd() *cobra.Command {
+	var (
+		fromFile    string
+		payloadType string
+		displayName string
+	)
+	cmd := &cobra.Command{
+		Use:   "configuration-profile-plist",
+		Short: "Convert a preference domain plist to a blueprint component",
+		Long: `Convert a raw preference domain plist to a com.jamf.ddm-configuration-profile
+blueprint component.
+
+The plist should contain only preference domain keys (no Apple payload metadata).
+You must specify the payload type (preference domain identifier).
+
+Examples:
+  jamf-cli pro blueprints components configuration-profile-plist \
+    --from-file com.apple.dock.plist --payload-type com.apple.dock
+
+  cat prefs.plist | jamf-cli pro blueprints components configuration-profile-plist \
+    --payload-type com.apple.screensaver --display-name "Screensaver Settings"`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			data, err := readInput(fromFile)
+			if err != nil {
+				return err
+			}
+
+			config, warnings, err := profileconvert.ConvertPlist(data, payloadType, displayName)
+			if err != nil {
+				return err
+			}
+
+			for _, w := range warnings {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+			}
+			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
+
+			component, err := profileconvert.FormatComponentJSON(config)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(component))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to plist file (or pipe to stdin)")
+	cmd.Flags().StringVar(&payloadType, "payload-type", "", "Apple preference domain (e.g. com.apple.dock)")
+	cmd.Flags().StringVar(&displayName, "display-name", "", "Display name for the component (defaults to payload type)")
+	_ = cmd.MarkFlagRequired("payload-type")
+	_ = cmd.RegisterFlagCompletionFunc("payload-type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return profileconvert.SupportedPayloadTypesList(), cobra.ShellCompDirectiveNoFileComp
+	})
+	return cmd
+}
+
+func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		blueprintName     string
+		filterUnsupported bool
+	)
+	cmd := &cobra.Command{
+		Use:   "import-profile <profile-name>",
+		Short: "Import a Classic configuration profile as a blueprint",
+		Long: `Download a macOS configuration profile from Jamf Pro, convert it to a
+com.jamf.ddm-configuration-profile blueprint component, resolve target scope
+groups to platform device group UUIDs, and create the blueprint in one step.
+
+The blueprint name defaults to the profile's display name (override with --blueprint-name).
+
+Scope handling:
+  Only target computer groups and mobile device groups are carried over to the
+  blueprint scope. Individual computer/device assignments, buildings, departments,
+  limitations, and exclusions are NOT imported — blueprints only support device
+  group scoping. You will be warned about any scope elements that are dropped.
+
+Examples:
+  jamf-cli pro blueprints import-profile "My Restrictions"
+  jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			if cliCtx.Client == nil {
+				return fmt.Errorf("import-profile requires Jamf Pro authentication")
+			}
+			ctx := cmd.Context()
+
+			// Step 1: Download the Classic API profile
+			fmt.Fprintf(os.Stderr, "Downloading profile %q from Jamf Pro...\n", args[0])
+			profilePath := "/JSSResource/osxconfigurationprofiles/name/" + args[0]
+			resp, err := cliCtx.Client.Do(ctx, "GET", profilePath, nil)
+			if err != nil {
+				return fmt.Errorf("fetching profile: %w", err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			body, err := readResponseBody(resp)
+			if err != nil {
+				return fmt.Errorf("reading profile response: %w", err)
+			}
+
+			// Step 2: Extract mobileconfig from <payloads>
+			mobileconfig := extractPayloadsFromXML(string(body))
+			if mobileconfig == "" {
+				return fmt.Errorf("no <payloads> found in profile %q — is this a macOS configuration profile?", args[0])
+			}
+
+			// Step 3: Convert mobileconfig to component configuration
+			config, warnings, err := profileconvert.ConvertMobileconfig([]byte(mobileconfig), filterUnsupported)
+			if err != nil {
+				return fmt.Errorf("converting profile: %w", err)
+			}
+			for _, w := range warnings {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+			}
+
+			types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
+			fmt.Fprintf(os.Stderr, "Converted %d payload(s): %s\n", len(types), strings.Join(types, ", "))
+
+			// Step 4: Extract scope from Classic API XML and resolve to platform UUIDs
+			scopeGroups, scopeWarnings := extractAndResolveScope(ctx, cliCtx.Client, body)
+			for _, w := range scopeWarnings {
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+			}
+			if len(scopeGroups) > 0 {
+				fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+			} else {
+				fmt.Fprintln(os.Stderr, "No scope groups resolved — blueprint will have empty scope")
+			}
+
+			// Step 5: Build and create the blueprint
+			name := blueprintName
+			if name == "" {
+				name = profileconvert.ProfileDisplayName([]byte(mobileconfig))
+			}
+			if name == "" {
+				name = args[0]
+			}
+
+			createReq := &jamfplatform.BlueprintCreateRequestV1{
+				Name: name,
+				Scope: jamfplatform.BlueprintCreateScopeV1{
+					DeviceGroups: scopeGroups,
+				},
+				Steps: []jamfplatform.BlueprintStepV1{
+					{
+						Name: "Step 1",
+						Components: []jamfplatform.BlueprintComponentV1{
+							{
+								Identifier:    "com.jamf.ddm-configuration-profile",
+								Configuration: config,
+							},
+						},
+					},
+				},
+			}
+
+			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
+
+			result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, result.ID)
+
+			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
+			if err != nil {
+				return err
+			}
+			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
+		},
+	}
+	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
+	cmd.Flags().BoolVar(&filterUnsupported, "filter-unsupported", false, "Remove payload types not supported by the platform API instead of passing them through")
+	return cmd
+}
+
+// classicProfileScope is a minimal struct for unmarshalling the scope section
+// from a Classic API configuration profile XML response.
+type classicProfileScope struct {
+	XMLName            xml.Name              `xml:"scope"`
+	AllComputers       bool                  `xml:"all_computers"`
+	Computers          scope.ScopeItemSlice  `xml:"computers"`
+	ComputerGroups     scope.ScopeItemSlice  `xml:"computer_groups"`
+	MobileDeviceGroups scope.ScopeItemSlice  `xml:"mobile_device_groups"`
+	Buildings          scope.ScopeItemSlice  `xml:"buildings"`
+	Departments        scope.ScopeItemSlice  `xml:"departments"`
+	Limitations        *scope.LimitationsXML `xml:"limitations,omitempty"`
+	Exclusions         *scope.ExclusionsXML  `xml:"exclusions,omitempty"`
+}
+
+// extractAndResolveScope parses the <scope> section from a Classic API profile
+// response, resolves target computer/mobile device group names to platform UUIDs,
+// and returns warnings for any scope elements that can't be imported.
+func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xmlBody []byte) ([]string, []string) {
+	var warnings []string
+
+	// Find and parse the <scope> section
+	xmlStr := string(xmlBody)
+	scopeStart := strings.Index(xmlStr, "<scope>")
+	if scopeStart == -1 {
+		warnings = append(warnings, "no <scope> section found in profile")
+		return nil, warnings
+	}
+	scopeEnd := strings.Index(xmlStr[scopeStart:], "</scope>")
+	if scopeEnd == -1 {
+		warnings = append(warnings, "malformed <scope> section in profile")
+		return nil, warnings
+	}
+	scopeXML := xmlStr[scopeStart : scopeStart+scopeEnd+len("</scope>")]
+
+	var s classicProfileScope
+	if err := xml.Unmarshal([]byte(scopeXML), &s); err != nil {
+		warnings = append(warnings, fmt.Sprintf("failed to parse scope: %v", err))
+		return nil, warnings
+	}
+
+	// Warn about scope elements that blueprints don't support
+	if s.AllComputers {
+		warnings = append(warnings, "profile is scoped to 'All Computers' — blueprint scope requires explicit device groups")
+	}
+	if len(s.Computers.Items) > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d individual computer assignment(s) dropped — blueprints only support device group scoping", len(s.Computers.Items)))
+	}
+	if len(s.Buildings.Items) > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d building scope(s) dropped — not supported in blueprints", len(s.Buildings.Items)))
+	}
+	if len(s.Departments.Items) > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d department scope(s) dropped — not supported in blueprints", len(s.Departments.Items)))
+	}
+	if s.Limitations != nil {
+		total := len(s.Limitations.Users.Items) + len(s.Limitations.UserGroups.Items) +
+			len(s.Limitations.NetworkSegments.Items) + len(s.Limitations.ComputerGroups.Items)
+		if total > 0 {
+			warnings = append(warnings, fmt.Sprintf("%d scope limitation(s) dropped — not supported in blueprints", total))
+		}
+	}
+	if s.Exclusions != nil {
+		total := len(s.Exclusions.Computers.Items) + len(s.Exclusions.ComputerGroups.Items) +
+			len(s.Exclusions.Buildings.Items) + len(s.Exclusions.Departments.Items) +
+			len(s.Exclusions.Users.Items) + len(s.Exclusions.UserGroups.Items) +
+			len(s.Exclusions.NetworkSegments.Items)
+		if total > 0 {
+			warnings = append(warnings, fmt.Sprintf("%d scope exclusion(s) dropped — not supported in blueprints", total))
+		}
+	}
+
+	// Collect group names to resolve
+	var groupNames []string
+	for _, g := range s.ComputerGroups.Items {
+		groupNames = append(groupNames, g.Name)
+	}
+	for _, g := range s.MobileDeviceGroups.Items {
+		groupNames = append(groupNames, g.Name)
+	}
+
+	if len(groupNames) == 0 {
+		return nil, warnings
+	}
+
+	// Resolve each group name to a platform UUID via /v1/groups
+	var platformIDs []string
+	for _, name := range groupNames {
+		id, err := resolveGroupPlatformID(ctx, client, name)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("could not resolve group %q to platform UUID: %v", name, err))
+			continue
+		}
+		platformIDs = append(platformIDs, id)
+		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, id)
+	}
+
+	return platformIDs, warnings
+}
+
+// resolveGroupPlatformID queries /v1/groups with an RSQL filter to find the
+// platform UUID for a group by name.
+func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+	filter := fmt.Sprintf(`groupName=="%s"`, groupName)
+	path := "/v1/groups?page-size=1&filter=" + url.QueryEscape(filter)
+
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := readResponseBody(resp)
+	if err != nil {
+		return "", err
+	}
+
+	var result struct {
+		Results []struct {
+			GroupPlatformID string `json:"groupPlatformId"`
+			GroupName       string `json:"groupName"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("parsing groups response: %w", err)
+	}
+
+	if len(result.Results) == 0 {
+		return "", fmt.Errorf("no group found with name %q", groupName)
+	}
+
+	return result.Results[0].GroupPlatformID, nil
+}
+
+// extractPayloadsFromXML extracts the content between <payloads> tags from
+// Classic API XML. The content may be CDATA-wrapped or XML entity-encoded.
+func extractPayloadsFromXML(xmlStr string) string {
+	start := strings.Index(xmlStr, "<payloads>")
+	if start == -1 {
+		return ""
+	}
+	start += len("<payloads>")
+	end := strings.Index(xmlStr[start:], "</payloads>")
+	if end == -1 {
+		return ""
+	}
+	content := strings.TrimSpace(xmlStr[start : start+end])
+	// Classic API wraps in CDATA sometimes
+	content = strings.TrimPrefix(content, "<![CDATA[")
+	content = strings.TrimSuffix(content, "]]>")
+	content = strings.TrimSpace(content)
+	// Classic API may entity-encode the XML instead of using CDATA
+	if strings.Contains(content, "&lt;") {
+		content = html.UnescapeString(content)
+	}
+	return content
+}
+
+// readResponseBody reads the full body from an HTTP response.
+func readResponseBody(resp *http.Response) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 }
 
 // randomizePayloadIdentifiers walks through blueprint steps and replaces

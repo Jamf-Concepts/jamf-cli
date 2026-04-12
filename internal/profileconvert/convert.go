@@ -1,0 +1,334 @@
+// Copyright 2026, Jamf Software LLC
+
+package profileconvert
+
+import (
+	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"howett.net/plist"
+)
+
+// ConflictWarning is printed to stderr when converting profiles to blueprint components.
+const ConflictWarning = `Warning: If you previously deployed a configuration profile to a device and then deploy
+a blueprint that contains conflicting keys, unexpected behavior may occur. For example,
+if keys within the Restrictions payload conflict, the most restrictive setting will take
+precedence.`
+
+// SupportedPayloadTypes lists legacy payload types supported by Jamf Platform blueprints.
+// Sourced from https://learn.jamf.com/r/en-US/jamf-pro-blueprints-configuration-guide/Blueprints_Release_Notes_Pro
+var SupportedPayloadTypes = map[string]bool{
+	"com.apple.Dictionary":                       true, // Parental Controls: Dictionary
+	"com.apple.DiscRecording":                    true, // Media Management: Disc Burning
+	"com.apple.MCX.Accounts":                     true, // Accounts
+	"com.apple.MCX.MobileAccounts":               true, // Mobile Accounts
+	"com.apple.MCX.TimeMachine":                  true, // Time Machine
+	"com.apple.MCX.TimeServer":                   true, // Time Server
+	"com.apple.NSExtension":                      true, // NSExtension Management
+	"com.apple.SystemConfiguration":              true, // Network Proxy Configuration
+	"com.apple.TCC.configuration-profile-policy": true, // Privacy Preferences Policy Control
+	"com.apple.airprint":                         true, // AirPrint
+	"com.apple.app.lock":                         true, // App Lock
+	"com.apple.applicationaccess":                true, // Restrictions
+	"com.apple.appstore":                         true, // App Store
+	"com.apple.asam":                             true, // Autonomous Single App Mode
+	"com.apple.cellularprivatenetwork.managed":   true, // Cellular Private Network
+	"com.apple.conferenceroomdisplay":            true, // Conference Room Display
+	"com.apple.desktop":                          true, // Desktop
+	"com.apple.dnsProxy.managed":                 true, // DNS Proxy
+	"com.apple.domains":                          true, // Domains
+	"com.apple.familycontrols.contentfilter":     true, // Parental Controls: Content Filter
+	"com.apple.fileproviderd":                    true, // File Provider
+	"com.apple.finder":                           true, // Finder
+	"com.apple.gamed":                            true, // Parental Controls: Game Center
+	"com.apple.loginitems.managed":               true, // Login Items: Managed Items
+	"com.apple.loginwindow":                      true, // Login Window
+	"com.apple.mcxprinting":                      true, // Printing
+	"com.apple.notificationsettings":             true, // Notifications
+	"com.apple.preference.security":              true, // Security Preferences
+	"com.apple.preference.users":                 true, // User Preferences
+	"com.apple.screensaver":                      true, // Screensaver
+	"com.apple.screensaver.user":                 true, // Screensaver User
+	"com.apple.security.firewall":                true, // Firewall
+	"com.apple.security.smartcard":               true, // SmartCard
+	"com.apple.servicemanagement":                true, // Service Management
+	"com.apple.shareddeviceconfiguration":        true, // Lock Screen Message
+	"com.apple.system.logging":                   true, // System Logging
+	"com.apple.systempolicy.control":             true, // System Policy Control
+	"com.apple.systempolicy.managed":             true, // System Policy Managed
+	"com.apple.tvremote":                         true, // TV Remote
+	"com.apple.universalaccess":                  true, // Accessibility
+	"loginwindow":                                true, // Login Window: Login Items
+}
+
+// appleMetadataKeys are keys in a mobileconfig payload dict that represent
+// Apple profile metadata rather than preference domain settings.
+var appleMetadataKeys = map[string]bool{
+	"PayloadType":                      true,
+	"PayloadDisplayName":               true,
+	"PayloadIdentifier":                true,
+	"PayloadUUID":                      true,
+	"PayloadVersion":                   true,
+	"PayloadOrganization":              true,
+	"PayloadDescription":               true,
+	"PayloadRemovalDisallowed":         true,
+	"PayloadScope":                     true,
+	"PayloadEnabled":                   true,
+	"PayloadContent":                   true,
+	"PayloadExpirationDate":            true,
+	"ConsentText":                      true,
+	"DurationUntilRemoval":             true,
+	"RemovalDate":                      true,
+	"TargetDeviceType":                 true,
+	"HasRemovalPasscode":               true,
+	"IsEncrypted":                      true,
+	"IsSupervised":                     true,
+	"PayloadContentManagedPreferences": true,
+}
+
+// ConvertMobileconfig parses a mobileconfig (XML plist) and returns a
+// DDMProfileDto configuration suitable for a com.jamf.ddm-configuration-profile
+// blueprint component. When filterUnsupported is true, payloads with unsupported
+// types are silently removed (with a warning). Otherwise they are included and
+// the API will validate them.
+func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, []string, error) {
+	var profile map[string]any
+	if _, err := plist.Unmarshal(data, &profile); err != nil {
+		return nil, nil, fmt.Errorf("parsing mobileconfig: %w", err)
+	}
+
+	displayName, _ := profile["PayloadDisplayName"].(string)
+	if displayName == "" {
+		return nil, nil, fmt.Errorf("mobileconfig has no PayloadDisplayName")
+	}
+
+	payloadContent, ok := profile["PayloadContent"].([]any)
+	if !ok || len(payloadContent) == 0 {
+		return nil, nil, fmt.Errorf("mobileconfig has no PayloadContent array")
+	}
+
+	var warnings []string
+	payloads := make([]map[string]any, 0, len(payloadContent))
+
+	for i, item := range payloadContent {
+		payload, ok := item.(map[string]any)
+		if !ok {
+			return nil, nil, fmt.Errorf("PayloadContent[%d] is not a dictionary", i)
+		}
+
+		payloadType, _ := payload["PayloadType"].(string)
+		if payloadType == "" {
+			return nil, nil, fmt.Errorf("PayloadContent[%d] has no PayloadType", i)
+		}
+
+		if !SupportedPayloadTypes[payloadType] {
+			if filterUnsupported {
+				warnings = append(warnings, fmt.Sprintf("removed unsupported payload type %q", payloadType))
+				continue
+			}
+			warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
+		}
+
+		entry := buildPayloadEntry(payloadType, payload)
+		payloads = append(payloads, entry)
+	}
+
+	if len(payloads) == 0 {
+		return nil, warnings, fmt.Errorf("no supported payloads remain after filtering")
+	}
+
+	config := map[string]any{
+		"payloadDisplayName": displayName,
+		"payloadContent":     payloads,
+	}
+
+	result, err := marshalConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, warnings, nil
+}
+
+// ConvertPlist parses a raw preference domain plist and wraps it as a
+// single-payload DDMProfileDto configuration. The payloadType must be the
+// Apple preference domain (e.g. "com.apple.dock").
+func ConvertPlist(data []byte, payloadType, displayName string) (json.RawMessage, []string, error) {
+	var settings map[string]any
+	if _, err := plist.Unmarshal(data, &settings); err != nil {
+		return nil, nil, fmt.Errorf("parsing plist: %w", err)
+	}
+
+	var warnings []string
+	if !SupportedPayloadTypes[payloadType] {
+		warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
+	}
+
+	// All keys in a raw plist are settings (no Apple metadata to strip)
+	entry := map[string]any{
+		"payloadType":       payloadType,
+		"payloadIdentifier": generatePayloadIdentifier(payloadType),
+	}
+	for k, v := range settings {
+		entry[k] = convertPlistValue(v)
+	}
+
+	if displayName == "" {
+		displayName = payloadType
+	}
+
+	config := map[string]any{
+		"payloadDisplayName": displayName,
+		"payloadContent":     []map[string]any{entry},
+	}
+
+	result, err := marshalConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, warnings, nil
+}
+
+// ProfileDisplayName extracts the PayloadDisplayName from a mobileconfig
+// without doing a full conversion. Useful for deriving blueprint names.
+func ProfileDisplayName(data []byte) string {
+	var profile map[string]any
+	if _, err := plist.Unmarshal(data, &profile); err != nil {
+		return ""
+	}
+	name, _ := profile["PayloadDisplayName"].(string)
+	return name
+}
+
+// PayloadTypeSummary returns a human-readable summary of payload types in a mobileconfig.
+func PayloadTypeSummary(data []byte) []string {
+	var profile map[string]any
+	if _, err := plist.Unmarshal(data, &profile); err != nil {
+		return nil
+	}
+	content, ok := profile["PayloadContent"].([]any)
+	if !ok {
+		return nil
+	}
+	var types []string
+	for _, item := range content {
+		if payload, ok := item.(map[string]any); ok {
+			if pt, ok := payload["PayloadType"].(string); ok {
+				types = append(types, pt)
+			}
+		}
+	}
+	return types
+}
+
+// buildPayloadEntry constructs a single payload entry for the DDMProfileDto
+// from a mobileconfig payload dictionary. Apple metadata keys are stripped
+// and the payloadIdentifier is generated deterministically.
+func buildPayloadEntry(payloadType string, payload map[string]any) map[string]any {
+	entry := map[string]any{
+		"payloadType":       payloadType,
+		"payloadIdentifier": generatePayloadIdentifier(payloadType),
+	}
+
+	for k, v := range payload {
+		if appleMetadataKeys[k] {
+			continue
+		}
+		entry[k] = convertPlistValue(v)
+	}
+
+	return entry
+}
+
+// convertPlistValue normalises plist-decoded values for JSON marshalling.
+// howett.net/plist decodes <data> as []byte which json.Marshal would base64-encode,
+// but the API expects these as raw byte arrays rarely — most config profile
+// settings are strings/ints/bools. We keep []byte as-is (base64 in JSON).
+// uint64 values (from plist) are converted to float64 for JSON compatibility.
+func convertPlistValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, inner := range val {
+			out[k] = convertPlistValue(inner)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, inner := range val {
+			out[i] = convertPlistValue(inner)
+		}
+		return out
+	case uint64:
+		return float64(val)
+	default:
+		return v
+	}
+}
+
+// generatePayloadIdentifier creates a deterministic identifier from a payload type
+// using SHA256. This matches the approach in terraform-provider-jamfplatform.
+func generatePayloadIdentifier(payloadType string) string {
+	hash := sha256.Sum256([]byte(payloadType))
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		hash[0:4], hash[4:6], hash[6:8], hash[8:10], hash[10:16])
+}
+
+// newUUID generates a random UUID v4 string.
+func newUUID() string {
+	var u [16]byte
+	_, _ = rand.Read(u[:])
+	u[6] = (u[6] & 0x0f) | 0x40 // version 4
+	u[8] = (u[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:16])
+}
+
+// marshalConfig marshals a configuration map to indented JSON.
+func marshalConfig(config map[string]any) (json.RawMessage, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(config); err != nil {
+		return nil, fmt.Errorf("encoding configuration: %w", err)
+	}
+	return json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n")), nil
+}
+
+// FormatComponentJSON wraps a configuration in a complete component block
+// with the com.jamf.ddm-configuration-profile identifier.
+func FormatComponentJSON(config json.RawMessage) ([]byte, error) {
+	block := map[string]any{
+		"identifier":    "com.jamf.ddm-configuration-profile",
+		"configuration": json.RawMessage(config),
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(block); err != nil {
+		return nil, fmt.Errorf("encoding component: %w", err)
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
+// SupportedPayloadTypesList returns the supported payload types as a sorted slice
+// for shell completion and help text.
+func SupportedPayloadTypesList() []string {
+	types := make([]string, 0, len(SupportedPayloadTypes))
+	for t := range SupportedPayloadTypes {
+		types = append(types, t)
+	}
+	// Sort for stable output
+	for i := range types {
+		for j := i + 1; j < len(types); j++ {
+			if strings.Compare(types[i], types[j]) > 0 {
+				types[i], types[j] = types[j], types[i]
+			}
+		}
+	}
+	return types
+}
