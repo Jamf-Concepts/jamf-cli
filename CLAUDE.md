@@ -314,7 +314,7 @@ Platform commands use the `jamfplatform-go-sdk` (REST-based). The SDK handles it
 
 ### Legacy-to-DDM Payload Conversion (`internal/profileconvert/ddm_*.go`)
 
-When `import-profile` processes a mobileconfig, it automatically converts compatible legacy payloads to native DDM blueprint components instead of wrapping everything in `com.jamf.ddm-configuration-profile`. Payloads without a converter are still wrapped.
+When `import-profile` processes a mobileconfig, it automatically converts compatible legacy payloads to native DDM blueprint components instead of wrapping everything in `com.jamf.ddm-configuration-profile`. Payloads without a converter are still wrapped. Use `--legacy` to skip all DDM conversion and wrap everything in a single configuration-profile component. Unsupported payload types are filtered by default; use `--include-unsupported` to override.
 
 **Converter registry** (`ddm_converter.go`): `ConvertToDDMComponents()` orchestrates conversion. For each payload, it checks `findConverters(payloadType)` and runs matching converters sequentially. For payload types with multiple converters (e.g. `com.apple.applicationaccess` has both safari and software-update), each converter extracts its keys and passes the remainder to the next. Final remaining keys go to the configuration-profile wrapper.
 
@@ -331,8 +331,10 @@ When `import-profile` processes a mobileconfig, it automatically converts compat
 **Key design decisions:**
 - Key mapping tables are static (legacy key names differ completely from DDM names — no algorithmic derivation possible). Validated against Apple's published schemas.
 - Each converter returns `(config, remaining, warnings, error)`. `remaining` is nil for full converters (passcode), non-nil for partial converters (safari, software-update).
+- Multiple converters targeting the same component ID (e.g. deferrals, RSR, and SoftwareUpdate all target `software-update-settings`) are deep-merged into a single component. The orchestrator backfills missing scaffold sections after all converters run.
 - The software-update converter reads its base config from `blueprintcomponents.Scaffolds` at runtime, so it auto-updates when `make generate` runs against new OpenAPI specs. The scaffold's placeholder values are sanitised (Beta section stripped of empty strings that fail API validation). All `Included` flags are set to `false` on the base, then converted keys overlay with `Included: true`.
 - The Jamf UI requires every section of a component to be present in the JSON — omitting sections causes the component panel to render blank, even if other sections have valid data.
+- When `--strip-defaults` is set, Apple schema defaults are stripped from payload settings before converters run, so default-valued keys are not actively managed in the DDM component.
 
 **Adding a new converter:**
 1. Create `internal/profileconvert/ddm_<name>.go`

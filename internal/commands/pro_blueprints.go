@@ -1221,6 +1221,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		profileType        string
 		includeUnsupported bool
 		stripDefaults      bool
+		noConvert          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
@@ -1301,67 +1302,93 @@ Examples:
 				return fmt.Errorf("no <payloads> found in profile %q (type=%s)", args[0], profileType)
 			}
 
-			// Step 3: Convert mobileconfig to DDM components.
-			// Compatible payloads are automatically promoted to native DDM
-			// components (e.g. passcode-settings, safari-settings). The rest
-			// are wrapped in a configuration-profile component.
-			var ddmFetcher *profileconvert.SchemaFetcher
-			if stripDefaults {
-				ddmFetcher = profileconvert.NewSchemaFetcher(nil)
-			}
-			ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), !includeUnsupported, ddmFetcher)
-			if err != nil {
-				return fmt.Errorf("converting profile: %w", err)
-			}
-			for _, w := range ddmResult.Warnings {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-			}
-
-			// Validate/strip the configuration-profile component (if any)
-			// using Apple schemas — always validate since we upload directly.
-			if ddmResult.ProfileConfig != nil {
-				fetcher := profileconvert.NewSchemaFetcher(nil)
-				if stripDefaults {
-					var msgs []string
-					ddmResult.ProfileConfig, msgs = profileconvert.StripConfigDefaults(ddmResult.ProfileConfig, fetcher)
-					for _, m := range msgs {
-						fmt.Fprintf(os.Stderr, "  %s\n", m)
-					}
-				} else {
-					var msgs []string
-					ddmResult.ProfileConfig, msgs = profileconvert.ValidatePayloads(ddmResult.ProfileConfig, fetcher)
-					for _, m := range msgs {
-						fmt.Fprintf(os.Stderr, "  %s\n", m)
-					}
-				}
-				if err := profileconvert.ConfigHasPayloads(ddmResult.ProfileConfig); err != nil {
-					ddmResult.ProfileConfig = nil // all payloads stripped
-				}
-			}
-
-			// Print conversion summary
-			types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
-			fmt.Fprintf(os.Stderr, "Processed %d payload(s)\n", len(types))
-			for _, c := range ddmResult.Conversions {
-				fmt.Fprintf(os.Stderr, "  %s (native DDM)\n", c)
-			}
-			if ddmResult.ProfileConfig != nil {
-				fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
-			}
-
-			// Build component list: native DDM components + optional profile wrapper
+			// Step 3: Convert mobileconfig to blueprint components.
+			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
 			var components []jamfplatform.BlueprintComponentV1
-			for _, nc := range ddmResult.NativeComponents {
-				components = append(components, jamfplatform.BlueprintComponentV1{
-					Identifier:    nc.Identifier,
-					Configuration: nc.Configuration,
-				})
-			}
-			if ddmResult.ProfileConfig != nil {
+
+			if noConvert {
+				// Legacy mode: wrap all payloads in a single configuration-profile component.
+				config, warnings, err := profileconvert.ConvertMobileconfig([]byte(mobileconfig), !includeUnsupported)
+				if err != nil {
+					return fmt.Errorf("converting profile: %w", err)
+				}
+				for _, w := range warnings {
+					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+				}
+				if stripDefaults {
+					fetcher := profileconvert.NewSchemaFetcher(nil)
+					var msgs []string
+					config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
+					for _, m := range msgs {
+						fmt.Fprintf(os.Stderr, "  %s\n", m)
+					}
+				}
+				if err := profileconvert.ConfigHasPayloads(config); err != nil {
+					return fmt.Errorf("no payloads remain after processing")
+				}
+				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
+				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
 				components = append(components, jamfplatform.BlueprintComponentV1{
 					Identifier:    "com.jamf.ddm-configuration-profile",
-					Configuration: ddmResult.ProfileConfig,
+					Configuration: config,
 				})
+			} else {
+				// DDM mode: promote compatible payloads to native DDM components.
+				var ddmFetcher *profileconvert.SchemaFetcher
+				if stripDefaults {
+					ddmFetcher = profileconvert.NewSchemaFetcher(nil)
+				}
+				ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), !includeUnsupported, ddmFetcher)
+				if err != nil {
+					return fmt.Errorf("converting profile: %w", err)
+				}
+				for _, w := range ddmResult.Warnings {
+					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+				}
+
+				// Validate/strip the configuration-profile component (if any)
+				if ddmResult.ProfileConfig != nil {
+					fetcher := profileconvert.NewSchemaFetcher(nil)
+					if stripDefaults {
+						var msgs []string
+						ddmResult.ProfileConfig, msgs = profileconvert.StripConfigDefaults(ddmResult.ProfileConfig, fetcher)
+						for _, m := range msgs {
+							fmt.Fprintf(os.Stderr, "  %s\n", m)
+						}
+					} else {
+						var msgs []string
+						ddmResult.ProfileConfig, msgs = profileconvert.ValidatePayloads(ddmResult.ProfileConfig, fetcher)
+						for _, m := range msgs {
+							fmt.Fprintf(os.Stderr, "  %s\n", m)
+						}
+					}
+					if err := profileconvert.ConfigHasPayloads(ddmResult.ProfileConfig); err != nil {
+						ddmResult.ProfileConfig = nil
+					}
+				}
+
+				// Print conversion summary
+				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
+				fmt.Fprintf(os.Stderr, "Processed %d payload(s)\n", len(types))
+				for _, c := range ddmResult.Conversions {
+					fmt.Fprintf(os.Stderr, "  %s (native DDM)\n", c)
+				}
+				if ddmResult.ProfileConfig != nil {
+					fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
+				}
+
+				for _, nc := range ddmResult.NativeComponents {
+					components = append(components, jamfplatform.BlueprintComponentV1{
+						Identifier:    nc.Identifier,
+						Configuration: nc.Configuration,
+					})
+				}
+				if ddmResult.ProfileConfig != nil {
+					components = append(components, jamfplatform.BlueprintComponentV1{
+						Identifier:    "com.jamf.ddm-configuration-profile",
+						Configuration: ddmResult.ProfileConfig,
+					})
+				}
 			}
 
 			if len(components) == 0 {
@@ -1382,7 +1409,7 @@ Examples:
 			// Step 5: Build and create the blueprint
 			name := blueprintName
 			if name == "" {
-				name = ddmResult.DisplayName
+				name = displayName
 			}
 			if name == "" {
 				name = args[0]
@@ -1418,6 +1445,7 @@ Examples:
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
+	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Include payload types not supported by the platform API (may cause validation errors)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
