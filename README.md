@@ -98,6 +98,15 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM, lock, enable/disable Remote Desktop (computers); erase, unmanage, restart, shutdown, update inventory (mobile devices). Target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
 - **`device`** — Aggregated device deep-dive: identity, hardware, OS, security posture, user info, MDM command history, policy logs
 - **`report security`** — Fleet security posture: FileVault, Gatekeeper, SIP, firewall rates, OS version distribution, flagged devices
+
+### Jamf Platform (via Gateway)
+
+- **Blueprints** — CRUD, deploy/undeploy, clone, scope management (add/remove device groups by name), component scaffolds, import Classic configuration profiles as blueprints
+- **Compliance Benchmarks** — Benchmark CRUD, baselines, rules, device compliance results, stats
+- **Platform Devices** — Unified device inventory, actions (check-in, erase, restart, shutdown, unmanage)
+- **Platform Device Groups** — CRUD, membership management
+- **DDM Reports** — Device declaration status, declaration clients
+
 ### Jamf Protect
 
 - **Full SDK coverage** — Plans, analytics, analytic sets, exception sets, USB control, telemetry, prevent lists, unified logging filters, roles, users, groups, API clients, and org settings
@@ -181,6 +190,11 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Pro | `categories` | `cat` |
 | Pro | `departments` | `dept` |
 | Pro | `device` | `dev` |
+| Pro | `blueprints` | `bp` |
+| Pro | `compliance-benchmarks` | `cb` |
+| Pro | `platform-devices` | `pdev` |
+| Pro | `platform-device-groups` | `pdg` |
+| Pro | `ddm-reports` | `ddm` |
 | Protect | `removable-storage-control-sets` | `rscs` |
 | Protect | `unified-logging-filters` | `ulf` |
 | Protect | `exception-sets` | `es` |
