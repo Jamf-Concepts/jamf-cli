@@ -1611,13 +1611,16 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
-		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON from --from-file or stdin.
+		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.` + "`" + `,
-		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a file
+		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
   jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json
+
+  # Apply a {{ .NameSingular }} from a YAML file
+  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
 
   # Apply from stdin
   cat {{ .NameSingular }}.json | jamf-cli {{ .Name }} apply
@@ -1630,8 +1633,12 @@ If not, a new resource is created.` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -1692,7 +1699,7 @@ If not, a new resource is created.` + "`" + `,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
@@ -1716,6 +1723,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -1814,6 +1822,25 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func normalizeInputToJSON(data []byte) ([]byte, error) {
+	// Fast path: already JSON
+	if json.Valid(data) {
+		return data, nil
+	}
+	// Try YAML → any → JSON
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
+	}
+	return out, nil
 }
 
 // extractJSONField extracts a string field from a JSON object.

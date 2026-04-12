@@ -487,13 +487,16 @@ func newApiRolesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a api-role by name",
-		Long: `Create or replace a api-role. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a api-role. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a api-role from a file
+		Example: `  # Apply a api-role from a JSON file
   jamf-cli api-roles apply --from-file api-role.json
+
+  # Apply a api-role from a YAML file
+  jamf-cli api-roles apply --from-file api-role.yaml
 
   # Apply from stdin
   cat api-role.json | jamf-cli api-roles apply
@@ -506,8 +509,12 @@ If not, a new resource is created.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -568,7 +575,7 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

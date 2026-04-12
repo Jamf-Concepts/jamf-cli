@@ -902,13 +902,16 @@ func newEnrollmentSettingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a enrollment-setting by name",
-		Long: `Create or replace a enrollment-setting. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a enrollment-setting. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a enrollment-setting from a file
+		Example: `  # Apply a enrollment-setting from a JSON file
   jamf-cli enrollment-settings apply --from-file enrollment-setting.json
+
+  # Apply a enrollment-setting from a YAML file
+  jamf-cli enrollment-settings apply --from-file enrollment-setting.yaml
 
   # Apply from stdin
   cat enrollment-setting.json | jamf-cli enrollment-settings apply
@@ -921,8 +924,12 @@ If not, a new resource is created.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -983,7 +990,7 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

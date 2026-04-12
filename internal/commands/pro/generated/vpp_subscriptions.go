@@ -712,13 +712,16 @@ func newVppSubscriptionsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a vpp-subscription by name",
-		Long: `Create or replace a vpp-subscription. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a vpp-subscription. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a vpp-subscription from a file
+		Example: `  # Apply a vpp-subscription from a JSON file
   jamf-cli vpp-subscriptions apply --from-file vpp-subscription.json
+
+  # Apply a vpp-subscription from a YAML file
+  jamf-cli vpp-subscriptions apply --from-file vpp-subscription.yaml
 
   # Apply from stdin
   cat vpp-subscription.json | jamf-cli vpp-subscriptions apply
@@ -731,8 +734,12 @@ If not, a new resource is created.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -793,7 +800,7 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

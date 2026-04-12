@@ -449,13 +449,16 @@ func newAppRequestsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a app-request by name",
-		Long: `Create or replace a app-request. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a app-request. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a app-request from a file
+		Example: `  # Apply a app-request from a JSON file
   jamf-cli app-requests apply --from-file app-request.json
+
+  # Apply a app-request from a YAML file
+  jamf-cli app-requests apply --from-file app-request.yaml
 
   # Apply from stdin
   cat app-request.json | jamf-cli app-requests apply
@@ -468,8 +471,12 @@ If not, a new resource is created.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -530,7 +537,7 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

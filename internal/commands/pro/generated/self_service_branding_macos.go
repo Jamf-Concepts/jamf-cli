@@ -492,13 +492,16 @@ func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a self-service-branding-macos by name",
-		Long: `Create or replace a self-service-branding-macos. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a self-service-branding-macos. Reads JSON or YAML from --from-file or stdin.
 
 The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a self-service-branding-macos from a file
+		Example: `  # Apply a self-service-branding-macos from a JSON file
   jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json
+
+  # Apply a self-service-branding-macos from a YAML file
+  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.yaml
 
   # Apply from stdin
   cat self-service-branding-macos.json | jamf-cli self-service-branding-macos apply
@@ -511,8 +514,12 @@ If not, a new resource is created.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -573,7 +580,7 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
