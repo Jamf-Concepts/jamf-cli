@@ -472,6 +472,439 @@ func TestConvertSoftwareUpdate_AppDeferralWarning(t *testing.T) {
 	}
 }
 
+// --- RSR converter tests ---
+
+func TestConvertRSR_BothKeys(t *testing.T) {
+	settings := map[string]any{
+		"allowRapidSecurityResponseInstallation": true,
+		"allowRapidSecurityResponseRemoval":      false,
+		"allowCamera":                            false, // non-RSR key
+	}
+
+	config, remaining, _, err := convertRSR(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+
+	// Non-RSR key should be in remaining
+	if _, ok := remaining["allowCamera"]; !ok {
+		t.Error("expected allowCamera in remaining")
+	}
+	// RSR keys should NOT be in remaining
+	if _, ok := remaining["allowRapidSecurityResponseInstallation"]; ok {
+		t.Error("RSR key should not be in remaining")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	rsr := parsed["RapidSecurityResponse"].(map[string]any)
+
+	enable := rsr["Enable"].(map[string]any)
+	if enable["Enabled"] != true {
+		t.Errorf("expected Enable.Enabled=true, got %v", enable["Enabled"])
+	}
+	if enable["Included"] != true {
+		t.Error("expected Enable.Included=true")
+	}
+
+	rollback := rsr["EnableRollback"].(map[string]any)
+	if rollback["Enabled"] != false {
+		t.Errorf("expected EnableRollback.Enabled=false, got %v", rollback["Enabled"])
+	}
+}
+
+func TestConvertRSR_InstallOnly(t *testing.T) {
+	settings := map[string]any{
+		"allowRapidSecurityResponseInstallation": false,
+	}
+
+	config, remaining, _, err := convertRSR(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+	if remaining != nil {
+		t.Errorf("expected nil remaining, got %v", remaining)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	rsr := parsed["RapidSecurityResponse"].(map[string]any)
+	if _, ok := rsr["Enable"]; !ok {
+		t.Error("expected Enable key")
+	}
+	// EnableRollback should NOT be present (not in source)
+	if _, ok := rsr["EnableRollback"]; ok {
+		t.Error("EnableRollback should not be set when key is absent from source")
+	}
+}
+
+func TestConvertRSR_NoRSRKeys(t *testing.T) {
+	settings := map[string]any{
+		"allowCamera": false,
+	}
+
+	config, remaining, _, err := convertRSR(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config when no RSR keys")
+	}
+	if len(remaining) != 1 {
+		t.Errorf("expected 1 remaining key, got %d", len(remaining))
+	}
+}
+
+// --- Software update profile converter tests ---
+
+func TestConvertSoftwareUpdateProfile_AllKeys(t *testing.T) {
+	settings := map[string]any{
+		"restrict-software-update-require-admin-to-install": false,
+		"AutomaticDownload":                true,
+		"AutomaticallyInstallMacOSUpdates": true,
+		"CriticalUpdateInstall":            true,
+		"AllowPreReleaseInstallation":      false,
+		"AutomaticCheckEnabled":            true, // no DDM mapping
+		"AutomaticallyInstallAppUpdates":   true, // no DDM mapping
+		"ConfigDataInstall":                true, // no DDM mapping
+	}
+
+	config, remaining, warnings, err := convertSoftwareUpdateProfile(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+
+	// Keys without DDM mapping should be in remaining
+	if _, ok := remaining["AutomaticCheckEnabled"]; !ok {
+		t.Error("expected AutomaticCheckEnabled in remaining")
+	}
+	if _, ok := remaining["AutomaticallyInstallAppUpdates"]; !ok {
+		t.Error("expected AutomaticallyInstallAppUpdates in remaining")
+	}
+
+	// Should have warnings about unmapped keys
+	hasWarning := false
+	for _, w := range warnings {
+		if strings.Contains(w, "AutomaticCheckEnabled") {
+			hasWarning = true
+		}
+	}
+	if !hasWarning {
+		t.Error("expected warning about AutomaticCheckEnabled")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// AllowStandardUserOSUpdates: restrict=false → Enabled=true
+	asu := parsed["AllowStandardUserOSUpdates"].(map[string]any)
+	if asu["Enabled"] != true {
+		t.Errorf("expected AllowStandardUserOSUpdates.Enabled=true, got %v", asu["Enabled"])
+	}
+	if asu["Included"] != true {
+		t.Error("expected AllowStandardUserOSUpdates.Included=true")
+	}
+
+	// AutomaticActions
+	actions := parsed["AutomaticActions"].(map[string]any)
+	dl := actions["Download"].(map[string]any)
+	if dl["Value"] != "Allowed" {
+		t.Errorf("expected Download=Allowed, got %v", dl["Value"])
+	}
+	install := actions["InstallOSUpdates"].(map[string]any)
+	if install["Value"] != "Allowed" {
+		t.Errorf("expected InstallOSUpdates=Allowed, got %v", install["Value"])
+	}
+	// CriticalUpdateInstall should map to InstallSecurityUpdate
+	sec := actions["InstallSecurityUpdate"].(map[string]any)
+	if sec["Value"] != "Allowed" {
+		t.Errorf("expected InstallSecurityUpdate=Allowed (from CriticalUpdateInstall), got %v", sec["Value"])
+	}
+
+	// Beta
+	beta := parsed["Beta"].(map[string]any)
+	if beta["Included"] != true {
+		t.Error("expected Beta.Included=true")
+	}
+	betaVal := beta["Value"].(map[string]any)
+	if betaVal["ProgramEnrollment"] != "AlwaysOff" {
+		t.Errorf("expected ProgramEnrollment=AlwaysOff, got %v", betaVal["ProgramEnrollment"])
+	}
+
+	// Only sections the converter modifies should be present (scaffold
+	// backfill happens in the orchestrator, not the unit converter)
+	for _, section := range []string{"AllowStandardUserOSUpdates", "AutomaticActions", "Beta"} {
+		if _, ok := parsed[section]; !ok {
+			t.Errorf("expected top-level section %q in output", section)
+		}
+	}
+	// RapidSecurityResponse should NOT be set (RSR is in applicationaccess, not SoftwareUpdate)
+	if _, ok := parsed["RapidSecurityResponse"]; ok {
+		t.Error("RapidSecurityResponse should not be set by the SoftwareUpdate profile converter")
+	}
+}
+
+func TestConvertSoftwareUpdateProfile_InvertedAdmin(t *testing.T) {
+	// restrict=true → standard users CANNOT install → Enabled=false
+	settings := map[string]any{
+		"restrict-software-update-require-admin-to-install": true,
+	}
+
+	config, _, _, err := convertSoftwareUpdateProfile(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	asu := parsed["AllowStandardUserOSUpdates"].(map[string]any)
+	if asu["Enabled"] != false {
+		t.Errorf("expected Enabled=false when restrict=true, got %v", asu["Enabled"])
+	}
+}
+
+func TestConvertSoftwareUpdateProfile_NoConvertibleKeys(t *testing.T) {
+	settings := map[string]any{
+		"AutomaticCheckEnabled": true,
+	}
+
+	config, remaining, _, err := convertSoftwareUpdateProfile(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config when no convertible keys")
+	}
+	if _, ok := remaining["AutomaticCheckEnabled"]; !ok {
+		t.Error("expected AutomaticCheckEnabled in remaining")
+	}
+}
+
+func TestConvertSoftwareUpdateProfile_BoolToAllowed(t *testing.T) {
+	if got := boolToAllowed(true); got != "Allowed" {
+		t.Errorf("boolToAllowed(true) = %q, want Allowed", got)
+	}
+	if got := boolToAllowed(false); got != "AlwaysOff" {
+		t.Errorf("boolToAllowed(false) = %q, want AlwaysOff", got)
+	}
+	if got := boolToAllowed("not a bool"); got != "" {
+		t.Errorf("boolToAllowed(string) = %q, want empty", got)
+	}
+}
+
+// --- Orchestration: SoftwareUpdate profile end-to-end ---
+
+const testSoftwareUpdateMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.SoftwareUpdate</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.su</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>AllowPreReleaseInstallation</key>
+			<false/>
+			<key>AutomaticDownload</key>
+			<true/>
+			<key>AutomaticallyInstallMacOSUpdates</key>
+			<true/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Software Update</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.su</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertToDDMComponents_SoftwareUpdateProfile(t *testing.T) {
+	result, err := ConvertToDDMComponents([]byte(testSoftwareUpdateMobileconfig), false, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.NativeComponents) != 1 {
+		t.Fatalf("expected 1 native component, got %d", len(result.NativeComponents))
+	}
+	if result.NativeComponents[0].Identifier != "com.jamf.ddm.software-update-settings" {
+		t.Errorf("expected software-update-settings, got %s", result.NativeComponents[0].Identifier)
+	}
+	// All keys were convertible, so no profile wrapper needed
+	if result.ProfileConfig != nil {
+		t.Error("expected nil ProfileConfig when all payload keys converted natively")
+	}
+	if len(result.Conversions) != 1 {
+		t.Fatalf("expected 1 conversion, got %d", len(result.Conversions))
+	}
+}
+
+// --- Merged software-update-settings test ---
+
+const testMixedDeferralsAndSoftwareUpdate = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.applicationaccess</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.restrictions</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>forceDelayedSoftwareUpdates</key>
+			<true/>
+			<key>enforcedSoftwareUpdateDelay</key>
+			<integer>14</integer>
+			<key>allowCamera</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.SoftwareUpdate</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.su</string>
+			<key>PayloadUUID</key>
+			<string>UUID-2</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>AutomaticDownload</key>
+			<true/>
+			<key>CriticalUpdateInstall</key>
+			<true/>
+			<key>AllowPreReleaseInstallation</key>
+			<false/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Mixed Deferrals and SU</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.mixed</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertToDDMComponents_MergedSoftwareUpdateSettings(t *testing.T) {
+	result, err := ConvertToDDMComponents([]byte(testMixedDeferralsAndSoftwareUpdate), false, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should produce exactly 1 software-update-settings component (merged from both payloads)
+	var suComponent *DDMComponent
+	for i, nc := range result.NativeComponents {
+		if nc.Identifier == "com.jamf.ddm.software-update-settings" {
+			suComponent = &result.NativeComponents[i]
+		}
+	}
+	if suComponent == nil {
+		t.Fatal("expected software-update-settings component")
+	}
+
+	// Count occurrences — should be exactly 1
+	count := 0
+	for _, nc := range result.NativeComponents {
+		if nc.Identifier == "com.jamf.ddm.software-update-settings" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected 1 software-update-settings component, got %d", count)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(suComponent.Configuration, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Deferrals from applicationaccess should be present
+	deferrals := parsed["Deferrals"].(map[string]any)
+	combined := deferrals["CombinedPeriodInDays"].(map[string]any)
+	if combined["Included"] != true {
+		t.Error("expected CombinedPeriodInDays.Included=true from deferral converter")
+	}
+
+	// AutomaticActions from SoftwareUpdate should be merged in
+	actions := parsed["AutomaticActions"].(map[string]any)
+	dl := actions["Download"].(map[string]any)
+	if dl["Value"] != "Allowed" || dl["Included"] != true {
+		t.Errorf("expected merged Download=Allowed, got %v", dl)
+	}
+
+	// Beta from SoftwareUpdate should be merged in
+	beta := parsed["Beta"].(map[string]any)
+	if beta["Included"] != true {
+		t.Error("expected Beta.Included=true from profile converter")
+	}
+
+	// Should have a "(merged)" conversion entry
+	hasMerged := false
+	for _, c := range result.Conversions {
+		if strings.Contains(c, "(merged)") {
+			hasMerged = true
+		}
+	}
+	if !hasMerged {
+		t.Errorf("expected merged conversion entry, got %v", result.Conversions)
+	}
+
+	// All scaffold sections must be present (via scaffold backfill or deferral converter)
+	for _, section := range []string{"RapidSecurityResponse", "Notifications", "RecommendedCadence"} {
+		if _, ok := parsed[section]; !ok {
+			t.Errorf("missing scaffold section %q — GUI will render blank", section)
+		}
+	}
+	// RapidSecurityResponse from scaffold should have both sub-keys
+	rsr := parsed["RapidSecurityResponse"].(map[string]any)
+	if _, ok := rsr["Enable"]; !ok {
+		t.Error("expected RapidSecurityResponse.Enable from scaffold")
+	}
+	if _, ok := rsr["EnableRollback"]; !ok {
+		t.Error("expected RapidSecurityResponse.EnableRollback from scaffold")
+	}
+
+	// allowCamera from applicationaccess should be in the profile wrapper
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig for remaining applicationaccess keys")
+	}
+}
+
 // --- Orchestration tests ---
 
 const testPasscodeMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
@@ -509,7 +942,7 @@ const testPasscodeMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>`
 
 func TestConvertToDDMComponents_PasscodeOnly(t *testing.T) {
-	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -593,7 +1026,7 @@ const testMixedMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>`
 
 func TestConvertToDDMComponents_MixedPayloads(t *testing.T) {
-	result, err := ConvertToDDMComponents([]byte(testMixedMobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(testMixedMobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -666,7 +1099,7 @@ const testApplicationAccessMobileconfig = `<?xml version="1.0" encoding="UTF-8"?
 </plist>`
 
 func TestConvertToDDMComponents_ApplicationAccess(t *testing.T) {
-	result, err := ConvertToDDMComponents([]byte(testApplicationAccessMobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(testApplicationAccessMobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -747,7 +1180,7 @@ func TestConvertToDDMComponents_NoConverters(t *testing.T) {
 </dict>
 </plist>`
 
-	result, err := ConvertToDDMComponents([]byte(mobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -792,7 +1225,7 @@ func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
 </dict>
 </plist>`
 
-	_, err := ConvertToDDMComponents([]byte(mobileconfig), true)
+	_, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
 	if err == nil {
 		t.Fatal("expected error when all payloads filtered")
 	}
@@ -809,9 +1242,14 @@ func TestFindConverters(t *testing.T) {
 		t.Errorf("expected 1 converter for passwordpolicy, got %d", len(got))
 	}
 
-	// applicationaccess has two converters (safari + software-update)
-	if got := findConverters("com.apple.applicationaccess"); len(got) != 2 {
-		t.Errorf("expected 2 converters for applicationaccess, got %d", len(got))
+	// applicationaccess has three converters (safari + software-update deferrals + RSR)
+	if got := findConverters("com.apple.applicationaccess"); len(got) != 3 {
+		t.Errorf("expected 3 converters for applicationaccess, got %d", len(got))
+	}
+
+	// SoftwareUpdate has one converter (software-update-profile)
+	if got := findConverters("com.apple.SoftwareUpdate"); len(got) != 1 {
+		t.Errorf("expected 1 converter for SoftwareUpdate, got %d", len(got))
 	}
 
 	// Unknown type has no converters
@@ -900,25 +1338,40 @@ func TestConvertToDDMComponents_DuplicatePasscodePayloads(t *testing.T) {
 </dict>
 </plist>`
 
-	result, err := ConvertToDDMComponents([]byte(mobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should produce exactly 1 native component (first payload wins)
+	// Should produce exactly 1 native component (merged from both payloads)
 	if len(result.NativeComponents) != 1 {
 		t.Fatalf("expected 1 native component, got %d", len(result.NativeComponents))
 	}
+	if result.NativeComponents[0].Identifier != "com.jamf.ddm.passcode-settings" {
+		t.Errorf("expected passcode-settings, got %s", result.NativeComponents[0].Identifier)
+	}
 
-	// Should have a warning about the duplicate
-	hasDupWarning := false
-	for _, w := range result.Warnings {
-		if strings.Contains(w, "skipping duplicate") {
-			hasDupWarning = true
+	// Second payload should have been merged
+	hasMerged := false
+	for _, c := range result.Conversions {
+		if strings.Contains(c, "(merged)") {
+			hasMerged = true
 		}
 	}
-	if !hasDupWarning {
-		t.Error("expected duplicate skipping warning")
+	if !hasMerged {
+		t.Error("expected merged conversion entry")
+	}
+
+	// Verify both payloads' keys are present in the merged config
+	var parsed map[string]any
+	if err := json.Unmarshal(result.NativeComponents[0].Configuration, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, ok := parsed["RequirePasscode"]; !ok {
+		t.Error("expected RequirePasscode from first payload")
+	}
+	if _, ok := parsed["MinimumLength"]; !ok {
+		t.Error("expected MinimumLength from second payload")
 	}
 }
 
@@ -940,7 +1393,7 @@ func TestConvertToDDMComponents_ConverterError(t *testing.T) {
 		},
 	}
 
-	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false)
+	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

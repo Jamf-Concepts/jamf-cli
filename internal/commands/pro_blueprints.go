@@ -1217,10 +1217,10 @@ Examples:
 
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		blueprintName     string
-		profileType       string
-		filterUnsupported bool
-		stripDefaults     bool
+		blueprintName      string
+		profileType        string
+		includeUnsupported bool
+		stripDefaults      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
@@ -1233,7 +1233,9 @@ exists. Currently supported:
 
   com.apple.mobiledevice.passwordpolicy  ->  passcode-settings
   com.apple.applicationaccess (safari*)  ->  safari-settings (macOS/iOS 26+)
-  com.apple.applicationaccess (deferral) ->  software-update-settings
+  com.apple.applicationaccess (deferral) ->  software-update-settings (Deferrals)
+  com.apple.applicationaccess (RSR)      ->  software-update-settings (RapidSecurityResponse)
+  com.apple.SoftwareUpdate               ->  software-update-settings (AutomaticActions, Beta, etc.)
 
 Payloads without a DDM mapping are wrapped in a com.jamf.ddm-configuration-profile
 component. A single profile with mixed payloads produces multiple components.
@@ -1260,7 +1262,8 @@ Examples:
   jamf-cli pro blueprints import-profile "My Restrictions"
   jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
-  jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults --filter-unsupported`,
+  jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
+  jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if profileType != "computer" && profileType != "mobile" {
@@ -1302,7 +1305,11 @@ Examples:
 			// Compatible payloads are automatically promoted to native DDM
 			// components (e.g. passcode-settings, safari-settings). The rest
 			// are wrapped in a configuration-profile component.
-			ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), filterUnsupported)
+			var ddmFetcher *profileconvert.SchemaFetcher
+			if stripDefaults {
+				ddmFetcher = profileconvert.NewSchemaFetcher(nil)
+			}
+			ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), !includeUnsupported, ddmFetcher)
 			if err != nil {
 				return fmt.Errorf("converting profile: %w", err)
 			}
@@ -1411,7 +1418,7 @@ Examples:
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
-	cmd.Flags().BoolVar(&filterUnsupported, "filter-unsupported", false, "Remove payload types not supported by the platform API instead of passing them through")
+	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Include payload types not supported by the platform API (may cause validation errors)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp

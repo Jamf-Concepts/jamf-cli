@@ -325,6 +325,8 @@ When `import-profile` processes a mobileconfig, it automatically converts compat
 | `ddm_passcode.go` | `com.apple.mobiledevice.passwordpolicy` | `com.jamf.ddm.passcode-settings` | Full 1:1 conversion. 12 key mappings + `customRegex` nested restructure. `allowSimple` → `RequireComplexPasscode` boolean inversion. Adds `version: "2"`. |
 | `ddm_safari.go` | `com.apple.applicationaccess` (safari keys) | `com.jamf.ddm.safari-settings` | Partial — extracts 7 safari-prefixed keys, leaves rest in wrapper. Cookie policy numeric→enum conversion. Requires macOS/iOS 26+. |
 | `ddm_softwareupdate.go` | `com.apple.applicationaccess` (deferral keys) | `com.jamf.ddm.software-update-settings` | Partial — extracts `forceDelayed*`/`enforced*Delay` keys. Builds full component schema from `blueprintcomponents.Scaffolds` with `clearIncluded()`, then overlays converted deferrals. |
+| `ddm_rsr.go` | `com.apple.applicationaccess` (RSR keys) | `com.jamf.ddm.software-update-settings` | Partial — extracts `allowRapidSecurityResponseInstallation` and `allowRapidSecurityResponseRemoval`, maps to `RapidSecurityResponse.Enable` and `EnableRollback`. |
+| `ddm_softwareupdate_profile.go` | `com.apple.SoftwareUpdate` | `com.jamf.ddm.software-update-settings` | Partial — maps 5 keys across AutomaticActions, AllowStandardUserOSUpdates, Beta sections. `restrict-software-update-require-admin-to-install` boolean inversion. 4 keys without DDM equivalent stay in wrapper. |
 
 **Key design decisions:**
 - Key mapping tables are static (legacy key names differ completely from DDM names — no algorithmic derivation possible). Validated against Apple's published schemas.
