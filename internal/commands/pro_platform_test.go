@@ -558,3 +558,32 @@ func TestScopeOverlaps(t *testing.T) {
 		t.Error("expected no overlap for nil scope")
 	}
 }
+
+func TestResolveComponentIdentifier(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		// Full identifier — exact match
+		{"com.jamf.ddm.software-update-settings", "com.jamf.ddm.software-update-settings"},
+		{"com.jamf.ddm.passcode-settings", "com.jamf.ddm.passcode-settings"},
+		{"com.jamf.ddm-configuration-profile", "com.jamf.ddm-configuration-profile"},
+		// Short name from ShortNames map
+		{"software-update-settings", "com.jamf.ddm.software-update-settings"},
+		{"sw-updates", "com.jamf.ddm.sw-updates"},
+		{"ddm-configuration-profile", "com.jamf.ddm-configuration-profile"},
+		// Auto-prefix for dotless input
+		{"passcode-settings", "com.jamf.ddm.passcode-settings"},
+		{"disk-management", "com.jamf.ddm.disk-management"},
+		// Unknown — returns as-is
+		{"nonexistent", "nonexistent"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := resolveComponentIdentifier(tt.input)
+			if got != tt.want {
+				t.Errorf("resolveComponentIdentifier(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

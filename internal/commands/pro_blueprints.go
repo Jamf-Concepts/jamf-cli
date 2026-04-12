@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
@@ -120,16 +122,33 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
-		yes      bool
-		scaffold bool
+		fromFile   string
+		yes        bool
+		scaffold   bool
+		components []string
 	)
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a blueprint",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printScaffold(blueprintScaffold())
+				bp := blueprintScaffold()
+				if len(components) > 0 {
+					var comps []jamfplatform.BlueprintComponentV1
+					for _, c := range components {
+						id := resolveComponentIdentifier(c)
+						jsonStr, ok := blueprintcomponents.Scaffolds[id]
+						if !ok {
+							return fmt.Errorf("unknown component: %s\nRun 'jamf-cli pro blueprints components list' to see available components", c)
+						}
+						comps = append(comps, jamfplatform.BlueprintComponentV1{
+							Identifier:    id,
+							Configuration: json.RawMessage(jsonStr),
+						})
+					}
+					bp.Steps[0].Components = comps
+				}
+				return printScaffold(bp)
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
@@ -191,6 +210,10 @@ func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the input format")
+	cmd.Flags().StringSliceVar(&components, "component", nil, "Component identifier(s) to include in scaffold (repeatable, use with --scaffold)")
+	_ = cmd.RegisterFlagCompletionFunc("component", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return blueprintcomponents.Identifiers(), cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 
@@ -429,6 +452,7 @@ func newBlueprintsComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.AddCommand(newBlueprintsComponentsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsGetCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsComponentsScaffoldCmd())
 	return cmd
 }
 
@@ -511,6 +535,63 @@ The source scope is copied by default. Use --scope to override device group targ
 	}
 	cmd.Flags().StringSliceVar(&scopeGroups, "scope", nil, "Override device group IDs for the clone")
 	return cmd
+}
+
+func newBlueprintsComponentsScaffoldCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "scaffold <identifier>",
+		Short: "Print example configuration JSON for a component",
+		Long: `Print a JSON configuration scaffold for a blueprint component.
+
+Accepts full identifiers (com.jamf.ddm.software-update-settings) or
+short names (software-update-settings).
+
+The output can be used as the "configuration" field when building a
+blueprint component in a step.
+
+Examples:
+  jamf-cli pro blueprints components scaffold software-update-settings
+  jamf-cli pro blueprints components scaffold com.jamf.ddm.passcode-settings`,
+		Args: cobra.ExactArgs(1),
+		ValidArgsFunction: func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+			return blueprintcomponents.Identifiers(), cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			identifier := resolveComponentIdentifier(args[0])
+			scaffold, ok := blueprintcomponents.Scaffolds[identifier]
+			if !ok {
+				return fmt.Errorf("unknown component identifier: %s\nRun 'jamf-cli pro blueprints components list' to see available components", args[0])
+			}
+			// Output as a complete component block ready for use in a blueprint step
+			block := map[string]any{
+				"identifier":    identifier,
+				"configuration": json.RawMessage(scaffold),
+			}
+			return printScaffold(block)
+		},
+	}
+}
+
+// resolveComponentIdentifier resolves a component identifier from user input.
+// It accepts full identifiers, short names from the generated map, or bare
+// slugs that get auto-prefixed with "com.jamf.ddm.".
+func resolveComponentIdentifier(input string) string {
+	// Already a full identifier
+	if _, ok := blueprintcomponents.Scaffolds[input]; ok {
+		return input
+	}
+	// Try short name lookup
+	if full, ok := blueprintcomponents.ShortNames[input]; ok {
+		return full
+	}
+	// Try auto-prefixing for dotless input
+	if !strings.Contains(input, ".") {
+		candidate := "com.jamf.ddm." + input
+		if _, ok := blueprintcomponents.Scaffolds[candidate]; ok {
+			return candidate
+		}
+	}
+	return input // return as-is, will fail with "unknown" error
 }
 
 func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
