@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,10 +82,9 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "wellKnownSettings": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

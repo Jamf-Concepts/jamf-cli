@@ -302,12 +302,11 @@ func newSsoSettingsCertParseCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "keystoreFile": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
   "keystoreFileName": "keystore.p12",
   "keystorePassword": "***"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

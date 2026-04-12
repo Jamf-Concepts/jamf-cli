@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,11 +82,10 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "onboardingItems": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

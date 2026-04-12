@@ -252,7 +252,7 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "categoryId": 1,
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
@@ -269,8 +269,7 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "parameter9": "6",
   "priority": "AFTER",
   "scriptContents": "echo \"Trivial script.\""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -327,7 +326,7 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "categoryId": 1,
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
@@ -344,8 +343,7 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "parameter9": "6",
   "priority": "AFTER",
   "scriptContents": "echo \"Trivial script.\""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -673,10 +671,9 @@ func newScriptsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -835,7 +832,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "categoryId": 1,
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
@@ -852,8 +849,7 @@ If not, a new resource is created.`,
   "parameter9": "6",
   "priority": "AFTER",
   "scriptContents": "echo \"Trivial script.\""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

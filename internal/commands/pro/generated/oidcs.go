@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -76,11 +75,10 @@ func newOidcsDispatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "emailAddress": "admin@domain.name",
   "originalUrl": "aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA=="
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

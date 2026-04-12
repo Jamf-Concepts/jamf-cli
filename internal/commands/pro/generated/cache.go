@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,7 +82,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "cacheType": "ehcache",
   "cacheUniqueId": "24864549-94ea-4cc1-bb80-d7fb392c6556",
   "directoryTimeToLiveSeconds": 120,
@@ -93,8 +92,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "name": "",
   "timeToIdleSeconds": 120,
   "timeToLiveSeconds": 120
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

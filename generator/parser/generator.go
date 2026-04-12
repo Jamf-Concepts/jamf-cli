@@ -641,9 +641,10 @@ func hasQueryParams(ops []*Operation) bool {
 
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
-	// delete success message, scaffold output, apply status messages, multipart error wrapping,
+	// delete success message, apply status messages, multipart error wrapping,
 	// patch-by-name error messages, --set parse errors, name-lookup error messages
-	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
+	// (scaffold output moved to printScaffoldOutput in registry — no longer needs fmt here)
+	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
 		return true
 	}
 	for _, op := range r.Operations {
@@ -1189,8 +1190,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasScaffold . }}
 
 			if flagScaffold {
-				fmt.Println(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `)
-				return nil
+				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -1643,8 +1643,7 @@ If not, a new resource is created.` + "`" + `,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(` + "`" + `{{ applyScaffoldJSON .Operations }}` + "`" + `)
-				return nil
+				return printScaffoldOutput(` + "`" + `{{ applyScaffoldJSON .Operations }}` + "`" + `, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)
@@ -1837,6 +1836,23 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
+// output format requests it.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func printScaffoldOutput(jsonStr, format string) error {
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			return fmt.Errorf("scaffold marshal error: %w", err)
+		}
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(v)
+	}
+	fmt.Println(jsonStr)
+	return nil
 }
 
 // normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.

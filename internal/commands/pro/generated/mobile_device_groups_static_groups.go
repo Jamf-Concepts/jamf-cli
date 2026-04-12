@@ -249,13 +249,12 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
   "siteId": 11
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -434,13 +433,12 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
   "siteId": 11
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

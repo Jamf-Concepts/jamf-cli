@@ -251,11 +251,10 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "config": {},
   "devices": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -307,10 +306,9 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "toggle": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -589,11 +587,10 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "config": {},
   "devices": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

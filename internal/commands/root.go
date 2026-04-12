@@ -429,8 +429,11 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				}
 			}
 
-			// --scaffold just prints a JSON template — no auth needed
+			// --scaffold just prints a JSON template — no auth needed.
+			// Set up a basic formatter first so commands can call ctx.Output.Format()
+			// to respect -o yaml even without a full auth round-trip.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
+				cliCtx.Output = &cliOutput{output.New(outputFmt, noColor, wide)}
 				return nil
 			}
 

@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -73,11 +72,10 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "isAllowNetworkStateChangeTriggers": false,
   "isPoliciesRequireNetworkStateChange": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

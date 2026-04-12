@@ -351,7 +351,7 @@ func newUserAccountsAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accessLevel": "",
   "accountStatus": "",
   "accountType": "",
@@ -365,8 +365,7 @@ func newUserAccountsAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
   "realname": "Bob Jones",
   "siteId": -1,
   "username": "testusername"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

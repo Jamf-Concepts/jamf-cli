@@ -253,7 +253,7 @@ func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "backupDistributionPointId": "",
   "enableLoadBalancing": false,
   "fileSharingConnectionType": "AFP",
@@ -276,8 +276,7 @@ func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "sshPassword": "password",
   "sshUsername": "john.doe",
   "workgroup": "WORKGROUP1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -334,7 +333,7 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "backupDistributionPointId": "",
   "enableLoadBalancing": false,
   "fileSharingConnectionType": "AFP",
@@ -357,8 +356,7 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "sshPassword": "password",
   "sshUsername": "john.doe",
   "workgroup": "WORKGROUP1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -539,10 +537,9 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -784,10 +781,9 @@ func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -865,7 +861,7 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "backupDistributionPointId": "",
   "enableLoadBalancing": false,
   "fileSharingConnectionType": "AFP",
@@ -888,8 +884,7 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "sshPassword": "password",
   "sshUsername": "john.doe",
   "workgroup": "WORKGROUP1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -997,7 +992,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "backupDistributionPointId": "",
   "enableLoadBalancing": false,
   "fileSharingConnectionType": "AFP",
@@ -1020,8 +1015,7 @@ If not, a new resource is created.`,
   "sshPassword": "password",
   "sshUsername": "john.doe",
   "workgroup": "WORKGROUP1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

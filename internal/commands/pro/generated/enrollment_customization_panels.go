@@ -227,10 +227,9 @@ func newEnrollmentCustomizationPanelsParseMarkdownCmd(ctx *registry.CLIContext) 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "markdown": "**markdown**"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

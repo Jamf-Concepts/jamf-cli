@@ -246,7 +246,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "certificateButton": "Continue",
   "certificateProfileDescription": "CA Certificate for mobile device management",
   "certificateProfileName": "CA Certificate",
@@ -287,8 +287,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "userEnrollmentProfileName": "",
   "userEnrollmentText": "",
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -469,10 +468,9 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action

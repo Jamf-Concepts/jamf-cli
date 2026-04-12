@@ -157,12 +157,11 @@ func newAppRequestsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "description": "How many of these would you like?",
   "priority": 1,
   "title": "Quantity"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -399,13 +398,12 @@ func newAppRequestsUpdateSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appStoreLocale": "deviceLocale",
   "approverEmails": [],
   "isEnabled": true,
   "requesterUserGroupId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -473,12 +471,11 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "description": "How many of these would you like?",
   "priority": 1,
   "title": "Quantity"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

@@ -249,7 +249,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "customPhotoUrl": "",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
@@ -258,8 +258,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "position": "IT Administrator",
   "realname": "John Smith",
   "username": "jsmith"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -316,7 +315,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "customPhotoUrl": "",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
@@ -325,8 +324,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "position": "IT Administrator",
   "realname": "John Smith",
   "username": "jsmith"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -523,7 +521,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "customPhotoUrl": "",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
@@ -532,8 +530,7 @@ If not, a new resource is created.`,
   "position": "IT Administrator",
   "realname": "John Smith",
   "username": "jsmith"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

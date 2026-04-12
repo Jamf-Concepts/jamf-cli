@@ -250,7 +250,7 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accessTokenLifetimeSeconds": 300,
   "authorizationScopes": [
     "Tootsie Roal",
@@ -258,8 +258,7 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   ],
   "displayName": "My API Integration",
   "enabled": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -316,7 +315,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accessTokenLifetimeSeconds": 300,
   "authorizationScopes": [
     "Tootsie Roal",
@@ -324,8 +323,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   ],
   "displayName": "My API Integration",
   "enabled": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -581,7 +579,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accessTokenLifetimeSeconds": 300,
   "authorizationScopes": [
     "Tootsie Roal",
@@ -589,8 +587,7 @@ If not, a new resource is created.`,
   ],
   "displayName": "My API Integration",
   "enabled": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

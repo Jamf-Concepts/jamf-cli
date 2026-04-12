@@ -287,7 +287,7 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applications": [],
   "certificates": [],
   "configurationProfiles": [],
@@ -304,8 +304,7 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "storage": {},
   "udid": "45436edf-864e-4364-982a-330b01d39e65",
   "userAndLocation": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -515,7 +514,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "extensionAttributes": [],
   "general": {},
   "hardware": {},
@@ -523,8 +522,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "purchasing": {},
   "udid": "45436edf-864e-4364-982a-330b01d39e65",
   "userAndLocation": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

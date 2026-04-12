@@ -158,7 +158,7 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "displayFields": [
     "AirPlay Password",
@@ -166,8 +166,7 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
   ],
   "name": "Andy's Search",
   "siteId": -1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -224,7 +223,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "displayFields": [
     "AirPlay Password",
@@ -232,8 +231,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
   ],
   "name": "Andy's Search",
   "siteId": -1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -414,10 +412,9 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -578,7 +575,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "displayFields": [
     "AirPlay Password",
@@ -586,8 +583,7 @@ If not, a new resource is created.`,
   ],
   "name": "Andy's Search",
   "siteId": -1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

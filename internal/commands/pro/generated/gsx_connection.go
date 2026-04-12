@@ -90,15 +90,14 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "gsxKeystore": {},
   "serviceAccountNo": "0000012345",
   "shipToNo": "0000012345",
   "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",
   "username": "exampleEmail@example.com"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -273,10 +272,9 @@ func newGsxConnectionAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -330,15 +328,14 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "gsxKeystore": {},
   "serviceAccountNo": "0000012345",
   "shipToNo": "0000012345",
   "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",
   "username": "exampleEmail@example.com"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

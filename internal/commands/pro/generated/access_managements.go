@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -78,10 +77,9 @@ func newAccessManagementsAccessManagementCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "automatedDeviceEnrollmentServerUuid": "4B637BAB65D14E6DA63A74E4F6F82C4B"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

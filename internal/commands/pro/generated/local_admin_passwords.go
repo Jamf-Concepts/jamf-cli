@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -56,13 +55,12 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoDeployEnabled": false,
   "autoRotateEnabled": false,
   "autoRotateExpirationTime": 7776000,
   "passwordRotationTime": 3600
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -467,10 +465,9 @@ func newLocalAdminPasswordsSetPasswordCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "lapsUserPasswordList": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

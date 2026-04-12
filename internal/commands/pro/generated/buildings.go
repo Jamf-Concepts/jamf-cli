@@ -254,7 +254,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "city": "Cupertino",
   "country": "The United States of America",
   "name": "Apple Park",
@@ -262,8 +262,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
   "zipPostalCode": 95014
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -320,7 +319,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "city": "Cupertino",
   "country": "The United States of America",
   "name": "Apple Park",
@@ -328,8 +327,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
   "zipPostalCode": 95014
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -510,10 +508,9 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -755,10 +752,9 @@ func newBuildingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -831,7 +827,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -839,8 +835,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -947,7 +942,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -955,8 +950,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -1085,7 +1079,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "city": "Cupertino",
   "country": "The United States of America",
   "name": "Apple Park",
@@ -1093,8 +1087,7 @@ If not, a new resource is created.`,
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
   "zipPostalCode": 95014
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

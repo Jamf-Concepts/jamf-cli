@@ -254,11 +254,10 @@ func newSupervisionIdentitiesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "Supervision Identity",
   "password": "jamf1234"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -315,10 +314,9 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "Supervision Identity"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -494,12 +492,11 @@ func newSupervisionIdentitiesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "certificateData": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
   "displayName": "Supervision Identity",
   "password": "jamf1234"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -642,11 +639,10 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "Supervision Identity",
   "password": "jamf1234"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

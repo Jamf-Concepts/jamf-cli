@@ -94,12 +94,11 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientId": "uzPJXlArmzTAmPRQtZEnQ2OFtNw8qQV",
   "password": "7fyP6BphUUQ5B_zoLrkYhM5j1HTcf-4PxshettZbK0ZcnzV57gyHwF23U3F96F",
   "protectUrl": "https://examplejamfprotect.jamfcloud.com/graphql"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -151,10 +150,9 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoInstall": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -407,10 +405,9 @@ func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ func newSystemsInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "activationCode": "VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB",
   "email": "ITBob@jamf.com",
   "eulaAccepted": false,
@@ -48,8 +47,7 @@ func newSystemsInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
   "jssUrl": "https://jamf.jamfcloud.com",
   "password": "12345",
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -96,15 +94,14 @@ func newSystemsPlatformInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "activationCode": "VFAB-YDAB-DFAB-UDAB-DEAB-EFAB-ABAB-DEAB",
   "email": "ITBob@jamf.com",
   "eulaAccepted": false,
   "institutionName": "Jamf",
   "jssUrl": "https://jamf.jamfcloud.com",
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

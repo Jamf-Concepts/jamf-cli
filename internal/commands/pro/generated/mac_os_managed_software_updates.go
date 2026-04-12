@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -78,7 +77,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applyMajorUpdate": false,
   "deviceIds": [
     "1",
@@ -93,8 +92,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
   "skipVersionVerification": false,
   "updateAction": "DOWNLOAD_AND_INSTALL",
   "version": "12.0.1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

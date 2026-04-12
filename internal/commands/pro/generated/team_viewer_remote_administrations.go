@@ -120,14 +120,13 @@ func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobr
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "teamViewerConfiguration",
   "enabled": true,
   "scriptToken": "12847340-nPAX96bsaADH4Gz6K6i2",
   "sessionTimeout": 15,
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -541,13 +540,12 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "teamViewerConfiguration",
   "enabled": true,
   "sessionTimeout": 15,
   "token": "12843140-nPAX96bsaADH4Gz6K6i2"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

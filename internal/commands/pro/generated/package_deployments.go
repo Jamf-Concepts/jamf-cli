@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "devices": [
     1,
     2,
@@ -49,8 +48,7 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
   "groupId": "1",
   "installAsManaged": false,
   "manifest": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

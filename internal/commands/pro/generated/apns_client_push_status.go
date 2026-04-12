@@ -242,10 +242,9 @@ func newApnsClientPushStatusEnableClientCmd(ctx *registry.CLIContext) *cobra.Com
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "managementId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

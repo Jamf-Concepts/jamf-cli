@@ -174,13 +174,12 @@ func newMdmCommandsBlankPushCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientManagementIds": [
     "fd68c371-5921-436e-b16b-8a3c1bf90ee5",
     "a1b2c3d4-5678-90ab-cdef-1234567890ab"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -227,7 +226,7 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientData": [],
   "commandData": {
     "commandType": "ENABLE_LOST_MODE",
@@ -235,8 +234,7 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
     "lostModeMessage": "Lost Mode Message",
     "lostModePhone": "123-456-7890"
   }
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

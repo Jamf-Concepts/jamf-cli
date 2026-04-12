@@ -89,7 +89,7 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "authenticationType": "NONE",
   "basicAuthCredentials": {},
   "connectionSettings": {},
@@ -97,8 +97,7 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "googleMailCredentials": {},
   "graphApiCredentials": {},
   "senderSettings": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -277,10 +276,9 @@ func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -327,10 +325,9 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "recipientEmail": "exampleEmail@example.com"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

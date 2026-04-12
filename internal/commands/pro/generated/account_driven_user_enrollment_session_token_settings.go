@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,12 +82,11 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *registry.C
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": false,
   "expirationIntervalDays": 1,
   "expirationIntervalSeconds": 86400
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

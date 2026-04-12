@@ -87,15 +87,14 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoRenewComputerMdmProfileWhenCaRenewed": true,
   "autoRenewComputerMdmProfileWhenDeviceIdentityCertExpiring": true,
   "autoRenewMobileDeviceMdmProfileWhenCaRenewed": true,
   "autoRenewMobileDeviceMdmProfileWhenDeviceIdentityCertExpiring": true,
   "mdmProfileComputerExpirationLimitInDays": 0,
   "mdmProfileMobileDeviceExpirationLimitInDays": 0
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -270,10 +269,9 @@ func newDeviceCommunicationSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

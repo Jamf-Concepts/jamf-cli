@@ -239,7 +239,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -247,8 +247,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

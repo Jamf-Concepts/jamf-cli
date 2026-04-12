@@ -155,11 +155,10 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "displayName",
   "wifiProfileId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -216,11 +215,10 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "displayName",
   "wifiProfileId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -417,11 +415,10 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "displayName": "displayName",
   "wifiProfileId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

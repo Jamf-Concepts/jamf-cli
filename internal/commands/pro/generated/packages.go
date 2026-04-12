@@ -257,7 +257,7 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "basePath": "my/path",
   "categoryId": "-1",
   "fileName": "my-package.pkg",
@@ -290,8 +290,7 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "suppressRegistration": false,
   "suppressUpdates": false,
   "swu": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -348,7 +347,7 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "basePath": "my/path",
   "categoryId": "-1",
   "fileName": "my-package.pkg",
@@ -381,8 +380,7 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "suppressRegistration": false,
   "suppressUpdates": false,
   "swu": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -563,10 +561,9 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -808,10 +805,9 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -884,7 +880,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -892,8 +888,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -1000,7 +995,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -1008,8 +1003,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -1212,7 +1206,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "basePath": "my/path",
   "categoryId": "-1",
   "fileName": "my-package.pkg",
@@ -1245,8 +1239,7 @@ If not, a new resource is created.`,
   "suppressRegistration": false,
   "suppressUpdates": false,
   "swu": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

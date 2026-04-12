@@ -166,7 +166,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "categoryId": "-1",
   "displayName": "Google Chrome",
   "emailNotifications": false,
@@ -174,8 +174,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
   "siteId": "-1",
   "softwareTitleId": "1",
   "uiNotifications": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -487,10 +486,9 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -568,7 +566,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "categoryId": "-1",
   "displayName": "Google Chrome",
   "emailNotifications": false,
@@ -577,8 +575,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
   "siteId": "-1",
   "softwareTitleId": "1",
   "uiNotifications": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

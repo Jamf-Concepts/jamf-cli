@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,13 +82,12 @@ func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "actionText": "Accept",
   "disclaimerHeading": "Disclaimer header",
   "disclaimerMainText": "Login disclaimer main text",
   "includeCustomDisclaimer": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

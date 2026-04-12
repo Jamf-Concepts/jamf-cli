@@ -92,11 +92,10 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "path": "/Example/Path/",
   "scope": "APP"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -263,11 +262,10 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationPaths": [],
   "computerInventoryCollectionPreferences": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

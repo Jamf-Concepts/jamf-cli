@@ -484,8 +484,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{}`)
-				return nil
+				return printScaffoldOutput(`{}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

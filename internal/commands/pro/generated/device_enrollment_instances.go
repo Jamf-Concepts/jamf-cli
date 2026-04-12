@@ -250,12 +250,11 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "name": "Example Device Enrollment Instance",
   "siteId": -1,
   "supervisionIdentityId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -583,10 +582,9 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -706,11 +704,10 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
   "tokenFileName": "Acme MDM Token"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -812,13 +809,12 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "devices": [
     "1a2s3d4f5g",
     "0o9i8u7y6t"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -883,11 +879,10 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
   "tokenFileName": "Acme MDM Token"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

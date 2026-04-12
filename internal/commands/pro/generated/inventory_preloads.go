@@ -260,7 +260,7 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appleCareId": 5678,
   "assetTag": "ABCDEFG12345",
   "barCode1": 123456789,
@@ -285,8 +285,7 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "username": "admin",
   "vendor": "Apple",
   "warrantyExpiration": "2012-07-21T00:00:00Z"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -343,7 +342,7 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appleCareId": 5678,
   "assetTag": "ABCDEFG12345",
   "barCode1": 123456789,
@@ -368,8 +367,7 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "username": "admin",
   "vendor": "Apple",
   "warrantyExpiration": "2012-07-21T00:00:00Z"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -673,10 +671,9 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -733,7 +730,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -741,8 +738,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -1187,7 +1183,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appleCareId": 5678,
   "assetTag": "ABCDEFG12345",
   "barCode1": 123456789,
@@ -1212,8 +1208,7 @@ If not, a new resource is created.`,
   "username": "admin",
   "vendor": "Apple",
   "warrantyExpiration": "2012-07-21T00:00:00Z"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

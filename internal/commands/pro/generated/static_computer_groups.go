@@ -250,13 +250,12 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -317,13 +316,12 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -520,13 +518,12 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

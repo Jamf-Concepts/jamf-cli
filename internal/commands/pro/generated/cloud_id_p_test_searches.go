@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -43,10 +42,9 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "groupname": "users"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -95,10 +93,9 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -147,11 +144,10 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "groupname": "users",
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

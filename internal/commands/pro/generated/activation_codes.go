@@ -51,10 +51,9 @@ func newActivationCodesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "activationCode": "A1A1-B2B2-C3C3-D4D4-E5E5-F6F6-G7G7-H8H8"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -229,10 +228,9 @@ func newActivationCodesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -292,7 +290,7 @@ func newActivationCodesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -300,8 +298,7 @@ func newActivationCodesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -400,10 +397,9 @@ func newActivationCodesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "organizationName": "Your Organization Name"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

@@ -52,7 +52,7 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "configurationType": "SAML",
   "enrollmentSsoConfig": {},
   "enrollmentSsoForAccountDrivenEnrollmentEnabled": false,
@@ -64,8 +64,7 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "ssoEnabled": false,
   "ssoForEnrollmentEnabled": false,
   "ssoForMacOsSelfServiceEnabled": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -240,10 +239,9 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

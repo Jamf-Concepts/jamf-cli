@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,12 +38,11 @@ func newCloudLdapKeyStoresVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fileBytes": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
   "fileName": "keystore.p12",
   "password": "***"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

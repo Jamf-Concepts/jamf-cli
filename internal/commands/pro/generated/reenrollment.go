@@ -88,15 +88,14 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "flushMDMQueue": "DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED",
   "isFlushExtensionAttributesEnabled": false,
   "isFlushLocationInformationEnabled": false,
   "isFlushLocationInformationHistoryEnabled": false,
   "isFlushPolicyHistoryEnabled": false,
   "isFlushSoftwareUpdatePlansEnabled": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -274,10 +273,9 @@ func newReenrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -337,7 +335,7 @@ func newReenrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -345,8 +343,7 @@ func newReenrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

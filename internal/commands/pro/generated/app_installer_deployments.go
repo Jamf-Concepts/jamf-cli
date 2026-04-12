@@ -155,7 +155,7 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appTitleId": "",
   "categoryId": "",
   "deploymentType": "",
@@ -166,8 +166,7 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -224,7 +223,7 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appTitleId": "",
   "categoryId": "",
   "deploymentType": "",
@@ -235,8 +234,7 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -433,7 +431,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "appTitleId": "",
   "categoryId": "",
   "deploymentType": "",
@@ -444,8 +442,7 @@ If not, a new resource is created.`,
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

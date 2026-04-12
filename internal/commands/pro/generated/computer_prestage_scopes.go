@@ -90,14 +90,13 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "serialNumbers": [
     "DMQVGC0DHLF0",
     "C02L29ECF8J1"
   ],
   "versionLock": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -224,14 +223,13 @@ func newComputerPrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "serialNumbers": [
     "DMQVGC0DHLF0",
     "C02L29ECF8J1"
   ],
   "versionLock": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -280,14 +278,13 @@ func newComputerPrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "serialNumbers": [
     "DMQVGC0DHLF0",
     "C02L29ECF8J1"
   ],
   "versionLock": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

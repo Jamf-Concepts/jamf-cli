@@ -246,7 +246,7 @@ func newVppSubscriptionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "externalRecipients": [],
   "internalRecipients": [],
@@ -254,8 +254,7 @@ func newVppSubscriptionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "name": "Example",
   "siteId": "1",
   "triggers": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -312,7 +311,7 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "externalRecipients": [],
   "internalRecipients": [],
@@ -320,8 +319,7 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "name": "Example",
   "siteId": "1",
   "triggers": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -649,10 +647,9 @@ func newVppSubscriptionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -736,7 +733,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "externalRecipients": [],
   "internalRecipients": [],
@@ -744,8 +741,7 @@ If not, a new resource is created.`,
   "name": "Example",
   "siteId": "1",
   "triggers": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

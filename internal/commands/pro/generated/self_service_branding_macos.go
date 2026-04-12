@@ -244,7 +244,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationName": "Self Service",
   "brandingHeaderImageId": 1,
   "brandingName": "Self Service",
@@ -252,8 +252,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
   "homeHeading": "Welcome to Self Service",
   "homeSubheading": "We help organizations succeed with Apple",
   "iconId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -310,7 +309,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationName": "Self Service",
   "brandingHeaderImageId": 1,
   "brandingName": "Self Service",
@@ -318,8 +317,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
   "homeHeading": "Welcome to Self Service",
   "homeSubheading": "We help organizations succeed with Apple",
   "iconId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -516,7 +514,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationName": "Self Service",
   "brandingHeaderImageId": 1,
   "brandingName": "Self Service",
@@ -524,8 +522,7 @@ If not, a new resource is created.`,
   "homeHeading": "Welcome to Self Service",
   "homeSubheading": "We help organizations succeed with Apple",
   "iconId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

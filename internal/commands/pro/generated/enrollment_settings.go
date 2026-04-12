@@ -254,7 +254,7 @@ func newEnrollmentSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accountDrivenUserEnrollmentEnabled": false,
   "enterpriseEnrollmentEnabled": false,
   "groupId": 1,
@@ -263,8 +263,7 @@ func newEnrollmentSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "personalEnrollmentEnabled": false,
   "requireEula": false,
   "siteId": "-1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -321,7 +320,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accountDrivenUserEnrollmentEnabled": false,
   "enterpriseEnrollmentEnabled": false,
   "groupId": 1,
@@ -330,8 +329,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "personalEnrollmentEnabled": false,
   "requireEula": false,
   "siteId": "-1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -630,10 +628,9 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -693,7 +690,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -701,8 +698,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -827,7 +823,7 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accountDrivenDeviceIosEnrollmentEnabled": false,
   "accountDrivenDeviceMacosEnrollmentEnabled": false,
   "accountDrivenDeviceVisionosEnrollmentEnabled": false,
@@ -857,8 +853,7 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
   "restrictReenrollment": false,
   "signQuickAdd": false,
   "signingMdmProfileEnabled": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -926,7 +921,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "accountDrivenUserEnrollmentEnabled": false,
   "enterpriseEnrollmentEnabled": false,
   "groupId": 1,
@@ -935,8 +930,7 @@ If not, a new resource is created.`,
   "personalEnrollmentEnabled": false,
   "requireEula": false,
   "siteId": "-1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

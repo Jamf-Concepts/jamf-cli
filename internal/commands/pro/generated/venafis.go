@@ -122,14 +122,13 @@ func newVenafisCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientId": "jamf-pro",
   "name": "Venafi Certificate Authority",
   "proxyAddress": "localhost:9443",
   "refreshToken": "qdkP4SrCFKd7tefAVM6N",
   "revocationEnabled": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -441,10 +440,9 @@ func newVenafisAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -522,14 +520,13 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientId": "jamf-pro",
   "name": "Venafi Certificate Authority",
   "proxyAddress": "localhost:9443",
   "refreshToken": "qdkP4SrCFKd7tefAVM6N",
   "revocationEnabled": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

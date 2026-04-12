@@ -101,10 +101,9 @@ func newJamfProtectDeploymentTasksRetryCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

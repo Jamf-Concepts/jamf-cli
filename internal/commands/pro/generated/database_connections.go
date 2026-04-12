@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,10 +38,9 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *registry.CLICont
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "password": 12345
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

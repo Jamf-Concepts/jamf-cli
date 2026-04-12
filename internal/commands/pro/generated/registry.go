@@ -268,6 +268,23 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
 }
 
+// printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
+// output format requests it.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func printScaffoldOutput(jsonStr, format string) error {
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			return fmt.Errorf("scaffold marshal error: %w", err)
+		}
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(v)
+	}
+	fmt.Println(jsonStr)
+	return nil
+}
+
 // normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
 // NOTE: Also used by classic_registry.go helpers (same generated package).
 func normalizeInputToJSON(data []byte) ([]byte, error) {

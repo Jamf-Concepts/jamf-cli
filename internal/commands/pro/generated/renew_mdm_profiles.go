@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,10 +38,9 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "udids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

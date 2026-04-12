@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,10 +38,9 @@ func newMobileDeviceAppsReinstallAppConfigCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "reinstallCode": "975767FE-074E-4F42-BB8B-925B1627CA6F"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

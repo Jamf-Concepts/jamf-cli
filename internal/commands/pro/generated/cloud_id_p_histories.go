@@ -174,10 +174,9 @@ func newCloudIdPHistoriesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

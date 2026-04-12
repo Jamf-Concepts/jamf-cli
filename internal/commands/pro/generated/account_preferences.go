@@ -86,7 +86,7 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "computerApplicationSearchMethod": "EXACT_MATCH",
   "computerApplicationUsageSearchMethod": "EXACT_MATCH",
   "computerLocalUserAccountSearchMethod": "EXACT_MATCH",
@@ -113,8 +113,7 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "userMacAppStoreAppSearchMethod": "EXACT_MATCH",
   "userMobileDeviceAppSearchMethod": "EXACT_MATCH",
   "userSearchMethod": "EXACT_MATCH"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

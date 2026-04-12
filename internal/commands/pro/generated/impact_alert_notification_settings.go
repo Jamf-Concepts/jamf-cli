@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -83,13 +82,12 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "deployableObjectsAlertEnabled": false,
   "deployableObjectsConfirmationCodeEnabled": false,
   "scopeableObjectsAlertEnabled": false,
   "scopeableObjectsConfirmationCodeEnabled": false
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

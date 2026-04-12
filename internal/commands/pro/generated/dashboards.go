@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -78,12 +77,11 @@ func newDashboardsToggleCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "enabled": true,
   "objectId": 1,
   "objectType": "TYPE_IOS_CONFIGURATION_PROFILE"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

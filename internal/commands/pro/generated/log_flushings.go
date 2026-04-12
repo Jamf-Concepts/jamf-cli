@@ -291,12 +291,11 @@ func newLogFlushingsTaskCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "qualifier": "policy",
   "retentionPeriod": 3,
   "retentionPeriodUnit": "MONTH"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

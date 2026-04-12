@@ -477,10 +477,9 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -747,10 +746,9 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -961,8 +959,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{}`)
-				return nil
+				return printScaffoldOutput(`{}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

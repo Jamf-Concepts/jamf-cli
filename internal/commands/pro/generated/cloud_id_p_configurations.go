@@ -240,7 +240,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -248,8 +248,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

@@ -44,13 +44,12 @@ func newEraseDeviceMobilesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clearActivationLock": true,
   "disallowProximitySetup": true,
   "preserveDataPlan": true,
   "returnToService": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action

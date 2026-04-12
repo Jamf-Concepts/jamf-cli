@@ -250,13 +250,12 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": 11
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -317,13 +316,12 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": 11
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -520,13 +518,12 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": 11
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)

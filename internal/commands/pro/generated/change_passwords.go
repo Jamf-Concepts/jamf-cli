@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,11 +38,10 @@ func newChangePasswordsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Comman
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "currentPassword": "oldPassword",
   "newPassword": "updatedPassword"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
