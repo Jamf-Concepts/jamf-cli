@@ -101,7 +101,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 ### Jamf Platform (via Gateway)
 
-- **Blueprints** — CRUD, deploy/undeploy, clone, scope management (add/remove device groups by name), component scaffolds, import Classic configuration profiles as blueprints
+- **Blueprints** — CRUD, deploy/undeploy, clone, scope management (add/remove device groups by name), component scaffolds, import Classic configuration profiles as blueprints with automatic DDM conversion (passcode policies, Safari settings, software update deferrals are promoted to native DDM components)
 - **Compliance Benchmarks** — Benchmark CRUD, baselines, rules, device compliance results, stats
 - **Platform Devices** — Unified device inventory, actions (check-in, erase, restart, shutdown, unmanage)
 - **Platform Device Groups** — CRUD, membership management

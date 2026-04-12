@@ -41,6 +41,7 @@ After modifying a template: `make generate && make test`
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add/modify DDM component scaffolds | `generator/blueprintcomponents/generator.go` (generator) or `internal/blueprintcomponents/scaffolds.go` (generated output) |
+| Add a new legacy-to-DDM payload converter | `internal/profileconvert/ddm_<name>.go` (new converter + register in `ddm_converter.go` init) |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API command (blueprints, etc.) | `internal/commands/pro_blueprints.go`, `pro_compliance_benchmarks.go`, etc. (wire in `pro.go`) |
 | Change Platform name-to-ID resolution | `internal/platform/resolve.go` |
@@ -107,7 +108,7 @@ internal/
   client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
   blueprintcomponents/   Generated DDM component scaffolds (example JSON for each component type)
-  profileconvert/        Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping
+  profileconvert/        Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping, legacy-to-native DDM payload converters
   scope/                 Classic API scope XML types (shared by profile import and scope resolution)
   platform/              Jamf Platform helpers: name-to-ID Resolver, PrintList/PrintOne output
   protect/               Jamf Protect helpers: name-to-ID Resolver, PrintList/PrintOne output
@@ -197,7 +198,7 @@ The site at `docs/site/` auto-deploys on every push to `main` via `.github/workf
 | `internal/protect/` | Protect helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/commands/pro/generated/` | **Generated** — all Jamf Pro API resource commands + registries |
 | `internal/blueprintcomponents/` | **Generated** — DDM component scaffold JSON templates (from OpenAPI specs) |
-| `internal/profileconvert/` | Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping |
+| `internal/profileconvert/` | Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping, legacy-to-native DDM payload converters (`ddm_*.go`) |
 | `internal/scope/` | Classic API scope XML types (used by profile import scope resolution) |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
 | `internal/auth/` | Provider interface with OAuth2, Platform OAuth2, and Token impls |
@@ -305,11 +306,38 @@ Platform commands use the `jamfplatform-go-sdk` (REST-based). The SDK handles it
 - **Naming**: `platform-` prefix where overlap with existing Pro API resources (`platform-devices`, `platform-device-groups`). No prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
 
 **Platform commands:**
-- `pro blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope (add/remove/list), components (list/get/scaffold/configuration-profile/configuration-profile-plist), import-profile, report
+- `pro blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope (add/remove/list), components (list/get/scaffold/configuration-profile/configuration-profile-plist), import-profile (with automatic DDM conversion), report
 - `pro compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance
 - `pro platform-devices` (`pdev`) — list, get, update, delete, apps, groups, user, check-in, erase, restart, shutdown, unmanage
 - `pro platform-device-groups` (`pdg`) — CRUD, members, add-members, remove-members
 - `pro ddm-reports` (`ddm`) — device declaration report, declaration clients
+
+### Legacy-to-DDM Payload Conversion (`internal/profileconvert/ddm_*.go`)
+
+When `import-profile` processes a mobileconfig, it automatically converts compatible legacy payloads to native DDM blueprint components instead of wrapping everything in `com.jamf.ddm-configuration-profile`. Payloads without a converter are still wrapped.
+
+**Converter registry** (`ddm_converter.go`): `ConvertToDDMComponents()` orchestrates conversion. For each payload, it checks `findConverters(payloadType)` and runs matching converters sequentially. For payload types with multiple converters (e.g. `com.apple.applicationaccess` has both safari and software-update), each converter extracts its keys and passes the remainder to the next. Final remaining keys go to the configuration-profile wrapper.
+
+**Current converters:**
+
+| Converter | Legacy Payload | DDM Component | Notes |
+|-----------|---------------|---------------|-------|
+| `ddm_passcode.go` | `com.apple.mobiledevice.passwordpolicy` | `com.jamf.ddm.passcode-settings` | Full 1:1 conversion. 12 key mappings + `customRegex` nested restructure. `allowSimple` → `RequireComplexPasscode` boolean inversion. Adds `version: "2"`. |
+| `ddm_safari.go` | `com.apple.applicationaccess` (safari keys) | `com.jamf.ddm.safari-settings` | Partial — extracts 7 safari-prefixed keys, leaves rest in wrapper. Cookie policy numeric→enum conversion. Requires macOS/iOS 26+. |
+| `ddm_softwareupdate.go` | `com.apple.applicationaccess` (deferral keys) | `com.jamf.ddm.software-update-settings` | Partial — extracts `forceDelayed*`/`enforced*Delay` keys. Builds full component schema from `blueprintcomponents.Scaffolds` with `clearIncluded()`, then overlays converted deferrals. |
+
+**Key design decisions:**
+- Key mapping tables are static (legacy key names differ completely from DDM names — no algorithmic derivation possible). Validated against Apple's published schemas.
+- Each converter returns `(config, remaining, warnings, error)`. `remaining` is nil for full converters (passcode), non-nil for partial converters (safari, software-update).
+- The software-update converter reads its base config from `blueprintcomponents.Scaffolds` at runtime, so it auto-updates when `make generate` runs against new OpenAPI specs. The scaffold's placeholder values are sanitised (Beta section stripped of empty strings that fail API validation). All `Included` flags are set to `false` on the base, then converted keys overlay with `Included: true`.
+- The Jamf UI requires every section of a component to be present in the JSON — omitting sections causes the component panel to render blank, even if other sections have valid data.
+
+**Adding a new converter:**
+1. Create `internal/profileconvert/ddm_<name>.go`
+2. Implement a `convertFunc` and register via `newXxxConverter()` in `ddm_converter.go` `init()`
+3. For partial converters (extracting from a shared payload type like `applicationaccess`): return unconsumed keys in `remaining`
+4. For components with complex schemas: read base config from `blueprintcomponents.Scaffolds`, `clearIncluded()`, then overlay
+5. Add tests in `ddm_converter_test.go`
 
 ### Shared Command Helpers (`protect_helpers.go`)
 

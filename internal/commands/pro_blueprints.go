@@ -1219,9 +1219,18 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
 		Short: "Import a Classic configuration profile as a blueprint",
-		Long: `Download a configuration profile from Jamf Pro, convert it to a
-com.jamf.ddm-configuration-profile blueprint component, resolve target scope
-groups to platform device group UUIDs, and create the blueprint in one step.
+		Long: `Download a configuration profile from Jamf Pro, convert its payloads
+to native DDM blueprint components where possible, and create the blueprint.
+
+Payloads are automatically promoted to native DDM components when a mapping
+exists. Currently supported:
+
+  com.apple.mobiledevice.passwordpolicy  ->  passcode-settings
+  com.apple.applicationaccess (safari*)  ->  safari-settings (macOS/iOS 26+)
+  com.apple.applicationaccess (deferral) ->  software-update-settings
+
+Payloads without a DDM mapping are wrapped in a com.jamf.ddm-configuration-profile
+component. A single profile with mixed payloads produces multiple components.
 
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
@@ -1231,7 +1240,8 @@ The blueprint name defaults to the profile's display name (override with --bluep
 
 Use --strip-defaults to remove keys that are set to their Apple default values.
 This is useful for profiles created by Jamf Pro's UI which sets every key even
-when the administrator only intended to manage a few settings.
+when the administrator only intended to manage a few settings. Default stripping
+applies only to the configuration-profile wrapper, not native DDM components.
 
 Scope handling:
   Only target computer groups and mobile device groups are carried over to the
@@ -1240,6 +1250,7 @@ Scope handling:
   group scoping. You will be warned about any scope elements that are dropped.
 
 Examples:
+  jamf-cli pro blueprints import-profile "Passcode Policy"
   jamf-cli pro blueprints import-profile "My Restrictions"
   jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
@@ -1281,37 +1292,68 @@ Examples:
 				return fmt.Errorf("no <payloads> found in profile %q (type=%s)", args[0], profileType)
 			}
 
-			// Step 3: Convert mobileconfig to component configuration
-			config, warnings, err := profileconvert.ConvertMobileconfig([]byte(mobileconfig), filterUnsupported)
+			// Step 3: Convert mobileconfig to DDM components.
+			// Compatible payloads are automatically promoted to native DDM
+			// components (e.g. passcode-settings, safari-settings). The rest
+			// are wrapped in a configuration-profile component.
+			ddmResult, err := profileconvert.ConvertToDDMComponents([]byte(mobileconfig), filterUnsupported)
 			if err != nil {
 				return fmt.Errorf("converting profile: %w", err)
 			}
-			for _, w := range warnings {
+			for _, w := range ddmResult.Warnings {
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
 			}
 
-			// Validate/strip using Apple schemas — always validate for
-			// import-profile since we're uploading directly to the API.
-			fetcher := profileconvert.NewSchemaFetcher(nil)
-			if stripDefaults {
-				var msgs []string
-				config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
-				for _, m := range msgs {
-					fmt.Fprintf(os.Stderr, "  %s\n", m)
+			// Validate/strip the configuration-profile component (if any)
+			// using Apple schemas — always validate since we upload directly.
+			if ddmResult.ProfileConfig != nil {
+				fetcher := profileconvert.NewSchemaFetcher(nil)
+				if stripDefaults {
+					var msgs []string
+					ddmResult.ProfileConfig, msgs = profileconvert.StripConfigDefaults(ddmResult.ProfileConfig, fetcher)
+					for _, m := range msgs {
+						fmt.Fprintf(os.Stderr, "  %s\n", m)
+					}
+				} else {
+					var msgs []string
+					ddmResult.ProfileConfig, msgs = profileconvert.ValidatePayloads(ddmResult.ProfileConfig, fetcher)
+					for _, m := range msgs {
+						fmt.Fprintf(os.Stderr, "  %s\n", m)
+					}
 				}
-			} else {
-				var msgs []string
-				config, msgs = profileconvert.ValidatePayloads(config, fetcher)
-				for _, m := range msgs {
-					fmt.Fprintf(os.Stderr, "  %s\n", m)
+				if err := profileconvert.ConfigHasPayloads(ddmResult.ProfileConfig); err != nil {
+					ddmResult.ProfileConfig = nil // all payloads stripped
 				}
-			}
-			if err := profileconvert.ConfigHasPayloads(config); err != nil {
-				return err
 			}
 
+			// Print conversion summary
 			types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
-			fmt.Fprintf(os.Stderr, "Converted %d payload(s): %s\n", len(types), strings.Join(types, ", "))
+			fmt.Fprintf(os.Stderr, "Processed %d payload(s)\n", len(types))
+			for _, c := range ddmResult.Conversions {
+				fmt.Fprintf(os.Stderr, "  %s (native DDM)\n", c)
+			}
+			if ddmResult.ProfileConfig != nil {
+				fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
+			}
+
+			// Build component list: native DDM components + optional profile wrapper
+			var components []jamfplatform.BlueprintComponentV1
+			for _, nc := range ddmResult.NativeComponents {
+				components = append(components, jamfplatform.BlueprintComponentV1{
+					Identifier:    nc.Identifier,
+					Configuration: nc.Configuration,
+				})
+			}
+			if ddmResult.ProfileConfig != nil {
+				components = append(components, jamfplatform.BlueprintComponentV1{
+					Identifier:    "com.jamf.ddm-configuration-profile",
+					Configuration: ddmResult.ProfileConfig,
+				})
+			}
+
+			if len(components) == 0 {
+				return fmt.Errorf("no components produced — all payloads were stripped or unsupported")
+			}
 
 			// Step 4: Extract scope from Classic API XML and resolve to platform UUIDs
 			scopeGroups, scopeWarnings := extractAndResolveScope(ctx, cliCtx.Client, body)
@@ -1327,7 +1369,7 @@ Examples:
 			// Step 5: Build and create the blueprint
 			name := blueprintName
 			if name == "" {
-				name = profileconvert.ProfileDisplayName([]byte(mobileconfig))
+				name = ddmResult.DisplayName
 			}
 			if name == "" {
 				name = args[0]
@@ -1340,13 +1382,8 @@ Examples:
 				},
 				Steps: []jamfplatform.BlueprintStepV1{
 					{
-						Name: "Step 1",
-						Components: []jamfplatform.BlueprintComponentV1{
-							{
-								Identifier:    "com.jamf.ddm-configuration-profile",
-								Configuration: config,
-							},
-						},
+						Name:       "Step 1",
+						Components: components,
 					},
 				},
 			}

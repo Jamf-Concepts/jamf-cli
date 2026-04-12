@@ -1,0 +1,853 @@
+// Copyright 2026, Jamf Software LLC
+
+package profileconvert
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+// --- Passcode converter tests ---
+
+func TestConvertPasscode_AllKeys(t *testing.T) {
+	settings := map[string]any{
+		"forcePIN":                     true,
+		"allowSimple":                  false,
+		"requireAlphanumeric":          true,
+		"minLength":                    float64(8),
+		"minComplexChars":              float64(2),
+		"maxFailedAttempts":            float64(5),
+		"maxInactivity":                float64(10),
+		"maxPINAgeInDays":              float64(90),
+		"maxGracePeriod":               float64(5),
+		"pinHistory":                   float64(10),
+		"minutesUntilFailedLoginReset": float64(15),
+		"changeAtNextAuth":             true,
+	}
+
+	config, remaining, warnings, err := convertPasscode(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if remaining != nil {
+		t.Errorf("expected nil remaining, got %v", remaining)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings, got %v", warnings)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Check version
+	if v, ok := parsed["version"].(string); !ok || v != "2" {
+		t.Errorf("expected version=2, got %v", parsed["version"])
+	}
+
+	// Check a renamed key
+	requirePasscode := parsed["RequirePasscode"].(map[string]any)
+	if requirePasscode["Included"] != true {
+		t.Error("expected RequirePasscode.Included=true")
+	}
+	if requirePasscode["Value"] != true {
+		t.Error("expected RequirePasscode.Value=true")
+	}
+
+	// Check MinimumLength
+	minLen := parsed["MinimumLength"].(map[string]any)
+	if minLen["Value"] != float64(8) {
+		t.Errorf("expected MinimumLength.Value=8, got %v", minLen["Value"])
+	}
+}
+
+func TestConvertPasscode_BoolInversion(t *testing.T) {
+	// allowSimple=true should become RequireComplexPasscode=false
+	settings := map[string]any{"allowSimple": true}
+
+	config, _, _, err := convertPasscode(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	rcp := parsed["RequireComplexPasscode"].(map[string]any)
+	if rcp["Value"] != false {
+		t.Errorf("expected RequireComplexPasscode.Value=false (inverted from allowSimple=true), got %v", rcp["Value"])
+	}
+}
+
+func TestConvertPasscode_CustomRegex(t *testing.T) {
+	settings := map[string]any{
+		"customRegex": map[string]any{
+			"passwordContentRegex":       "[A-Z]{2}[0-9]{6}",
+			"passwordContentDescription": map[string]any{"en": "Must start with 2 letters"},
+		},
+	}
+
+	config, _, _, err := convertPasscode(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	cr := parsed["CustomRegex"].(map[string]any)
+	if cr["Included"] != true {
+		t.Error("expected CustomRegex.Included=true")
+	}
+	if cr["Regex"] != "[A-Z]{2}[0-9]{6}" {
+		t.Errorf("expected Regex, got %v", cr["Regex"])
+	}
+	desc := cr["Description"].(map[string]any)
+	if desc["en"] != "Must start with 2 letters" {
+		t.Errorf("expected Description.en, got %v", desc["en"])
+	}
+}
+
+func TestConvertPasscode_NoKeys(t *testing.T) {
+	settings := map[string]any{}
+
+	config, remaining, _, err := convertPasscode(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config for empty settings")
+	}
+	if len(remaining) != 0 {
+		t.Errorf("expected empty remaining, got %v", remaining)
+	}
+}
+
+func TestConvertPasscode_UnknownKeys(t *testing.T) {
+	settings := map[string]any{
+		"forcePIN":         true,
+		"unknownFutureKey": "something",
+	}
+
+	config, _, warnings, err := convertPasscode(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+
+	found := false
+	for _, w := range warnings {
+		if w == `passcode key "unknownFutureKey" has no DDM mapping — skipped` {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about unknownFutureKey, got %v", warnings)
+	}
+}
+
+// --- Safari converter tests ---
+
+func TestConvertSafari_AllKeys(t *testing.T) {
+	settings := map[string]any{
+		"safariAcceptCookies":        float64(0), // Never
+		"safariForceFraudWarning":    true,       // -> AllowDisablingFraudWarning=false
+		"safariAllowPopups":          false,
+		"safariAllowJavaScript":      false,
+		"allowSafariPrivateBrowsing": false,
+		"allowSafariHistoryClearing": false,
+		"allowSafariSummary":         false,
+		"allowCamera":                false, // non-safari key
+	}
+
+	config, remaining, warnings, err := convertSafari(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+
+	// Non-safari key should be in remaining
+	if _, ok := remaining["allowCamera"]; !ok {
+		t.Error("expected allowCamera in remaining")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Check cookie policy conversion
+	cookies := parsed["AcceptCookies"].(map[string]any)
+	if cookies["Value"] != "Never" {
+		t.Errorf("expected AcceptCookies=Never, got %v", cookies["Value"])
+	}
+
+	// Check fraud warning inversion
+	fraud := parsed["AllowDisablingFraudWarning"].(map[string]any)
+	if fraud["Value"] != false {
+		t.Errorf("expected AllowDisablingFraudWarning=false (inverted), got %v", fraud["Value"])
+	}
+
+	// Check OS 26 warning
+	hasOSWarning := false
+	for _, w := range warnings {
+		if len(w) > 10 && w[:10] == "safari-set" {
+			hasOSWarning = true
+		}
+	}
+	if !hasOSWarning {
+		t.Error("expected OS 26+ compatibility warning")
+	}
+}
+
+func TestConvertSafari_CookiePolicyValues(t *testing.T) {
+	cases := []struct {
+		input    float64
+		expected string
+	}{
+		{0, "Never"},
+		{1, "CurrentWebsite"},
+		{1.5, "VisitedWebsites"},
+		{2, "Always"},
+		{3, "Always"}, // out of range → default
+	}
+
+	for _, tc := range cases {
+		got := convertCookiePolicy(tc.input)
+		if got != tc.expected {
+			t.Errorf("convertCookiePolicy(%v) = %v, want %v", tc.input, got, tc.expected)
+		}
+	}
+}
+
+func TestConvertSafari_NoSafariKeys(t *testing.T) {
+	settings := map[string]any{
+		"allowCamera":     false,
+		"allowScreenShot": false,
+	}
+
+	config, remaining, _, err := convertSafari(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config when no safari keys present")
+	}
+	if len(remaining) != 2 {
+		t.Errorf("expected 2 remaining keys, got %d", len(remaining))
+	}
+}
+
+func TestConvertSafari_KeysWithNoDDMEquivalent(t *testing.T) {
+	settings := map[string]any{
+		"safariAllowAutoFill": true,
+		"allowSafari":         false,
+		"safariAllowPopups":   false, // this one has a DDM mapping
+	}
+
+	config, remaining, warnings, err := convertSafari(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config from safariAllowPopups")
+	}
+
+	// Keys without DDM equivalent should be in remaining
+	if _, ok := remaining["safariAllowAutoFill"]; !ok {
+		t.Error("expected safariAllowAutoFill in remaining")
+	}
+	if _, ok := remaining["allowSafari"]; !ok {
+		t.Error("expected allowSafari in remaining")
+	}
+
+	hasWarning := false
+	for _, w := range warnings {
+		if w == `"safariAllowAutoFill" has no DDM safari equivalent — kept in profile wrapper` {
+			hasWarning = true
+		}
+	}
+	if !hasWarning {
+		t.Error("expected warning about safariAllowAutoFill")
+	}
+}
+
+// --- Software update converter tests ---
+
+func TestConvertSoftwareUpdate_Deferrals(t *testing.T) {
+	settings := map[string]any{
+		"forceDelayedSoftwareUpdates":                       true,
+		"enforcedSoftwareUpdateMinorOSDeferredInstallDelay": float64(14),
+		"forceDelayedMajorSoftwareUpdates":                  true,
+		"enforcedSoftwareUpdateMajorOSDeferredInstallDelay": float64(30),
+		"allowCamera": false, // non-deferral key
+	}
+
+	config, remaining, _, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config")
+	}
+
+	// Non-deferral key should be in remaining
+	if _, ok := remaining["allowCamera"]; !ok {
+		t.Error("expected allowCamera in remaining")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Full component structure should be present
+	for _, section := range []string{"AllowStandardUserOSUpdates", "AutomaticActions", "Deferrals", "Notifications", "RapidSecurityResponse", "RecommendedCadence"} {
+		if _, ok := parsed[section]; !ok {
+			t.Errorf("expected top-level section %q in output", section)
+		}
+	}
+
+	deferrals := parsed["Deferrals"].(map[string]any)
+
+	combined := deferrals["CombinedPeriodInDays"].(map[string]any)
+	if combined["Value"] != float64(14) {
+		t.Errorf("expected CombinedPeriodInDays=14, got %v", combined["Value"])
+	}
+	if combined["Included"] != true {
+		t.Error("expected CombinedPeriodInDays.Included=true")
+	}
+
+	minor := deferrals["MinorPeriodInDays"].(map[string]any)
+	if minor["Value"] != float64(14) {
+		t.Errorf("expected MinorPeriodInDays=14, got %v", minor["Value"])
+	}
+
+	major := deferrals["MajorPeriodInDays"].(map[string]any)
+	if major["Value"] != float64(30) {
+		t.Errorf("expected MajorPeriodInDays=30, got %v", major["Value"])
+	}
+
+	// Non-converted deferral keys should have Included=false (not managed)
+	system := deferrals["SystemPeriodInDays"].(map[string]any)
+	if system["Included"] != false {
+		t.Error("expected SystemPeriodInDays.Included=false (not converted)")
+	}
+	if system["Value"] != float64(1) {
+		t.Errorf("expected SystemPeriodInDays.Value=1 (base default), got %v", system["Value"])
+	}
+
+	// Non-converted top-level sections should have Included=false (not managed)
+	notifications := parsed["Notifications"].(map[string]any)
+	if notifications["Included"] != false {
+		t.Error("expected Notifications.Included=false (not converted)")
+	}
+}
+
+func TestConvertSoftwareUpdate_SharedDelay(t *testing.T) {
+	// When minor-specific delay is absent, use the shared enforcedSoftwareUpdateDelay
+	settings := map[string]any{
+		"forceDelayedSoftwareUpdates": true,
+		"enforcedSoftwareUpdateDelay": float64(7),
+	}
+
+	config, _, _, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	deferrals := parsed["Deferrals"].(map[string]any)
+	combined := deferrals["CombinedPeriodInDays"].(map[string]any)
+	if combined["Value"] != float64(7) {
+		t.Errorf("expected CombinedPeriodInDays=7 (from shared delay), got %v", combined["Value"])
+	}
+}
+
+func TestConvertSoftwareUpdate_DefaultDelay(t *testing.T) {
+	// When no delay values are specified, default to 30 days
+	settings := map[string]any{
+		"forceDelayedSoftwareUpdates": true,
+	}
+
+	config, _, _, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	deferrals := parsed["Deferrals"].(map[string]any)
+	combined := deferrals["CombinedPeriodInDays"].(map[string]any)
+	if combined["Value"] != float64(30) {
+		t.Errorf("expected CombinedPeriodInDays=30 (default), got %v", combined["Value"])
+	}
+}
+
+func TestConvertSoftwareUpdate_AllForceFalse(t *testing.T) {
+	settings := map[string]any{
+		"forceDelayedSoftwareUpdates":      false,
+		"forceDelayedMajorSoftwareUpdates": false,
+		"forceDelayedAppSoftwareUpdates":   false,
+		"enforcedSoftwareUpdateDelay":      float64(30),
+	}
+
+	config, remaining, _, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config when no force flags are true")
+	}
+	// All keys should be in remaining since nothing was converted
+	if len(remaining) != 4 {
+		t.Errorf("expected 4 remaining keys, got %d", len(remaining))
+	}
+}
+
+func TestConvertSoftwareUpdate_NoDeferralKeys(t *testing.T) {
+	settings := map[string]any{
+		"allowCamera": false,
+	}
+
+	config, remaining, _, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config != nil {
+		t.Error("expected nil config")
+	}
+	if len(remaining) != 1 {
+		t.Errorf("expected 1 remaining key, got %d", len(remaining))
+	}
+}
+
+func TestConvertSoftwareUpdate_AppDeferralWarning(t *testing.T) {
+	settings := map[string]any{
+		"forceDelayedAppSoftwareUpdates":                    true,
+		"enforcedSoftwareUpdateNonOSDeferredInstallDelay":   float64(14),
+		"forceDelayedSoftwareUpdates":                       true,
+		"enforcedSoftwareUpdateMinorOSDeferredInstallDelay": float64(7),
+	}
+
+	config, remaining, warnings, err := convertSoftwareUpdate(settings)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("expected config from forceDelayedSoftwareUpdates")
+	}
+
+	// App deferral keys should be returned to remaining
+	if _, ok := remaining["forceDelayedAppSoftwareUpdates"]; !ok {
+		t.Error("expected forceDelayedAppSoftwareUpdates in remaining")
+	}
+
+	hasWarning := false
+	for _, w := range warnings {
+		if w == "forceDelayedAppSoftwareUpdates has no DDM equivalent — kept in profile wrapper" {
+			hasWarning = true
+		}
+	}
+	if !hasWarning {
+		t.Error("expected warning about app deferral")
+	}
+}
+
+// --- Orchestration tests ---
+
+const testPasscodeMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.mobiledevice.passwordpolicy</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.passcode</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1234</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>forcePIN</key>
+			<true/>
+			<key>minLength</key>
+			<integer>8</integer>
+			<key>allowSimple</key>
+			<false/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Passcode Policy</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.test</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertToDDMComponents_PasscodeOnly(t *testing.T) {
+	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.NativeComponents) != 1 {
+		t.Fatalf("expected 1 native component, got %d", len(result.NativeComponents))
+	}
+	if result.NativeComponents[0].Identifier != "com.jamf.ddm.passcode-settings" {
+		t.Errorf("expected passcode-settings, got %s", result.NativeComponents[0].Identifier)
+	}
+	if result.ProfileConfig != nil {
+		t.Error("expected nil ProfileConfig when all payloads converted natively")
+	}
+	if result.DisplayName != "Passcode Policy" {
+		t.Errorf("expected DisplayName=Passcode Policy, got %s", result.DisplayName)
+	}
+	if len(result.Conversions) != 1 {
+		t.Fatalf("expected 1 conversion, got %d", len(result.Conversions))
+	}
+	expected := "com.apple.mobiledevice.passwordpolicy -> com.jamf.ddm.passcode-settings"
+	if result.Conversions[0] != expected {
+		t.Errorf("expected %q, got %q", expected, result.Conversions[0])
+	}
+
+	// Verify the config has the right keys
+	var parsed map[string]any
+	if err := json.Unmarshal(result.NativeComponents[0].Configuration, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if parsed["version"] != "2" {
+		t.Errorf("expected version=2, got %v", parsed["version"])
+	}
+	rp := parsed["RequirePasscode"].(map[string]any)
+	if rp["Value"] != true {
+		t.Error("expected RequirePasscode.Value=true")
+	}
+}
+
+const testMixedMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.mobiledevice.passwordpolicy</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.passcode</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>forcePIN</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.screensaver</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.screensaver</string>
+			<key>PayloadUUID</key>
+			<string>UUID-2</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>idleTime</key>
+			<integer>600</integer>
+			<key>moduleName</key>
+			<string>Flurry</string>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Mixed Profile</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.mixed</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertToDDMComponents_MixedPayloads(t *testing.T) {
+	result, err := ConvertToDDMComponents([]byte(testMixedMobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Passcode should be native DDM
+	if len(result.NativeComponents) != 1 {
+		t.Fatalf("expected 1 native component, got %d", len(result.NativeComponents))
+	}
+	if result.NativeComponents[0].Identifier != "com.jamf.ddm.passcode-settings" {
+		t.Errorf("expected passcode-settings, got %s", result.NativeComponents[0].Identifier)
+	}
+
+	// Screensaver should be in the profile wrapper
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig for screensaver payload")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	content := parsed["payloadContent"].([]any)
+	if len(content) != 1 {
+		t.Fatalf("expected 1 wrapped payload, got %d", len(content))
+	}
+	entry := content[0].(map[string]any)
+	if entry["payloadType"] != "com.apple.screensaver" {
+		t.Errorf("expected screensaver payload, got %v", entry["payloadType"])
+	}
+}
+
+const testApplicationAccessMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.applicationaccess</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.restrictions</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>safariAllowPopups</key>
+			<false/>
+			<key>safariAllowJavaScript</key>
+			<false/>
+			<key>forceDelayedSoftwareUpdates</key>
+			<true/>
+			<key>enforcedSoftwareUpdateDelay</key>
+			<integer>14</integer>
+			<key>allowCamera</key>
+			<false/>
+			<key>allowScreenShot</key>
+			<false/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Restrictions</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.restrictions</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertToDDMComponents_ApplicationAccess(t *testing.T) {
+	result, err := ConvertToDDMComponents([]byte(testApplicationAccessMobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should produce safari-settings and software-update-settings
+	if len(result.NativeComponents) != 2 {
+		t.Fatalf("expected 2 native components, got %d", len(result.NativeComponents))
+	}
+
+	ids := make(map[string]bool)
+	for _, nc := range result.NativeComponents {
+		ids[nc.Identifier] = true
+	}
+	if !ids["com.jamf.ddm.safari-settings"] {
+		t.Error("expected safari-settings component")
+	}
+	if !ids["com.jamf.ddm.software-update-settings"] {
+		t.Error("expected software-update-settings component")
+	}
+
+	// Non-safari, non-deferral keys should be in profile wrapper
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig for remaining applicationaccess keys")
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	content := parsed["payloadContent"].([]any)
+	if len(content) != 1 {
+		t.Fatalf("expected 1 remaining payload entry, got %d", len(content))
+	}
+	entry := content[0].(map[string]any)
+	if _, ok := entry["allowCamera"]; !ok {
+		t.Error("expected allowCamera in remaining payload")
+	}
+	if _, ok := entry["allowScreenShot"]; !ok {
+		t.Error("expected allowScreenShot in remaining payload")
+	}
+	// Safari and deferral keys should NOT be in remaining
+	if _, ok := entry["safariAllowPopups"]; ok {
+		t.Error("safariAllowPopups should have been consumed by safari converter")
+	}
+	if _, ok := entry["forceDelayedSoftwareUpdates"]; ok {
+		t.Error("forceDelayedSoftwareUpdates should have been consumed by sw update converter")
+	}
+}
+
+func TestConvertToDDMComponents_NoConverters(t *testing.T) {
+	// Profile with only screensaver — no DDM converter exists
+	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.screensaver</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.ss</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>idleTime</key>
+			<integer>300</integer>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Screensaver Only</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.ss</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.NativeComponents) != 0 {
+		t.Errorf("expected 0 native components, got %d", len(result.NativeComponents))
+	}
+	if result.ProfileConfig == nil {
+		t.Error("expected ProfileConfig for screensaver")
+	}
+}
+
+func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
+	// Profile with only an unsupported payload type and no DDM converter
+	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.example.custom.unsupported</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.custom</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>foo</key>
+			<string>bar</string>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Unsupported Profile</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.unsupported</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	_, err := ConvertToDDMComponents([]byte(mobileconfig), true)
+	if err == nil {
+		t.Fatal("expected error when all payloads filtered")
+	}
+	if err.Error() != "no payloads remain after filtering" {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Registry tests ---
+
+func TestFindConverters(t *testing.T) {
+	// Passcode has exactly one converter
+	if got := findConverters("com.apple.mobiledevice.passwordpolicy"); len(got) != 1 {
+		t.Errorf("expected 1 converter for passwordpolicy, got %d", len(got))
+	}
+
+	// applicationaccess has two converters (safari + software-update)
+	if got := findConverters("com.apple.applicationaccess"); len(got) != 2 {
+		t.Errorf("expected 2 converters for applicationaccess, got %d", len(got))
+	}
+
+	// Unknown type has no converters
+	if got := findConverters("com.apple.screensaver"); len(got) != 0 {
+		t.Errorf("expected 0 converters for screensaver, got %d", len(got))
+	}
+}
+
+func TestExtractSettingsKeys(t *testing.T) {
+	payload := map[string]any{
+		"PayloadType":        "com.apple.test",
+		"PayloadIdentifier":  "com.example",
+		"PayloadUUID":        "uuid",
+		"PayloadVersion":     1,
+		"PayloadDisplayName": "Test",
+		"tilesize":           uint64(48),
+		"name":               "test",
+		"emptyStr":           "",
+		"emptyArr":           []any{},
+	}
+
+	settings := extractSettingsKeys(payload)
+
+	// Apple metadata should be stripped
+	if _, ok := settings["PayloadType"]; ok {
+		t.Error("PayloadType should be stripped")
+	}
+
+	// Valid settings should be present (uint64 converted to float64)
+	if v, ok := settings["tilesize"]; !ok || v != float64(48) {
+		t.Errorf("expected tilesize=48.0, got %v", v)
+	}
+
+	// Empty values should be stripped
+	if _, ok := settings["emptyStr"]; ok {
+		t.Error("empty string should be stripped")
+	}
+	if _, ok := settings["emptyArr"]; ok {
+		t.Error("empty array should be stripped")
+	}
+}
