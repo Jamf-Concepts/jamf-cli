@@ -365,7 +365,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 			continue
 		}
 
-		obj := blueprintToExport(detail)
+		obj := blueprintToExport(ctx, pc, detail)
 
 		slug := SlugifyName(detail.Name)
 		slug = DeduplicateSlug(slug, slugSeen)

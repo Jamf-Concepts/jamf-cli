@@ -163,14 +163,41 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		yes        bool
-		scaffold   bool
-		components []string
+		fromFile           string
+		yes                bool
+		scaffold           bool
+		components         []string
+		computerGroups     []string
+		mobileDeviceGroups []string
 	)
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a blueprint",
+		Long: `Create or update a blueprint from JSON or YAML input.
+
+Accepts both the legacy format (scope with UUID strings) and the portable
+export format (scope with enriched group objects including names). When the
+portable format is detected, group names are resolved to platform UUIDs on
+the target instance — enabling cross-instance cloning via export → apply.
+
+Use --computer-group or --mobile-device-group to override the scope from the
+input file. This is useful when applying a blueprint from one instance to
+another where different groups should be targeted.
+
+Payload identifiers in legacy configuration profile components are
+automatically randomized when creating a new blueprint, preventing
+collisions when cloning across instances.
+
+Examples:
+  # Apply from file (same instance)
+  jamf-cli pro bp apply --from-file blueprint.json
+
+  # Cross-instance clone with scope override
+  jamf-cli -p source pro bp export MyBlueprint > bp.json
+  jamf-cli -p target pro bp apply --from-file bp.json --computer-group "Lab Macs"
+
+  # Multi-instance fan-out
+  jamf-cli multi --filter 'school-*' -- pro bp apply --from-file bp.json --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				bp := blueprintScaffold()
@@ -196,30 +223,46 @@ func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			ctx := cmd.Context()
 
+			// Resolve scope override flags to UUIDs
+			hasNameOverrides := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
+			if cliCtx.Client == nil && hasNameOverrides {
+				return fmt.Errorf("--computer-group/--mobile-device-group requires Jamf Pro authentication for name resolution")
+			}
+			var scopeOverrideIDs []string
+			if hasNameOverrides {
+				resolved, err := resolveGroupNames(ctx, cliCtx.Client, computerGroups, "COMPUTER")
+				if err != nil {
+					return err
+				}
+				scopeOverrideIDs = append(scopeOverrideIDs, resolved...)
+				resolved, err = resolveGroupNames(ctx, cliCtx.Client, mobileDeviceGroups, "MOBILE")
+				if err != nil {
+					return err
+				}
+				scopeOverrideIDs = append(scopeOverrideIDs, resolved...)
+			}
+
 			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
 
-			var createReq jamfplatform.BlueprintCreateRequestV1
-			if err := unmarshalInput(data, &createReq); err != nil {
-				return fmt.Errorf("parsing input: %w", err)
-			}
-			if createReq.Name == "" {
-				return fmt.Errorf("input must include a 'name' field")
+			createReq, err := parseBlueprintApplyInput(ctx, data, cliCtx.Client, scopeOverrideIDs)
+			if err != nil {
+				return err
 			}
 
 			// Check if a blueprint with this name already exists
 			r := platform.NewResolver(cliCtx.PlatformClient)
 			id, resolveErr := r.ResolveBlueprintID(ctx, createReq.Name)
 			if resolveErr != nil {
-				// Not found — create
-				result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, &createReq)
+				// Not found — create with randomized payload IDs
+				createReq.Steps = randomizePayloadIdentifiers(createReq.Steps)
+				result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", createReq.Name, result.ID)
-				// Fetch the full blueprint to display
 				bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
 				if err != nil {
 					return err
@@ -227,7 +270,7 @@ func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
 			}
 
-			// Found — confirm before updating
+			// Found — confirm before updating (no payload ID randomization on update)
 			proceed, err := confirmReplace("blueprint", createReq.Name, yes)
 			if err != nil {
 				return err
@@ -236,7 +279,7 @@ func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
-			updateReq := blueprintCreateToUpdate(&createReq)
+			updateReq := blueprintCreateToUpdate(createReq)
 			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
@@ -252,6 +295,8 @@ func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the input format")
 	cmd.Flags().StringSliceVar(&components, "component", nil, "Component identifier(s) to include in scaffold (repeatable, use with --scaffold)")
+	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Override scope with computer group name(s) (repeatable)")
+	cmd.Flags().StringSliceVar(&mobileDeviceGroups, "mobile-device-group", nil, "Override scope with mobile device group name(s) (repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("component", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return blueprintcomponents.Identifiers(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -330,23 +375,37 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-// blueprintExport is the portable export format for blueprints.
-// Server-generated fields (id, created, updated, deploymentState) are stripped.
-type blueprintExport struct {
-	Name        string                              `json:"name" yaml:"name"`
-	Description string                              `json:"description,omitempty" yaml:"description,omitempty"`
-	Scope       jamfplatform.BlueprintCreateScopeV1 `json:"scope" yaml:"scope"`
-	Steps       []jamfplatform.BlueprintStepV1      `json:"steps" yaml:"steps"`
+// blueprintExportScopeGroup represents a device group in the portable export format.
+// Includes both the platform UUID and human-readable metadata so the export
+// can be applied to a different Jamf instance where group UUIDs differ.
+type blueprintExportScopeGroup struct {
+	ID         string `json:"id" yaml:"id"`
+	Name       string `json:"name" yaml:"name"`
+	DeviceType string `json:"deviceType" yaml:"deviceType"` // COMPUTER, MOBILE_DEVICE, etc.
 }
 
-func blueprintToExport(bp *jamfplatform.BlueprintDetailV1) blueprintExport {
+// blueprintExportScope is the scope section of the portable export format.
+type blueprintExportScope struct {
+	DeviceGroups []blueprintExportScopeGroup `json:"deviceGroups" yaml:"deviceGroups"`
+}
+
+// blueprintExport is the portable export format for blueprints.
+// Server-generated fields (id, created, updated, deploymentState) are stripped.
+// Scope contains enriched group objects (id + name + type) for cross-instance portability.
+type blueprintExport struct {
+	Name        string                         `json:"name" yaml:"name"`
+	Description string                         `json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       blueprintExportScope           `json:"scope" yaml:"scope"`
+	Steps       []jamfplatform.BlueprintStepV1 `json:"steps" yaml:"steps"`
+}
+
+func blueprintToExport(ctx context.Context, pc registry.PlatformClient, bp *jamfplatform.BlueprintDetailV1) blueprintExport {
+	groups := reverseResolveGroups(ctx, pc, bp.Scope.DeviceGroups)
 	return blueprintExport{
 		Name:        bp.Name,
 		Description: bp.Description,
-		Scope: jamfplatform.BlueprintCreateScopeV1{
-			DeviceGroups: bp.Scope.DeviceGroups,
-		},
-		Steps: bp.Steps,
+		Scope:       blueprintExportScope{DeviceGroups: groups},
+		Steps:       bp.Steps,
 	}
 }
 
@@ -354,21 +413,36 @@ func newBlueprintsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
 		Use:   "export [<id>]",
-		Short: "Export a blueprint as JSON or YAML",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Export a blueprint as portable JSON or YAML",
+		Long: `Export a blueprint in a portable format suitable for cross-instance cloning.
+
+Scope device groups are enriched with their names and types so the export can
+be applied to a different Jamf instance where group UUIDs differ. Group names
+are resolved on the target instance at apply time.
+
+Cross-instance workflow:
+  jamf-cli -p source pro bp export MyBlueprint > bp.json
+  jamf-cli -p target pro bp apply --from-file bp.json
+  jamf-cli -p target pro bp apply --from-file bp.json --computer-group "Lab Macs"
+
+Multi-instance fan-out:
+  jamf-cli -p source pro bp export MyBlueprint > bp.json
+  jamf-cli multi --filter 'school-*' -- pro bp apply --from-file bp.json --yes`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
+			ctx := cmd.Context()
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
+			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
-			return printExport(blueprintToExport(bp))
+			return printExport(blueprintToExport(ctx, cliCtx.PlatformClient, bp))
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
@@ -1547,6 +1621,153 @@ func randomizeMapPayloadIDs(m map[string]any) bool {
 		}
 	}
 	return changed
+}
+
+// reverseResolveGroups maps platform device group UUIDs to enriched metadata
+// (name, device type) by fetching the full device groups list. Groups that
+// cannot be found (deleted, etc.) are included with their UUID and empty metadata.
+func reverseResolveGroups(ctx context.Context, pc registry.PlatformClient, ids []string) []blueprintExportScopeGroup {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	allGroups, err := pc.ListDeviceGroups(ctx, nil, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
+	}
+	groupMap := make(map[string]jamfplatform.DeviceGroupListReadRepresentationV1, len(allGroups))
+	for _, g := range allGroups {
+		groupMap[g.ID] = g
+	}
+
+	result := make([]blueprintExportScopeGroup, 0, len(ids))
+	for _, id := range ids {
+		if g, ok := groupMap[id]; ok {
+			result = append(result, blueprintExportScopeGroup{
+				ID:         id,
+				Name:       g.Name,
+				DeviceType: g.DeviceType,
+			})
+		} else {
+			fmt.Fprintf(os.Stderr, "  Warning: group %s not found, including UUID only\n", id)
+			result = append(result, blueprintExportScopeGroup{ID: id})
+		}
+	}
+	return result
+}
+
+// resolvePortableScopeGroups takes enriched scope groups from a portable export
+// and resolves group names to platform UUIDs on the target instance.
+// Falls back to the embedded UUID if a group has no name (e.g., deleted on source).
+func resolvePortableScopeGroups(ctx context.Context, client registry.HTTPClient, groups []blueprintExportScopeGroup) ([]string, error) {
+	var ids []string
+	for _, g := range groups {
+		if g.Name == "" {
+			if g.ID != "" {
+				ids = append(ids, g.ID)
+			}
+			continue
+		}
+		if client == nil {
+			return nil, fmt.Errorf("group name resolution requires Jamf Pro authentication")
+		}
+		groupType := deviceTypeToGroupType(g.DeviceType)
+		id, err := resolveGroupPlatformID(ctx, client, g.Name, groupType)
+		if err != nil {
+			return nil, fmt.Errorf("resolving group %q: %w", g.Name, err)
+		}
+		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", g.Name, id)
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// deviceTypeToGroupType maps the Platform SDK DeviceType value to the
+// /v1/groups API groupType filter value.
+func deviceTypeToGroupType(deviceType string) string {
+	switch {
+	case strings.HasPrefix(deviceType, "COMPUTER"):
+		return "COMPUTER"
+	case strings.HasPrefix(deviceType, "MOBILE"):
+		return "MOBILE"
+	default:
+		return "" // no type filter
+	}
+}
+
+// parseBlueprintApplyInput parses raw JSON/YAML blueprint input, handling both
+// the old format (scope with UUID strings) and the portable format (scope with
+// enriched group objects). When the portable format is detected, group names
+// are resolved to UUIDs on the target instance. scopeOverrideIDs, if non-empty,
+// replaces the file's scope entirely.
+func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.HTTPClient, scopeOverrideIDs []string) (*jamfplatform.BlueprintCreateRequestV1, error) {
+	// Probe the scope format via a generic unmarshal to avoid type coercion
+	// issues between JSON objects and YAML strings.
+	portable := isPortableScopeFormat(data)
+
+	if !portable {
+		var req jamfplatform.BlueprintCreateRequestV1
+		if err := unmarshalInput(data, &req); err != nil {
+			return nil, fmt.Errorf("parsing input: %w", err)
+		}
+		if req.Name == "" {
+			return nil, fmt.Errorf("input must include a 'name' field")
+		}
+		if len(scopeOverrideIDs) > 0 {
+			req.Scope.DeviceGroups = scopeOverrideIDs
+		}
+		return &req, nil
+	}
+
+	// Portable format: scope.deviceGroups contains group objects
+	var exp blueprintExport
+	if err := unmarshalInput(data, &exp); err != nil {
+		return nil, fmt.Errorf("parsing portable format: %w", err)
+	}
+	if exp.Name == "" {
+		return nil, fmt.Errorf("input must include a 'name' field")
+	}
+
+	var groupIDs []string
+	if len(scopeOverrideIDs) > 0 {
+		groupIDs = scopeOverrideIDs
+	} else if len(exp.Scope.DeviceGroups) > 0 {
+		var err error
+		groupIDs, err = resolvePortableScopeGroups(ctx, client, exp.Scope.DeviceGroups)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &jamfplatform.BlueprintCreateRequestV1{
+		Name:        exp.Name,
+		Description: exp.Description,
+		Scope: jamfplatform.BlueprintCreateScopeV1{
+			DeviceGroups: groupIDs,
+		},
+		Steps: exp.Steps,
+	}, nil
+}
+
+// isPortableScopeFormat probes raw JSON/YAML data to detect whether the
+// scope.deviceGroups field contains objects (portable format) or strings
+// (legacy UUID format). Uses a generic unmarshal so that type detection
+// works for both JSON and YAML inputs.
+func isPortableScopeFormat(data []byte) bool {
+	var raw map[string]any
+	if err := unmarshalInput(data, &raw); err != nil {
+		return false
+	}
+	scopeMap, ok := raw["scope"].(map[string]any)
+	if !ok {
+		return false
+	}
+	groups, ok := scopeMap["deviceGroups"].([]any)
+	if !ok || len(groups) == 0 {
+		return false
+	}
+	_, isMap := groups[0].(map[string]any)
+	return isMap
 }
 
 // newUUID generates a random UUID v4 string.

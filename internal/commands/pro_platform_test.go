@@ -892,3 +892,281 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 		t.Errorf("expected authentication error, got %q", err.Error())
 	}
 }
+
+// ── Portable export/apply tests ───────────────────────────────────────────
+
+func TestReverseResolveGroups(t *testing.T) {
+	pc := &platformMockClient{
+		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+			{ID: "uuid-1", Name: "Lab Macs", DeviceType: "COMPUTER"},
+			{ID: "uuid-2", Name: "Shared iPads", DeviceType: "MOBILE_DEVICE"},
+		},
+	}
+
+	groups := reverseResolveGroups(context.Background(), pc, []string{"uuid-1", "uuid-2", "uuid-deleted"})
+
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(groups))
+	}
+	if groups[0].Name != "Lab Macs" || groups[0].DeviceType != "COMPUTER" {
+		t.Errorf("group 0: got %+v", groups[0])
+	}
+	if groups[1].Name != "Shared iPads" || groups[1].DeviceType != "MOBILE_DEVICE" {
+		t.Errorf("group 1: got %+v", groups[1])
+	}
+	if groups[2].ID != "uuid-deleted" || groups[2].Name != "" {
+		t.Errorf("group 2 (deleted): got %+v", groups[2])
+	}
+}
+
+func TestReverseResolveGroups_Empty(t *testing.T) {
+	pc := &platformMockClient{}
+	groups := reverseResolveGroups(context.Background(), pc, nil)
+	if groups != nil {
+		t.Errorf("expected nil for empty input, got %v", groups)
+	}
+}
+
+func TestDeviceTypeToGroupType(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"COMPUTER", "COMPUTER"},
+		{"MOBILE_DEVICE", "MOBILE"},
+		{"MOBILE", "MOBILE"},
+		{"", ""},
+		{"UNKNOWN", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := deviceTypeToGroupType(tt.input)
+			if got != tt.want {
+				t.Errorf("deviceTypeToGroupType(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseBlueprintApplyInput_OldFormat(t *testing.T) {
+	input := `{
+		"name": "Test BP",
+		"description": "desc",
+		"scope": {"deviceGroups": ["uuid-1", "uuid-2"]},
+		"steps": [{"name": "Step 1", "components": []}]
+	}`
+
+	req, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Name != "Test BP" {
+		t.Errorf("name: got %q, want Test BP", req.Name)
+	}
+	if len(req.Scope.DeviceGroups) != 2 {
+		t.Fatalf("scope: expected 2 groups, got %d", len(req.Scope.DeviceGroups))
+	}
+	if req.Scope.DeviceGroups[0] != "uuid-1" {
+		t.Errorf("scope[0]: got %q, want uuid-1", req.Scope.DeviceGroups[0])
+	}
+}
+
+func TestParseBlueprintApplyInput_OldFormat_ScopeOverride(t *testing.T) {
+	input := `{
+		"name": "Test BP",
+		"scope": {"deviceGroups": ["uuid-original"]},
+		"steps": []
+	}`
+
+	req, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, []string{"uuid-override"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "uuid-override" {
+		t.Errorf("scope override not applied: got %v", req.Scope.DeviceGroups)
+	}
+}
+
+func TestParseBlueprintApplyInput_PortableFormat(t *testing.T) {
+	// Portable format with group objects — needs an HTTP client for name resolution.
+	// Use a mock that returns the expected group UUID.
+	groupsResp := `{"results":[{"groupPlatformId":"target-uuid-1","groupName":"Lab Macs"}]}`
+	mock := &classicHTTPMock{statusCode: 200, body: groupsResp}
+
+	input := `{
+		"name": "Portable BP",
+		"scope": {
+			"deviceGroups": [
+				{"id": "source-uuid-1", "name": "Lab Macs", "deviceType": "COMPUTER"}
+			]
+		},
+		"steps": [{"name": "Step 1", "components": []}]
+	}`
+
+	req, err := parseBlueprintApplyInput(context.Background(), []byte(input), mock, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Name != "Portable BP" {
+		t.Errorf("name: got %q", req.Name)
+	}
+	if len(req.Scope.DeviceGroups) != 1 {
+		t.Fatalf("scope: expected 1 group, got %d", len(req.Scope.DeviceGroups))
+	}
+	if req.Scope.DeviceGroups[0] != "target-uuid-1" {
+		t.Errorf("scope[0]: got %q, want target-uuid-1", req.Scope.DeviceGroups[0])
+	}
+}
+
+func TestParseBlueprintApplyInput_PortableFormat_ScopeOverride(t *testing.T) {
+	input := `{
+		"name": "Portable BP",
+		"scope": {
+			"deviceGroups": [
+				{"id": "source-uuid", "name": "Lab Macs", "deviceType": "COMPUTER"}
+			]
+		},
+		"steps": []
+	}`
+
+	// Scope override bypasses name resolution, so no HTTP client needed for the groups in file
+	req, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, []string{"override-uuid"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "override-uuid" {
+		t.Errorf("scope override not applied: got %v", req.Scope.DeviceGroups)
+	}
+}
+
+func TestParseBlueprintApplyInput_PortableFormat_FallbackUUID(t *testing.T) {
+	// Group with no name (deleted on source) — falls back to embedded UUID
+	input := `{
+		"name": "Fallback BP",
+		"scope": {
+			"deviceGroups": [
+				{"id": "orphan-uuid", "name": "", "deviceType": ""}
+			]
+		},
+		"steps": []
+	}`
+
+	req, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "orphan-uuid" {
+		t.Errorf("expected fallback to UUID: got %v", req.Scope.DeviceGroups)
+	}
+}
+
+func TestParseBlueprintApplyInput_NoName(t *testing.T) {
+	input := `{"scope": {"deviceGroups": []}}`
+	_, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, nil)
+	if err == nil {
+		t.Fatal("expected error for missing name")
+	}
+}
+
+func TestBlueprintExportRoundTrip(t *testing.T) {
+	// Simulate: export from source → marshal → unmarshal on target via parseBlueprintApplyInput
+	pc := &platformMockClient{
+		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+			{ID: "source-uuid", Name: "Lab Macs", DeviceType: "COMPUTER"},
+		},
+		details: map[string]*jamfplatform.BlueprintDetailV1{
+			"bp-1": {
+				ID:          "bp-1",
+				Name:        "Round Trip BP",
+				Description: "test",
+				Scope:       jamfplatform.BlueprintUpdateScopeV1{DeviceGroups: []string{"source-uuid"}},
+				Steps: []jamfplatform.BlueprintStepV1{
+					{Name: "Step 1", Components: []jamfplatform.BlueprintComponentV1{
+						{Identifier: "com.jamf.ddm.passcode-settings", Configuration: json.RawMessage(`{"RequirePasscode": true}`)},
+					}},
+				},
+			},
+		},
+	}
+
+	// Export
+	bp := pc.details["bp-1"]
+	exported := blueprintToExport(context.Background(), pc, bp)
+
+	// Verify export has enriched scope
+	if len(exported.Scope.DeviceGroups) != 1 {
+		t.Fatalf("export scope: expected 1 group, got %d", len(exported.Scope.DeviceGroups))
+	}
+	if exported.Scope.DeviceGroups[0].Name != "Lab Macs" {
+		t.Errorf("export scope name: got %q", exported.Scope.DeviceGroups[0].Name)
+	}
+	if exported.Scope.DeviceGroups[0].DeviceType != "COMPUTER" {
+		t.Errorf("export scope type: got %q", exported.Scope.DeviceGroups[0].DeviceType)
+	}
+
+	// Marshal to JSON (simulating writing to file)
+	data, err := json.Marshal(exported)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	// Parse on target with a mock that resolves "Lab Macs" → "target-uuid"
+	targetMock := &classicHTTPMock{
+		statusCode: 200,
+		body:       `{"results":[{"groupPlatformId":"target-uuid","groupName":"Lab Macs"}]}`,
+	}
+	req, err := parseBlueprintApplyInput(context.Background(), data, targetMock, nil)
+	if err != nil {
+		t.Fatalf("parse on target: %v", err)
+	}
+
+	if req.Name != "Round Trip BP" {
+		t.Errorf("name: got %q", req.Name)
+	}
+	if len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "target-uuid" {
+		t.Errorf("target scope: got %v, want [target-uuid]", req.Scope.DeviceGroups)
+	}
+	if len(req.Steps) != 1 || req.Steps[0].Name != "Step 1" {
+		t.Errorf("steps not preserved: got %+v", req.Steps)
+	}
+}
+
+func TestIsPortableScopeFormat(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"portable objects", `{"scope":{"deviceGroups":[{"id":"x","name":"y"}]}}`, true},
+		{"old uuid strings", `{"scope":{"deviceGroups":["uuid-1"]}}`, false},
+		{"empty groups array", `{"scope":{"deviceGroups":[]}}`, false},
+		{"null scope", `{"scope":null}`, false},
+		{"missing scope", `{"name":"test"}`, false},
+		{"empty scope object", `{"scope":{}}`, false},
+		{"null deviceGroups", `{"scope":{"deviceGroups":null}}`, false},
+		{"invalid json", `not json`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPortableScopeFormat([]byte(tt.input))
+			if got != tt.want {
+				t.Errorf("isPortableScopeFormat(%s) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReverseResolveGroups_ListError(t *testing.T) {
+	// platformMockClient with no devGroups and a nil slice simulates an
+	// empty return. To simulate an error we'd need to extend the mock,
+	// but we can verify the degraded path: all groups become UUID-only.
+	pc := &platformMockClient{} // no devGroups populated
+	groups := reverseResolveGroups(context.Background(), pc, []string{"uuid-1"})
+
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].ID != "uuid-1" || groups[0].Name != "" {
+		t.Errorf("expected UUID-only fallback, got %+v", groups[0])
+	}
+}

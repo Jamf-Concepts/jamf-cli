@@ -326,7 +326,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 					if err != nil {
 						continue
 					}
-					exp := blueprintToExport(detail)
+					exp := blueprintToExport(ctx, pc, detail)
 					objects[detail.Name] = normaliseViaJSON(structToMap(exp))
 				}
 				if len(objects) > 0 {
