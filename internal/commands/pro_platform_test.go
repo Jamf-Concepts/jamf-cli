@@ -621,6 +621,55 @@ func TestClassicProfilePath_EscapesSpecialCharacters(t *testing.T) {
 	}
 }
 
+func TestResolveBlueprintID_IDFromArgs(t *testing.T) {
+	id, err := resolveBlueprintID(context.Background(), &registry.CLIContext{}, []string{"abc-123"}, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "abc-123" {
+		t.Errorf("got %q, want abc-123", id)
+	}
+}
+
+func TestResolveBlueprintID_NameFlag(t *testing.T) {
+	pc := &platformMockClient{
+		blueprints: []jamfplatform.BlueprintOverviewV1{
+			{ID: "bp-id-1", Name: "Test BP"},
+		},
+	}
+	cliCtx := &registry.CLIContext{PlatformClient: pc}
+	id, err := resolveBlueprintID(context.Background(), cliCtx, nil, "Test BP")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "bp-id-1" {
+		t.Errorf("got %q, want bp-id-1", id)
+	}
+}
+
+func TestResolveBlueprintID_BothErrors(t *testing.T) {
+	_, err := resolveBlueprintID(context.Background(), &registry.CLIContext{}, []string{"abc"}, "name")
+	if err == nil {
+		t.Fatal("expected error when both args and name flag provided")
+	}
+}
+
+func TestResolveBlueprintID_NeitherErrors(t *testing.T) {
+	_, err := resolveBlueprintID(context.Background(), &registry.CLIContext{}, nil, "")
+	if err == nil {
+		t.Fatal("expected error when neither args nor name flag provided")
+	}
+}
+
+func TestBlueprintLabel(t *testing.T) {
+	if got := blueprintLabel([]string{"my-id"}, ""); got != "my-id" {
+		t.Errorf("got %q, want my-id", got)
+	}
+	if got := blueprintLabel(nil, "My Blueprint"); got != "My Blueprint" {
+		t.Errorf("got %q, want My Blueprint", got)
+	}
+}
+
 func TestResolveComponentIdentifier(t *testing.T) {
 	tests := []struct {
 		input string

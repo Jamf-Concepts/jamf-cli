@@ -41,6 +41,7 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newBlueprintsUndeployCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCloneCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsScopeCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsImportProfileCmd(cliCtx))
 
@@ -111,22 +112,53 @@ func flattenBlueprintDetail(bp jamfplatform.BlueprintDetailV1) map[string]any {
 	return m
 }
 
+// resolveBlueprintID returns the blueprint UUID from the positional [<id>] arg
+// or by resolving the --name flag. Exactly one of the two must be provided.
+func resolveBlueprintID(ctx context.Context, cliCtx *registry.CLIContext, args []string, nameFlag string) (string, error) {
+	if nameFlag != "" {
+		if len(args) > 0 {
+			return "", fmt.Errorf("specify either <id> or --name, not both")
+		}
+		r := platform.NewResolver(cliCtx.PlatformClient)
+		return r.ResolveBlueprintID(ctx, nameFlag)
+	}
+	if len(args) == 0 {
+		return "", fmt.Errorf("provide a blueprint <id> or use --name")
+	}
+	return args[0], nil
+}
+
+// blueprintLabel returns a human-readable label for log messages.
+func blueprintLabel(args []string, nameFlag string) string {
+	if nameFlag != "" {
+		return nameFlag
+	}
+	return args[0]
+}
+
 func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <name>",
-		Short: "Get a blueprint by name",
-		Args:  cobra.ExactArgs(1),
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
+		Short: "Get a blueprint by ID or name",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprintByName(cmd.Context(), args[0])
+			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
+			if err != nil {
+				return err
+			}
+			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
 			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	return cmd
 }
 
 func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -261,22 +293,25 @@ func blueprintScaffold() *jamfplatform.BlueprintCreateRequestV1 {
 }
 
 func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var yes bool
+	var (
+		yes      bool
+		nameFlag string
+	)
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete a blueprint",
-		Args:  cobra.ExactArgs(1),
+		Use:   "delete [<id>]",
+		Short: "Delete a blueprint by ID or name",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBlueprintID(ctx, args[0])
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("blueprint", args[0], yes)
+			label := blueprintLabel(args, nameFlag)
+			proceed, err := confirmDelete("blueprint", label, yes)
 			if err != nil {
 				return err
 			}
@@ -286,11 +321,12 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformClient.DeleteBlueprint(ctx, id); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Deleted blueprint %q\n", args[0])
+			fmt.Fprintf(os.Stderr, "Deleted blueprint %q\n", label)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
 	return cmd
 }
 
@@ -315,48 +351,58 @@ func blueprintToExport(bp *jamfplatform.BlueprintDetailV1) blueprintExport {
 }
 
 func newBlueprintsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "export <name>",
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:   "export [<id>]",
 		Short: "Export a blueprint as JSON or YAML",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprintByName(cmd.Context(), args[0])
+			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
+			if err != nil {
+				return err
+			}
+			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
 			return printExport(blueprintToExport(bp))
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	return cmd
 }
 
 func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var yes bool
+	var (
+		yes      bool
+		nameFlag string
+	)
 	cmd := &cobra.Command{
-		Use:   "deploy <name>",
-		Short: "Deploy a blueprint",
-		Args:  cobra.ExactArgs(1),
+		Use:   "deploy [<id>]",
+		Short: "Deploy a blueprint by ID or name",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBlueprintID(ctx, args[0])
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
 			if err != nil {
 				return err
 			}
+			label := blueprintLabel(args, nameFlag)
 			if !yes {
 				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would deploy blueprint %q\n", args[0])
+					fmt.Fprintf(os.Stderr, "[dry-run] Would deploy blueprint %q\n", label)
 					return nil
 				}
 				if noInput {
 					return fmt.Errorf("deploy requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will deploy blueprint %q. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will deploy blueprint %q. Type 'yes' to confirm: ", label)
 				var confirm string
 				if _, err := fmt.Scanln(&confirm); err != nil {
 					return fmt.Errorf("reading confirmation: %w", err)
@@ -368,39 +414,43 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformClient.DeployBlueprint(ctx, id); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Deployment started for blueprint %q\n", args[0])
+			fmt.Fprintf(os.Stderr, "Deployment started for blueprint %q\n", label)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
 	return cmd
 }
 
 func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var yes bool
+	var (
+		yes      bool
+		nameFlag string
+	)
 	cmd := &cobra.Command{
-		Use:   "undeploy <name>",
-		Short: "Undeploy a blueprint",
-		Args:  cobra.ExactArgs(1),
+		Use:   "undeploy [<id>]",
+		Short: "Undeploy a blueprint by ID or name",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBlueprintID(ctx, args[0])
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
 			if err != nil {
 				return err
 			}
+			label := blueprintLabel(args, nameFlag)
 			if !yes {
 				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would undeploy blueprint %q\n", args[0])
+					fmt.Fprintf(os.Stderr, "[dry-run] Would undeploy blueprint %q\n", label)
 					return nil
 				}
 				if noInput {
 					return fmt.Errorf("undeploy requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will undeploy blueprint %q. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "This will undeploy blueprint %q. Type 'yes' to confirm: ", label)
 				var confirm string
 				if _, err := fmt.Scanln(&confirm); err != nil {
 					return fmt.Errorf("reading confirmation: %w", err)
@@ -412,26 +462,27 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformClient.UndeployBlueprint(ctx, id); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Undeployment started for blueprint %q\n", args[0])
+			fmt.Fprintf(os.Stderr, "Undeployment started for blueprint %q\n", label)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
 	return cmd
 }
 
 func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "report <name>",
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:   "report [<id>]",
 		Short: "Get deployment status report for a blueprint",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBlueprintID(ctx, args[0])
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
 			if err != nil {
 				return err
 			}
@@ -439,8 +490,9 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			label := blueprintLabel(args, nameFlag)
 			m := map[string]any{
-				"blueprint": args[0],
+				"blueprint": label,
 				"succeeded": report.Succeeded,
 				"failed":    report.Failed,
 				"pending":   report.Pending,
@@ -452,6 +504,257 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(data)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	return cmd
+}
+
+func newBlueprintsScopeCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "scope",
+		Short: "Manage blueprint scope (device groups)",
+	}
+	cmd.AddCommand(newBlueprintsScopeListCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsScopeAddCmd(cliCtx))
+	cmd.AddCommand(newBlueprintsScopeRemoveCmd(cliCtx))
+	return cmd
+}
+
+func newBlueprintsScopeListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:   "list [<id>]",
+		Short: "List device groups in a blueprint's scope",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
+			if err != nil {
+				return err
+			}
+			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			rows := make([]map[string]any, 0, len(bp.Scope.DeviceGroups))
+			for _, gid := range bp.Scope.DeviceGroups {
+				rows = append(rows, map[string]any{"deviceGroupId": gid})
+			}
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling output: %w", err)
+			}
+			return cliCtx.Output.PrintRaw(data)
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	return cmd
+}
+
+func newBlueprintsScopeAddCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		nameFlag           string
+		groupIDs           []string
+		computerGroups     []string
+		mobileDeviceGroups []string
+	)
+	cmd := &cobra.Command{
+		Use:   "add [<id>]",
+		Short: "Add device groups to a blueprint's scope",
+		Long: `Add one or more device groups to a blueprint's scope.
+
+Groups can be specified by platform UUID (--group-id) or by name
+(--computer-group, --mobile-device-group). Names are resolved to
+platform UUIDs via the /v1/groups API.
+
+Examples:
+  jamf-cli pro blueprints scope add <bp-id> --group-id <uuid>
+  jamf-cli pro blueprints scope add --name "My Blueprint" --computer-group "All Managed Computers"
+  jamf-cli pro blueprints scope add <bp-id> --mobile-device-group "Shared iPads"`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			hasNames := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
+			if cliCtx.Client == nil && hasNames {
+				return fmt.Errorf("--computer-group/--mobile-device-group requires Jamf Pro authentication for name resolution")
+			}
+			ctx := cmd.Context()
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
+			if err != nil {
+				return err
+			}
+
+			// Resolve group names to platform UUIDs
+			addIDs := append([]string{}, groupIDs...)
+			resolved, err := resolveGroupNames(ctx, cliCtx.Client, computerGroups, "COMPUTER")
+			if err != nil {
+				return err
+			}
+			addIDs = append(addIDs, resolved...)
+			resolved, err = resolveGroupNames(ctx, cliCtx.Client, mobileDeviceGroups, "MOBILE")
+			if err != nil {
+				return err
+			}
+			addIDs = append(addIDs, resolved...)
+			if len(addIDs) == 0 {
+				return fmt.Errorf("specify at least one --group-id, --computer-group, or --mobile-device-group")
+			}
+
+			// Get current scope
+			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			if err != nil {
+				return err
+			}
+
+			// Merge — deduplicate
+			existing := make(map[string]bool, len(bp.Scope.DeviceGroups))
+			for _, gid := range bp.Scope.DeviceGroups {
+				existing[gid] = true
+			}
+			newScope := bp.Scope.DeviceGroups
+			var added int
+			for _, gid := range addIDs {
+				if existing[gid] {
+					fmt.Fprintf(os.Stderr, "  group %s already in scope, skipping\n", gid)
+					continue
+				}
+				newScope = append(newScope, gid)
+				existing[gid] = true
+				added++
+			}
+			if added == 0 {
+				fmt.Fprintln(os.Stderr, "No new groups to add")
+				return nil
+			}
+
+			updateReq := &jamfplatform.BlueprintUpdateRequestV1{
+				Scope: &jamfplatform.BlueprintUpdateScopeV1{
+					DeviceGroups: newScope,
+				},
+			}
+			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Added %d group(s) to blueprint scope\n", added)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	cmd.Flags().StringSliceVar(&groupIDs, "group-id", nil, "Device group platform UUID (repeatable)")
+	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Computer group name (repeatable)")
+	cmd.Flags().StringSliceVar(&mobileDeviceGroups, "mobile-device-group", nil, "Mobile device group name (repeatable)")
+	return cmd
+}
+
+func newBlueprintsScopeRemoveCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		nameFlag           string
+		groupIDs           []string
+		computerGroups     []string
+		mobileDeviceGroups []string
+	)
+	cmd := &cobra.Command{
+		Use:   "remove [<id>]",
+		Short: "Remove device groups from a blueprint's scope",
+		Long: `Remove one or more device groups from a blueprint's scope.
+
+Groups can be specified by platform UUID (--group-id) or by name
+(--computer-group, --mobile-device-group).
+
+Examples:
+  jamf-cli pro blueprints scope remove <bp-id> --group-id <uuid>
+  jamf-cli pro blueprints scope remove --name "My Blueprint" --computer-group "Lab Macs"`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			hasNames := len(computerGroups) > 0 || len(mobileDeviceGroups) > 0
+			if cliCtx.Client == nil && hasNames {
+				return fmt.Errorf("--computer-group/--mobile-device-group requires Jamf Pro authentication for name resolution")
+			}
+			ctx := cmd.Context()
+			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
+			if err != nil {
+				return err
+			}
+
+			// Resolve group names to platform UUIDs
+			removeIDs := append([]string{}, groupIDs...)
+			resolved, err := resolveGroupNames(ctx, cliCtx.Client, computerGroups, "COMPUTER")
+			if err != nil {
+				return err
+			}
+			removeIDs = append(removeIDs, resolved...)
+			resolved, err = resolveGroupNames(ctx, cliCtx.Client, mobileDeviceGroups, "MOBILE")
+			if err != nil {
+				return err
+			}
+			removeIDs = append(removeIDs, resolved...)
+			if len(removeIDs) == 0 {
+				return fmt.Errorf("specify at least one --group-id, --computer-group, or --mobile-device-group")
+			}
+
+			// Get current scope
+			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			if err != nil {
+				return err
+			}
+
+			// Filter out removed groups
+			removeSet := make(map[string]bool, len(removeIDs))
+			for _, gid := range removeIDs {
+				removeSet[gid] = true
+			}
+			var newScope []string
+			var removed int
+			for _, gid := range bp.Scope.DeviceGroups {
+				if removeSet[gid] {
+					removed++
+					continue
+				}
+				newScope = append(newScope, gid)
+			}
+			if removed == 0 {
+				fmt.Fprintln(os.Stderr, "No matching groups found in scope")
+				return nil
+			}
+
+			updateReq := &jamfplatform.BlueprintUpdateRequestV1{
+				Scope: &jamfplatform.BlueprintUpdateScopeV1{
+					DeviceGroups: newScope,
+				},
+			}
+			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "Removed %d group(s) from blueprint scope\n", removed)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
+	cmd.Flags().StringSliceVar(&groupIDs, "group-id", nil, "Device group platform UUID (repeatable)")
+	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Computer group name (repeatable)")
+	cmd.Flags().StringSliceVar(&mobileDeviceGroups, "mobile-device-group", nil, "Mobile device group name (repeatable)")
+	return cmd
+}
+
+// resolveGroupNames resolves a slice of group names to platform UUIDs.
+// groupType may be "COMPUTER", "MOBILE", or "" to match any type.
+func resolveGroupNames(ctx context.Context, client registry.HTTPClient, names []string, groupType string) ([]string, error) {
+	var ids []string
+	for _, name := range names {
+		id, err := resolveGroupPlatformID(ctx, client, name, groupType)
+		if err != nil {
+			return nil, fmt.Errorf("resolving group %q: %w", name, err)
+		}
+		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, id)
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func newBlueprintsComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1062,39 +1365,47 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 		}
 	}
 
-	// Collect group names to resolve
-	var groupNames []string
+	// Collect group names to resolve, tagged by type
+	type groupRef struct {
+		name      string
+		groupType string
+	}
+	var refs []groupRef
 	for _, g := range s.ComputerGroups.Items {
-		groupNames = append(groupNames, g.Name)
+		refs = append(refs, groupRef{g.Name, "COMPUTER"})
 	}
 	for _, g := range s.MobileDeviceGroups.Items {
-		groupNames = append(groupNames, g.Name)
+		refs = append(refs, groupRef{g.Name, "MOBILE"})
 	}
 
-	if len(groupNames) == 0 {
+	if len(refs) == 0 {
 		return nil, warnings
 	}
 
 	// Resolve each group name to a platform UUID via /v1/groups
 	var platformIDs []string
-	for _, name := range groupNames {
-		id, err := resolveGroupPlatformID(ctx, client, name)
+	for _, ref := range refs {
+		id, err := resolveGroupPlatformID(ctx, client, ref.name, ref.groupType)
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("could not resolve group %q to platform UUID: %v", name, err))
+			warnings = append(warnings, fmt.Sprintf("could not resolve group %q (%s) to platform UUID: %v", ref.name, ref.groupType, err))
 			continue
 		}
 		platformIDs = append(platformIDs, id)
-		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, id)
+		fmt.Fprintf(os.Stderr, "  Resolved group %q (%s) → %s\n", ref.name, ref.groupType, id)
 	}
 
 	return platformIDs, warnings
 }
 
 // resolveGroupPlatformID queries /v1/groups with an RSQL filter to find the
-// platform UUID for a group by name.
-func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
+// platform UUID for a group by name. groupType may be "COMPUTER", "MOBILE",
+// or "" to match any type.
+func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName, groupType string) (string, error) {
 	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(groupName)
 	filter := fmt.Sprintf(`groupName=="%s"`, escaped)
+	if groupType != "" {
+		filter += fmt.Sprintf(` and groupType=="%s"`, groupType)
+	}
 	path := "/v1/groups?page-size=1&filter=" + url.QueryEscape(filter)
 
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -1119,6 +1430,9 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 	}
 
 	if len(result.Results) == 0 {
+		if groupType != "" {
+			return "", fmt.Errorf("no %s group found with name %q", groupType, groupName)
+		}
 		return "", fmt.Errorf("no group found with name %q", groupName)
 	}
 
