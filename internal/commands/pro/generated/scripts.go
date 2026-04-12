@@ -803,9 +803,10 @@ func newScriptsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newScriptsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -832,6 +833,28 @@ If not, a new resource is created.`,
   jamf-cli scripts apply --from-file script.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "categoryId": 1,
+  "categoryName": "Developer Tools",
+  "info": "Installs utilities for developers",
+  "name": "Install Developer Utils Script",
+  "notes": "Should be able to be re-run without problem.",
+  "osRequirements": "10.10.x",
+  "parameter10": "7",
+  "parameter11": "8",
+  "parameter4": "1",
+  "parameter5": "2",
+  "parameter6": "3",
+  "parameter7": "4",
+  "parameter8": "5",
+  "parameter9": "6",
+  "priority": "AFTER",
+  "scriptContents": "echo \"Trivial script.\""
+}`)
+				return nil
+			}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -902,6 +925,7 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

@@ -484,9 +484,10 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -513,6 +514,19 @@ If not, a new resource is created.`,
   jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "applicationName": "Self Service",
+  "brandingHeaderImageId": 1,
+  "brandingName": "Self Service",
+  "brandingNameSecondary": "Self Service",
+  "homeHeading": "Welcome to Self Service",
+  "homeSubheading": "We help organizations succeed with Apple",
+  "iconId": 1
+}`)
+				return nil
+			}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -583,6 +597,7 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

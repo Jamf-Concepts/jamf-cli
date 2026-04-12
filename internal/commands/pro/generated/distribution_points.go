@@ -965,9 +965,10 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newDistributionPointsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -994,6 +995,34 @@ If not, a new resource is created.`,
   jamf-cli distribution-points apply --from-file distribution-point.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "backupDistributionPointId": "",
+  "enableLoadBalancing": false,
+  "fileSharingConnectionType": "AFP",
+  "httpsContext": "JamfShare",
+  "httpsEnabled": false,
+  "httpsPassword": "password",
+  "httpsPort": 0,
+  "httpsSecurityType": "",
+  "httpsUsername": "admin",
+  "localPathToShare": "/",
+  "name": "My distribution point",
+  "port": 0,
+  "principal": false,
+  "readOnlyPassword": "password",
+  "readOnlyUsername": "john.doe",
+  "readWritePassword": "password",
+  "readWriteUsername": "john.doe",
+  "serverName": "My Server",
+  "shareName": "My Share",
+  "sshPassword": "password",
+  "sshUsername": "john.doe",
+  "workgroup": "WORKGROUP1"
+}`)
+				return nil
+			}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -1064,6 +1093,7 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

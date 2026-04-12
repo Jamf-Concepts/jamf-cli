@@ -1155,9 +1155,10 @@ func newInventoryPreloadsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newInventoryPreloadsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -1184,6 +1185,36 @@ If not, a new resource is created.`,
   jamf-cli inventory-preloads apply --from-file inventory-preload.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "appleCareId": 5678,
+  "assetTag": "ABCDEFG12345",
+  "barCode1": 123456789,
+  "barCode2": 123456789,
+  "building": "Eau Claire",
+  "department": "IT",
+  "deviceType": "Computer",
+  "emailAddress": "ITBob@jamf.com",
+  "extensionAttributes": [],
+  "fullName": "Name",
+  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "lifeExpectancy": "5 years",
+  "phoneNumber": "555-555-5555",
+  "poDate": "2019-02-04T21:09:31.661Z",
+  "poNumber": 8675309,
+  "position": "IT Team Lead",
+  "purchasePrice": "$399",
+  "purchasingAccount": "IT Budget",
+  "purchasingContact": "Nick in IT",
+  "room": "4th Floor - Quad 3",
+  "serialNumber": "C02L29ECF8J1",
+  "username": "admin",
+  "vendor": "Apple",
+  "warrantyExpiration": "2012-07-21T00:00:00Z"
+}`)
+				return nil
+			}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -1254,6 +1285,7 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

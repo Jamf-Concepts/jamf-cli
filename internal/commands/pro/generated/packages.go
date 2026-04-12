@@ -1180,9 +1180,10 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newPackagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
@@ -1209,6 +1210,44 @@ If not, a new resource is created.`,
   jamf-cli packages apply --from-file package.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				fmt.Println(`{
+  "basePath": "my/path",
+  "categoryId": "-1",
+  "fileName": "my-package.pkg",
+  "fillExistingUsers": false,
+  "fillUserTemplate": false,
+  "format": "format",
+  "hashType": "MD5",
+  "hashValue": "0cc175b9c0f1b6a831c399e269772661",
+  "ignoreConflicts": false,
+  "info": "A package that is important to my organization.",
+  "installLanguage": "en_US",
+  "manifest": "manifest",
+  "manifestFileName": "manifest.plist",
+  "md5": "0cc175b9c0f1b6a831c399e269772661",
+  "notes": "Some notes.",
+  "osInstall": false,
+  "osInstallerVersion": "10.3.x",
+  "osRequirements": "10.6.8, 10.7.x",
+  "packageName": "Google Chrome",
+  "parentPackageId": "3",
+  "priority": 3,
+  "rebootRequired": false,
+  "selfHealNotify": false,
+  "selfHealingAction": "nothing",
+  "serialNumber": "1234",
+  "sha256": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+  "sha3512": "a51a01e63f76c4601a2989575280e2a1c1e83191382277906b0f92a251c53bbbd1d9804dd30edd304cffe75d1c6455440b0c39081ca94c68f149d1f719e15092",
+  "suppressEula": false,
+  "suppressFromDock": false,
+  "suppressRegistration": false,
+  "suppressUpdates": false,
+  "swu": false
+}`)
+				return nil
+			}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -1279,6 +1318,7 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
