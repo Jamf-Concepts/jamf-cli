@@ -161,7 +161,7 @@ func TestConvertMobileconfig_SinglePayload(t *testing.T) {
 	if payload["payloadIdentifier"] == "com.example.dock.original" {
 		t.Error("payloadIdentifier should not be the source identifier")
 	}
-	if payload["payloadIdentifier"] != generatePayloadIdentifier("com.apple.applicationaccess") {
+	if payload["payloadIdentifier"] != generatePayloadIdentifier("com.apple.applicationaccess", 0) {
 		t.Errorf("payloadIdentifier = %v, want deterministic hash", payload["payloadIdentifier"])
 	}
 
@@ -225,10 +225,10 @@ func TestConvertMobileconfig_MultiPayload(t *testing.T) {
 	}
 
 	// Each has deterministic identifier
-	if p1["payloadIdentifier"] != generatePayloadIdentifier("com.apple.applicationaccess") {
+	if p1["payloadIdentifier"] != generatePayloadIdentifier("com.apple.applicationaccess", 0) {
 		t.Error("payload[0] identifier should be deterministic")
 	}
-	if p2["payloadIdentifier"] != generatePayloadIdentifier("com.apple.finder") {
+	if p2["payloadIdentifier"] != generatePayloadIdentifier("com.apple.finder", 0) {
 		t.Error("payload[1] identifier should be deterministic")
 	}
 
@@ -428,22 +428,36 @@ func TestConvertPlist_UnsupportedType(t *testing.T) {
 }
 
 func TestGeneratePayloadIdentifier_Deterministic(t *testing.T) {
-	id1 := generatePayloadIdentifier("com.apple.applicationaccess")
-	id2 := generatePayloadIdentifier("com.apple.applicationaccess")
+	id1 := generatePayloadIdentifier("com.apple.applicationaccess", 0)
+	id2 := generatePayloadIdentifier("com.apple.applicationaccess", 0)
 	if id1 != id2 {
 		t.Errorf("identifier not deterministic: %s != %s", id1, id2)
 	}
 
 	// Different types produce different identifiers
-	id3 := generatePayloadIdentifier("com.apple.finder")
+	id3 := generatePayloadIdentifier("com.apple.finder", 0)
 	if id1 == id3 {
 		t.Error("different payload types should produce different identifiers")
 	}
 }
 
+func TestGeneratePayloadIdentifier_UniquePerIndex(t *testing.T) {
+	id0 := generatePayloadIdentifier("com.apple.wifi.managed", 0)
+	id1 := generatePayloadIdentifier("com.apple.wifi.managed", 1)
+	if id0 == id1 {
+		t.Error("same type with different indices should produce different identifiers")
+	}
+
+	// Index 0 should match the legacy single-payload case (no ".0" suffix)
+	idLegacy := generatePayloadIdentifier("com.apple.wifi.managed", 0)
+	if id0 != idLegacy {
+		t.Error("index 0 should be backward-compatible")
+	}
+}
+
 func TestGeneratePayloadIdentifier_MatchesTerraformProvider(t *testing.T) {
 	// Verify format matches terraform-provider-jamfplatform: 8-4-4-4-12 hex
-	id := generatePayloadIdentifier("com.apple.applicationaccess")
+	id := generatePayloadIdentifier("com.apple.applicationaccess", 0)
 	parts := 0
 	for _, c := range id {
 		if c == '-' {

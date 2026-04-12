@@ -4,6 +4,7 @@ package profileconvert
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 )
@@ -107,8 +108,15 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 	// Build the full component schema. The Jamf UI expects every section
 	// to be present — missing sections render as blank. Sections we did
 	// not convert use Included: false so the UI shows them as unmanaged.
-	config := softwareUpdateBaseConfig()
-	config["Deferrals"] = mergeDeferrals(config["Deferrals"].(map[string]any), deferrals)
+	config, err := softwareUpdateBaseConfig()
+	if err != nil {
+		return nil, settings, warnings, fmt.Errorf("loading software-update scaffold: %w", err)
+	}
+	baseDeferrals, ok := config["Deferrals"].(map[string]any)
+	if !ok {
+		return nil, settings, warnings, fmt.Errorf("software-update scaffold missing Deferrals section")
+	}
+	config["Deferrals"] = mergeDeferrals(baseDeferrals, deferrals)
 
 	raw, err := marshalConfig(config)
 	if err != nil {
@@ -121,8 +129,6 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 	return raw, remaining, warnings, nil
 }
 
-// softwareUpdateBaseConfig returns the full component schema with every
-// section set to Included: false (unmanaged defaults).
 // softwareUpdateBaseConfig returns the full component schema parsed from
 // the generated scaffold in blueprintcomponents.Scaffolds. The Jamf UI
 // requires every section to be present — omitting sections causes the
@@ -131,11 +137,14 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 //
 // Reading from the scaffold means this auto-updates when make generate
 // runs against new OpenAPI specs.
-func softwareUpdateBaseConfig() map[string]any {
+func softwareUpdateBaseConfig() (map[string]any, error) {
 	raw := blueprintcomponents.Scaffolds["com.jamf.ddm.software-update-settings"]
+	if raw == "" {
+		return nil, fmt.Errorf("scaffold not found for com.jamf.ddm.software-update-settings")
+	}
 	var config map[string]any
 	if err := json.Unmarshal([]byte(raw), &config); err != nil {
-		return map[string]any{}
+		return nil, fmt.Errorf("parsing software-update scaffold: %w", err)
 	}
 	clearIncluded(config)
 	// The scaffold contains placeholder values (empty strings, example arrays)
@@ -144,7 +153,7 @@ func softwareUpdateBaseConfig() map[string]any {
 		"Included": false,
 		"Value":    map[string]any{"ProgramEnrollment": "Allowed"},
 	}
-	return config
+	return config, nil
 }
 
 // clearIncluded recursively sets all "Included" fields to false in a

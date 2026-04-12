@@ -97,6 +97,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool) (*DDMConversion
 	result := &DDMConversionResult{DisplayName: displayName}
 	var profilePayloads []map[string]any
 	seenComponents := make(map[string]bool)
+	typeCount := make(map[string]int) // tracks per-type index for unique identifiers
 
 	for i, item := range payloadContent {
 		payload, ok := item.(map[string]any)
@@ -121,7 +122,9 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool) (*DDMConversion
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
 			}
-			profilePayloads = append(profilePayloads, buildPayloadEntry(payloadType, payload))
+			idx := typeCount[payloadType]
+			typeCount[payloadType]++
+			profilePayloads = append(profilePayloads, buildPayloadEntry(payloadType, payload, idx))
 			continue
 		}
 
@@ -140,7 +143,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool) (*DDMConversion
 
 			if err != nil {
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("DDM conversion failed for %s: %v — falling back to profile wrapper", conv.componentID, err))
+					fmt.Sprintf("DDM conversion failed for %s: %v — skipping this converter", conv.componentID, err))
 				continue
 			}
 
@@ -159,9 +162,11 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool) (*DDMConversion
 
 		// Remaining keys go into the configuration-profile wrapper
 		if len(remaining) > 0 {
+			idx := typeCount[payloadType]
+			typeCount[payloadType]++
 			entry := map[string]any{
 				"payloadType":       payloadType,
-				"payloadIdentifier": generatePayloadIdentifier(payloadType),
+				"payloadIdentifier": generatePayloadIdentifier(payloadType, idx),
 			}
 			for k, v := range remaining {
 				entry[k] = v

@@ -113,6 +113,7 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 
 	var warnings []string
 	payloads := make([]map[string]any, 0, len(payloadContent))
+	typeCount := make(map[string]int) // tracks per-type index for unique identifiers
 
 	for i, item := range payloadContent {
 		payload, ok := item.(map[string]any)
@@ -133,7 +134,9 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 			warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
 		}
 
-		entry := buildPayloadEntry(payloadType, payload)
+		idx := typeCount[payloadType]
+		typeCount[payloadType]++
+		entry := buildPayloadEntry(payloadType, payload, idx)
 		payloads = append(payloads, entry)
 	}
 
@@ -171,7 +174,7 @@ func ConvertPlist(data []byte, payloadType, displayName string) (json.RawMessage
 	// Empty values are removed since the DDM API rejects them.
 	entry := map[string]any{
 		"payloadType":       payloadType,
-		"payloadIdentifier": generatePayloadIdentifier(payloadType),
+		"payloadIdentifier": generatePayloadIdentifier(payloadType, 0),
 	}
 	for k, v := range settings {
 		converted := convertPlistValue(v)
@@ -233,10 +236,11 @@ func PayloadTypeSummary(data []byte) []string {
 // from a mobileconfig payload dictionary. Apple metadata keys are stripped,
 // empty values (empty strings and empty arrays) are removed since the DDM API
 // rejects them, and the payloadIdentifier is generated deterministically.
-func buildPayloadEntry(payloadType string, payload map[string]any) map[string]any {
+// The index disambiguates multiple payloads of the same type.
+func buildPayloadEntry(payloadType string, payload map[string]any, index int) map[string]any {
 	entry := map[string]any{
 		"payloadType":       payloadType,
-		"payloadIdentifier": generatePayloadIdentifier(payloadType),
+		"payloadIdentifier": generatePayloadIdentifier(payloadType, index),
 	}
 
 	for k, v := range payload {
@@ -294,9 +298,14 @@ func convertPlistValue(v any) any {
 }
 
 // generatePayloadIdentifier creates a deterministic identifier from a payload type
-// using SHA256. This matches the approach in terraform-provider-jamfplatform.
-func generatePayloadIdentifier(payloadType string) string {
-	hash := sha256.Sum256([]byte(payloadType))
+// and index using SHA256. The index disambiguates multiple payloads of the same
+// type within a single mobileconfig (e.g. two com.apple.wifi.managed payloads).
+func generatePayloadIdentifier(payloadType string, index int) string {
+	input := payloadType
+	if index > 0 {
+		input = fmt.Sprintf("%s.%d", payloadType, index)
+	}
+	hash := sha256.Sum256([]byte(input))
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		hash[0:4], hash[4:6], hash[6:8], hash[8:10], hash[10:16])
 }

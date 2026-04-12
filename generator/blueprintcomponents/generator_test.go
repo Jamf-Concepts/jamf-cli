@@ -406,6 +406,37 @@ func TestShortName(t *testing.T) {
 	}
 }
 
+func TestApplyOverrides_PasscodeVersion(t *testing.T) {
+	// The passcode-settings component has a "version" field that the API
+	// requires as a string, but the OpenAPI spec defines it as an integer.
+	// applyOverrides should convert it to a string.
+	example := map[string]any{"version": 2, "RequirePasscode": true}
+	applyOverrides("com.jamf.ddm.passcode-settings", example)
+
+	if v, ok := example["version"].(string); !ok || v != "2" {
+		t.Errorf("expected version=\"2\" (string), got %v (%T)", example["version"], example["version"])
+	}
+	// Other keys should be untouched
+	if example["RequirePasscode"] != true {
+		t.Error("RequirePasscode should be unchanged")
+	}
+}
+
+func TestApplyOverrides_NonPasscode(t *testing.T) {
+	// Non-passcode components should not be modified
+	example := map[string]any{"version": 2}
+	applyOverrides("com.jamf.ddm.software-update-settings", example)
+
+	if _, ok := example["version"].(string); ok {
+		t.Error("version should remain an int for non-passcode components")
+	}
+}
+
+func TestApplyOverrides_NonMap(t *testing.T) {
+	// Should not panic on non-map input
+	applyOverrides("com.jamf.ddm.passcode-settings", "not a map")
+}
+
 func TestExtractSlug(t *testing.T) {
 	tests := []struct {
 		path string

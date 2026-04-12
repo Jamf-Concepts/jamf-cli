@@ -4,6 +4,8 @@ package profileconvert
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -849,5 +851,144 @@ func TestExtractSettingsKeys(t *testing.T) {
 	}
 	if _, ok := settings["emptyArr"]; ok {
 		t.Error("empty array should be stripped")
+	}
+}
+
+// --- Duplicate component deduplication test ---
+
+func TestConvertToDDMComponents_DuplicatePasscodePayloads(t *testing.T) {
+	// Two passcode payloads in the same profile — second should be skipped
+	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.mobiledevice.passwordpolicy</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.passcode1</string>
+			<key>PayloadUUID</key>
+			<string>UUID-1</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>forcePIN</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.mobiledevice.passwordpolicy</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.passcode2</string>
+			<key>PayloadUUID</key>
+			<string>UUID-2</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>minLength</key>
+			<integer>6</integer>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Duplicate Passcode</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.dup</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should produce exactly 1 native component (first payload wins)
+	if len(result.NativeComponents) != 1 {
+		t.Fatalf("expected 1 native component, got %d", len(result.NativeComponents))
+	}
+
+	// Should have a warning about the duplicate
+	hasDupWarning := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "skipping duplicate") {
+			hasDupWarning = true
+		}
+	}
+	if !hasDupWarning {
+		t.Error("expected duplicate skipping warning")
+	}
+}
+
+// --- Converter error fallback test ---
+
+func TestConvertToDDMComponents_ConverterError(t *testing.T) {
+	// Register a temporary converter that always fails, then verify the
+	// orchestrator warns and continues
+	origConverters := converters
+	defer func() { converters = origConverters }()
+
+	converters = []*ddmConverter{
+		{
+			componentID:  "com.test.failing-converter",
+			payloadTypes: map[string]bool{"com.apple.mobiledevice.passwordpolicy": true},
+			convert: func(_ map[string]any) (json.RawMessage, map[string]any, []string, error) {
+				return nil, nil, nil, fmt.Errorf("intentional test failure")
+			},
+		},
+	}
+
+	result, err := ConvertToDDMComponents([]byte(testPasscodeMobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The failing converter should not produce native components
+	if len(result.NativeComponents) != 0 {
+		t.Errorf("expected 0 native components, got %d", len(result.NativeComponents))
+	}
+
+	// The payload should fall through to the profile wrapper
+	if result.ProfileConfig == nil {
+		t.Error("expected ProfileConfig when converter fails")
+	}
+
+	// Should have a warning about the failure
+	hasFailWarning := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "intentional test failure") {
+			hasFailWarning = true
+		}
+	}
+	if !hasFailWarning {
+		t.Error("expected warning about converter failure")
+	}
+}
+
+// --- Software update base config error test ---
+
+func TestSoftwareUpdateBaseConfig_Valid(t *testing.T) {
+	config, err := softwareUpdateBaseConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := config["Deferrals"]; !ok {
+		t.Error("expected Deferrals section in base config")
+	}
+	// All Included flags should be false
+	if inc, ok := config["Deferrals"].(map[string]any)["Included"]; ok && inc == true {
+		t.Error("expected Deferrals.Included=false in base config")
+	}
+}
+
+// --- Cookie policy non-numeric test ---
+
+func TestConvertCookiePolicy_NonNumeric(t *testing.T) {
+	// Non-numeric input should return the default "Always"
+	got := convertCookiePolicy("invalid")
+	if got != "Always" {
+		t.Errorf("convertCookiePolicy(\"invalid\") = %v, want Always", got)
 	}
 }

@@ -319,7 +319,10 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		pc := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && !verbose)
 
 		if wantPlatform("blueprints") {
-			if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {
+			bps, err := pc.ListBlueprints(ctx, nil, "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not list blueprints: %v\n", err)
+			} else {
 				objects := make(map[string]map[string]any)
 				for _, bp := range bps {
 					detail, err := pc.GetBlueprint(ctx, bp.ID)
@@ -336,7 +339,10 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		}
 
 		if wantPlatform("compliance-benchmarks") {
-			if resp, err := pc.ListBenchmarks(ctx); err == nil {
+			resp, err := pc.ListBenchmarks(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not list benchmarks: %v\n", err)
+			} else {
 				objects := make(map[string]map[string]any)
 				for _, b := range resp.Benchmarks {
 					bm, err := pc.GetBenchmark(ctx, b.ID)

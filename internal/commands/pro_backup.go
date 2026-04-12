@@ -82,6 +82,9 @@ type backupOptions struct {
 }
 
 func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions) error {
+	if opts.Concurrency > 50 {
+		opts.Concurrency = 50
+	}
 	client := cliCtx.Client
 
 	// Filter resources if specified

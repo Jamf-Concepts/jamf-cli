@@ -696,6 +696,10 @@ func TestBlueprintLabel(t *testing.T) {
 	if got := blueprintLabel(nil, "My Blueprint"); got != "My Blueprint" {
 		t.Errorf("got %q, want My Blueprint", got)
 	}
+	// Empty args and empty flag should not panic
+	if got := blueprintLabel(nil, ""); got != "<unknown>" {
+		t.Errorf("got %q, want <unknown>", got)
+	}
 }
 
 func TestResolveComponentIdentifier(t *testing.T) {

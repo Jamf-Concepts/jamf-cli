@@ -133,7 +133,10 @@ func blueprintLabel(args []string, nameFlag string) string {
 	if nameFlag != "" {
 		return nameFlag
 	}
-	return args[0]
+	if len(args) > 0 {
+		return args[0]
+	}
+	return "<unknown>"
 }
 
 func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -255,6 +258,9 @@ Examples:
 			// Check if a blueprint with this name already exists
 			r := platform.NewResolver(cliCtx.PlatformClient)
 			id, resolveErr := r.ResolveBlueprintID(ctx, createReq.Name)
+			if resolveErr != nil && !platform.IsNotFound(resolveErr) {
+				return resolveErr
+			}
 			if resolveErr != nil {
 				// Not found — create with randomized payload IDs
 				createReq.Steps = randomizePayloadIdentifiers(createReq.Steps)
