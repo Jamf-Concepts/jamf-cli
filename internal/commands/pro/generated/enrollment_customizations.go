@@ -933,7 +933,6 @@ If not, a new resource is created.`,
   jamf-cli enrollment-customizations apply --from-file enrollment-customization.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "description": "Example description",

@@ -73,7 +73,9 @@ func newSsoSettingsCertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -86,6 +88,19 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli sso-settings-cert update --from-file sso-settings-cert.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "key": "",
+  "keys": [],
+  "keystoreFile": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
+  "keystoreFileName": "keystore.p12",
+  "keystorePassword": "***",
+  "keystoreSetupType": "UPLOADED",
+  "password": "***",
+  "type": "PKCS12"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v2/sso/cert"
@@ -120,6 +135,8 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

@@ -39,7 +39,9 @@ func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create <id>",
@@ -56,6 +58,19 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "backButtonText": "Back",
+  "continueButtonText": "Continue",
+  "displayName": "A Panel",
+  "ldapGroupAccess": [],
+  "passwordLabel": "Password",
+  "rank": 0,
+  "title": "My Ldap Panel",
+  "usernameLabel": "Username"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/ldap"
@@ -92,11 +107,15 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
 
 func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id> <panel-id>",
@@ -110,6 +129,19 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "backButtonText": "Back",
+  "continueButtonText": "Continue",
+  "displayName": "A Panel",
+  "ldapGroupAccess": [],
+  "passwordLabel": "Password",
+  "rank": 0,
+  "title": "My Ldap Panel",
+  "usernameLabel": "Username"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
@@ -146,6 +178,8 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

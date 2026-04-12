@@ -755,7 +755,6 @@ If not, a new resource is created.`,
   jamf-cli vpp-subscriptions apply --from-file vpp-subscription.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,

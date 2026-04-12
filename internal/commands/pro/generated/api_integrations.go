@@ -601,7 +601,6 @@ If not, a new resource is created.`,
   jamf-cli api-integrations apply --from-file api-integration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "accessTokenLifetimeSeconds": 300,

@@ -846,7 +846,6 @@ If not, a new resource is created.`,
   jamf-cli departments apply --from-file department.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "name": "Department of Redundancy Department"

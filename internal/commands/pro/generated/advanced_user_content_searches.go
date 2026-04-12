@@ -439,7 +439,6 @@ If not, a new resource is created.`,
   jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "criteria": [],

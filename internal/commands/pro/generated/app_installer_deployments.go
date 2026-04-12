@@ -445,7 +445,6 @@ If not, a new resource is created.`,
   jamf-cli app-installer-deployments apply --from-file app-installer-deployment.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "appTitleId": "",

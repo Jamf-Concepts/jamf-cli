@@ -308,6 +308,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return "{}"
 		},
+		"hasApplyScaffold": func(ops []*Operation) bool {
+			for _, op := range ops {
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+					return true
+				}
+			}
+			return false
+		},
 		"opHasScaffold": func(op *Operation) bool {
 			// Multipart uploads use --file, not a JSON scaffold.
 			if op.RequestBody != nil && op.RequestBody.IsMultipart {
@@ -1619,10 +1627,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{ if shouldGenerateApply . }}
 func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile    string
-		flagYes     bool
-		flagDryRun  bool
+		fromFile   string
+		flagYes    bool
+		flagDryRun bool
+{{- if hasApplyScaffold .Operations }}
 		flagScaffold bool
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
@@ -1650,9 +1660,11 @@ If not, a new resource is created.` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
+{{- if hasApplyScaffold .Operations }}
 			if flagScaffold {
 				return printScaffoldOutput(` + "`" + `{{ applyScaffoldJSON .Operations }}` + "`" + `, ctx.Output.Format())
 			}
+{{- end }}
 
 			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
@@ -1723,7 +1735,9 @@ If not, a new resource is created.` + "`" + `,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+{{- if hasApplyScaffold .Operations }}
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+{{- end }}
 
 	return cmd
 }

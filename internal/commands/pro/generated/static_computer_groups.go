@@ -532,7 +532,6 @@ If not, a new resource is created.`,
   jamf-cli static-computer-groups apply --from-file static-computer-group.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "assignments": [],

@@ -392,7 +392,6 @@ If not, a new resource is created.`,
   jamf-cli dock-items apply --from-file dock-item.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "name": "DockItem Name",

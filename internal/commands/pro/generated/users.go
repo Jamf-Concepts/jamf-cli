@@ -535,7 +535,6 @@ If not, a new resource is created.`,
   jamf-cli users apply --from-file user.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "customPhotoUrl": "",

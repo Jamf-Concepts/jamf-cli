@@ -1244,7 +1244,6 @@ If not, a new resource is created.`,
   jamf-cli packages apply --from-file package.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "basePath": "my/path",

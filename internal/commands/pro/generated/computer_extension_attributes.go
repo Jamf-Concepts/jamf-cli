@@ -237,7 +237,8 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -255,6 +256,25 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Computer Extension Attribute",
+  "enabled": true,
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "manageExistingData": "RETAIN",
+  "name": "ComputerExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ],
+  "scriptContents": "scriptContent"
+}`, ctx.Output.Format())
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -305,6 +325,7 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
@@ -746,7 +767,9 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 }
 
 func newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "computer-extension-attributes",
@@ -754,6 +777,25 @@ func newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx *registry.
 		Long:  "Create Computer Extension Attribute to collect extra inventory information.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Computer Extension Attribute",
+  "enabled": true,
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "manageExistingData": "RETAIN",
+  "name": "ComputerExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ],
+  "scriptContents": "scriptContent"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/computer-extension-attributes"
@@ -788,6 +830,8 @@ func newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx *registry.
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

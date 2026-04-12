@@ -429,7 +429,6 @@ If not, a new resource is created.`,
   jamf-cli return-to-service-configurations apply --from-file return-to-service-configuration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "displayName": "displayName",

@@ -528,7 +528,6 @@ If not, a new resource is created.`,
   jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "applicationName": "Self Service",

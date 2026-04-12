@@ -493,7 +493,6 @@ If not, a new resource is created.`,
   jamf-cli app-requests apply --from-file app-request.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "description": "How many of these would you like?",

@@ -390,7 +390,6 @@ If not, a new resource is created.`,
   jamf-cli cloud-azures apply --from-file cloud-azure.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "cloudIdPCommon": {},

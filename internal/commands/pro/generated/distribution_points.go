@@ -1014,7 +1014,6 @@ If not, a new resource is created.`,
   jamf-cli distribution-points apply --from-file distribution-point.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "backupDistributionPointId": "",

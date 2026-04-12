@@ -609,7 +609,6 @@ If not, a new resource is created.`,
   jamf-cli managed-software-updates-plans apply --from-file managed-software-updates-plan.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "config": {},

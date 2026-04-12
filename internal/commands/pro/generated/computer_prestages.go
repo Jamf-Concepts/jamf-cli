@@ -186,7 +186,7 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -224,7 +224,9 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -240,6 +242,54 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-prestages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accountSettings": {},
+  "anchorCertificates": [],
+  "authUrl": "https://idp.example.com/authenticate",
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "customPackageDistributionPointId": 1,
+  "customPackageIds": [],
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "enableDeviceBasedActivationLock": true,
+  "enableRecoveryLock": true,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installProfilesDuringSetup": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "manifestUrl": "https://mdmserver.example.com/psso-app.plist",
+  "mdmRemovable": true,
+  "minimumOsSpecificVersion": 17.1,
+  "platformSsoAppBundleId": "com.okta.mobile",
+  "prestageInstalledProfileIds": [],
+  "prestageMinimumOsTargetVersionType": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "profileUrl": "https://mdmserver.example.com/psso.mobileconfig",
+  "pssoConfigProfileId": 1,
+  "pssoEnabled": true,
+  "purchasingInformation": {},
+  "recoveryLockPassword": "password123",
+  "recoveryLockPasswordType": "MANUAL",
+  "region": "US",
+  "requireAuthentication": true,
+  "rotateRecoveryLockPassword": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v3/computer-prestages"
@@ -275,12 +325,15 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
 
 func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -299,10 +352,59 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accountSettings": {},
+  "anchorCertificates": [],
+  "authUrl": "https://idp.example.com/authenticate",
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "customPackageDistributionPointId": 1,
+  "customPackageIds": [],
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "enableDeviceBasedActivationLock": true,
+  "enableRecoveryLock": true,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installProfilesDuringSetup": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "manifestUrl": "https://mdmserver.example.com/psso-app.plist",
+  "mdmRemovable": true,
+  "minimumOsSpecificVersion": 17.1,
+  "platformSsoAppBundleId": "com.okta.mobile",
+  "prestageInstalledProfileIds": [],
+  "prestageMinimumOsTargetVersionType": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "profileUrl": "https://mdmserver.example.com/psso.mobileconfig",
+  "pssoConfigProfileId": 1,
+  "pssoEnabled": true,
+  "purchasingInformation": {},
+  "recoveryLockPassword": "password123",
+  "recoveryLockPasswordType": "MANUAL",
+  "region": "US",
+  "requireAuthentication": true,
+  "rotateRecoveryLockPassword": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555",
+  "versionLock": 0
+}`, ctx.Output.Format())
+			}
+
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -348,6 +450,7 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
 	return cmd
@@ -381,12 +484,12 @@ func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no computer-prestage found with name %q", flagName)
+					return fmt.Errorf("no computer-prestage found with displayName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -479,7 +582,7 @@ func newComputerPrestagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create or replace a computer-prestage by name",
 		Long: `Create or replace a computer-prestage. Reads JSON or YAML from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computer-prestage from a JSON file
@@ -498,9 +601,52 @@ If not, a new resource is created.`,
   jamf-cli computer-prestages apply --from-file computer-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
-				return printScaffoldOutput(`{}`, ctx.Output.Format())
+				return printScaffoldOutput(`{
+  "accountSettings": {},
+  "anchorCertificates": [],
+  "authUrl": "https://idp.example.com/authenticate",
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "customPackageDistributionPointId": 1,
+  "customPackageIds": [],
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "enableDeviceBasedActivationLock": true,
+  "enableRecoveryLock": true,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installProfilesDuringSetup": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "manifestUrl": "https://mdmserver.example.com/psso-app.plist",
+  "mdmRemovable": true,
+  "minimumOsSpecificVersion": 17.1,
+  "platformSsoAppBundleId": "com.okta.mobile",
+  "prestageInstalledProfileIds": [],
+  "prestageMinimumOsTargetVersionType": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "profileUrl": "https://mdmserver.example.com/psso.mobileconfig",
+  "pssoConfigProfileId": 1,
+  "pssoEnabled": true,
+  "purchasingInformation": {},
+  "recoveryLockPassword": "password123",
+  "recoveryLockPasswordType": "MANUAL",
+  "region": "US",
+  "requireAuthentication": true,
+  "rotateRecoveryLockPassword": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555"
+}`, ctx.Output.Format())
 			}
 
 			// Read input (JSON or YAML)
@@ -514,14 +660,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "displayName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}

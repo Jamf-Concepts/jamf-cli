@@ -1221,7 +1221,6 @@ If not, a new resource is created.`,
   jamf-cli inventory-preloads apply --from-file inventory-preload.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "appleCareId": 5678,

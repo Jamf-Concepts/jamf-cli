@@ -1117,7 +1117,6 @@ If not, a new resource is created.`,
   jamf-cli buildings apply --from-file building.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "city": "Cupertino",

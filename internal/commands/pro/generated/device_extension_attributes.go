@@ -232,7 +232,8 @@ func newDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -250,6 +251,22 @@ func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -300,6 +317,7 @@ func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-extension-attribute by name")
 
 	return cmd
@@ -644,7 +662,9 @@ func newDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 }
 
 func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "mobile-device-extension-attributes",
@@ -652,6 +672,22 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 		Long:  "Create Mobile Device Extension Attribute to collect extra inventory information.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-extension-attributes"
@@ -686,6 +722,8 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

@@ -589,7 +589,6 @@ If not, a new resource is created.`,
   jamf-cli advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "criteria": [],

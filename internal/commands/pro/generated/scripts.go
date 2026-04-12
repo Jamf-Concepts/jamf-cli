@@ -854,7 +854,6 @@ If not, a new resource is created.`,
   jamf-cli scripts apply --from-file script.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
-
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "categoryId": 1,
