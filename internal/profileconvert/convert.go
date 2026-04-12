@@ -4,7 +4,6 @@ package profileconvert
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -167,13 +166,18 @@ func ConvertPlist(data []byte, payloadType, displayName string) (json.RawMessage
 		warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
 	}
 
-	// All keys in a raw plist are settings (no Apple metadata to strip)
+	// All keys in a raw plist are settings (no Apple metadata to strip).
+	// Empty values are removed since the DDM API rejects them.
 	entry := map[string]any{
 		"payloadType":       payloadType,
 		"payloadIdentifier": generatePayloadIdentifier(payloadType),
 	}
 	for k, v := range settings {
-		entry[k] = convertPlistValue(v)
+		converted := convertPlistValue(v)
+		if isEmptyValue(converted) {
+			continue
+		}
+		entry[k] = converted
 	}
 
 	if displayName == "" {
@@ -225,8 +229,9 @@ func PayloadTypeSummary(data []byte) []string {
 }
 
 // buildPayloadEntry constructs a single payload entry for the DDMProfileDto
-// from a mobileconfig payload dictionary. Apple metadata keys are stripped
-// and the payloadIdentifier is generated deterministically.
+// from a mobileconfig payload dictionary. Apple metadata keys are stripped,
+// empty values (empty strings and empty arrays) are removed since the DDM API
+// rejects them, and the payloadIdentifier is generated deterministically.
 func buildPayloadEntry(payloadType string, payload map[string]any) map[string]any {
 	entry := map[string]any{
 		"payloadType":       payloadType,
@@ -237,10 +242,28 @@ func buildPayloadEntry(payloadType string, payload map[string]any) map[string]an
 		if appleMetadataKeys[k] {
 			continue
 		}
-		entry[k] = convertPlistValue(v)
+		converted := convertPlistValue(v)
+		if isEmptyValue(converted) {
+			continue
+		}
+		entry[k] = converted
 	}
 
 	return entry
+}
+
+// isEmptyValue returns true for values that are always invalid in DDM profile
+// configuration: empty strings and empty arrays. These are artifacts of the
+// Classic UI that the DDM API rejects with validation errors.
+func isEmptyValue(v any) bool {
+	switch val := v.(type) {
+	case string:
+		return val == ""
+	case []any:
+		return len(val) == 0
+	default:
+		return false
+	}
 }
 
 // convertPlistValue normalises plist-decoded values for JSON marshalling.
@@ -277,15 +300,6 @@ func generatePayloadIdentifier(payloadType string) string {
 		hash[0:4], hash[4:6], hash[6:8], hash[8:10], hash[10:16])
 }
 
-// newUUID generates a random UUID v4 string.
-func newUUID() string {
-	var u [16]byte
-	_, _ = rand.Read(u[:])
-	u[6] = (u[6] & 0x0f) | 0x40 // version 4
-	u[8] = (u[8] & 0x3f) | 0x80 // variant 10
-	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:16])
-}
-
 // marshalConfig marshals a configuration map to indented JSON.
 func marshalConfig(config map[string]any) (json.RawMessage, error) {
 	var buf bytes.Buffer
@@ -313,6 +327,179 @@ func FormatComponentJSON(config json.RawMessage) ([]byte, error) {
 		return nil, fmt.Errorf("encoding component: %w", err)
 	}
 	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
+// ValidatePayloads checks each payload in a DDMProfileDto configuration against
+// Apple's schema and removes payloads that would be rejected by the DDM API
+// (e.g. missing required fields, or payloads with no setting keys). This does
+// not strip defaults — it only validates structural correctness.
+//
+// Call this before uploading to the API even when --strip-defaults is not used.
+func ValidatePayloads(config json.RawMessage, fetcher *SchemaFetcher) (json.RawMessage, []string) {
+	parsed, content, ok := parsePayloadContent(config)
+	if !ok {
+		return config, nil
+	}
+
+	var messages []string
+	remaining := make([]any, 0, len(content))
+	for _, item := range content {
+		entry, payloadType, ok := extractPayloadEntry(item)
+		if !ok {
+			remaining = append(remaining, item)
+			continue
+		}
+
+		defaults := fetchDefaultsQuiet(fetcher, payloadType)
+		if defaults == nil {
+			remaining = append(remaining, item)
+			continue
+		}
+
+		if missing := MissingRequiredKeys(entry, defaults); len(missing) > 0 {
+			them := "it"
+			if len(missing) > 1 {
+				them = "them"
+			}
+			messages = append(messages, fmt.Sprintf("removed payload %s — the DDM API requires %s but the source profile did not include %s",
+				payloadType, strings.Join(missing, ", "), them))
+			continue
+		}
+
+		remaining = append(remaining, item)
+	}
+	parsed["payloadContent"] = remaining
+
+	result, err := marshalConfig(parsed)
+	if err != nil {
+		return config, messages
+	}
+	return result, messages
+}
+
+// StripConfigDefaults removes keys from each payload in a DDMProfileDto
+// configuration whose values match Apple's published defaults. This reduces
+// noise from profiles that set every key even when the value is the Apple
+// default (common with Jamf Pro's UI). The fetcher is used to retrieve Apple's
+// schema for each payload type. Also validates and removes broken payloads
+// (empty payloads, missing required fields).
+//
+// Returns the modified configuration and a list of human-readable messages
+// about what was stripped.
+func StripConfigDefaults(config json.RawMessage, fetcher *SchemaFetcher) (json.RawMessage, []string) {
+	parsed, content, ok := parsePayloadContent(config)
+	if !ok {
+		return config, nil
+	}
+
+	var messages []string
+	remaining := make([]any, 0, len(content))
+	for _, item := range content {
+		entry, payloadType, ok := extractPayloadEntry(item)
+		if !ok {
+			remaining = append(remaining, item)
+			continue
+		}
+
+		defaults, err := fetcher.FetchDefaults(payloadType)
+		if err != nil {
+			messages = append(messages, fmt.Sprintf("could not fetch Apple schema for %s: %v", payloadType, err))
+			remaining = append(remaining, item)
+			continue
+		}
+		if defaults == nil {
+			messages = append(messages, fmt.Sprintf("no Apple schema available for %s — skipping default stripping", payloadType))
+			remaining = append(remaining, item)
+			continue
+		}
+
+		count, stripped := StripDefaultKeys(entry, defaults)
+		if count > 0 {
+			messages = append(messages, fmt.Sprintf("stripped %d default-value key(s) from %s: %s",
+				count, payloadType, strings.Join(stripped, ", ")))
+		}
+
+		if payloadIsEmpty(entry) {
+			messages = append(messages, fmt.Sprintf("removed payload %s — all keys were at default values", payloadType))
+			continue
+		}
+
+		if missing := MissingRequiredKeys(entry, defaults); len(missing) > 0 {
+			them := "it"
+			if len(missing) > 1 {
+				them = "them"
+			}
+			messages = append(messages, fmt.Sprintf("removed payload %s — the DDM API requires %s but the source profile did not include %s",
+				payloadType, strings.Join(missing, ", "), them))
+			continue
+		}
+
+		remaining = append(remaining, item)
+	}
+	parsed["payloadContent"] = remaining
+
+	result, err := marshalConfig(parsed)
+	if err != nil {
+		return config, messages
+	}
+	return result, messages
+}
+
+// parsePayloadContent unmarshals config JSON and extracts the payloadContent array.
+func parsePayloadContent(config json.RawMessage) (map[string]any, []any, bool) {
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		return nil, nil, false
+	}
+	contentRaw, ok := parsed["payloadContent"]
+	if !ok {
+		return nil, nil, false
+	}
+	content, ok := contentRaw.([]any)
+	if !ok {
+		return nil, nil, false
+	}
+	return parsed, content, true
+}
+
+// extractPayloadEntry extracts a typed payload entry from a content item.
+func extractPayloadEntry(item any) (map[string]any, string, bool) {
+	entry, ok := item.(map[string]any)
+	if !ok {
+		return nil, "", false
+	}
+	payloadType, _ := entry["payloadType"].(string)
+	if payloadType == "" {
+		return nil, "", false
+	}
+	return entry, payloadType, true
+}
+
+// fetchDefaultsQuiet fetches schema defaults, returning nil silently on errors.
+func fetchDefaultsQuiet(fetcher *SchemaFetcher, payloadType string) *SchemaDefaults {
+	defaults, err := fetcher.FetchDefaults(payloadType)
+	if err != nil || defaults == nil {
+		return nil
+	}
+	return defaults
+}
+
+// ConfigHasPayloads returns an error if the configuration has an empty
+// payloadContent array, which can happen after StripConfigDefaults removes
+// all payloads.
+func ConfigHasPayloads(config json.RawMessage) error {
+	var parsed map[string]any
+	if err := json.Unmarshal(config, &parsed); err != nil {
+		return nil // let downstream handle parse errors
+	}
+	content, ok := parsed["payloadContent"].([]any)
+	if !ok {
+		return nil
+	}
+	if len(content) == 0 {
+		return fmt.Errorf("no payloads remain after stripping defaults — the profile only contained keys at their Apple default values")
+	}
+	return nil
 }
 
 // SupportedPayloadTypesList returns the supported payload types as a sorted slice

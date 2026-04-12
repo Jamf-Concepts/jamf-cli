@@ -625,8 +625,10 @@ func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBlueprintsComponentsConfigProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile    string
-		profileName string
+		fromFile      string
+		profileName   string
+		profileType   string
+		stripDefaults bool
 	)
 	cmd := &cobra.Command{
 		Use:   "configuration-profile",
@@ -640,10 +642,15 @@ Input can be a local file or piped from stdin:
 
 Or download an existing profile from Jamf Pro by name:
   jamf-cli pro blueprints components configuration-profile --name "My Restrictions"
+  jamf-cli pro blueprints components configuration-profile --name "Managed Restrictions" --type mobile
 
 Only preference domains that Apple supports for declarative management can be
 used. Unsupported payload types will trigger a warning but are still included
 in the output — the API will validate and reject if necessary.
+
+Use --strip-defaults to remove keys that are set to their Apple default values.
+This is useful for profiles created by Jamf Pro's UI which sets every key even
+when the administrator only intended to manage a few settings.
 
 Supported payloads: https://github.com/apple/device-management/tree/release/mdm/profiles`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -652,7 +659,7 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 
 			if profileName != "" {
 				// Download from Jamf Pro classic API
-				data, err = downloadClassicProfile(cmd, cliCtx, profileName)
+				data, err = downloadClassicProfile(cmd, cliCtx, profileName, profileType)
 				if err != nil {
 					return err
 				}
@@ -666,6 +673,18 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 			config, warnings, err := profileconvert.ConvertMobileconfig(data, false)
 			if err != nil {
 				return err
+			}
+
+			if stripDefaults {
+				fetcher := profileconvert.NewSchemaFetcher(nil)
+				var msgs []string
+				config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
+				for _, m := range msgs {
+					fmt.Fprintf(os.Stderr, "  %s\n", m)
+				}
+				if err := profileconvert.ConfigHasPayloads(config); err != nil {
+					return err
+				}
 			}
 
 			for _, w := range warnings {
@@ -684,18 +703,33 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to .mobileconfig file (or pipe to stdin)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Download profile from Jamf Pro by name (requires Pro auth)")
+	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type when using --name: computer or mobile")
+	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 
-// downloadClassicProfile fetches a macOS configuration profile from the Jamf Pro
+// classicProfilePath returns the Classic API path for a profile by name.
+// profileType must be "computer" or "mobile".
+func classicProfilePath(profileType, name string) string {
+	if profileType == "mobile" {
+		return "/JSSResource/mobiledeviceconfigurationprofiles/name/" + name
+	}
+	return "/JSSResource/osxconfigurationprofiles/name/" + name
+}
+
+// downloadClassicProfile fetches a configuration profile from the Jamf Pro
 // Classic API and extracts the mobileconfig XML from the response.
-func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, name string) ([]byte, error) {
+// profileType must be "computer" or "mobile".
+func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, name, profileType string) ([]byte, error) {
 	if cliCtx.Client == nil {
 		return nil, fmt.Errorf("--name requires Jamf Pro authentication (use 'jamf-cli pro setup' or set JAMF_* env vars)")
 	}
 
-	path := "/JSSResource/osxconfigurationprofiles/name/" + name
+	path := classicProfilePath(profileType, name)
 	resp, err := cliCtx.Client.Do(cmd.Context(), "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching profile %q: %w", name, err)
@@ -719,9 +753,10 @@ func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, nam
 
 func newBlueprintsComponentsConfigProfilePlistCmd() *cobra.Command {
 	var (
-		fromFile    string
-		payloadType string
-		displayName string
+		fromFile      string
+		payloadType   string
+		displayName   string
+		stripDefaults bool
 	)
 	cmd := &cobra.Command{
 		Use:   "configuration-profile-plist",
@@ -731,6 +766,8 @@ blueprint component.
 
 The plist should contain only preference domain keys (no Apple payload metadata).
 You must specify the payload type (preference domain identifier).
+
+Use --strip-defaults to remove keys that are set to their Apple default values.
 
 Examples:
   jamf-cli pro blueprints components configuration-profile-plist \
@@ -747,6 +784,18 @@ Examples:
 			config, warnings, err := profileconvert.ConvertPlist(data, payloadType, displayName)
 			if err != nil {
 				return err
+			}
+
+			if stripDefaults {
+				fetcher := profileconvert.NewSchemaFetcher(nil)
+				var msgs []string
+				config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
+				for _, m := range msgs {
+					fmt.Fprintf(os.Stderr, "  %s\n", m)
+				}
+				if err := profileconvert.ConfigHasPayloads(config); err != nil {
+					return err
+				}
 			}
 
 			for _, w := range warnings {
@@ -766,6 +815,7 @@ Examples:
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to plist file (or pipe to stdin)")
 	cmd.Flags().StringVar(&payloadType, "payload-type", "", "Apple preference domain (e.g. com.apple.dock)")
 	cmd.Flags().StringVar(&displayName, "display-name", "", "Display name for the component (defaults to payload type)")
+	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.MarkFlagRequired("payload-type")
 	_ = cmd.RegisterFlagCompletionFunc("payload-type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return profileconvert.SupportedPayloadTypesList(), cobra.ShellCompDirectiveNoFileComp
@@ -776,16 +826,26 @@ Examples:
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		blueprintName     string
+		profileType       string
 		filterUnsupported bool
+		stripDefaults     bool
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
 		Short: "Import a Classic configuration profile as a blueprint",
-		Long: `Download a macOS configuration profile from Jamf Pro, convert it to a
+		Long: `Download a configuration profile from Jamf Pro, convert it to a
 com.jamf.ddm-configuration-profile blueprint component, resolve target scope
 groups to platform device group UUIDs, and create the blueprint in one step.
 
+Use --type to specify the profile type: "computer" (default) for macOS configuration
+profiles or "mobile" for mobile device configuration profiles. Profiles can share
+names across types, so the flag is required when ambiguous.
+
 The blueprint name defaults to the profile's display name (override with --blueprint-name).
+
+Use --strip-defaults to remove keys that are set to their Apple default values.
+This is useful for profiles created by Jamf Pro's UI which sets every key even
+when the administrator only intended to manage a few settings.
 
 Scope handling:
   Only target computer groups and mobile device groups are carried over to the
@@ -795,7 +855,9 @@ Scope handling:
 
 Examples:
   jamf-cli pro blueprints import-profile "My Restrictions"
-  jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"`,
+  jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
+  jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
+  jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults --filter-unsupported`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
@@ -807,8 +869,8 @@ Examples:
 			ctx := cmd.Context()
 
 			// Step 1: Download the Classic API profile
-			fmt.Fprintf(os.Stderr, "Downloading profile %q from Jamf Pro...\n", args[0])
-			profilePath := "/JSSResource/osxconfigurationprofiles/name/" + args[0]
+			fmt.Fprintf(os.Stderr, "Downloading %s profile %q from Jamf Pro...\n", profileType, args[0])
+			profilePath := classicProfilePath(profileType, args[0])
 			resp, err := cliCtx.Client.Do(ctx, "GET", profilePath, nil)
 			if err != nil {
 				return fmt.Errorf("fetching profile: %w", err)
@@ -823,7 +885,7 @@ Examples:
 			// Step 2: Extract mobileconfig from <payloads>
 			mobileconfig := extractPayloadsFromXML(string(body))
 			if mobileconfig == "" {
-				return fmt.Errorf("no <payloads> found in profile %q — is this a macOS configuration profile?", args[0])
+				return fmt.Errorf("no <payloads> found in profile %q (type=%s)", args[0], profileType)
 			}
 
 			// Step 3: Convert mobileconfig to component configuration
@@ -833,6 +895,26 @@ Examples:
 			}
 			for _, w := range warnings {
 				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+			}
+
+			// Validate/strip using Apple schemas — always validate for
+			// import-profile since we're uploading directly to the API.
+			fetcher := profileconvert.NewSchemaFetcher(nil)
+			if stripDefaults {
+				var msgs []string
+				config, msgs = profileconvert.StripConfigDefaults(config, fetcher)
+				for _, m := range msgs {
+					fmt.Fprintf(os.Stderr, "  %s\n", m)
+				}
+			} else {
+				var msgs []string
+				config, msgs = profileconvert.ValidatePayloads(config, fetcher)
+				for _, m := range msgs {
+					fmt.Fprintf(os.Stderr, "  %s\n", m)
+				}
+			}
+			if err := profileconvert.ConfigHasPayloads(config); err != nil {
+				return err
 			}
 
 			types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
@@ -892,7 +974,12 @@ Examples:
 		},
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
+	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&filterUnsupported, "filter-unsupported", false, "Remove payload types not supported by the platform API instead of passing them through")
+	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
+	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 
@@ -901,7 +988,9 @@ Examples:
 type classicProfileScope struct {
 	XMLName            xml.Name              `xml:"scope"`
 	AllComputers       bool                  `xml:"all_computers"`
+	AllMobileDevices   bool                  `xml:"all_mobile_devices"`
 	Computers          scope.ScopeItemSlice  `xml:"computers"`
+	MobileDevices      scope.ScopeItemSlice  `xml:"mobile_devices"`
 	ComputerGroups     scope.ScopeItemSlice  `xml:"computer_groups"`
 	MobileDeviceGroups scope.ScopeItemSlice  `xml:"mobile_device_groups"`
 	Buildings          scope.ScopeItemSlice  `xml:"buildings"`
@@ -940,8 +1029,14 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 	if s.AllComputers {
 		warnings = append(warnings, "profile is scoped to 'All Computers' — blueprint scope requires explicit device groups")
 	}
+	if s.AllMobileDevices {
+		warnings = append(warnings, "profile is scoped to 'All Mobile Devices' — blueprint scope requires explicit device groups")
+	}
 	if len(s.Computers.Items) > 0 {
 		warnings = append(warnings, fmt.Sprintf("%d individual computer assignment(s) dropped — blueprints only support device group scoping", len(s.Computers.Items)))
+	}
+	if len(s.MobileDevices.Items) > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d individual mobile device assignment(s) dropped — blueprints only support device group scoping", len(s.MobileDevices.Items)))
 	}
 	if len(s.Buildings.Items) > 0 {
 		warnings = append(warnings, fmt.Sprintf("%d building scope(s) dropped — not supported in blueprints", len(s.Buildings.Items)))

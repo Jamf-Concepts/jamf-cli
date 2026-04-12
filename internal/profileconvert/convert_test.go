@@ -514,6 +514,94 @@ func TestSupportedPayloadTypesList(t *testing.T) {
 	}
 }
 
+func TestConvertMobileconfig_StripsEmptyValues(t *testing.T) {
+	data := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.screensaver</string>
+			<key>moduleName</key>
+			<string></string>
+			<key>idleTime</key>
+			<integer>600</integer>
+			<key>allowList</key>
+			<array/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Test Empty Values</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
+</dict>
+</plist>`
+	config, _, err := ConvertMobileconfig([]byte(data), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	content := result["payloadContent"].([]any)
+	payload := content[0].(map[string]any)
+
+	// Empty string should be stripped
+	if _, exists := payload["moduleName"]; exists {
+		t.Error("moduleName (empty string) should be stripped")
+	}
+	// Empty array should be stripped
+	if _, exists := payload["allowList"]; exists {
+		t.Error("allowList (empty array) should be stripped")
+	}
+	// Non-empty values should remain
+	if payload["idleTime"] != float64(600) {
+		t.Errorf("idleTime = %v, want 600", payload["idleTime"])
+	}
+}
+
+func TestConvertPlist_StripsEmptyValues(t *testing.T) {
+	plistData := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>moduleName</key>
+	<string></string>
+	<key>idleTime</key>
+	<integer>600</integer>
+	<key>denyList</key>
+	<array/>
+</dict>
+</plist>`
+	config, _, err := ConvertPlist([]byte(plistData), "com.apple.screensaver", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	content := result["payloadContent"].([]any)
+	payload := content[0].(map[string]any)
+
+	if _, exists := payload["moduleName"]; exists {
+		t.Error("moduleName (empty string) should be stripped")
+	}
+	if _, exists := payload["denyList"]; exists {
+		t.Error("denyList (empty array) should be stripped")
+	}
+	if payload["idleTime"] != float64(600) {
+		t.Errorf("idleTime = %v, want 600", payload["idleTime"])
+	}
+}
+
 func TestConvertMobileconfig_ProducesValidJSON(t *testing.T) {
 	for _, tc := range []struct {
 		name string
