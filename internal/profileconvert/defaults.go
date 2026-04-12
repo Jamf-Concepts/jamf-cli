@@ -174,7 +174,7 @@ func (f *SchemaFetcher) fetchAndParse(payloadType string) (*SchemaDefaults, erro
 		return nil, nil // no schema available for this type
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil // unexpected status — degrade gracefully
+		return nil, fmt.Errorf("unexpected status %d fetching schema from %s", resp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, schemaMaxSize))

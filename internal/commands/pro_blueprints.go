@@ -9,7 +9,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"html"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
+	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -668,19 +668,9 @@ Examples:
 			}
 
 			// Resolve group names to platform UUIDs
-			addIDs := append([]string{}, groupIDs...)
-			resolved, err := resolveGroupNames(ctx, cliCtx.Client, computerGroups, "COMPUTER")
+			addIDs, err := resolveAllGroupFlags(ctx, cliCtx.Client, groupIDs, computerGroups, mobileDeviceGroups)
 			if err != nil {
 				return err
-			}
-			addIDs = append(addIDs, resolved...)
-			resolved, err = resolveGroupNames(ctx, cliCtx.Client, mobileDeviceGroups, "MOBILE")
-			if err != nil {
-				return err
-			}
-			addIDs = append(addIDs, resolved...)
-			if len(addIDs) == 0 {
-				return fmt.Errorf("specify at least one --group-id, --computer-group, or --mobile-device-group")
 			}
 
 			// Get current scope
@@ -763,19 +753,9 @@ Examples:
 			}
 
 			// Resolve group names to platform UUIDs
-			removeIDs := append([]string{}, groupIDs...)
-			resolved, err := resolveGroupNames(ctx, cliCtx.Client, computerGroups, "COMPUTER")
+			removeIDs, err := resolveAllGroupFlags(ctx, cliCtx.Client, groupIDs, computerGroups, mobileDeviceGroups)
 			if err != nil {
 				return err
-			}
-			removeIDs = append(removeIDs, resolved...)
-			resolved, err = resolveGroupNames(ctx, cliCtx.Client, mobileDeviceGroups, "MOBILE")
-			if err != nil {
-				return err
-			}
-			removeIDs = append(removeIDs, resolved...)
-			if len(removeIDs) == 0 {
-				return fmt.Errorf("specify at least one --group-id, --computer-group, or --mobile-device-group")
 			}
 
 			// Get current scope
@@ -833,6 +813,26 @@ func resolveGroupNames(ctx context.Context, client registry.HTTPClient, names []
 		}
 		fmt.Fprintf(os.Stderr, "  Resolved group %q → %s\n", name, id)
 		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// resolveAllGroupFlags resolves --group-id, --computer-group, and --mobile-device-group
+// flags into a single slice of platform UUIDs. Returns an error if none are provided.
+func resolveAllGroupFlags(ctx context.Context, httpClient registry.HTTPClient, groupIDs, computerGroups, mobileDeviceGroups []string) ([]string, error) {
+	ids := append([]string{}, groupIDs...)
+	resolved, err := resolveGroupNames(ctx, httpClient, computerGroups, "COMPUTER")
+	if err != nil {
+		return nil, err
+	}
+	ids = append(ids, resolved...)
+	resolved, err = resolveGroupNames(ctx, httpClient, mobileDeviceGroups, "MOBILE")
+	if err != nil {
+		return nil, err
+	}
+	ids = append(ids, resolved...)
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("specify at least one --group-id, --computer-group, or --mobile-device-group")
 	}
 	return ids, nil
 }
@@ -1128,7 +1128,7 @@ func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, nam
 		return nil, fmt.Errorf("profile %q not found (HTTP %d)", name, resp.StatusCode)
 	}
 
-	body, err := readResponseBody(resp)
+	body, err := jamfclient.ReadResponseBody(resp)
 	if err != nil {
 		return nil, fmt.Errorf("reading profile response: %w", err)
 	}
@@ -1291,7 +1291,7 @@ Examples:
 				return fmt.Errorf("profile %q not found (HTTP %d)", args[0], resp.StatusCode)
 			}
 
-			body, err := readResponseBody(resp)
+			body, err := jamfclient.ReadResponseBody(resp)
 			if err != nil {
 				return fmt.Errorf("reading profile response: %w", err)
 			}
@@ -1483,7 +1483,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 		warnings = append(warnings, "no <scope> section found in profile")
 		return nil, warnings
 	}
-	scopeEnd := strings.Index(xmlStr[scopeStart:], "</scope>")
+	scopeEnd := strings.LastIndex(xmlStr[scopeStart:], "</scope>")
 	if scopeEnd == -1 {
 		warnings = append(warnings, "malformed <scope> section in profile")
 		return nil, warnings
@@ -1581,7 +1581,7 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := readResponseBody(resp)
+	body, err := jamfclient.ReadResponseBody(resp)
 	if err != nil {
 		return "", err
 	}
@@ -1634,11 +1634,6 @@ func extractPayloadsFromXML(xmlStr string) string {
 		content = html.UnescapeString(content)
 	}
 	return content
-}
-
-// readResponseBody reads the full body from an HTTP response.
-func readResponseBody(resp *http.Response) ([]byte, error) {
-	return io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 }
 
 // randomizePayloadIdentifiers walks through blueprint steps and replaces

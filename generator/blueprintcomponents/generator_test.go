@@ -79,8 +79,8 @@ func TestSchemaToExample_BooleanNoDefault(t *testing.T) {
 	}
 
 	result := schemaToExample(schema, 0)
-	if result != true {
-		t.Errorf("got %v, want true", result)
+	if result != false {
+		t.Errorf("got %v, want false", result)
 	}
 }
 

@@ -320,7 +320,7 @@ func walkBoolean(schema *openapi3.Schema) any {
 	if schema.Default != nil {
 		return schema.Default
 	}
-	return true
+	return false
 }
 
 func walkArray(schema *openapi3.Schema, depth int) any {
