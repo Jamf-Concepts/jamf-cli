@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -246,7 +247,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "certificateButton": "Continue",
   "certificateProfileDescription": "CA Certificate for mobile device management",
   "certificateProfileName": "CA Certificate",
@@ -287,8 +288,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "userEnrollmentProfileName": "",
   "userEnrollmentText": "",
   "username": "admin"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -320,7 +320,15 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -469,10 +477,9 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action

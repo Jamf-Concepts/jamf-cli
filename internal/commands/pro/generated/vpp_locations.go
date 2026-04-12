@@ -253,15 +253,14 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoRegisterManagedUsers": false,
   "automaticallyPopulatePurchasedContent": false,
   "name": "Example Location",
   "sendNotificationWhenNoLongerAssigned": false,
   "serviceToken": "eyJleHBEYXRlIjoiMjAyMi0wMy0yOVQxNTozNjoyNiswMDAwIiwidG9rZW4iOiJWR2hwY3lCcGN5QnViM1FnWVNCMGIydGxiaTRnU0c5d1pXWjFiR3g1SUdsMElHeHZiMnR6SUd4cGEyVWdZU0IwYjJ0bGJpd2dZblYwSUdsMEozTWdibTkwTGc9PSIsIm9yZ05hbWUiOiJFeGFtcGxlIE9yZyJ9",
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -278,7 +277,15 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -573,10 +580,9 @@ func newVppLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -608,7 +614,15 @@ func newVppLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -654,15 +668,14 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoRegisterManagedUsers": false,
   "automaticallyPopulatePurchasedContent": false,
   "name": "Example Location",
   "sendNotificationWhenNoLongerAssigned": false,
   "serviceToken": "eyJleHBEYXRlIjoiMjAyMi0wMy0yOVQxNTozNjoyNiswMDAwIiwidG9rZW4iOiJWR2hwY3lCcGN5QnViM1FnWVNCMGIydGxiaTRnU0c5d1pXWjFiR3g1SUdsMElHeHZiMnR6SUd4cGEyVWdZU0IwYjJ0bGJpd2dZblYwSUdsMEozTWdibTkwTGc9PSIsIm9yZ05hbWUiOiJFeGFtcGxlIE9yZyJ9",
   "siteId": "1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -853,7 +866,15 @@ func newVppLocationsReclaimCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -912,7 +933,15 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {

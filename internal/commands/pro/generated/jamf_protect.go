@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -94,12 +95,11 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientId": "uzPJXlArmzTAmPRQtZEnQ2OFtNw8qQV",
   "password": "7fyP6BphUUQ5B_zoLrkYhM5j1HTcf-4PxshettZbK0ZcnzV57gyHwF23U3F96F",
   "protectUrl": "https://examplejamfprotect.jamfcloud.com/graphql"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -116,7 +116,15 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -151,10 +159,9 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "autoInstall": true
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -171,7 +178,15 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -407,10 +422,9 @@ func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -427,7 +441,15 @@ func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {

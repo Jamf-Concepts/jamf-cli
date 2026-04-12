@@ -42,7 +42,9 @@ func NewCloudDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -59,6 +61,25 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "cdnType": "",
+  "directory": "123456",
+  "downloadUrl": "https://download.mycompany.com",
+  "expirationSeconds": 0,
+  "keyPairId": "K1R8C5EXAMPLE",
+  "master": false,
+  "password": "secretKey123",
+  "privateKey": "",
+  "requireSignedUrls": false,
+  "secondaryAuthRequired": false,
+  "secondaryAuthStatusCode": 0,
+  "secondaryAuthTimeToLive": 0,
+  "uploadUrl": "ftp://mycompany.upload.akamai.com",
+  "username": "Admin"
+}`, ctx.Output.Format())
+			}
+
 			// Build request path
 			path := "/v1/cloud-distribution-point"
 
@@ -73,7 +94,15 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -84,6 +113,8 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -307,10 +338,9 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -327,7 +357,15 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -379,14 +417,15 @@ func newCloudDistributionPointsCloudDistributionPointCmd(ctx *registry.CLIContex
 
 func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSet  []string
-		fromFile string
+		flagScaffold bool
+		flagSet      []string
+		fromFile     string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Update specific fields on a cloud distribution point",
-		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.",
+		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
   jamf-cli cloud-distribution-points patch --set field=value
 
@@ -394,6 +433,25 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
   jamf-cli cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli cloud-distribution-points patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "cdnType": "",
+  "directory": "123456",
+  "downloadUrl": "https://download.mycompany.com",
+  "expirationSeconds": 0,
+  "keyPairId": "K1R8C5EXAMPLE",
+  "master": false,
+  "password": "secretKey123",
+  "privateKey": "",
+  "requireSignedUrls": false,
+  "secondaryAuthRequired": false,
+  "secondaryAuthStatusCode": 0,
+  "secondaryAuthTimeToLive": 0,
+  "uploadUrl": "ftp://mycompany.upload.akamai.com",
+  "username": "Admin"
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/cloud-distribution-point"
@@ -438,10 +496,13 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a field value in dot notation (key=value, repeatable)")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON merge-patch file (or pipe to stdin)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{}, cobra.ShellCompDirectiveNoSpace
+		return []string{
+			"cdnType=", "directory=", "downloadUrl=", "expirationSeconds=", "keyPairId=", "master=", "password=", "privateKey=", "requireSignedUrls=", "secondaryAuthRequired=", "secondaryAuthStatusCode=", "secondaryAuthTimeToLive=", "uploadUrl=", "username=",
+		}, cobra.ShellCompDirectiveNoSpace
 	})
 
 	return cmd
@@ -482,7 +543,15 @@ func newCloudDistributionPointsActionCmd(ctx *registry.CLIContext) *cobra.Comman
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -655,7 +724,15 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *registry.CLIContext) *co
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {

@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -78,7 +79,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applyMajorUpdate": false,
   "deviceIds": [
     "1",
@@ -93,8 +94,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
   "skipVersionVerification": false,
   "updateAction": "DOWNLOAD_AND_INSTALL",
   "version": "12.0.1"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -111,7 +111,15 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {

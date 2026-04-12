@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -231,7 +232,8 @@ func newDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -249,6 +251,22 @@ func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -279,7 +297,15 @@ func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -291,6 +317,7 @@ func newDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-extension-attribute by name")
 
 	return cmd
@@ -574,10 +601,9 @@ func newDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -609,7 +635,15 @@ func newDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -628,7 +662,9 @@ func newDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 }
 
 func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "mobile-device-extension-attributes",
@@ -636,6 +672,22 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 		Long:  "Create Mobile Device Extension Attribute to collect extra inventory information.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/mobile-device-extension-attributes"
@@ -651,7 +703,15 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -662,6 +722,8 @@ func newDeviceExtensionAttributesMobileDeviceExtensionAttributesCmd(ctx *registr
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

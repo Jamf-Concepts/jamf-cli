@@ -300,6 +300,22 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		},
 		"hasScaffold":  hasScaffold,
 		"scaffoldJSON": scaffoldJSON,
+		"applyScaffoldJSON": func(ops []*Operation) string {
+			for _, op := range ops {
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil {
+					return scaffoldJSON(op.RequestBody.Schema)
+				}
+			}
+			return "{}"
+		},
+		"hasApplyScaffold": func(ops []*Operation) bool {
+			for _, op := range ops {
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+					return true
+				}
+			}
+			return false
+		},
 		"opHasScaffold": func(op *Operation) bool {
 			// Multipart uploads use --file, not a JSON scaffold.
 			if op.RequestBody != nil && op.RequestBody.IsMultipart {
@@ -633,9 +649,10 @@ func hasQueryParams(ops []*Operation) bool {
 
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
-	// delete success message, scaffold output, apply status messages, multipart error wrapping,
+	// delete success message, apply status messages, multipart error wrapping,
 	// patch-by-name error messages, --set parse errors, name-lookup error messages
-	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
+	// (scaffold output moved to printScaffoldOutput in registry — no longer needs fmt here)
+	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
 		return true
 	}
 	for _, op := range r.Operations {
@@ -1050,13 +1067,13 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) }}
+{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) (hasPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
 	"encoding/json"
 {{- end }}
-{{- if or (needsFmt .) (hasList .Operations) }}
+{{- if or (needsFmt .) (hasList .Operations) (hasPostOrPut .Operations) }}
 	"fmt"
 {{- end }}
 {{- if or (hasPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
@@ -1181,8 +1198,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasScaffold . }}
 
 			if flagScaffold {
-				fmt.Println(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `)
-				return nil
+				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -1505,7 +1521,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- else }}
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 {{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, body)
@@ -1606,18 +1630,24 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile   string
 		flagYes    bool
 		flagDryRun bool
+{{- if hasApplyScaffold .Operations }}
+		flagScaffold bool
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
-		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON from --from-file or stdin.
+		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.` + "`" + `,
-		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a file
+		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
   jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json
+
+  # Apply a {{ .NameSingular }} from a YAML file
+  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
 
   # Apply from stdin
   cat {{ .NameSingular }}.json | jamf-cli {{ .Name }} apply
@@ -1630,8 +1660,18 @@ If not, a new resource is created.` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+{{- if hasApplyScaffold .Operations }}
+			if flagScaffold {
+				return printScaffoldOutput(` + "`" + `{{ applyScaffoldJSON .Operations }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -1692,9 +1732,12 @@ If not, a new resource is created.` + "`" + `,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+{{- if hasApplyScaffold .Operations }}
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+{{- end }}
 
 	return cmd
 }
@@ -1716,6 +1759,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -1814,6 +1858,42 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
+// output format requests it.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func printScaffoldOutput(jsonStr, format string) error {
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			return fmt.Errorf("scaffold marshal error: %w", err)
+		}
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(v)
+	}
+	fmt.Println(jsonStr)
+	return nil
+}
+
+// normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func normalizeInputToJSON(data []byte) ([]byte, error) {
+	// Fast path: already JSON
+	if json.Valid(data) {
+		return data, nil
+	}
+	// Try YAML → any → JSON
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
+	}
+	return out, nil
 }
 
 // extractJSONField extracts a string field from a JSON object.
