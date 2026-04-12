@@ -1059,13 +1059,13 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) }}
+{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) (hasPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
 	"encoding/json"
 {{- end }}
-{{- if or (needsFmt .) (hasList .Operations) }}
+{{- if or (needsFmt .) (hasList .Operations) (hasPostOrPut .Operations) }}
 	"fmt"
 {{- end }}
 {{- if or (hasPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
@@ -1513,7 +1513,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- else }}
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 {{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, body)

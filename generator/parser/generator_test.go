@@ -1656,9 +1656,9 @@ func TestGenerate_SingletonResource(t *testing.T) {
 		t.Error("singleton should not have apply subcommand")
 	}
 
-	// Should NOT import "bytes" (only used by apply)
-	if strings.Contains(code, `"bytes"`) {
-		t.Error("singleton without apply should not import 'bytes'")
+	// Should import "bytes" — PUT update now buffers stdin for YAML normalization
+	if !strings.Contains(code, `"bytes"`) {
+		t.Error("singleton with PUT update should import 'bytes'")
 	}
 
 	// Should still have update command
