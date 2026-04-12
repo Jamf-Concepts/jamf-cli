@@ -40,6 +40,7 @@ After modifying a template: `make generate && make test`
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
+| Add/modify DDM component scaffolds | `generator/blueprintcomponents/generator.go` (generator) or `internal/blueprintcomponents/scaffolds.go` (generated output) |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API command (blueprints, etc.) | `internal/commands/pro_blueprints.go`, `pro_compliance_benchmarks.go`, etc. (wire in `pro.go`) |
 | Change Platform name-to-ID resolution | `internal/platform/resolve.go` |
@@ -68,7 +69,7 @@ After modifying a template: `make generate && make test`
 make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
-make generate               # Regenerate commands from OpenAPI specs + Classic manifest
+make generate               # Regenerate commands from OpenAPI specs, Classic manifest, and DDM component scaffolds
 make sync-specs             # Copy specs from jamf/jss repo, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
 make site                   # Build binary, generate commands.json, serve site locally at :8080
@@ -105,6 +106,9 @@ internal/
   auth/                  Auth providers (OAuth2, Platform, Token) — Jamf Pro only
   client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
+  blueprintcomponents/   Generated DDM component scaffolds (example JSON for each component type)
+  profileconvert/        Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping
+  scope/                 Classic API scope XML types (shared by profile import and scope resolution)
   platform/              Jamf Platform helpers: name-to-ID Resolver, PrintList/PrintOne output
   protect/               Jamf Protect helpers: name-to-ID Resolver, PrintList/PrintOne output
   commands/
@@ -117,7 +121,7 @@ internal/
     pro_platform_helpers.go  Platform-specific helpers: requirePlatformClient gate, printScaffold
     pro.go               Bridge: wires all Jamf Pro + Platform commands under "pro"
     pro_*.go             Jamf Pro handwritten commands (overview, audit, etc.)
-    pro_blueprints.go    Platform API: blueprint CRUD, deploy/undeploy, components
+    pro_blueprints.go    Platform API: blueprint CRUD, deploy/undeploy, clone, scope, components, import-profile
     pro_compliance_benchmarks.go  Platform API: benchmark CRUD, baselines, rules, reporting
     pro_platform_devices.go       Platform API: unified device inventory + actions
     pro_platform_device_groups.go Platform API: device groups CRUD + membership
@@ -129,6 +133,7 @@ internal/
 docs/
   site/                  GitHub Pages showcase site (HTML/CSS/JS, deployed via GH Action)
 generator/
+  blueprintcomponents/   DDM component scaffold generator: parses OpenAPI specs → scaffolds.go
   site/                  Site data generator: introspects binary → commands.json
 ```
 
@@ -143,7 +148,11 @@ specs/classic/resources.yaml ► generator/classic/ ──► internal/commands/
                                ParseManifest()        + classic_registry.go
                                Generator.Generate()
 
-Entrypoint: generator/main.go (runs both generators)
+specs/blueprint-               generator/blueprint-   internal/blueprintcomponents/scaffolds.go
+  components/*.json ──────────► components/         ──► (Scaffolds map, ShortNames map,
+                               Generate()               Identifiers func)
+
+Entrypoint: generator/main.go (runs all three generators)
 ```
 
 Key types available in templates:
@@ -187,6 +196,9 @@ The site at `docs/site/` auto-deploys on every push to `main` via `.github/workf
 | `internal/platform/` | Platform helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/protect/` | Protect helpers: `Resolver` (name-to-ID mapping), `PrintList`/`PrintOne` (SDK struct output) |
 | `internal/commands/pro/generated/` | **Generated** — all Jamf Pro API resource commands + registries |
+| `internal/blueprintcomponents/` | **Generated** — DDM component scaffold JSON templates (from OpenAPI specs) |
+| `internal/profileconvert/` | Mobileconfig/plist → DDM conversion, Apple schema fetching for default stripping |
+| `internal/scope/` | Classic API scope XML types (used by profile import scope resolution) |
 | `internal/client/` | HTTP client with auth injection, retry (exponential backoff, respects `Retry-After`), and exit-code mapping |
 | `internal/auth/` | Provider interface with OAuth2, Platform OAuth2, and Token impls |
 | `internal/config/` | YAML config load/save, secret resolution (`env:`, `file:`, `keychain:` prefixes), auto-migration from legacy path |
@@ -293,7 +305,7 @@ Platform commands use the `jamfplatform-go-sdk` (REST-based). The SDK handles it
 - **Naming**: `platform-` prefix where overlap with existing Pro API resources (`platform-devices`, `platform-device-groups`). No prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
 
 **Platform commands:**
-- `pro blueprints` (`bp`) — CRUD, deploy/undeploy, report, components
+- `pro blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope (add/remove/list), components (list/get/scaffold/configuration-profile/configuration-profile-plist), import-profile, report
 - `pro compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance
 - `pro platform-devices` (`pdev`) — list, get, update, delete, apps, groups, user, check-in, erase, restart, shutdown, unmanage
 - `pro platform-device-groups` (`pdg`) — CRUD, members, add-members, remove-members
