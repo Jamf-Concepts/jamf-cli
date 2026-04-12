@@ -601,6 +601,26 @@ func TestExtractPayloadsFromXML(t *testing.T) {
 	}
 }
 
+func TestClassicProfilePath_EscapesSpecialCharacters(t *testing.T) {
+	tests := []struct {
+		profileType string
+		name        string
+		wantSuffix  string
+	}{
+		{"computer", "Simple", "/JSSResource/osxconfigurationprofiles/name/Simple"},
+		{"mobile", "Simple", "/JSSResource/mobiledeviceconfigurationprofiles/name/Simple"},
+		{"computer", "Has Spaces", "/JSSResource/osxconfigurationprofiles/name/Has%20Spaces"},
+		{"computer", "Slash/Test", "/JSSResource/osxconfigurationprofiles/name/Slash%2FTest"},
+		{"computer", "Plus+Sign", "/JSSResource/osxconfigurationprofiles/name/Plus+Sign"},
+	}
+	for _, tt := range tests {
+		got := classicProfilePath(tt.profileType, tt.name)
+		if got != tt.wantSuffix {
+			t.Errorf("classicProfilePath(%q, %q) = %q, want %q", tt.profileType, tt.name, got, tt.wantSuffix)
+		}
+	}
+}
+
 func TestResolveComponentIdentifier(t *testing.T) {
 	tests := []struct {
 		input string

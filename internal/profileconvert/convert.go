@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"howett.net/plist"
@@ -509,13 +510,6 @@ func SupportedPayloadTypesList() []string {
 	for t := range SupportedPayloadTypes {
 		types = append(types, t)
 	}
-	// Sort for stable output
-	for i := range types {
-		for j := i + 1; j < len(types); j++ {
-			if strings.Compare(types[i], types[j]) > 0 {
-				types[i], types[j] = types[j], types[i]
-			}
-		}
-	}
+	sort.Strings(types)
 	return types
 }

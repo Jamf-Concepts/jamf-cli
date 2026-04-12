@@ -109,6 +109,7 @@ type SchemaFetcher struct {
 type schemaResult struct {
 	defaults *SchemaDefaults
 	err      error
+	ready    chan struct{} // closed when fetch completes; nil for finished entries
 }
 
 // NewSchemaFetcher creates a SchemaFetcher with the given HTTP client.
@@ -129,9 +130,20 @@ func NewSchemaFetcher(client *http.Client) *SchemaFetcher {
 func (f *SchemaFetcher) FetchDefaults(payloadType string) (*SchemaDefaults, error) {
 	f.mu.Lock()
 	if cached, ok := f.cache[payloadType]; ok {
+		ch := cached.ready
 		f.mu.Unlock()
+		if ch != nil {
+			<-ch // wait for in-flight fetch to finish
+			f.mu.Lock()
+			cached = f.cache[payloadType]
+			f.mu.Unlock()
+		}
 		return cached.defaults, cached.err
 	}
+	// Reserve the slot so concurrent callers wait on our result
+	// instead of issuing duplicate HTTP fetches.
+	ch := make(chan struct{})
+	f.cache[payloadType] = &schemaResult{ready: ch}
 	f.mu.Unlock()
 
 	defaults, err := f.fetchAndParse(payloadType)
@@ -139,6 +151,7 @@ func (f *SchemaFetcher) FetchDefaults(payloadType string) (*SchemaDefaults, erro
 	f.mu.Lock()
 	f.cache[payloadType] = &schemaResult{defaults: defaults, err: err}
 	f.mu.Unlock()
+	close(ch)
 
 	return defaults, err
 }

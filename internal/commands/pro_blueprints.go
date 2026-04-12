@@ -715,10 +715,11 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 // classicProfilePath returns the Classic API path for a profile by name.
 // profileType must be "computer" or "mobile".
 func classicProfilePath(profileType, name string) string {
+	escaped := url.PathEscape(name)
 	if profileType == "mobile" {
-		return "/JSSResource/mobiledeviceconfigurationprofiles/name/" + name
+		return "/JSSResource/mobiledeviceconfigurationprofiles/name/" + escaped
 	}
-	return "/JSSResource/osxconfigurationprofiles/name/" + name
+	return "/JSSResource/osxconfigurationprofiles/name/" + escaped
 }
 
 // downloadClassicProfile fetches a configuration profile from the Jamf Pro
@@ -1092,7 +1093,8 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 // resolveGroupPlatformID queries /v1/groups with an RSQL filter to find the
 // platform UUID for a group by name.
 func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName string) (string, error) {
-	filter := fmt.Sprintf(`groupName=="%s"`, groupName)
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(groupName)
+	filter := fmt.Sprintf(`groupName=="%s"`, escaped)
 	path := "/v1/groups?page-size=1&filter=" + url.QueryEscape(filter)
 
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -1125,6 +1127,9 @@ func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, gro
 
 // extractPayloadsFromXML extracts the content between <payloads> tags from
 // Classic API XML. The content may be CDATA-wrapped or XML entity-encoded.
+// Uses string indexing rather than xml.Decoder because the Classic API response
+// shape is well-known and the payload content itself is opaque (plist XML that
+// we don't want a decoder to interpret).
 func extractPayloadsFromXML(xmlStr string) string {
 	start := strings.Index(xmlStr, "<payloads>")
 	if start == -1 {
