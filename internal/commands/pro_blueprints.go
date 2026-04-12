@@ -957,6 +957,10 @@ when the administrator only intended to manage a few settings.
 
 Supported payloads: https://github.com/apple/device-management/tree/release/mdm/profiles`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if profileType != "computer" && profileType != "mobile" {
+				return fmt.Errorf("--type must be 'computer' or 'mobile', got %q", profileType)
+			}
+
 			var data []byte
 			var err error
 
@@ -1039,6 +1043,10 @@ func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, nam
 		return nil, fmt.Errorf("fetching profile %q: %w", name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("profile %q not found (HTTP %d)", name, resp.StatusCode)
+	}
 
 	body, err := readResponseBody(resp)
 	if err != nil {
@@ -1164,6 +1172,9 @@ Examples:
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults --filter-unsupported`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if profileType != "computer" && profileType != "mobile" {
+				return fmt.Errorf("--type must be 'computer' or 'mobile', got %q", profileType)
+			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
@@ -1180,6 +1191,10 @@ Examples:
 				return fmt.Errorf("fetching profile: %w", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("profile %q not found (HTTP %d)", args[0], resp.StatusCode)
+			}
 
 			body, err := readResponseBody(resp)
 			if err != nil {
@@ -1401,7 +1416,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 // platform UUID for a group by name. groupType may be "COMPUTER", "MOBILE",
 // or "" to match any type.
 func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName, groupType string) (string, error) {
-	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(groupName)
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `*`, `\*`, `(`, `\(`, `)`, `\)`, `;`, `\;`).Replace(groupName)
 	filter := fmt.Sprintf(`groupName=="%s"`, escaped)
 	if groupType != "" {
 		filter += fmt.Sprintf(` and groupType=="%s"`, groupType)
@@ -1459,7 +1474,10 @@ func extractPayloadsFromXML(xmlStr string) string {
 	content = strings.TrimPrefix(content, "<![CDATA[")
 	content = strings.TrimSuffix(content, "]]>")
 	content = strings.TrimSpace(content)
-	// Classic API may entity-encode the XML instead of using CDATA
+	// Classic API may entity-encode the XML instead of using CDATA.
+	// html.UnescapeString handles the standard XML entities (&lt; &gt; &amp;
+	// &quot; &#34;) that the Classic API produces. It also handles HTML5 named
+	// entities, but those never appear in Classic API output.
 	if strings.Contains(content, "&lt;") {
 		content = html.UnescapeString(content)
 	}
@@ -1534,7 +1552,9 @@ func randomizeMapPayloadIDs(m map[string]any) bool {
 // newUUID generates a random UUID v4 string.
 func newUUID() string {
 	var u [16]byte
-	_, _ = rand.Read(u[:])
+	if _, err := rand.Read(u[:]); err != nil {
+		panic("crypto/rand: " + err.Error())
+	}
 	u[6] = (u[6] & 0x0f) | 0x40 // version 4
 	u[8] = (u[8] & 0x3f) | 0x80 // variant 10
 	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:16])

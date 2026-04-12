@@ -6,7 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
@@ -391,11 +396,34 @@ func TestFetchPlatformOverview(t *testing.T) {
 	}
 }
 
-func TestFetchPlatformOverview_NilClient(t *testing.T) {
-	cliCtx := &registry.CLIContext{PlatformClient: nil}
-	// Should not be called with nil, but verify it doesn't panic
-	// (The caller checks for nil before calling)
-	_ = cliCtx
+func TestFetchPlatformOverview_UsesAllMockData(t *testing.T) {
+	// Verify that the overview section contains expected items when data is
+	// available for all Platform API calls. The caller (overview RunE) guards
+	// against nil PlatformClient so we don't test that path here.
+	pc := &platformMockClient{
+		blueprints: []jamfplatform.BlueprintOverviewV1{
+			{ID: "bp-1", Name: "Test"},
+		},
+		benchmarks: &jamfplatform.CBEngineBenchmarksResponseV2{
+			Benchmarks: []jamfplatform.CBEngineBenchmarkV2{
+				{ID: "bm-1", Title: "CIS Benchmark"},
+			},
+		},
+		compliance: map[string]*jamfplatform.CBEngineCompliancePercentageV1{
+			"bm-1": {CompliancePercentage: 95.0},
+		},
+	}
+	cliCtx := &registry.CLIContext{PlatformClient: pc}
+	section := fetchPlatformOverview(context.Background(), cliCtx)
+	if section == nil {
+		t.Fatal("expected platform section, got nil")
+	}
+	if section.Name != "Platform" {
+		t.Errorf("section name = %q, want Platform", section.Name)
+	}
+	if len(section.Items) < 3 {
+		t.Errorf("expected at least 3 items, got %d", len(section.Items))
+	}
 }
 
 // ── Blueprint Helpers ───────────────────────────────────────────────────────
@@ -696,5 +724,171 @@ func TestResolveComponentIdentifier(t *testing.T) {
 				t.Errorf("resolveComponentIdentifier(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// ── HTTP mock for Classic API tests ────────────────────────────────────────
+
+// classicHTTPMock implements registry.HTTPClient and returns canned responses.
+type classicHTTPMock struct {
+	statusCode int
+	body       string
+}
+
+func (m *classicHTTPMock) Do(_ context.Context, _, _ string, _ io.Reader) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: m.statusCode,
+		Body:       io.NopCloser(strings.NewReader(m.body)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+// ── extractAndResolveScope tests ───────────────────────────────────────────
+
+func TestExtractAndResolveScope_ComputerGroups(t *testing.T) {
+	groupsResponse := `{"results":[{"groupPlatformId":"uuid-lab-macs","groupName":"Lab Macs"}]}`
+	mock := &classicHTTPMock{statusCode: 200, body: groupsResponse}
+
+	xmlBody := []byte(`<os_x_configuration_profile>
+		<scope>
+			<all_computers>false</all_computers>
+			<computer_groups>
+				<computer_group><id>1</id><name>Lab Macs</name></computer_group>
+			</computer_groups>
+		</scope>
+	</os_x_configuration_profile>`)
+
+	ids, warnings := extractAndResolveScope(context.Background(), mock, xmlBody)
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 resolved ID, got %d", len(ids))
+	}
+	if ids[0] != "uuid-lab-macs" {
+		t.Errorf("resolved ID = %q, want uuid-lab-macs", ids[0])
+	}
+	for _, w := range warnings {
+		t.Logf("warning: %s", w)
+	}
+}
+
+func TestExtractAndResolveScope_NoScopeSection(t *testing.T) {
+	xmlBody := []byte(`<os_x_configuration_profile><general><name>Test</name></general></os_x_configuration_profile>`)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	if len(ids) != 0 {
+		t.Errorf("expected no IDs, got %d", len(ids))
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "no <scope> section") {
+		t.Errorf("expected 'no <scope> section' warning, got %v", warnings)
+	}
+}
+
+func TestExtractAndResolveScope_MalformedScope(t *testing.T) {
+	xmlBody := []byte(`<root><scope><all_computers>false</all_computers></root>`)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	if len(ids) != 0 {
+		t.Errorf("expected no IDs, got %d", len(ids))
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "malformed") {
+		t.Errorf("expected 'malformed' warning, got %v", warnings)
+	}
+}
+
+func TestExtractAndResolveScope_AllComputers(t *testing.T) {
+	xmlBody := []byte(`<root><scope><all_computers>true</all_computers></scope></root>`)
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	if len(ids) != 0 {
+		t.Errorf("expected no IDs for all_computers scope, got %d", len(ids))
+	}
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "All Computers") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected warning about All Computers scope")
+	}
+}
+
+func TestExtractAndResolveScope_DropsUnsupportedElements(t *testing.T) {
+	xmlBody := []byte(`<root><scope>
+		<all_computers>false</all_computers>
+		<computers><computer><id>1</id><name>Mac-01</name></computer></computers>
+		<buildings><building><id>1</id><name>HQ</name></building></buildings>
+		<departments><department><id>1</id><name>IT</name></department></departments>
+	</scope></root>`)
+
+	ids, warnings := extractAndResolveScope(context.Background(), nil, xmlBody)
+	if len(ids) != 0 {
+		t.Errorf("expected no IDs, got %d", len(ids))
+	}
+	// Should have warnings for individual computers, buildings, departments
+	if len(warnings) < 3 {
+		t.Errorf("expected at least 3 warnings, got %d: %v", len(warnings), warnings)
+	}
+}
+
+// ── downloadClassicProfile tests ───────────────────────────────────────────
+
+func TestDownloadClassicProfile_Success(t *testing.T) {
+	xmlResp := `<os_x_configuration_profile><general>
+		<payloads><![CDATA[<?xml version="1.0"?><plist><dict></dict></plist>]]></payloads>
+	</general></os_x_configuration_profile>`
+	mock := &classicHTTPMock{statusCode: 200, body: xmlResp}
+
+	cliCtx := &registry.CLIContext{Client: mock}
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	data, err := downloadClassicProfile(cmd, cliCtx, "Test Profile", "computer")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(data), "<plist>") {
+		t.Errorf("expected plist content, got %q", string(data))
+	}
+}
+
+func TestDownloadClassicProfile_NotFound(t *testing.T) {
+	mock := &classicHTTPMock{statusCode: 404, body: `<html>Not Found</html>`}
+	cliCtx := &registry.CLIContext{Client: mock}
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	_, err := downloadClassicProfile(cmd, cliCtx, "Missing Profile", "computer")
+	if err == nil {
+		t.Fatal("expected error for 404 response")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' error, got %q", err.Error())
+	}
+}
+
+func TestDownloadClassicProfile_NoPayloads(t *testing.T) {
+	xmlResp := `<os_x_configuration_profile><general><name>Empty</name></general></os_x_configuration_profile>`
+	mock := &classicHTTPMock{statusCode: 200, body: xmlResp}
+	cliCtx := &registry.CLIContext{Client: mock}
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	_, err := downloadClassicProfile(cmd, cliCtx, "Empty Profile", "computer")
+	if err == nil {
+		t.Fatal("expected error for missing payloads")
+	}
+	if !strings.Contains(err.Error(), "no <payloads>") {
+		t.Errorf("expected 'no <payloads>' error, got %q", err.Error())
+	}
+}
+
+func TestDownloadClassicProfile_NilClient(t *testing.T) {
+	cliCtx := &registry.CLIContext{Client: nil}
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	_, err := downloadClassicProfile(cmd, cliCtx, "Test", "computer")
+	if err == nil {
+		t.Fatal("expected error for nil client")
+	}
+	if !strings.Contains(err.Error(), "authentication") {
+		t.Errorf("expected authentication error, got %q", err.Error())
 	}
 }
