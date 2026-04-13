@@ -78,6 +78,17 @@ Valid statuses: New, InProgress, Resolved`,
 			if len(uuids) == 0 {
 				return fmt.Errorf("--uuid is required (may be specified multiple times)")
 			}
+			validStatuses := []string{"New", "InProgress", "Resolved"}
+			statusOK := false
+			for _, v := range validStatuses {
+				if status == v {
+					statusOK = true
+					break
+				}
+			}
+			if !statusOK {
+				return fmt.Errorf("invalid --status %q: must be one of New, InProgress, Resolved", status)
+			}
 			updated, err := cliCtx.ProtectClient.UpdateAlerts(cmd.Context(), jamfprotect.AlertUpdateInput{
 				UUIDs:  uuids,
 				Status: status,

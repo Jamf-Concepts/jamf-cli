@@ -5,6 +5,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -22,8 +23,8 @@ func newProtectPermissionsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			row := map[string]any{
-				"read":  fmt.Sprintf("%v", perms.Read),
-				"write": fmt.Sprintf("%v", perms.Write),
+				"read":  strings.Join(perms.Read, ", "),
+				"write": strings.Join(perms.Write, ", "),
 			}
 			data, err := json.Marshal([]map[string]any{row})
 			if err != nil {

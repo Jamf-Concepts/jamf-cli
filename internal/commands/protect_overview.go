@@ -106,11 +106,8 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 		counts, err := client.GetAlertStatusCounts(ctx)
 		if err != nil {
 			send("alerts_new", "", err)
-			send("alerts_inprogress", "", err)
 			return
 		}
-		total := counts.New + counts.InProgress + counts.Resolved + counts.AutoResolved
-		send("alerts_total", formatCount(int(total)), nil)
 		if counts.New > 0 {
 			sendWithColor("alerts_new", fmt.Sprintf("%d New  %d In Progress", counts.New, counts.InProgress), "yellow", nil)
 		} else {

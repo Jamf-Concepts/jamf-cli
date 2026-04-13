@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -132,6 +133,11 @@ func newProtectInsightsComplianceScoreCmd(cliCtx *registry.CLIContext) *cobra.Co
 
 Omit --date for today's score, or pass an ISO date (e.g. 2026-03-12) for a historical score.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if date != "" {
+				if _, err := time.Parse("2006-01-02", date); err != nil {
+					return fmt.Errorf("invalid --date %q: must be YYYY-MM-DD (e.g. 2026-03-12)", date)
+				}
+			}
 			score, err := cliCtx.ProtectClient.GetFleetComplianceScore(cmd.Context(), date)
 			if err != nil {
 				return err

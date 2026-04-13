@@ -137,6 +137,9 @@ func newProtectComputersUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Update a computer's label and/or tags",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("label") && !cmd.Flags().Changed("tags") {
+				return fmt.Errorf("at least one of --label or --tags must be specified")
+			}
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveComputerUUID(ctx, args[0])
