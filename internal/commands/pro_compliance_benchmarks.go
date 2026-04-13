@@ -184,16 +184,43 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			var input benchmarkPortableInput
-			if err := unmarshalInput(data, &input); err != nil {
-				return fmt.Errorf("parsing input: %w", err)
+			portableErr := unmarshalInput(data, &input)
+
+			// Detect legacy format: portable unmarshal may "succeed" via YAML leniency
+			// but produce empty-name groups when the input has []string device group IDs.
+			portableGroupsValid := portableErr == nil && cbPortableGroupsValid(input.Target.DeviceGroups)
+
+			// If portable format failed or produced invalid groups, try the old SDK format.
+			var legacyGroupIDs []string
+			if !portableGroupsValid {
+				var legacy jamfplatform.CBEngineBenchmarkRequestV2
+				if err := unmarshalInput(data, &legacy); err == nil && len(legacy.Target.DeviceGroups) > 0 {
+					input = benchmarkPortableInput{
+						Title:            legacy.Title,
+						Description:      legacy.Description,
+						SourceBaselineID: legacy.SourceBaselineID,
+						Sources:          legacy.Sources,
+						Rules:            legacy.Rules,
+						EnforcementMode:  legacy.EnforcementMode,
+					}
+					legacyGroupIDs = legacy.Target.DeviceGroups
+				} else if portableErr != nil {
+					return fmt.Errorf("parsing input: %w", portableErr)
+				}
 			}
 			if input.Title == "" {
 				return fmt.Errorf("input must include a 'title' field")
 			}
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			groupIDs, err := cbResolveTargetGroups(ctx, r, input.Target.DeviceGroups, computerGroups)
-			if err != nil {
-				return err
+			var groupIDs []string
+			if len(legacyGroupIDs) > 0 && len(computerGroups) == 0 {
+				// Legacy format with no override: pass IDs through directly.
+				groupIDs = legacyGroupIDs
+			} else {
+				r := platform.NewResolver(cliCtx.PlatformClient)
+				groupIDs, err = cbResolveTargetGroups(ctx, r, input.Target.DeviceGroups, computerGroups)
+				if err != nil {
+					return err
+				}
 			}
 			req := &jamfplatform.CBEngineBenchmarkRequestV2{
 				Title:            input.Title,
@@ -263,15 +290,12 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r := platform.NewResolver(cliCtx.PlatformClient)
 			var targetGroupIDs []string
 			if len(computerGroups) > 0 {
-				for _, name := range computerGroups {
-					id, err := r.ResolveDeviceGroupID(ctx, name)
-					if err != nil {
-						return err
-					}
-					targetGroupIDs = append(targetGroupIDs, id)
+				r := platform.NewResolver(cliCtx.PlatformClient)
+				targetGroupIDs, err = cbResolveNameList(ctx, r, computerGroups)
+				if err != nil {
+					return err
 				}
 			} else {
 				targetGroupIDs = src.Target.DeviceGroups
@@ -573,6 +597,18 @@ func cbRuleInfosToRequests(rules []jamfplatform.CBEngineRuleInfoV1) []jamfplatfo
 	return reqs
 }
 
+// cbPortableGroupsValid returns true if every group in the slice has a non-empty name.
+// An empty name indicates the input was likely legacy format ([]string IDs) that was
+// leniently unmarshalled into the portable struct.
+func cbPortableGroupsValid(groups []benchmarkPortableGroup) bool {
+	for _, g := range groups {
+		if g.Name == "" {
+			return false
+		}
+	}
+	return true
+}
+
 // cbResolveTargetGroups resolves group names to IDs.
 // If overrideNames is non-empty it takes precedence over the portable groups from input.
 func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGroups []benchmarkPortableGroup, overrideNames []string) ([]string, error) {
@@ -583,6 +619,11 @@ func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGr
 			names = append(names, g.Name)
 		}
 	}
+	return cbResolveNameList(ctx, r, names)
+}
+
+// cbResolveNameList resolves a list of device group names to IDs.
+func cbResolveNameList(ctx context.Context, r *platform.Resolver, names []string) ([]string, error) {
 	ids := make([]string, 0, len(names))
 	for _, name := range names {
 		id, err := r.ResolveDeviceGroupID(ctx, name)
@@ -605,7 +646,10 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 
 	// Look up title and description from the baselines list.
 	var baselineTitle, baselineDescription string
-	if bls, err := cliCtx.PlatformClient.ListBaselines(ctx); err == nil {
+	bls, blsErr := cliCtx.PlatformClient.ListBaselines(ctx)
+	if blsErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not fetch baseline metadata for title/description: %v\n", blsErr)
+	} else {
 		for _, bl := range bls.Baselines {
 			if bl.ID == baselineID {
 				baselineTitle = bl.Title

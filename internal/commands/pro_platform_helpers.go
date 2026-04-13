@@ -69,7 +69,10 @@ func printScaffold(v any) error {
 	case "yaml":
 		enc := yaml.NewEncoder(os.Stdout)
 		enc.SetIndent(2)
-		return enc.Encode(v)
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+		return enc.Close()
 	default:
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

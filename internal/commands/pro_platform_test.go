@@ -1128,6 +1128,72 @@ func TestCBApply_ComputerGroupOverride(t *testing.T) {
 	}
 }
 
+func TestCBApply_LegacyFormat(t *testing.T) {
+	pc := &platformMockClient{}
+	cliCtx := &registry.CLIContext{PlatformClient: pc, Output: &captureOutput{}}
+
+	// Legacy format: target.deviceGroups is []string (raw IDs), not []object.
+	legacy := jamfplatform.CBEngineBenchmarkRequestV2{
+		Title:            "Legacy Benchmark",
+		SourceBaselineID: "bl-1",
+		EnforcementMode:  "AUDIT",
+		Sources:          []jamfplatform.CBEngineSourceV1{{Branch: "main"}},
+		Rules:            []jamfplatform.CBEngineRuleRequestV2{{ID: "r1", Enabled: true}},
+		Target:           jamfplatform.CBEngineTargetV2{DeviceGroups: []string{"raw-group-id-1"}},
+	}
+	path := writeTempJSON(t, legacy)
+
+	cmd := newCBApplyCmd(cliCtx)
+	cmd.SetArgs([]string{"--from-file", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("apply with legacy format: %v", err)
+	}
+
+	req := pc.createdBenchmark
+	if req == nil {
+		t.Fatal("CreateBenchmark was not called")
+	}
+	if req.Title != "Legacy Benchmark" {
+		t.Errorf("title = %q, want %q", req.Title, "Legacy Benchmark")
+	}
+	// Legacy IDs should pass through directly without resolution.
+	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "raw-group-id-1" {
+		t.Errorf("target groups = %v, want [raw-group-id-1]", req.Target.DeviceGroups)
+	}
+}
+
+func TestCBApply_LegacyFormatWithGroupOverride(t *testing.T) {
+	pc := &platformMockClient{
+		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+			{ID: "override-id", Name: "Override Group"},
+		},
+	}
+	cliCtx := &registry.CLIContext{PlatformClient: pc, Output: &captureOutput{}}
+
+	legacy := jamfplatform.CBEngineBenchmarkRequestV2{
+		Title:            "Legacy With Override",
+		SourceBaselineID: "bl-1",
+		EnforcementMode:  "AUDIT",
+		Target:           jamfplatform.CBEngineTargetV2{DeviceGroups: []string{"old-id"}},
+	}
+	path := writeTempJSON(t, legacy)
+
+	cmd := newCBApplyCmd(cliCtx)
+	cmd.SetArgs([]string{"--from-file", path, "--computer-group", "Override Group"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("apply legacy with override: %v", err)
+	}
+
+	req := pc.createdBenchmark
+	if req == nil {
+		t.Fatal("CreateBenchmark was not called")
+	}
+	// --computer-group should override even in legacy mode.
+	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "override-id" {
+		t.Errorf("target groups = %v, want [override-id]", req.Target.DeviceGroups)
+	}
+}
+
 // ── Blueprint/Profile Tests (from main) ─────────────────────────────────────
 
 func TestExtractPayloadsFromXML(t *testing.T) {
