@@ -831,9 +831,14 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
 
+	stdClient := rc.StandardClient()
+	if !quiet && !verbose {
+		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+	}
+
 	protectOpts := []jamfprotect.Option{
 		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
-		jamfprotect.WithHTTPClient(rc.StandardClient()),
+		jamfprotect.WithHTTPClient(stdClient),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {
 		protectOpts = append(protectOpts, jamfprotect.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))

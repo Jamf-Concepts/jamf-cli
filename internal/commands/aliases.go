@@ -65,6 +65,8 @@ var protectAliases = map[string][]string{
 	"computers":                      {"comp"},
 	"data-forwarding":                {"df"},
 	"data-retention":                 {"dr"},
+	"audit-logs":                     {"al"},
+	"insights":                       {"ins"},
 }
 
 // applyProtectAliases appends aliases to protect subcommands.
