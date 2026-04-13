@@ -722,6 +722,10 @@ import (
 	"os"
 	"strings"
 {{- end }}
+{{- if anyIsConfigProfile . }}
+	"bytes"
+	"net/url"
+{{- end }}
 
 	"github.com/spf13/cobra"
 
@@ -730,9 +734,6 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
 {{- if anyIsConfigProfile . }}
-	"bytes"
-	"net/url"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 {{- end }}
 )
@@ -863,6 +864,9 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // fetchClassicProfileByName fetches a Classic config profile by name and returns
 // its numeric ID and existing payload plist in a single API call. Returns ("", nil)
 // when not found; callers should proceed without UUID injection if payload is nil.
+//
+// Errors (including non-404 server errors) are silently swallowed — UUID
+// preservation is best-effort and must never block an update.
 func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
 	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
 	resp, err := client.Do(ctx, "GET", path, nil)
