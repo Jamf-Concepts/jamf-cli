@@ -111,7 +111,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 
 - **Full SDK coverage** — Plans, analytics, analytic sets, exception sets, USB control, telemetry, prevent lists, unified logging filters, roles, users, groups, API clients, and org settings
 - **`overview`** — Instance dashboard with 14 parallel API calls: endpoints, security config, data forwarding, access
-- **`apply`** — Idempotent upsert: creates or replaces resources by name, with confirmation
+- **`apply`** — Idempotent upsert: creates or replaces resources by name, with confirmation. `--scaffold` prints an empty JSON template
 - **`export` / `import`** — Round-trip configuration as JSON or YAML. Plans and analytic sets use names (not IDs) for portability across tenants
 - **Community analytics** — Import YAML analytics from the [jamf/jamfprotect](https://github.com/jamf/jamfprotect) repository
 - **Downloads** — Installer packages, configuration profiles (.mobileconfig), and certificates
