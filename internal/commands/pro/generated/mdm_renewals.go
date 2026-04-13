@@ -226,15 +226,14 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientManagementId": "550e8400-e29b-41d4-a716-446655440000",
   "mdmCheckinUrl": "https://example.jamfcloud.com/mdm/CheckInURL",
   "mdmProfileNeedsRenewalDueToCaRenewed": false,
   "mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring": true,
   "mdmServerUrl": "https://example.jamfcloud.com/mdm/ServerURL",
   "renewMdmProfileStartDate": "2021-12-31T16:00:00Z"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

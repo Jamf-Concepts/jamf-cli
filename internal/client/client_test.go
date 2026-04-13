@@ -498,10 +498,10 @@ func TestRewritePathForGateway_ModernAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/api/v1/buildings", "/api/pro/tenant/abc-123/v1/buildings"},
-		{"/api/v2/mobile-devices", "/api/pro/tenant/abc-123/v2/mobile-devices"},
-		{"/api/v1/accounts/userid/1", "/api/pro/tenant/abc-123/v1/accounts/userid/1"},
-		{"/api/preview/computers", "/api/pro/tenant/abc-123/preview/computers"},
+		{"/api/v1/buildings", "/api/pro/v1/tenant/abc-123/buildings"},
+		{"/api/v2/mobile-devices", "/api/pro/v2/tenant/abc-123/mobile-devices"},
+		{"/api/v1/accounts/userid/1", "/api/pro/v1/tenant/abc-123/accounts/userid/1"},
+		{"/api/preview/computers", "/api/pro/preview/tenant/abc-123/computers"},
 	}
 	for _, tt := range tests {
 		got := rewritePathForGateway(tt.input, "abc-123")
@@ -562,7 +562,7 @@ func TestDo_PlatformGateway_ModernPath(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/tenant/tenant-uuid/v1/buildings"
+	want := "/api/pro/v1/tenant/tenant-uuid/buildings"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -583,7 +583,7 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/tenant/tenant-uuid/v2/users"
+	want := "/api/pro/v2/tenant/tenant-uuid/users"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}

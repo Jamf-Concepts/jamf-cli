@@ -244,7 +244,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationName": "Self Service",
   "brandingHeaderImageId": 1,
   "brandingName": "Self Service",
@@ -252,8 +252,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
   "homeHeading": "Welcome to Self Service",
   "homeSubheading": "We help organizations succeed with Apple",
   "iconId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -270,7 +269,15 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -310,7 +317,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applicationName": "Self Service",
   "brandingHeaderImageId": 1,
   "brandingName": "Self Service",
@@ -318,8 +325,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
   "homeHeading": "Welcome to Self Service",
   "homeSubheading": "We help organizations succeed with Apple",
   "iconId": 1
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -351,7 +357,15 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -484,21 +498,25 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a self-service-branding-macos by name",
-		Long: `Create or replace a self-service-branding-macos. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a self-service-branding-macos. Reads JSON or YAML from --from-file or stdin.
 
 The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a self-service-branding-macos from a file
+		Example: `  # Apply a self-service-branding-macos from a JSON file
   jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json
+
+  # Apply a self-service-branding-macos from a YAML file
+  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.yaml
 
   # Apply from stdin
   cat self-service-branding-macos.json | jamf-cli self-service-branding-macos apply
@@ -510,9 +528,24 @@ If not, a new resource is created.`,
   jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "applicationName": "Self Service",
+  "brandingHeaderImageId": 1,
+  "brandingName": "Self Service",
+  "brandingNameSecondary": "Self Service",
+  "homeHeading": "Welcome to Self Service",
+  "homeSubheading": "We help organizations succeed with Apple",
+  "iconId": 1
+}`, ctx.Output.Format())
+			}
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -573,9 +606,10 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

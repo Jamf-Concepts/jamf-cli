@@ -272,7 +272,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assetTag": "8675309",
   "enforceName": true,
   "ios": {},
@@ -282,8 +282,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "timeZone": "Europe/Warsaw",
   "tvos": {},
   "updatedExtensionAttributes": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

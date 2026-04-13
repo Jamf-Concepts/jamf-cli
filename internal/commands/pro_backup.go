@@ -82,6 +82,9 @@ type backupOptions struct {
 }
 
 func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions) error {
+	if opts.Concurrency > 50 {
+		opts.Concurrency = 50
+	}
 	client := cliCtx.Client
 
 	// Filter resources if specified
@@ -365,7 +368,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 			continue
 		}
 
-		obj := blueprintToExport(detail)
+		obj := blueprintToExport(ctx, pc, detail)
 
 		slug := SlugifyName(detail.Name)
 		slug = DeduplicateSlug(slug, slugSeen)

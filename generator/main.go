@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Jamf-Concepts/jamf-cli/generator/blueprintcomponents"
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 )
@@ -165,6 +166,28 @@ func main() {
 
 		fmt.Println()
 		fmt.Printf("Successfully generated %d classic resource command(s)\n", len(classicResources))
+	}
+
+	// ── Blueprint component scaffolds ────────────────────────────
+	bcSpecsDir := filepath.Join(specsDir, "blueprint-components")
+	if _, err := os.Stat(bcSpecsDir); err == nil {
+		fmt.Println()
+		fmt.Println("Blueprint component scaffold generation")
+		fmt.Println("=======================================")
+		fmt.Printf("Specs directory: %s\n\n", bcSpecsDir)
+
+		bcOutputDir := "./internal/blueprintcomponents"
+		if err := os.MkdirAll(bcOutputDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+			os.Exit(1)
+		}
+
+		outPath, err := blueprintcomponents.Generate(bcSpecsDir, bcOutputDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating blueprint component scaffolds: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Generated: %s\n", outPath)
 	}
 
 	// ── Smoke test registry ──────────────────────────────────────

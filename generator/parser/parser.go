@@ -1117,35 +1117,54 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 		s.Type = schema.Type.Slice()[0]
 	}
 
-	for propName, propRef := range schema.Properties {
-		if propRef == nil || propRef.Value == nil {
-			continue
-		}
-		prop := propRef.Value
-		p := &Property{
-			Name:        propName,
-			Description: prop.Description,
-			Example:     prop.Example,
-			Nullable:    prop.Nullable,
-			ReadOnly:    prop.ReadOnly,
-		}
-		if len(prop.Type.Slice()) > 0 {
-			p.Type = prop.Type.Slice()[0]
-		}
-		// Capture the referenced component schema name so the generator can
-		// resolve nested object fields (e.g. for --set dot-notation paths).
-		if propRef.Ref != "" {
-			if idx := strings.LastIndex(propRef.Ref, "/"); idx != -1 {
-				p.SchemaRef = propRef.Ref[idx+1:]
+	// Collect properties from direct properties and allOf items.
+	// allOf is used for schema composition (e.g. PostComputerPrestageV3 =
+	// allOf[ComputerPrestageV3, {accountSettings, recoveryLockPassword}]).
+	// kin-openapi resolves $ref inline, so allOf item .Value.Properties is populated.
+	propSources := []openapi3.Schemas{schema.Properties}
+	for _, item := range schema.AllOf {
+		if item != nil && item.Value != nil {
+			propSources = append(propSources, item.Value.Properties)
+			// Recurse into nested allOf (e.g. ComputerPrestageV3 → DeviceEnrollmentPrestageV2)
+			for _, nested := range item.Value.AllOf {
+				if nested != nil && nested.Value != nil {
+					propSources = append(propSources, nested.Value.Properties)
+				}
 			}
 		}
-		// Populate Nested for object types so flattenSchemaToScalarFields can
-		// resolve sub-fields even for cross-file $ref schemas not in doc.Components.Schemas.
-		// kin-openapi resolves $ref inline, so prop.Properties is always populated.
-		if len(prop.Properties) > 0 {
-			p.Nested = parseSchema(propName, prop)
+	}
+
+	for _, props := range propSources {
+		for propName, propRef := range props {
+			if propRef == nil || propRef.Value == nil {
+				continue
+			}
+			prop := propRef.Value
+			p := &Property{
+				Name:        propName,
+				Description: prop.Description,
+				Example:     prop.Example,
+				Nullable:    prop.Nullable,
+				ReadOnly:    prop.ReadOnly,
+			}
+			if len(prop.Type.Slice()) > 0 {
+				p.Type = prop.Type.Slice()[0]
+			}
+			// Capture the referenced component schema name so the generator can
+			// resolve nested object fields (e.g. for --set dot-notation paths).
+			if propRef.Ref != "" {
+				if idx := strings.LastIndex(propRef.Ref, "/"); idx != -1 {
+					p.SchemaRef = propRef.Ref[idx+1:]
+				}
+			}
+			// Populate Nested for object types so flattenSchemaToScalarFields can
+			// resolve sub-fields even for cross-file $ref schemas not in doc.Components.Schemas.
+			// kin-openapi resolves $ref inline, so prop.Properties is always populated.
+			if len(prop.Properties) > 0 {
+				p.Nested = parseSchema(propName, prop)
+			}
+			s.Properties[propName] = p
 		}
-		s.Properties[propName] = p
 	}
 
 	return s

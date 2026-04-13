@@ -4,10 +4,19 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// ErrNotFound is returned when a resource name cannot be resolved to an ID.
+var ErrNotFound = errors.New("not found")
+
+// IsNotFound reports whether err is or wraps ErrNotFound.
+func IsNotFound(err error) bool {
+	return errors.Is(err, ErrNotFound)
+}
 
 // Resolver maps human-readable names to IDs for Jamf Platform API resources.
 // Caches are populated lazily on first use and shared within a single command.
@@ -38,7 +47,7 @@ func (r *Resolver) ResolveBlueprintID(ctx context.Context, name string) (string,
 	}
 	id, ok := r.blueprints[name]
 	if !ok {
-		return "", fmt.Errorf("blueprint %q not found; use 'pro blueprints list' to see available names", name)
+		return "", fmt.Errorf("blueprint %q not found; use 'pro blueprints list' to see available names: %w", name, ErrNotFound)
 	}
 	return id, nil
 }

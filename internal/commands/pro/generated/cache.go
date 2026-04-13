@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -83,7 +84,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "cacheType": "ehcache",
   "cacheUniqueId": "24864549-94ea-4cc1-bb80-d7fb392c6556",
   "directoryTimeToLiveSeconds": 120,
@@ -93,8 +94,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "name": "",
   "timeToIdleSeconds": 120,
   "timeToLiveSeconds": 120
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -111,7 +111,15 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {

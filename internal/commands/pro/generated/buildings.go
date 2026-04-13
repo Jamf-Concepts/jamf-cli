@@ -254,7 +254,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "city": "Cupertino",
   "country": "The United States of America",
   "name": "Apple Park",
@@ -262,8 +262,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
   "zipPostalCode": 95014
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -280,7 +279,15 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -320,7 +327,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "city": "Cupertino",
   "country": "The United States of America",
   "name": "Apple Park",
@@ -328,8 +335,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
   "zipPostalCode": 95014
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -361,7 +367,15 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -510,10 +524,9 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Confirmation for destructive action
@@ -755,10 +768,9 @@ func newBuildingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -790,7 +802,15 @@ func newBuildingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -831,7 +851,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -839,8 +859,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -881,7 +900,15 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -947,7 +974,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "fields": [],
   "filter": "id\u003e=100",
   "page": 0,
@@ -955,8 +982,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
   "sort": [
     "id:asc"
   ]
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -1012,7 +1038,15 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -1053,21 +1087,25 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newBuildingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a building by name",
-		Long: `Create or replace a building. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a building. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a building from a file
+		Example: `  # Apply a building from a JSON file
   jamf-cli buildings apply --from-file building.json
+
+  # Apply a building from a YAML file
+  jamf-cli buildings apply --from-file building.yaml
 
   # Apply from stdin
   cat building.json | jamf-cli buildings apply
@@ -1079,9 +1117,24 @@ If not, a new resource is created.`,
   jamf-cli buildings apply --from-file building.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "city": "Cupertino",
+  "country": "The United States of America",
+  "name": "Apple Park",
+  "stateProvince": "California",
+  "streetAddress1": "The McIntosh Tree",
+  "streetAddress2": "One Apple Park Way",
+  "zipPostalCode": 95014
+}`, ctx.Output.Format())
+			}
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -1142,9 +1195,10 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

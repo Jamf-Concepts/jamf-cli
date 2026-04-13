@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -265,6 +266,42 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
+// output format requests it.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func printScaffoldOutput(jsonStr, format string) error {
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			return fmt.Errorf("scaffold marshal error: %w", err)
+		}
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(v)
+	}
+	fmt.Println(jsonStr)
+	return nil
+}
+
+// normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func normalizeInputToJSON(data []byte) ([]byte, error) {
+	// Fast path: already JSON
+	if json.Valid(data) {
+		return data, nil
+	}
+	// Try YAML → any → JSON
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
+	}
+	return out, nil
 }
 
 // extractJSONField extracts a string field from a JSON object.
