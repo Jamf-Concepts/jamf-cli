@@ -72,6 +72,7 @@ generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated
 	@go fmt ./internal/commands/pro/generated/...
+	@-go fmt ./internal/blueprintcomponents/... 2>/dev/null
 	@echo "Generated commands:"
 	@ls internal/commands/pro/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
 	@ls internal/commands/pro/generated/classic_*.go 2>/dev/null | grep -v registry | wc -l | xargs echo "  Classic API resource files:"

@@ -46,3 +46,6 @@ docs/site/commands.json
 
 # Brainstorm sessions
 .superpowers/
+
+# Private spec files (uncomment if you want to track spec files)
+specs/blueprint-components

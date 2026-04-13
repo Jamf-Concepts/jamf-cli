@@ -261,6 +261,11 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
 }
 
+// ReadResponseBody reads the full body from an HTTP response with a 10 MB limit.
+func ReadResponseBody(resp *http.Response) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+}
+
 // sleepWithContext blocks for the given duration or until the context is cancelled.
 func sleepWithContext(ctx context.Context, d time.Duration) error {
 	select {
