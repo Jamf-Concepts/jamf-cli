@@ -103,15 +103,16 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 	goName := strcase.ToCamel(cliName)
 
 	return ClassicResource{
-		Name:        entry.Name,
-		Path:        entry.Path,
-		CLIName:     cliName,
-		GoName:      goName,
-		Singular:    singular,
-		Description: entry.Description,
-		Operations:  operations,
-		Lookups:     lookups,
-		HasScope:    entry.Scope,
-		IDPath:      idPath,
+		Name:            entry.Name,
+		Path:            entry.Path,
+		CLIName:         cliName,
+		GoName:          goName,
+		Singular:        singular,
+		Description:     entry.Description,
+		Operations:      operations,
+		Lookups:         lookups,
+		HasScope:        entry.Scope,
+		IDPath:          idPath,
+		IsConfigProfile: entry.Path == "osxconfigurationprofiles" || entry.Path == "mobiledeviceconfigurationprofiles",
 	}, nil
 }
