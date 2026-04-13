@@ -193,7 +193,7 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -231,7 +231,9 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -248,6 +250,61 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "allowPairing": true,
+  "anchorCertificates": [],
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "configureDeviceBeforeSetupAssistant": true,
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "doNotUseProfileFromBackup": true,
+  "enableDeviceBasedActivationLock": true,
+  "enforceTemporarySessionTimeout": false,
+  "enforceUserSessionTimeout": false,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installAppsDuringEnrollment": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "maximumSharedAccounts": 10,
+  "mdmRemovable": true,
+  "minimumOsSpecificVersionIos": 17.1,
+  "minimumOsSpecificVersionIpad": 17.1,
+  "multiUser": true,
+  "names": {},
+  "preserveManagedApps": false,
+  "prestageMinimumOsTargetVersionTypeIos": "MINIMUM_OS_LATEST_VERSION",
+  "prestageMinimumOsTargetVersionTypeIpad": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "purchasingInformation": {},
+  "region": "US",
+  "requireAuthentication": true,
+  "rtsConfigProfileId": 1,
+  "rtsEnabled": false,
+  "sendTimezone": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "storageQuotaSizeMegabytes": 4096,
+  "supervised": true,
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555",
+  "temporarySessionOnly": false,
+  "temporarySessionTimeout": 30,
+  "timezone": "America/Chicago",
+  "useStorageQuotaSize": true,
+  "userSessionTimeout": 30
+}`, ctx.Output.Format())
+			}
+
 			// Build request path
 			path := "/v3/mobile-device-prestages"
 
@@ -262,7 +319,15 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -274,12 +339,15 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
 	return cmd
 }
 
 func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
@@ -298,10 +366,66 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "allowPairing": true,
+  "anchorCertificates": [],
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "configureDeviceBeforeSetupAssistant": true,
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "doNotUseProfileFromBackup": true,
+  "enableDeviceBasedActivationLock": true,
+  "enforceTemporarySessionTimeout": false,
+  "enforceUserSessionTimeout": false,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installAppsDuringEnrollment": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "maximumSharedAccounts": 10,
+  "mdmRemovable": true,
+  "minimumOsSpecificVersionIos": 17.1,
+  "minimumOsSpecificVersionIpad": 17.1,
+  "multiUser": true,
+  "names": {},
+  "preserveManagedApps": false,
+  "prestageMinimumOsTargetVersionTypeIos": "MINIMUM_OS_LATEST_VERSION",
+  "prestageMinimumOsTargetVersionTypeIpad": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "purchasingInformation": {},
+  "region": "US",
+  "requireAuthentication": true,
+  "rtsConfigProfileId": 1,
+  "rtsEnabled": false,
+  "sendTimezone": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "storageQuotaSizeMegabytes": 4096,
+  "supervised": true,
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555",
+  "temporarySessionOnly": false,
+  "temporarySessionTimeout": 30,
+  "timezone": "America/Chicago",
+  "useStorageQuotaSize": true,
+  "userSessionTimeout": 30,
+  "versionLock": 0
+}`, ctx.Output.Format())
+			}
+
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -327,7 +451,15 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -339,6 +471,7 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
 	return cmd
@@ -372,12 +505,12 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no mobile-device-prestage found with name %q", flagName)
+					return fmt.Errorf("no mobile-device-prestage found with displayName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -477,10 +610,9 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "ids": []
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -488,12 +620,12 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no mobile-device-prestage found with name %q", flagName)
+					return fmt.Errorf("no mobile-device-prestage found with displayName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -613,7 +745,7 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -747,16 +879,15 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "note": "A generic note can sometimes be useful, but generally not."
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -782,7 +913,15 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -816,7 +955,7 @@ func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -870,7 +1009,7 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -929,21 +1068,25 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newMobileDevicePrestagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a mobile-device-prestage by name",
-		Long: `Create or replace a mobile-device-prestage. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a mobile-device-prestage. Reads JSON or YAML from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a mobile-device-prestage from a file
+		Example: `  # Apply a mobile-device-prestage from a JSON file
   jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json
+
+  # Apply a mobile-device-prestage from a YAML file
+  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.yaml
 
   # Apply from stdin
   cat mobile-device-prestage.json | jamf-cli mobile-device-prestages apply
@@ -955,22 +1098,80 @@ If not, a new resource is created.`,
   jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "allowPairing": true,
+  "anchorCertificates": [],
+  "authenticationPrompt": "LDAP authentication prompt",
+  "autoAdvanceSetup": true,
+  "configureDeviceBeforeSetupAssistant": true,
+  "defaultPrestage": false,
+  "department": "Oxbow",
+  "deviceEnrollmentProgramInstanceId": 5,
+  "displayName": "Example Mobile Prestage Name",
+  "doNotUseProfileFromBackup": true,
+  "enableDeviceBasedActivationLock": true,
+  "enforceTemporarySessionTimeout": false,
+  "enforceUserSessionTimeout": false,
+  "enrollmentCustomizationId": 2,
+  "enrollmentSiteId": -1,
+  "installAppsDuringEnrollment": true,
+  "keepExistingLocationInformation": true,
+  "keepExistingSiteMembership": true,
+  "language": "en",
+  "locationInformation": {},
+  "mandatory": false,
+  "maximumSharedAccounts": 10,
+  "mdmRemovable": true,
+  "minimumOsSpecificVersionIos": 17.1,
+  "minimumOsSpecificVersionIpad": 17.1,
+  "multiUser": true,
+  "names": {},
+  "preserveManagedApps": false,
+  "prestageMinimumOsTargetVersionTypeIos": "MINIMUM_OS_LATEST_VERSION",
+  "prestageMinimumOsTargetVersionTypeIpad": "MINIMUM_OS_LATEST_VERSION",
+  "preventActivationLock": true,
+  "purchasingInformation": {},
+  "region": "US",
+  "requireAuthentication": true,
+  "rtsConfigProfileId": 1,
+  "rtsEnabled": false,
+  "sendTimezone": true,
+  "skipSetupItems": {
+    "Location": true,
+    "Privacy": false
+  },
+  "storageQuotaSizeMegabytes": 4096,
+  "supervised": true,
+  "supportEmailAddress": "example@example.com",
+  "supportPhoneNumber": "5555555555",
+  "temporarySessionOnly": false,
+  "temporarySessionTimeout": 30,
+  "timezone": "America/Chicago",
+  "useStorageQuotaSize": true,
+  "userSessionTimeout": 30
+}`, ctx.Output.Format())
+			}
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "displayName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/mobile-device-prestages", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -1018,9 +1219,10 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

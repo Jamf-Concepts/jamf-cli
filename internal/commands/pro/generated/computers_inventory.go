@@ -287,7 +287,7 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "applications": [],
   "certificates": [],
   "configurationProfiles": [],
@@ -304,8 +304,7 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "storage": {},
   "udid": "45436edf-864e-4364-982a-330b01d39e65",
   "userAndLocation": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -322,7 +321,15 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -515,7 +522,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "extensionAttributes": [],
   "general": {},
   "hardware": {},
@@ -523,8 +530,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "purchasing": {},
   "udid": "45436edf-864e-4364-982a-330b01d39e65",
   "userAndLocation": {}
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

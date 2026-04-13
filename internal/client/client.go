@@ -79,7 +79,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	// Platform gateway mode: rewrite paths to include tenant routing.
 	//   /JSSResource/* → /api/proclassic/tenant/{id}/*
-	//   /api/v*        → /api/pro/tenant/{id}/v*
+	//   /api/v*        → /api/pro/v*/tenant/{id}/*
 	if c.tenantID != "" {
 		path = rewritePathForGateway(path, c.tenantID)
 	}
@@ -261,6 +261,11 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []
 	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("rate limited: request failed after %d retries. The server is throttling requests — wait a moment and try again.", maxRetries))
 }
 
+// ReadResponseBody reads the full body from an HTTP response with a 10 MB limit.
+func ReadResponseBody(resp *http.Response) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+}
+
 // sleepWithContext blocks for the given duration or until the context is cancelled.
 func sleepWithContext(ctx context.Context, d time.Duration) error {
 	select {
@@ -274,8 +279,8 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 // rewritePathForGateway transforms an API path for the Jamf Platform Gateway.
 //
 //	/JSSResource/computers        → /api/proclassic/tenant/{id}/computers
-//	/api/v1/accounts              → /api/pro/tenant/{id}/v1/accounts
-//	/api/preview/computers        → /api/pro/tenant/{id}/preview/computers
+//	/api/v1/accounts              → /api/pro/v1/tenant/{id}/accounts
+//	/api/preview/computers        → /api/pro/preview/tenant/{id}/computers
 func rewritePathForGateway(path, tenantID string) string {
 	if after, ok := strings.CutPrefix(path, "/JSSResource/"); ok {
 		suffix := after
@@ -286,9 +291,15 @@ func rewritePathForGateway(path, tenantID string) string {
 		return "/api/proclassic/tenant/" + tenantID + suffix
 	}
 	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
+	// Version segment goes before /tenant/{id} to match the Platform SDK convention:
+	//   /api/{namespace}/{version}/tenant/{tenantID}/{resource}
 	if after, ok := strings.CutPrefix(path, "/api/"); ok {
-		suffix := after
-		return "/api/pro/tenant/" + tenantID + "/" + suffix
+		// after = "v1/accounts" → version = "v1", rest = "accounts"
+		version, rest, _ := strings.Cut(after, "/")
+		if rest == "" {
+			return "/api/pro/" + version + "/tenant/" + tenantID
+		}
+		return "/api/pro/" + version + "/tenant/" + tenantID + "/" + rest
 	}
 	return path
 }

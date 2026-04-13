@@ -1914,3 +1914,88 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestParseSchema_AllOfFlattening(t *testing.T) {
+	t.Run("merges properties from allOf items", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"name":        {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+						"displayName": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					},
+				}},
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"extra": {Value: &openapi3.Schema{Type: &openapi3.Types{"boolean"}}},
+					},
+				}},
+			},
+		}
+		s := parseSchema("TestAllOf", schema)
+		if len(s.Properties) != 3 {
+			t.Fatalf("expected 3 properties, got %d: %v", len(s.Properties), propKeys(s.Properties))
+		}
+		for _, name := range []string{"name", "displayName", "extra"} {
+			if _, ok := s.Properties[name]; !ok {
+				t.Errorf("missing property %q", name)
+			}
+		}
+	})
+
+	t.Run("merges nested allOf (two levels)", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: &openapi3.Schema{
+					AllOf: openapi3.SchemaRefs{
+						{Value: &openapi3.Schema{
+							Properties: openapi3.Schemas{
+								"baseField": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+							},
+						}},
+					},
+					Properties: openapi3.Schemas{
+						"midField": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					},
+				}},
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"topField": {Value: &openapi3.Schema{Type: &openapi3.Types{"boolean"}}},
+					},
+				}},
+			},
+		}
+		s := parseSchema("TestNestedAllOf", schema)
+		if len(s.Properties) != 3 {
+			t.Fatalf("expected 3 properties, got %d: %v", len(s.Properties), propKeys(s.Properties))
+		}
+		for _, name := range []string{"baseField", "midField", "topField"} {
+			if _, ok := s.Properties[name]; !ok {
+				t.Errorf("missing property %q", name)
+			}
+		}
+	})
+
+	t.Run("direct properties still work", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			Properties: openapi3.Schemas{
+				"name": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			},
+		}
+		s := parseSchema("TestDirect", schema)
+		if len(s.Properties) != 1 {
+			t.Fatalf("expected 1 property, got %d", len(s.Properties))
+		}
+		if _, ok := s.Properties["name"]; !ok {
+			t.Error("missing property name")
+		}
+	})
+}
+
+func propKeys(m map[string]*Property) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}

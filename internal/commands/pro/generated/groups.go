@@ -367,13 +367,12 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "assignments": [],
   "criteria": [],
   "groupDescription": "Updated Group Description",
   "groupName": "Updated Group Name"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

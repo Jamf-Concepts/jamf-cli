@@ -249,7 +249,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "customPhotoUrl": "",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
@@ -258,8 +258,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "position": "IT Administrator",
   "realname": "John Smith",
   "username": "jsmith"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -276,7 +275,15 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -316,7 +323,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "customPhotoUrl": "",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
@@ -325,8 +332,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "position": "IT Administrator",
   "realname": "John Smith",
   "username": "jsmith"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -358,7 +364,15 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -491,21 +505,25 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newUsersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a user by name",
-		Long: `Create or replace a user. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a user. Reads JSON or YAML from --from-file or stdin.
 
 The username field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a user from a file
+		Example: `  # Apply a user from a JSON file
   jamf-cli users apply --from-file user.json
+
+  # Apply a user from a YAML file
+  jamf-cli users apply --from-file user.yaml
 
   # Apply from stdin
   cat user.json | jamf-cli users apply
@@ -517,9 +535,25 @@ If not, a new resource is created.`,
   jamf-cli users apply --from-file user.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "customPhotoUrl": "",
+  "email": "john.smith@example.com",
+  "enableCustomPhotoUrl": false,
+  "managedAppleId": "",
+  "phone": "555-123-4567",
+  "position": "IT Administrator",
+  "realname": "John Smith",
+  "username": "jsmith"
+}`, ctx.Output.Format())
+			}
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -580,9 +614,10 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
