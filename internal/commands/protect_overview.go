@@ -102,6 +102,31 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 		send("computers", formatCount(len(computers)), err)
 	})
 
+	wg.Go(func() {
+		counts, err := client.GetAlertStatusCounts(ctx)
+		if err != nil {
+			send("alerts_new", "", err)
+			send("alerts_inprogress", "", err)
+			return
+		}
+		total := counts.New + counts.InProgress + counts.Resolved + counts.AutoResolved
+		send("alerts_total", formatCount(int(total)), nil)
+		if counts.New > 0 {
+			sendWithColor("alerts_new", fmt.Sprintf("%d New  %d In Progress", counts.New, counts.InProgress), "yellow", nil)
+		} else {
+			send("alerts_new", fmt.Sprintf("%d New  %d In Progress", counts.New, counts.InProgress), nil)
+		}
+	})
+
+	wg.Go(func() {
+		score, err := client.GetFleetComplianceScore(ctx, "")
+		if err != nil {
+			send("compliance_score", "", err)
+			return
+		}
+		send("compliance_score", fmt.Sprintf("%.1f%%", score.Score), nil)
+	})
+
 	// Organization
 
 	wg.Go(func() {
@@ -175,6 +200,8 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 			Name: "Endpoints",
 			Items: []overviewItem{
 				item("Computers", get("computers")),
+				getItem("Alerts", "alerts_new"),
+				item("CIS Compliance Score", get("compliance_score")),
 			},
 		},
 		{

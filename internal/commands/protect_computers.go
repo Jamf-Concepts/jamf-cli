@@ -21,6 +21,9 @@ func newProtectComputersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newProtectComputersListCmd(cliCtx))
 	cmd.AddCommand(newProtectComputersGetCmd(cliCtx))
+	cmd.AddCommand(newProtectComputersDeleteCmd(cliCtx))
+	cmd.AddCommand(newProtectComputersSetPlanCmd(cliCtx))
+	cmd.AddCommand(newProtectComputersUpdateCmd(cliCtx))
 
 	return cmd
 }
@@ -49,7 +52,7 @@ func newProtectComputersListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <name>",
+		Use:   "get <hostname|serial>",
 		Short: "Get a computer by hostname or serial number",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -68,6 +71,97 @@ func newProtectComputersGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return protect.PrintOne(cliCtx.Output, computer)
 		},
 	}
+}
+
+func newProtectComputersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var yes bool
+
+	cmd := &cobra.Command{
+		Use:   "delete <hostname|serial>",
+		Short: "Delete a computer by hostname or serial number",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveComputerUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			proceed, err := confirmDelete("computer", args[0], yes)
+			if err != nil {
+				return err
+			}
+			if !proceed {
+				return nil
+			}
+			return cliCtx.ProtectClient.DeleteComputer(ctx, uuid)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+
+	return cmd
+}
+
+func newProtectComputersSetPlanCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "set-plan <hostname|serial> <plan-name>",
+		Short: "Assign a plan to a computer by hostname or serial number",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			computerUUID, err := r.ResolveComputerUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			planID, err := r.ResolvePlanID(ctx, args[1])
+			if err != nil {
+				return err
+			}
+			computer, err := cliCtx.ProtectClient.SetComputerPlan(ctx, computerUUID, planID)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, computer)
+		},
+	}
+}
+
+func newProtectComputersUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var label string
+	var tags []string
+
+	cmd := &cobra.Command{
+		Use:   "update <hostname|serial>",
+		Short: "Update a computer's label and/or tags",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			uuid, err := r.ResolveComputerUUID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			input := jamfprotect.ComputerUpdateInput{}
+			if cmd.Flags().Changed("label") {
+				input.Label = &label
+			}
+			if cmd.Flags().Changed("tags") {
+				input.Tags = tags
+			}
+			computer, err := cliCtx.ProtectClient.UpdateComputer(ctx, uuid, input)
+			if err != nil {
+				return err
+			}
+			return protect.PrintOne(cliCtx.Output, computer)
+		},
+	}
+
+	cmd.Flags().StringVar(&label, "label", "", "New label for the computer")
+	cmd.Flags().StringArrayVar(&tags, "tags", nil, "Tags to set (replaces existing tags)")
+
+	return cmd
 }
 
 // flattenComputer converts a Computer with pointer fields into a clean map,

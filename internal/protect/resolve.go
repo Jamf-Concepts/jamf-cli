@@ -29,6 +29,7 @@ type Resolver struct {
 	apiClients     map[string]string
 	computers      map[string]string // hostname -> uuid
 	computerSerial map[string]string // serial -> uuid
+	insights       map[string]string // label -> uuid
 }
 
 // NewResolver creates a Resolver for the given Protect client.
@@ -279,6 +280,25 @@ func (r *Resolver) ResolveApiClientID(ctx context.Context, name string) (string,
 	id, ok := r.apiClients[name]
 	if !ok {
 		return "", fmt.Errorf("API client %q not found; use 'protect api-clients list' to see available names", name)
+	}
+	return id, nil
+}
+
+// ResolveInsightUUID returns the UUID for an insight given its label.
+func (r *Resolver) ResolveInsightUUID(ctx context.Context, label string) (string, error) {
+	if r.insights == nil {
+		items, err := r.client.ListInsights(ctx)
+		if err != nil {
+			return "", fmt.Errorf("listing insights: %w", err)
+		}
+		r.insights = make(map[string]string, len(items))
+		for _, i := range items {
+			r.insights[i.Label] = i.UUID
+		}
+	}
+	id, ok := r.insights[label]
+	if !ok {
+		return "", fmt.Errorf("insight %q not found; use 'protect insights list' to see available labels", label)
 	}
 	return id, nil
 }

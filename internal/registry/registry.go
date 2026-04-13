@@ -83,6 +83,31 @@ type ProtectClient interface {
 	// Computers
 	ListComputers(ctx context.Context) ([]jamfprotect.Computer, error)
 	GetComputer(ctx context.Context, uuid string) (*jamfprotect.Computer, error)
+	DeleteComputer(ctx context.Context, uuid string) error
+	SetComputerPlan(ctx context.Context, uuid string, planID string) (*jamfprotect.Computer, error)
+	UpdateComputer(ctx context.Context, uuid string, input jamfprotect.ComputerUpdateInput) (*jamfprotect.Computer, error)
+
+	// Alerts
+	ListAlerts(ctx context.Context) ([]jamfprotect.Alert, error)
+	GetAlert(ctx context.Context, uuid string) (*jamfprotect.Alert, error)
+	GetAlertStatusCounts(ctx context.Context) (jamfprotect.AlertStatusCounts, error)
+	UpdateAlerts(ctx context.Context, input jamfprotect.AlertUpdateInput) ([]jamfprotect.Alert, error)
+
+	// Insights
+	ListInsights(ctx context.Context) ([]jamfprotect.Insight, error)
+	UpdateInsightStatus(ctx context.Context, uuid string, enabled bool) (jamfprotect.Insight, error)
+	ListInsightComputers(ctx context.Context, uuid string) ([]jamfprotect.InsightComputer, error)
+	GetFleetComplianceScore(ctx context.Context, date string) (jamfprotect.ComplianceBaselineScore, error)
+
+	// Audit Logs
+	ListAuditLogsByDate(ctx context.Context, dateRange *jamfprotect.AuditLogDateRange) ([]jamfprotect.AuditLog, error)
+
+	// Dashboard
+	GetCount(ctx context.Context) (jamfprotect.CountResponse, error)
+	ListRiskiestComputers(ctx context.Context, limit int, createdInterval string) ([]jamfprotect.RiskyComputer, error)
+
+	// RBAC
+	GetCurrentPermissions(ctx context.Context) (jamfprotect.RolePermissions, error)
 
 	// Analytics
 	ListAnalytics(ctx context.Context) ([]jamfprotect.Analytic, error)

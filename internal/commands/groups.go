@@ -386,19 +386,23 @@ var protectGroupMap = map[string]string{
 	"telemetry":                      groupProtectSecurity,
 	"custom-prevent-lists":           groupProtectSecurity,
 	"unified-logging-filters":        groupProtectSecurity,
+	"insights":                       groupProtectSecurity,
 
 	"computers": groupProtectEndpoint,
+	"alerts":    groupProtectEndpoint,
 
 	"data-forwarding": groupProtectOrg,
 	"data-retention":  groupProtectOrg,
 	"downloads":       groupProtectOrg,
 	"config-freeze":   groupProtectOrg,
 	"connections":     groupProtectOrg,
+	"audit-logs":      groupProtectOrg,
 
 	"roles":       groupProtectAccess,
 	"users":       groupProtectAccess,
 	"groups":      groupProtectAccess,
 	"api-clients": groupProtectAccess,
+	"permissions": groupProtectAccess,
 }
 
 func applyProtectGroups(protect *cobra.Command) {

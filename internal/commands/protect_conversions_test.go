@@ -352,3 +352,190 @@ func TestAnalyticToYAML_RoundTrip(t *testing.T) {
 		t.Errorf("Context[0].Name = %q, want %q", input.Context[0].Name, "proc")
 	}
 }
+
+// ─── flattenAlert ────────────────────────────────────────────────────────────
+
+func TestFlattenAlert_BasicFields(t *testing.T) {
+	a := jamfprotect.Alert{
+		UUID:      "alert-uuid-1",
+		Status:    "New",
+		Severity:  "HIGH",
+		EventType: "GPUProcessLaunch",
+		Received:  "2026-04-13T10:00:00Z",
+		Created:   "2026-04-13T10:00:00Z",
+	}
+	m := flattenAlert(a)
+
+	if m["uuid"] != "alert-uuid-1" {
+		t.Errorf("uuid = %v, want %q", m["uuid"], "alert-uuid-1")
+	}
+	if m["status"] != "New" {
+		t.Errorf("status = %v, want %q", m["status"], "New")
+	}
+	if m["severity"] != "HIGH" {
+		t.Errorf("severity = %v, want %q", m["severity"], "HIGH")
+	}
+	if m["eventType"] != "GPUProcessLaunch" {
+		t.Errorf("eventType = %v, want %q", m["eventType"], "GPUProcessLaunch")
+	}
+}
+
+func TestFlattenAlert_WithComputer(t *testing.T) {
+	a := jamfprotect.Alert{
+		UUID: "alert-uuid-2",
+		Computer: &jamfprotect.AlertComputer{
+			UUID:     "computer-uuid-1",
+			HostName: "my-mac.local",
+		},
+	}
+	m := flattenAlert(a)
+
+	if m["computer"] != "my-mac.local" {
+		t.Errorf("computer = %v, want %q", m["computer"], "my-mac.local")
+	}
+}
+
+func TestFlattenAlert_NoComputer(t *testing.T) {
+	a := jamfprotect.Alert{UUID: "alert-uuid-3"}
+	m := flattenAlert(a)
+
+	if _, ok := m["computer"]; ok {
+		t.Error("computer should be absent when nil")
+	}
+}
+
+func TestFlattenAlert_AnalyticsJoined(t *testing.T) {
+	a := jamfprotect.Alert{
+		UUID: "alert-uuid-4",
+		Analytics: []jamfprotect.AlertAnalytic{
+			{Name: "Analytic One"},
+			{Name: "Analytic Two"},
+		},
+	}
+	m := flattenAlert(a)
+
+	if m["analytics"] != "Analytic One, Analytic Two" {
+		t.Errorf("analytics = %v, want %q", m["analytics"], "Analytic One, Analytic Two")
+	}
+}
+
+// ─── flattenInsight ──────────────────────────────────────────────────────────
+
+func TestFlattenInsight_BasicFields(t *testing.T) {
+	i := jamfprotect.Insight{
+		UUID:      "insight-uuid-1",
+		Label:     "Ensure FileVault Is Enabled",
+		Section:   "5",
+		Enabled:   true,
+		TotalPass: 42,
+		TotalFail: 3,
+		TotalNone: 1,
+		CisID:     []jamfprotect.InsightCisID{{ID: "5.1.1", OSVersion: "14"}},
+	}
+	m := flattenInsight(i)
+
+	if m["label"] != "Ensure FileVault Is Enabled" {
+		t.Errorf("label = %v, want %q", m["label"], "Ensure FileVault Is Enabled")
+	}
+	if m["enabled"] != true {
+		t.Errorf("enabled = %v, want true", m["enabled"])
+	}
+	if m["totalPass"] != int64(42) {
+		t.Errorf("totalPass = %v, want 42", m["totalPass"])
+	}
+	if m["totalFail"] != int64(3) {
+		t.Errorf("totalFail = %v, want 3", m["totalFail"])
+	}
+	if m["cisIDs"] != "5.1.1" {
+		t.Errorf("cisIDs = %v, want %q", m["cisIDs"], "5.1.1")
+	}
+}
+
+func TestFlattenInsight_MultipleCISIDs(t *testing.T) {
+	i := jamfprotect.Insight{
+		CisID: []jamfprotect.InsightCisID{
+			{ID: "1.1", OSVersion: "14"},
+			{ID: "1.2", OSVersion: "15"},
+		},
+	}
+	m := flattenInsight(i)
+
+	if m["cisIDs"] != "1.1, 1.2" {
+		t.Errorf("cisIDs = %v, want %q", m["cisIDs"], "1.1, 1.2")
+	}
+}
+
+// ─── flattenInsightComputer ──────────────────────────────────────────────────
+
+func TestFlattenInsightComputer_BasicFields(t *testing.T) {
+	c := jamfprotect.InsightComputer{
+		UUID:                 "comp-uuid-1",
+		HostName:             "mac-01.local",
+		InsightsStatsFail:    5,
+		InsightsStatsPass:    10,
+		InsightsStatsUnknown: 2,
+		InsightsUpdated:      "2026-04-13T09:00:00Z",
+	}
+	m := flattenInsightComputer(c)
+
+	if m["uuid"] != "comp-uuid-1" {
+		t.Errorf("uuid = %v, want %q", m["uuid"], "comp-uuid-1")
+	}
+	if m["hostName"] != "mac-01.local" {
+		t.Errorf("hostName = %v, want %q", m["hostName"], "mac-01.local")
+	}
+	if m["statsFail"] != int64(5) {
+		t.Errorf("statsFail = %v, want 5", m["statsFail"])
+	}
+	if m["statsPass"] != int64(10) {
+		t.Errorf("statsPass = %v, want 10", m["statsPass"])
+	}
+}
+
+// ─── flattenAuditLog ─────────────────────────────────────────────────────────
+
+func TestFlattenAuditLog_BasicFields(t *testing.T) {
+	l := jamfprotect.AuditLog{
+		Date:       "2026-04-13T10:00:00Z",
+		Op:         "createAnalytic",
+		User:       "admin@example.com",
+		IPs:        "192.168.1.1",
+		ResourceID: "analytic-uuid-1",
+	}
+	m := flattenAuditLog(l)
+
+	if m["date"] != "2026-04-13T10:00:00Z" {
+		t.Errorf("date = %v, want %q", m["date"], "2026-04-13T10:00:00Z")
+	}
+	if m["op"] != "createAnalytic" {
+		t.Errorf("op = %v, want %q", m["op"], "createAnalytic")
+	}
+	if m["user"] != "admin@example.com" {
+		t.Errorf("user = %v, want %q", m["user"], "admin@example.com")
+	}
+	if m["resourceId"] != "analytic-uuid-1" {
+		t.Errorf("resourceId = %v, want %q", m["resourceId"], "analytic-uuid-1")
+	}
+}
+
+func TestFlattenAuditLog_NilError(t *testing.T) {
+	l := jamfprotect.AuditLog{Op: "listPlans"}
+	m := flattenAuditLog(l)
+
+	if _, ok := m["error"]; ok {
+		t.Error("error should be absent when nil")
+	}
+}
+
+func TestFlattenAuditLog_WithError(t *testing.T) {
+	errMsg := "permission denied"
+	l := jamfprotect.AuditLog{
+		Op:    "deletePlan",
+		Error: &errMsg,
+	}
+	m := flattenAuditLog(l)
+
+	if m["error"] != "permission denied" {
+		t.Errorf("error = %v, want %q", m["error"], "permission denied")
+	}
+}
