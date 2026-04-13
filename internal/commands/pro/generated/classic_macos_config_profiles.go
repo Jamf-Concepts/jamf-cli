@@ -203,24 +203,36 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
+			if (stat.Mode() & os.ModeCharDevice) != 0 {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
+			bodyBytes, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading input: %w", err)
+			}
 
-			var path string
+			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
+			var resolvedID string
+
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/osxconfigurationprofiles/name/%s", url.PathEscape(flagName))
+				var existingPayload []byte
+				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "osxconfigurationprofiles", flagName)
+				if resolvedID == "" {
+					return fmt.Errorf("no os_x_configuration_profile found with name %q", flagName)
+				}
+				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(args[0]))
+				resolvedID = args[0]
+				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID)
+				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
+
 			if err != nil {
 				return err
 			}
@@ -395,6 +407,10 @@ If not, a new resource is created.`,
 					return fmt.Errorf("aborted")
 				}
 			}
+
+			// Preserve existing PayloadUUID and PayloadIdentifier.
+			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", id)
+			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
 
 			updatePath := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))

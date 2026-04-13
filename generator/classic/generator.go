@@ -155,7 +155,16 @@ func templateFuncs() template.FuncMap {
 			return r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name")
 		},
 		"needsBytes": func(r ClassicResource) bool {
-			return r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name")
+			return (r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name")) ||
+				(r.IsConfigProfile && r.HasOperation("update"))
+		},
+		"anyIsConfigProfile": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if r.IsConfigProfile {
+					return true
+				}
+			}
+			return false
 		},
 		"hasDeleteByName": func(r ClassicResource) bool {
 			return r.HasOperation("delete") && r.HasLookup("name")
@@ -427,6 +436,45 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+{{ if .IsConfigProfile }}
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) != 0 {
+				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			}
+			bodyBytes, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading input: %w", err)
+			}
+
+			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
+			var resolvedID string
+{{ if hasLookup .Lookups "name" }}
+			if flagName != "" {
+				var existingPayload []byte
+				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "{{ .Path }}", flagName)
+				if resolvedID == "" {
+					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
+				}
+				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
+				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			} else {
+				return fmt.Errorf("provide an <id> argument or --name")
+			}
+{{ else }}
+			if len(args) > 0 {
+				resolvedID = args[0]
+				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
+				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			} else {
+				return fmt.Errorf("provide an <id> argument")
+			}
+{{ end }}
+			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
+{{ else }}
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -447,6 +495,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 {{ end }}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+{{- end }}
 			if err != nil {
 				return err
 			}
@@ -635,6 +684,11 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 
+{{ if .IsConfigProfile }}
+			// Preserve existing PayloadUUID and PayloadIdentifier.
+			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
+			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+{{ end }}
 			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
@@ -668,12 +722,19 @@ import (
 	"os"
 	"strings"
 {{- end }}
+{{- if anyIsConfigProfile . }}
+	"bytes"
+	"net/url"
+{{- end }}
 
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if anyNeedsClassicNameResolve . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+{{- end }}
+{{- if anyIsConfigProfile . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 {{- end }}
 )
 
@@ -797,6 +858,147 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+{{ end }}
+{{ if anyIsConfigProfile . }}
+// fetchClassicProfileByName fetches a Classic config profile by name and returns
+// its numeric ID and existing payload plist in a single API call. Returns ("", nil)
+// when not found; callers should proceed without UUID injection if payload is nil.
+//
+// Errors (including non-404 server errors) are silently swallowed — UUID
+// preservation is best-effort and must never block an update.
+func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil
+	}
+
+	if !xmlconv.IsXML(body) {
+		return "", nil
+	}
+
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return "", nil
+	}
+
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				id = extractIDString(general, "id")
+				if payloads, ok := general["payloads"].(string); ok {
+					payloadPlist = []byte(payloads)
+				}
+				return id, payloadPlist
+			}
+		}
+	}
+	return "", nil
+}
+
+// fetchClassicProfilePayloadPlist fetches the payload plist for an existing
+// Classic config profile via the /subset/General endpoint. Returns nil when
+// the payload cannot be fetched; callers should proceed without UUID injection.
+func fetchClassicProfilePayloadPlist(ctx context.Context, client registry.HTTPClient, apiPath, id string) []byte {
+	path := fmt.Sprintf("/JSSResource/%s/id/%s/subset/General", apiPath, url.PathEscape(id))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	if !xmlconv.IsXML(body) {
+		return nil
+	}
+
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return nil
+	}
+
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				if payloads, ok := general["payloads"].(string); ok && payloads != "" {
+					return []byte(payloads)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// replaceClassicProfilePayload replaces the <payloads> CDATA block in a Classic
+// API config profile XML body with newPayload. The replacement targets only the
+// <payloads> element used by osxconfigurationprofiles and
+// mobiledeviceconfigurationprofiles. Returns xmlBody unchanged when no
+// <payloads> element is present.
+func replaceClassicProfilePayload(xmlBody, newPayload []byte) []byte {
+	const openTag = "<payloads>"
+	const closeTag = "</payloads>"
+
+	si := bytes.Index(xmlBody, []byte(openTag))
+	ei := bytes.Index(xmlBody, []byte(closeTag))
+	if si == -1 || ei == -1 || si >= ei {
+		return xmlBody
+	}
+
+	var buf bytes.Buffer
+	buf.Write(xmlBody[:si])
+	buf.WriteString(openTag + "<![CDATA[")
+	buf.Write(newPayload)
+	buf.WriteString("]]>" + closeTag)
+	buf.Write(xmlBody[ei+len(closeTag):])
+	return buf.Bytes()
+}
+
+// injectClassicProfilePayloadUUIDs extracts the mobileconfig plist from xmlBody,
+// injects PayloadUUID and PayloadIdentifier from existingPayload, and returns the
+// modified XML body. Returns xmlBody unchanged on any failure (best-effort).
+func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
+	if len(existingPayload) == 0 {
+		return xmlBody
+	}
+
+	m, err := xmlconv.ToMap(xmlBody)
+	if err != nil {
+		return xmlBody
+	}
+
+	var newPayloadPlist []byte
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				if payloads, ok := general["payloads"].(string); ok && payloads != "" {
+					newPayloadPlist = []byte(payloads)
+					break
+				}
+			}
+		}
+	}
+
+	if len(newPayloadPlist) == 0 {
+		return xmlBody
+	}
+
+	modified, err := profileconvert.InjectIdentifiers(newPayloadPlist, existingPayload)
+	if err != nil {
+		return xmlBody
+	}
+
+	return replaceClassicProfilePayload(xmlBody, modified)
 }
 {{ end }}
 `

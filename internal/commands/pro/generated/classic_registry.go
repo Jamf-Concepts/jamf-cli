@@ -3,15 +3,18 @@
 package generated
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
@@ -180,4 +183,144 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+
+// fetchClassicProfileByName fetches a Classic config profile by name and returns
+// its numeric ID and existing payload plist in a single API call. Returns ("", nil)
+// when not found; callers should proceed without UUID injection if payload is nil.
+//
+// Errors (including non-404 server errors) are silently swallowed — UUID
+// preservation is best-effort and must never block an update.
+func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil
+	}
+
+	if !xmlconv.IsXML(body) {
+		return "", nil
+	}
+
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return "", nil
+	}
+
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				id = extractIDString(general, "id")
+				if payloads, ok := general["payloads"].(string); ok {
+					payloadPlist = []byte(payloads)
+				}
+				return id, payloadPlist
+			}
+		}
+	}
+	return "", nil
+}
+
+// fetchClassicProfilePayloadPlist fetches the payload plist for an existing
+// Classic config profile via the /subset/General endpoint. Returns nil when
+// the payload cannot be fetched; callers should proceed without UUID injection.
+func fetchClassicProfilePayloadPlist(ctx context.Context, client registry.HTTPClient, apiPath, id string) []byte {
+	path := fmt.Sprintf("/JSSResource/%s/id/%s/subset/General", apiPath, url.PathEscape(id))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	if !xmlconv.IsXML(body) {
+		return nil
+	}
+
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return nil
+	}
+
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				if payloads, ok := general["payloads"].(string); ok && payloads != "" {
+					return []byte(payloads)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// replaceClassicProfilePayload replaces the <payloads> CDATA block in a Classic
+// API config profile XML body with newPayload. The replacement targets only the
+// <payloads> element used by osxconfigurationprofiles and
+// mobiledeviceconfigurationprofiles. Returns xmlBody unchanged when no
+// <payloads> element is present.
+func replaceClassicProfilePayload(xmlBody, newPayload []byte) []byte {
+	const openTag = "<payloads>"
+	const closeTag = "</payloads>"
+
+	si := bytes.Index(xmlBody, []byte(openTag))
+	ei := bytes.Index(xmlBody, []byte(closeTag))
+	if si == -1 || ei == -1 || si >= ei {
+		return xmlBody
+	}
+
+	var buf bytes.Buffer
+	buf.Write(xmlBody[:si])
+	buf.WriteString(openTag + "<![CDATA[")
+	buf.Write(newPayload)
+	buf.WriteString("]]>" + closeTag)
+	buf.Write(xmlBody[ei+len(closeTag):])
+	return buf.Bytes()
+}
+
+// injectClassicProfilePayloadUUIDs extracts the mobileconfig plist from xmlBody,
+// injects PayloadUUID and PayloadIdentifier from existingPayload, and returns the
+// modified XML body. Returns xmlBody unchanged on any failure (best-effort).
+func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
+	if len(existingPayload) == 0 {
+		return xmlBody
+	}
+
+	m, err := xmlconv.ToMap(xmlBody)
+	if err != nil {
+		return xmlBody
+	}
+
+	var newPayloadPlist []byte
+	for _, rootVal := range m {
+		if root, ok := rootVal.(map[string]any); ok {
+			if general, ok := root["general"].(map[string]any); ok {
+				if payloads, ok := general["payloads"].(string); ok && payloads != "" {
+					newPayloadPlist = []byte(payloads)
+					break
+				}
+			}
+		}
+	}
+
+	if len(newPayloadPlist) == 0 {
+		return xmlBody
+	}
+
+	modified, err := profileconvert.InjectIdentifiers(newPayloadPlist, existingPayload)
+	if err != nil {
+		return xmlBody
+	}
+
+	return replaceClassicProfilePayload(xmlBody, modified)
 }

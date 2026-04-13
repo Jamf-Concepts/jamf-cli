@@ -46,88 +46,88 @@ var Scaffolds = map[string]string{
 	`com.jamf.ddm.math-settings`: `{
   "Calculator": {
     "BasicMode": {
-      "AddSquareRoot": true,
+      "AddSquareRoot": false,
       "Included": true
     },
     "InputModes": {
       "Included": true,
-      "RPN": true,
-      "UnitConversion": true
+      "RPN": false,
+      "UnitConversion": false
     },
     "MathNotesMode": {
-      "Enabled": true,
+      "Enabled": false,
       "Included": true
     },
     "ProgrammerMode": {
-      "Enabled": true,
+      "Enabled": false,
       "Included": true
     },
     "ScientificMode": {
-      "Enabled": true,
+      "Enabled": false,
       "Included": true
     }
   },
   "SystemBehavior": {
     "Included": true,
-    "KeyboardSuggestions": true,
-    "MathNotes": true
+    "KeyboardSuggestions": false,
+    "MathNotes": false
   }
 }`,
 	`com.jamf.ddm.passcode-settings`: `{
   "ChangeAtNextAuth": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "CustomRegex": {
     "Description": {
       "<key>": ""
     },
-    "Included": true,
+    "Included": false,
     "Regex": "[0-9]{16}"
   },
   "FailedAttemptsResetInMinutes": {
-    "Included": true,
+    "Included": false,
     "Value": 5
   },
   "MaximumFailedAttempts": {
-    "Included": true,
+    "Included": false,
     "Value": 10
   },
   "MaximumGracePeriodInMinutes": {
-    "Included": true,
+    "Included": false,
     "Value": 2
   },
   "MaximumInactivityInMinutes": {
-    "Included": true,
+    "Included": false,
     "Value": 10
   },
   "MaximumPasscodeAgeInDays": {
-    "Included": true,
+    "Included": false,
     "Value": 14
   },
   "MinimumComplexCharacters": {
-    "Included": true,
+    "Included": false,
     "Value": 1
   },
   "MinimumLength": {
-    "Included": true,
+    "Included": false,
     "Value": 8
   },
   "PasscodeReuseLimit": {
-    "Included": true,
+    "Included": false,
     "Value": 10
   },
   "RequireAlphanumericPasscode": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "RequireComplexPasscode": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "RequirePasscode": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "version": "2"
 }`,
@@ -171,37 +171,37 @@ var Scaffolds = map[string]string{
 }`,
 	`com.jamf.ddm.safari-settings`: `{
   "AcceptCookies": {
-    "Included": true,
+    "Included": false,
     "Value": "Never"
   },
   "AllowDisablingFraudWarning": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "AllowHistoryClearing": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "AllowJavaScript": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "AllowPopups": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "AllowPrivateBrowsing": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "AllowSummary": {
-    "Included": true,
-    "Value": true
+    "Included": false,
+    "Value": false
   },
   "NewTabStartPage": {
     "ExtensionIdentifier": "com.example.extension (ABC1234567)",
     "HomepageURL": "https://example.com",
-    "Included": true,
+    "Included": false,
     "PageType": "Start"
   }
 }`,
@@ -260,7 +260,7 @@ var Scaffolds = map[string]string{
 }`,
 	`com.jamf.ddm.software-update-settings`: `{
   "AllowStandardUserOSUpdates": {
-    "Enabled": true,
+    "Enabled": false,
     "Included": true
   },
   "AutomaticActions": {
@@ -312,16 +312,16 @@ var Scaffolds = map[string]string{
     }
   },
   "Notifications": {
-    "Enabled": true,
+    "Enabled": false,
     "Included": true
   },
   "RapidSecurityResponse": {
     "Enable": {
-      "Enabled": true,
+      "Enabled": false,
       "Included": true
     },
     "EnableRollback": {
-      "Enabled": true,
+      "Enabled": false,
       "Included": true
     }
   },
