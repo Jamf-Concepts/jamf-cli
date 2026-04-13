@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
@@ -61,11 +62,21 @@ func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpin
 	return jamfplatform.NewClient(url, clientID, clientSecret, opts...)
 }
 
-// printScaffold marshals the given value as indented JSON to stdout.
+// printScaffold marshals the given value to stdout, respecting the -o flag.
 // Used by apply commands with --scaffold to show the expected input structure.
 func printScaffold(v any) error {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	enc.SetEscapeHTML(false)
-	return enc.Encode(v)
+	switch outputFmt {
+	case "yaml":
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+		return enc.Close()
+	default:
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		enc.SetEscapeHTML(false)
+		return enc.Encode(v)
+	}
 }
