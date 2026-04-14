@@ -86,6 +86,8 @@ var schoolAliases = map[string][]string{
 	"locations":     {"loc"},
 	"dep-devices":   {"dep"},
 	"ibeacons":      {"ib"},
+	"blueprints":    {"bp"},
+	"ddm-reports":   {"ddm"},
 }
 
 // applySchoolAliases appends aliases to school subcommands.

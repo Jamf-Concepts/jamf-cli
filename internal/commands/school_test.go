@@ -75,6 +75,8 @@ func TestSchoolAliases(t *testing.T) {
 		{"loc", "locations"},
 		{"dep", "dep-devices"},
 		{"ib", "ibeacons"},
+		{"bp", "blueprints"},
+		{"ddm", "ddm-reports"},
 	}
 
 	for _, tc := range tests {
@@ -106,6 +108,8 @@ func TestSchoolSubcommands(t *testing.T) {
 		"locations",
 		"ibeacons",
 		"dep-devices",
+		"blueprints",
+		"ddm-reports",
 	}
 
 	for _, name := range expected {

@@ -421,11 +421,12 @@ func applyProtectGroups(protect *cobra.Command) {
 // ─── Jamf School groups (children of the "school" command) ──────────────────
 
 const (
-	groupSchoolCore    = "school-core"
-	groupSchoolDevices = "school-devices"
-	groupSchoolUsers   = "school-users"
-	groupSchoolContent = "school-content"
-	groupSchoolInfra   = "school-infra"
+	groupSchoolCore     = "school-core"
+	groupSchoolDevices  = "school-devices"
+	groupSchoolUsers    = "school-users"
+	groupSchoolContent  = "school-content"
+	groupSchoolInfra    = "school-infra"
+	groupSchoolPlatform = "school-platform"
 )
 
 var schoolGroups = []*cobra.Group{
@@ -434,6 +435,7 @@ var schoolGroups = []*cobra.Group{
 	{ID: groupSchoolUsers, Title: "Users & Organization:"},
 	{ID: groupSchoolContent, Title: "Content:"},
 	{ID: groupSchoolInfra, Title: "Infrastructure:"},
+	{ID: groupSchoolPlatform, Title: "Platform:"},
 }
 
 var schoolGroupMap = map[string]string{
@@ -453,6 +455,9 @@ var schoolGroupMap = map[string]string{
 	"locations":   groupSchoolInfra,
 	"ibeacons":    groupSchoolInfra,
 	"dep-devices": groupSchoolInfra,
+
+	"blueprints":  groupSchoolPlatform,
+	"ddm-reports": groupSchoolPlatform,
 }
 
 func applySchoolGroups(school *cobra.Command) {

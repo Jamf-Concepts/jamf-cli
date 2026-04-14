@@ -29,9 +29,10 @@ type Profile struct {
 	Token               string         `yaml:"token,omitempty"`
 	ClientID            string         `yaml:"client-id,omitempty"`
 	ClientSecret        string         `yaml:"client-secret,omitempty"`
-	TenantID            string         `yaml:"tenant-id,omitempty"`  // pro platform auth only
-	NetworkID           string         `yaml:"network-id,omitempty"` // school only
-	APIKey              string         `yaml:"api-key,omitempty"`    // school only
+	TenantID            string         `yaml:"tenant-id,omitempty"`    // platform auth
+	PlatformURL         string         `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
+	NetworkID           string         `yaml:"network-id,omitempty"`   // school only
+	APIKey              string         `yaml:"api-key,omitempty"`      // school only
 	DestructiveCooldown *time.Duration `yaml:"destructive-cooldown,omitempty"`
 }
 

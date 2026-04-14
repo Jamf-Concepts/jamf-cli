@@ -955,6 +955,12 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 		apiKey = os.Getenv("JAMFSCHOOL_API_KEY")
 	}
 
+	// Platform API credentials (optional — enables blueprints + DDM reports)
+	platformURL := ""
+	cid := ""
+	csecret := ""
+	tid := ""
+
 	// Fill from config profile
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
@@ -973,6 +979,27 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 				return fmt.Errorf("resolving api-key from profile: %w", err)
 			}
 			apiKey = resolved
+		}
+		// Platform credentials from profile
+		if p.PlatformURL != "" {
+			platformURL = p.PlatformURL
+		}
+		if p.ClientID != "" {
+			resolved, err := config.ResolveSecret(p.ClientID)
+			if err != nil {
+				return fmt.Errorf("resolving client-id from profile: %w", err)
+			}
+			cid = resolved
+		}
+		if p.ClientSecret != "" {
+			resolved, err := config.ResolveSecret(p.ClientSecret)
+			if err != nil {
+				return fmt.Errorf("resolving client-secret from profile: %w", err)
+			}
+			csecret = resolved
+		}
+		if p.TenantID != "" {
+			tid = p.TenantID
 		}
 	}
 
@@ -1009,6 +1036,16 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 		jamfschool.WithHTTPClient(stdClient),
 	}
 	cliCtx.SchoolClient = jamfschool.NewClient(url, networkID, apiKey, schoolOpts...)
+
+	// When platform credentials are present, also construct the Platform SDK
+	// client for blueprint and DDM report commands.
+	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
+		cliCtx.PlatformClient = newPlatformSDKClient(
+			platformURL, cid, csecret, tid,
+			!quiet && !verbose,
+		)
+	}
+
 	return nil
 }
 

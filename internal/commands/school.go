@@ -37,6 +37,10 @@ func newSchoolCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSchoolIBeaconsCmd(cliCtx))
 	cmd.AddCommand(newSchoolDEPDevicesCmd(cliCtx))
 
+	// Platform API (requires platform credentials on profile)
+	cmd.AddCommand(newBlueprintsCmd(cliCtx))
+	cmd.AddCommand(newDDMReportsCmd(cliCtx))
+
 	// Apply aliases and groups
 	applySchoolAliases(cmd)
 	applySchoolGroups(cmd)
