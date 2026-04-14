@@ -27,6 +27,13 @@ type Provider interface {
 	Name() string
 }
 
+// Refresher is implemented by auth providers that support forced token refresh.
+// Calling Refresh clears any cached state (in-memory and on-disk) and exchanges
+// credentials for a brand-new token.
+type Refresher interface {
+	Refresh(ctx context.Context) (string, error)
+}
+
 // TokenProvider uses a pre-existing bearer token
 type TokenProvider struct {
 	token string
@@ -387,6 +394,28 @@ func (p *OAuth2Provider) exchangeToken(ctx context.Context) (string, int, error)
 	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
 }
 
+// ExpiresAt returns the expiry time of the last fetched token.
+// Returns zero if GetToken has not yet been called successfully.
+func (p *OAuth2Provider) ExpiresAt() time.Time {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.expiresAt
+}
+
+// Refresh clears the in-memory and disk token caches and exchanges credentials
+// for a new token. Implements auth.Refresher.
+func (p *OAuth2Provider) Refresh(ctx context.Context) (string, error) {
+	cachePath := tokenCachePath(p.baseURL, p.clientID)
+	p.mu.Lock()
+	p.token = ""
+	p.expiresAt = time.Time{}
+	p.mu.Unlock()
+	if cachePath != "" {
+		_ = os.Remove(cachePath)
+	}
+	return p.GetToken(ctx)
+}
+
 func (p *OAuth2Provider) Name() string {
 	return "oauth2"
 }
@@ -513,6 +542,14 @@ func (p *PlatformOAuth2Provider) exchangeToken(ctx context.Context) (string, int
 	return tokenResp.AccessToken, tokenResp.ExpiresIn, nil
 }
 
+// ExpiresAt returns the expiry time of the last fetched token.
+// Returns zero if GetToken has not yet been called successfully.
+func (p *PlatformOAuth2Provider) ExpiresAt() time.Time {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.expiresAt
+}
+
 // TenantID returns the tenant identifier used for gateway URL path rewriting.
 func (p *PlatformOAuth2Provider) TenantID() string {
 	return p.tenantID
@@ -528,6 +565,20 @@ func (p *PlatformOAuth2Provider) ClientID() string {
 // that manage their own token lifecycle (e.g., the Jamf Platform SDK).
 func (p *PlatformOAuth2Provider) ClientSecret() string {
 	return p.clientSecret
+}
+
+// Refresh clears the in-memory and disk token caches and exchanges credentials
+// for a new token. Implements auth.Refresher.
+func (p *PlatformOAuth2Provider) Refresh(ctx context.Context) (string, error) {
+	cachePath := tokenCachePath(p.baseURL, p.clientID)
+	p.mu.Lock()
+	p.token = ""
+	p.expiresAt = time.Time{}
+	p.mu.Unlock()
+	if cachePath != "" {
+		_ = os.Remove(cachePath)
+	}
+	return p.GetToken(ctx)
 }
 
 func (p *PlatformOAuth2Provider) Name() string {

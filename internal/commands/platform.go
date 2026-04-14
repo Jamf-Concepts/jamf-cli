@@ -14,10 +14,11 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
-func newPlatformCmd() *cobra.Command {
+func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "platform",
 		Short: "Jamf Platform commands",
@@ -25,6 +26,7 @@ func newPlatformCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newPlatformSetupCmd())
+	cmd.AddCommand(newPlatformAuthCmd(cliCtx))
 
 	return cmd
 }

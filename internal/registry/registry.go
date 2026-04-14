@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
@@ -276,9 +277,14 @@ type PlatformClient interface {
 type CLIContext struct {
 	Client              HTTPClient
 	Output              OutputFormatter
+	AuthProvider        auth.Provider // resolved Pro auth provider (nil for Protect commands)
 	ProtectClient       ProtectClient
 	PlatformClient      PlatformClient
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth
 	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled
+	// ClearProtectToken, when non-nil, clears the Jamf Protect disk token cache
+	// so the next AccessToken call exchanges fresh credentials. Used by
+	// "protect auth token --refresh". Nil when no disk cache is configured.
+	ClearProtectToken func()
 }

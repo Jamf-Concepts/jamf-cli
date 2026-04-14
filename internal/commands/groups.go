@@ -96,6 +96,7 @@ var proGroupMap = map[string]string{
 	// Core
 	"setup":    groupCore,
 	"overview": groupCore,
+	"auth":     groupCore,
 	"device":   groupCore,
 
 	// Power Commands
