@@ -140,13 +140,7 @@ func newSchoolIBeaconsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
-			updateInput := jamfschool.IBeaconUpdateInput{
-				Name:        input.Name,
-				Description: input.Description,
-				UUID:        input.UUID,
-				Major:       input.Major,
-				Minor:       input.Minor,
-			}
+			updateInput := jamfschool.IBeaconUpdateInput(input)
 			result, err := cliCtx.SchoolClient.UpdateIBeacon(ctx, id, updateInput)
 			if err != nil {
 				return err
