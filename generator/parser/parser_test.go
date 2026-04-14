@@ -712,6 +712,92 @@ func TestDetectSingleton(t *testing.T) {
 	}
 }
 
+func TestDetectVersionLock(t *testing.T) {
+	versionLockSchema := &Schema{
+		Properties: map[string]*Property{
+			"displayName": {Name: "displayName", Type: "string"},
+			"versionLock": {Name: "versionLock", Type: "integer"},
+		},
+	}
+	noVersionLockSchema := &Schema{
+		Properties: map[string]*Property{
+			"name": {Name: "name", Type: "string"},
+		},
+	}
+
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			name: "PUT with versionLock in request body",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v3/computer-prestages"},
+				{
+					Name: "update", Method: "PUT", Path: "/v3/computer-prestages/{id}",
+					RequestBody: &RequestBody{Schema: versionLockSchema},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "POST with versionLock in request body",
+			ops: []*Operation{
+				{
+					Name: "create-scope", Method: "POST", Path: "/v2/computer-prestages/{id}/scope",
+					RequestBody: &RequestBody{Schema: versionLockSchema},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "no versionLock in any request body",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/buildings"},
+				{
+					Name: "create", Method: "POST", Path: "/v1/buildings",
+					RequestBody: &RequestBody{Schema: noVersionLockSchema},
+				},
+				{
+					Name: "update", Method: "PUT", Path: "/v1/buildings/{id}",
+					RequestBody: &RequestBody{Schema: noVersionLockSchema},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "GET-only operations (no request body)",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "nil request body on PUT",
+			ops: []*Operation{
+				{Name: "update", Method: "PUT", Path: "/v1/things/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "empty operations",
+			ops:  []*Operation{},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectVersionLock(tt.ops)
+			if got != tt.want {
+				t.Errorf("detectVersionLock() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseSpec_SingletonSpec(t *testing.T) {
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "CacheSettings.yaml")

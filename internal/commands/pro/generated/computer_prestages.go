@@ -438,6 +438,16 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -678,6 +688,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-prestage %q\n", name)
 					return nil
 				}
+				data = setVersionLockZero(data)
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/computer-prestages", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -705,6 +716,14 @@ If not, a new resource is created.`,
 			}
 
 			updatePath := strings.Replace("/v3/computer-prestages/{id}", "{id}", url.PathEscape(id), 1)
+			vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, updatePath)
+			if vlErr != nil {
+				return vlErr
+			}
+			data, vlErr = injectVersionLocks(data, vlResp)
+			if vlErr != nil {
+				return vlErr
+			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err

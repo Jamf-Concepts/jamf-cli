@@ -24,6 +24,7 @@ type Resource struct {
 	LookupFields      []LookupField // Alternate identifier fields for patch-by-name / delete-by-name (e.g. serial number)
 	NameLookupPath    string        // Override list path for name resolution (when the standard list endpoint ignores RSQL)
 	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
+	HasVersionLock    bool          // True when PUT/POST request body includes versionLock (optimistic locking for prestages)
 }
 
 // Operation represents an API operation (endpoint)

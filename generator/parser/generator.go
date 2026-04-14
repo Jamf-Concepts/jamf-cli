@@ -271,6 +271,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return "{id}"
 		},
+		"hasSuffix": strings.HasSuffix,
+		"opHasVersionLock": func(op *Operation) bool {
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			_, ok := op.RequestBody.Schema.Properties["versionLock"]
+			return ok
+		},
 		"isPatchOp":       isPatchOp,
 		"hasPatchOp":      hasPatchOp,
 		"patchHasLookup":  func(r *Resource) bool { return patchHasLookup(r) },
@@ -1515,7 +1523,27 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
+{{- if opHasVersionLock . }}
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized, err := normalizeInputToJSON(raw)
+					if err != nil {
+						return err
+					}
+					vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+					if vlErr != nil {
+						return vlErr
+					}
+					normalized, vlErr = injectVersionLocks(normalized, vlResp)
+					if vlErr != nil {
+						return vlErr
+					}
+					body = bytes.NewReader(normalized)
+{{- else }}
 					body = os.Stdin
+{{- end }}
 				}
 			}
 {{- else }}
@@ -1529,6 +1557,26 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err != nil {
 					return err
 				}
+{{- if and (opHasVersionLock .) (eq .Name "create") }}
+
+				// Optimistic locking: new resources require versionLock 0
+				normalized = setVersionLockZero(normalized)
+{{- else if and (opHasVersionLock .) (ne .Name "create") }}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+{{- if hasSuffix .Path "/delete-multiple" }}
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+{{- else }}
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+{{- end }}
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+{{- end }}
 				body = bytes.NewReader(normalized)
 			}
 {{- end }}
@@ -1695,6 +1743,9 @@ If not, a new resource is created.` + "`" + `,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .NameSingular }} %q\n", name)
 					return nil
 				}
+{{- if .HasVersionLock }}
+				data = setVersionLockZero(data)
+{{- end }}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1722,6 +1773,16 @@ If not, a new resource is created.` + "`" + `,
 			}
 
 			updatePath := strings.Replace("{{ updatePath .Operations }}", "{{ updatePathParam .Operations }}", url.PathEscape(id), 1)
+{{- if .HasVersionLock }}
+			vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, updatePath)
+			if vlErr != nil {
+				return vlErr
+			}
+			data, vlErr = injectVersionLocks(data, vlResp)
+			if vlErr != nil {
+				return vlErr
+			}
+{{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
@@ -1811,8 +1872,15 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}
 
+	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
+	// Always verify the returned result actually matches the requested name.
+	results := filterResultsByName(data.Results, nameField, name)
+	if len(results) == 0 {
+		return "", fmt.Errorf("no resource found with name %q", name)
+	}
+
 	var first map[string]any
-	if err := json.Unmarshal(data.Results[0], &first); err != nil {
+	if err := json.Unmarshal(results[0], &first); err != nil {
 		return "", fmt.Errorf("parsing lookup result: %w", err)
 	}
 
@@ -1833,6 +1901,25 @@ func extractIDString(obj map[string]any, field string) string {
 	default:
 		return ""
 	}
+}
+
+// filterResultsByName filters JSON results to those with an exact name match.
+// Some API endpoints ignore RSQL filter params (e.g. prestages) and return all
+// results. This provides a client-side fallback for accurate name resolution.
+func filterResultsByName(results []json.RawMessage, nameField, name string) []json.RawMessage {
+	var filtered []json.RawMessage
+	for _, raw := range results {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		if v, ok := obj[nameField]; ok {
+			if s, ok := v.(string); ok && s == name {
+				filtered = append(filtered, raw)
+			}
+		}
+	}
+	return filtered
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.
@@ -1952,12 +2039,19 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		return "", nil // Not found — caller should create
 	}
 
+	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
+	// Always apply exact name matching to guard against false positives.
+	results := filterResultsByName(data.Results, nameField, name)
+	if len(results) == 0 {
+		return "", nil // Not found — caller should create
+	}
+
 	// Parse results to extract IDs
 	type applyMatch struct {
 		id string
 	}
 	var matches []applyMatch
-	for _, raw := range data.Results {
+	for _, raw := range results {
 		var obj map[string]any
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
@@ -2051,5 +2145,88 @@ func parsePatchValue(s string) any {
 		return i
 	}
 	return s
+}
+
+// fetchVersionLock GETs a resource and returns the raw response body.
+// The caller uses this to extract versionLock values for optimistic locking.
+func fetchVersionLock(ctx context.Context, client registry.HTTPClient, getPath string) ([]byte, error) {
+	resp, err := client.Do(ctx, "GET", getPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching resource for version lock: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("reading version lock response: %w", err)
+	}
+	return body, nil
+}
+
+// injectVersionLocks deep-merges all versionLock fields from a GET response
+// into the user-provided request body. This ensures optimistic locking fields
+// are current without requiring users to manually fetch and set them.
+func injectVersionLocks(data, serverResponse []byte) ([]byte, error) {
+	var dst, src map[string]any
+	if err := json.Unmarshal(data, &dst); err != nil {
+		return data, nil // unparseable input — pass through unchanged
+	}
+	if err := json.Unmarshal(serverResponse, &src); err != nil {
+		return data, fmt.Errorf("parsing server response for version lock: %w", err)
+	}
+	mergeVersionLocks(dst, src)
+	out, err := json.Marshal(dst)
+	if err != nil {
+		return data, nil
+	}
+	return out, nil
+}
+
+// mergeVersionLocks recursively copies versionLock fields from src into dst.
+func mergeVersionLocks(dst, src map[string]any) {
+	if vl, ok := src["versionLock"]; ok {
+		dst["versionLock"] = vl
+	}
+	for key, srcVal := range src {
+		srcObj, ok := srcVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		dstVal, ok := dst[key]
+		if !ok {
+			continue
+		}
+		dstObj, ok := dstVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		mergeVersionLocks(dstObj, srcObj)
+	}
+}
+
+// setVersionLockZero recursively sets all versionLock fields to 0 in the JSON document.
+// Used when creating new resources that require optimistic locking.
+func setVersionLockZero(data []byte) []byte {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return data
+	}
+	zeroVersionLocks(obj)
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return data
+	}
+	return out
+}
+
+// zeroVersionLocks recursively sets all versionLock fields to 0.
+func zeroVersionLocks(obj map[string]any) {
+	if _, ok := obj["versionLock"]; ok {
+		obj["versionLock"] = 0
+	}
+	for _, v := range obj {
+		if nested, ok := v.(map[string]any); ok {
+			zeroVersionLocks(nested)
+		}
+	}
 }
 `
