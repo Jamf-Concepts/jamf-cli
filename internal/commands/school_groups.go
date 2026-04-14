@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -117,15 +118,19 @@ func newSchoolGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := school.NewResolver(cliCtx.SchoolClient)
 			id, err := r.ResolveGroupID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
-				newID, err := cliCtx.SchoolClient.CreateGroup(ctx, input)
-				if err != nil {
+				var notFound *school.ErrNotFound
+				if !errors.As(err, &notFound) {
 					return err
 				}
+				// Not found — create
+				newID, createErr := cliCtx.SchoolClient.CreateGroup(ctx, input)
+				if createErr != nil {
+					return createErr
+				}
 				fmt.Fprintf(os.Stderr, "Created group %q (ID: %d)\n", input.Name, newID)
-				item, err := cliCtx.SchoolClient.GetGroup(ctx, newID)
-				if err != nil {
-					return nil
+				item, getErr := cliCtx.SchoolClient.GetGroup(ctx, newID)
+				if getErr != nil {
+					return nil // created successfully, just can't fetch back
 				}
 				return printResult(cliCtx.Output, item, flattenSchoolGroup(*item))
 			}
@@ -150,7 +155,7 @@ func newSchoolGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Updated group %q\n", input.Name)
 			item, err := cliCtx.SchoolClient.GetGroup(ctx, id)
 			if err != nil {
-				return nil
+				return nil // updated successfully, just can't fetch back
 			}
 			return printResult(cliCtx.Output, item, flattenSchoolGroup(*item))
 		},

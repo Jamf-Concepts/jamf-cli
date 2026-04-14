@@ -941,25 +941,19 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	}
 
 	url := serverURL
-	networkID := ""
-	apiKey := ""
+	networkID := os.Getenv("JAMFSCHOOL_NETWORK_ID")
+	apiKey := os.Getenv("JAMFSCHOOL_API_KEY")
 
 	// Environment variable fallbacks (School-specific)
 	if url == "" {
 		url = os.Getenv("JAMFSCHOOL_URL")
 	}
-	if networkID == "" {
-		networkID = os.Getenv("JAMFSCHOOL_NETWORK_ID")
-	}
-	if apiKey == "" {
-		apiKey = os.Getenv("JAMFSCHOOL_API_KEY")
-	}
 
 	// Platform API credentials (optional — enables blueprints + DDM reports)
-	platformURL := ""
-	cid := ""
-	csecret := ""
-	tid := ""
+	platformURL := os.Getenv("JAMFSCHOOL_PLATFORM_URL")
+	cid := os.Getenv("JAMF_CLIENT_ID")
+	csecret := os.Getenv("JAMF_CLIENT_SECRET")
+	tid := os.Getenv("JAMF_TENANT_ID")
 
 	// Fill from config profile
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
@@ -980,25 +974,25 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 			}
 			apiKey = resolved
 		}
-		// Platform credentials from profile
-		if p.PlatformURL != "" {
+		// Platform credentials from profile (env vars take precedence)
+		if platformURL == "" && p.PlatformURL != "" {
 			platformURL = p.PlatformURL
 		}
-		if p.ClientID != "" {
+		if cid == "" && p.ClientID != "" {
 			resolved, err := config.ResolveSecret(p.ClientID)
 			if err != nil {
 				return fmt.Errorf("resolving client-id from profile: %w", err)
 			}
 			cid = resolved
 		}
-		if p.ClientSecret != "" {
+		if csecret == "" && p.ClientSecret != "" {
 			resolved, err := config.ResolveSecret(p.ClientSecret)
 			if err != nil {
 				return fmt.Errorf("resolving client-secret from profile: %w", err)
 			}
 			csecret = resolved
 		}
-		if p.TenantID != "" {
+		if tid == "" && p.TenantID != "" {
 			tid = p.TenantID
 		}
 	}

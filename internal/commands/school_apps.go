@@ -122,7 +122,7 @@ func newSchoolAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			item, err := cliCtx.SchoolClient.GetApp(ctx, newID)
 			if err != nil {
-				return nil
+				return nil // created successfully, just can't fetch back
 			}
 			return printResult(cliCtx.Output, item, flattenSchoolApp(*item))
 		},

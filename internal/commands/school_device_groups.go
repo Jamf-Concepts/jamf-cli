@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -123,15 +124,19 @@ func newSchoolDeviceGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := school.NewResolver(cliCtx.SchoolClient)
 			id, err := r.ResolveDeviceGroupID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
-				newID, err := cliCtx.SchoolClient.CreateDeviceGroup(ctx, input)
-				if err != nil {
+				var notFound *school.ErrNotFound
+				if !errors.As(err, &notFound) {
 					return err
 				}
+				// Not found — create
+				newID, createErr := cliCtx.SchoolClient.CreateDeviceGroup(ctx, input)
+				if createErr != nil {
+					return createErr
+				}
 				fmt.Fprintf(os.Stderr, "Created device group %q (ID: %d)\n", input.Name, newID)
-				item, err := cliCtx.SchoolClient.GetDeviceGroup(ctx, newID)
-				if err != nil {
-					return nil
+				item, getErr := cliCtx.SchoolClient.GetDeviceGroup(ctx, newID)
+				if getErr != nil {
+					return nil // created successfully, just can't fetch back
 				}
 				return printResult(cliCtx.Output, item, flattenSchoolDeviceGroup(*item))
 			}
@@ -155,7 +160,7 @@ func newSchoolDeviceGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Updated device group %q\n", input.Name)
 			item, err := cliCtx.SchoolClient.GetDeviceGroup(ctx, id)
 			if err != nil {
-				return nil
+				return nil // updated successfully, just can't fetch back
 			}
 			return printResult(cliCtx.Output, item, flattenSchoolDeviceGroup(*item))
 		},

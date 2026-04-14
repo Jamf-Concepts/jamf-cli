@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -117,10 +118,14 @@ func newSchoolIBeaconsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := school.NewResolver(cliCtx.SchoolClient)
 			id, err := r.ResolveIBeaconID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
-				result, err := cliCtx.SchoolClient.CreateIBeacon(ctx, input)
-				if err != nil {
+				var notFound *school.ErrNotFound
+				if !errors.As(err, &notFound) {
 					return err
+				}
+				// Not found — create
+				result, createErr := cliCtx.SchoolClient.CreateIBeacon(ctx, input)
+				if createErr != nil {
+					return createErr
 				}
 				fmt.Fprintf(os.Stderr, "Created iBeacon %q\n", input.Name)
 				return printResult(cliCtx.Output, result, flattenSchoolIBeacon(*result))

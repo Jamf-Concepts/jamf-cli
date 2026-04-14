@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -123,15 +124,19 @@ func newSchoolClassesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := school.NewResolver(cliCtx.SchoolClient)
 			uuid, err := r.ResolveClassUUID(ctx, input.Name)
 			if err != nil {
-				// Not found — create
-				newUUID, err := cliCtx.SchoolClient.CreateClass(ctx, input)
-				if err != nil {
+				var notFound *school.ErrNotFound
+				if !errors.As(err, &notFound) {
 					return err
 				}
+				// Not found — create
+				newUUID, createErr := cliCtx.SchoolClient.CreateClass(ctx, input)
+				if createErr != nil {
+					return createErr
+				}
 				fmt.Fprintf(os.Stderr, "Created class %q (UUID: %s)\n", input.Name, newUUID)
-				item, err := cliCtx.SchoolClient.GetClass(ctx, newUUID)
-				if err != nil {
-					return nil
+				item, getErr := cliCtx.SchoolClient.GetClass(ctx, newUUID)
+				if getErr != nil {
+					return nil // created successfully, just can't fetch back
 				}
 				return printResult(cliCtx.Output, item, flattenSchoolClass(*item))
 			}
@@ -155,7 +160,7 @@ func newSchoolClassesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Updated class %q\n", input.Name)
 			item, err := cliCtx.SchoolClient.GetClass(ctx, uuid)
 			if err != nil {
-				return nil
+				return nil // updated successfully, just can't fetch back
 			}
 			return printResult(cliCtx.Output, item, flattenSchoolClass(*item))
 		},

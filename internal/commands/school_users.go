@@ -4,6 +4,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -120,14 +121,18 @@ func newSchoolUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			r := school.NewResolver(cliCtx.SchoolClient)
 			id, err := r.ResolveUserID(ctx, input.Username)
 			if err != nil {
-				// Not found — create
-				newID, err := cliCtx.SchoolClient.CreateUser(ctx, input)
-				if err != nil {
+				var notFound *school.ErrNotFound
+				if !errors.As(err, &notFound) {
 					return err
 				}
+				// Not found — create
+				newID, createErr := cliCtx.SchoolClient.CreateUser(ctx, input)
+				if createErr != nil {
+					return createErr
+				}
 				fmt.Fprintf(os.Stderr, "Created user %q (ID: %d)\n", input.Username, newID)
-				item, err := cliCtx.SchoolClient.GetUser(ctx, newID)
-				if err != nil {
+				item, getErr := cliCtx.SchoolClient.GetUser(ctx, newID)
+				if getErr != nil {
 					return nil // created successfully, just can't fetch back
 				}
 				return printResult(cliCtx.Output, item, flattenSchoolUser(*item))
@@ -157,7 +162,7 @@ func newSchoolUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Updated user %q\n", input.Username)
 			item, err := cliCtx.SchoolClient.GetUser(ctx, id)
 			if err != nil {
-				return nil
+				return nil // updated successfully, just can't fetch back
 			}
 			return printResult(cliCtx.Output, item, flattenSchoolUser(*item))
 		},

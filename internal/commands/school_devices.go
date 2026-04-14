@@ -109,7 +109,7 @@ func newSchoolDevicesRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("restart device", args[0], yes)
+			proceed, err := confirmAction("restart", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -163,7 +163,7 @@ func newSchoolDevicesUnenrollCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("unenroll device", args[0], yes)
+			proceed, err := confirmAction("unenroll", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -196,7 +196,7 @@ func newSchoolDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("erase device", args[0], yes)
+			proceed, err := confirmAction("erase", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -227,7 +227,7 @@ func newSchoolDevicesClearActivationLockCmd(cliCtx *registry.CLIContext) *cobra.
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("clear activation lock on device", args[0], yes)
+			proceed, err := confirmAction("clear activation lock on", args[0], yes)
 			if err != nil {
 				return err
 			}
@@ -257,7 +257,7 @@ func newSchoolDevicesTrashCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proceed, err := confirmDelete("trash device", args[0], yes)
+			proceed, err := confirmAction("trash", args[0], yes)
 			if err != nil {
 				return err
 			}

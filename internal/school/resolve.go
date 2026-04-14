@@ -9,6 +9,20 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
+// ErrNotFound indicates a resource was not found by name during resolution.
+type ErrNotFound struct {
+	ResourceType string
+	Name         string
+	Hint         string // e.g. "use 'school devices list' to see available devices"
+}
+
+func (e *ErrNotFound) Error() string {
+	if e.Hint != "" {
+		return fmt.Sprintf("%s %q not found; %s", e.ResourceType, e.Name, e.Hint)
+	}
+	return fmt.Sprintf("%s %q not found", e.ResourceType, e.Name)
+}
+
 // Resolver maps resource names to IDs/UUIDs. Results are cached per
 // resource type to avoid redundant list calls within a single command.
 type Resolver struct {
@@ -54,7 +68,7 @@ func (r *Resolver) ResolveDeviceUDID(ctx context.Context, nameOrSerial string) (
 	if udid, ok := r.deviceSerial[nameOrSerial]; ok {
 		return udid, nil
 	}
-	return "", fmt.Errorf("device %q not found by name or serial; use 'school devices list' to see available devices", nameOrSerial)
+	return "", &ErrNotFound{"device", nameOrSerial, "use 'school devices list' to see available devices"}
 }
 
 // ResolveUserID returns the ID for a user given their username or email.
@@ -81,7 +95,7 @@ func (r *Resolver) ResolveUserID(ctx context.Context, nameOrEmail string) (int64
 	if id, ok := r.userEmail[nameOrEmail]; ok {
 		return id, nil
 	}
-	return 0, fmt.Errorf("user %q not found by username or email; use 'school users list' to see available users", nameOrEmail)
+	return 0, &ErrNotFound{"user", nameOrEmail, "use 'school users list' to see available users"}
 }
 
 // ResolveProfileID returns the ID for a profile given its name.
@@ -98,7 +112,7 @@ func (r *Resolver) ResolveProfileID(ctx context.Context, name string) (int64, er
 	}
 	id, ok := r.profiles[name]
 	if !ok {
-		return 0, fmt.Errorf("profile %q not found; use 'school profiles list' to see available names", name)
+		return 0, &ErrNotFound{"profile", name, "use 'school profiles list' to see available names"}
 	}
 	return id, nil
 }
@@ -117,7 +131,7 @@ func (r *Resolver) ResolveAppID(ctx context.Context, name string) (int64, error)
 	}
 	id, ok := r.apps[name]
 	if !ok {
-		return 0, fmt.Errorf("app %q not found; use 'school apps list' to see available names", name)
+		return 0, &ErrNotFound{"app", name, "use 'school apps list' to see available names"}
 	}
 	return id, nil
 }
@@ -136,7 +150,7 @@ func (r *Resolver) ResolveClassUUID(ctx context.Context, name string) (string, e
 	}
 	id, ok := r.classes[name]
 	if !ok {
-		return "", fmt.Errorf("class %q not found; use 'school classes list' to see available names", name)
+		return "", &ErrNotFound{"class", name, "use 'school classes list' to see available names"}
 	}
 	return id, nil
 }
@@ -155,7 +169,7 @@ func (r *Resolver) ResolveGroupID(ctx context.Context, name string) (int64, erro
 	}
 	id, ok := r.groups[name]
 	if !ok {
-		return 0, fmt.Errorf("group %q not found; use 'school groups list' to see available names", name)
+		return 0, &ErrNotFound{"group", name, "use 'school groups list' to see available names"}
 	}
 	return id, nil
 }
@@ -174,7 +188,7 @@ func (r *Resolver) ResolveDeviceGroupID(ctx context.Context, name string) (int64
 	}
 	id, ok := r.deviceGroups[name]
 	if !ok {
-		return 0, fmt.Errorf("device group %q not found; use 'school device-groups list' to see available names", name)
+		return 0, &ErrNotFound{"device group", name, "use 'school device-groups list' to see available names"}
 	}
 	return id, nil
 }
@@ -193,7 +207,7 @@ func (r *Resolver) ResolveLocationID(ctx context.Context, name string) (int64, e
 	}
 	id, ok := r.locations[name]
 	if !ok {
-		return 0, fmt.Errorf("location %q not found; use 'school locations list' to see available names", name)
+		return 0, &ErrNotFound{"location", name, "use 'school locations list' to see available names"}
 	}
 	return id, nil
 }
@@ -212,7 +226,7 @@ func (r *Resolver) ResolveIBeaconID(ctx context.Context, name string) (int64, er
 	}
 	id, ok := r.ibeacons[name]
 	if !ok {
-		return 0, fmt.Errorf("ibeacon %q not found; use 'school ibeacons list' to see available names", name)
+		return 0, &ErrNotFound{"ibeacon", name, "use 'school ibeacons list' to see available names"}
 	}
 	return id, nil
 }
