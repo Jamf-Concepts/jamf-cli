@@ -278,6 +278,9 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		resource.GoName = strcase.ToCamel(resourceName)
 	}
 
+	// Detect optimistic locking (prestages use versionLock in PUT/POST request bodies).
+	resource.HasVersionLock = detectVersionLock(allOps)
+
 	return []*Resource{resource}, nil
 }
 
@@ -374,6 +377,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 					}
 				}
 			}
+			r.HasVersionLock = detectVersionLock(familyOps)
 
 			resources = append(resources, r)
 		}
@@ -461,6 +465,7 @@ func splitByPathFamilies(description string, ops []*Operation, schemas map[strin
 				}
 			}
 		}
+		r.HasVersionLock = detectVersionLock(parentOps)
 		resources = append(resources, r)
 
 		for _, op := range parentOps {
@@ -581,6 +586,24 @@ func pathToResourceName(path string) string {
 		}
 	}
 	return strings.ReplaceAll(path, "/", "-")
+}
+
+// detectVersionLock returns true if any PUT or POST request body in the resource
+// includes a versionLock property. This indicates the resource uses optimistic
+// locking (prestages and prestage scopes).
+func detectVersionLock(ops []*Operation) bool {
+	for _, op := range ops {
+		if op.Method != "PUT" && op.Method != "POST" {
+			continue
+		}
+		if op.RequestBody == nil || op.RequestBody.Schema == nil {
+			continue
+		}
+		if _, ok := op.RequestBody.Schema.Properties["versionLock"]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // detectSingleton returns true if the operations describe a singleton resource:

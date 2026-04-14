@@ -150,7 +150,23 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					body = os.Stdin
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized, err := normalizeInputToJSON(raw)
+					if err != nil {
+						return err
+					}
+					vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+					if vlErr != nil {
+						return vlErr
+					}
+					normalized, vlErr = injectVersionLocks(normalized, vlResp)
+					if vlErr != nil {
+						return vlErr
+					}
+					body = bytes.NewReader(normalized)
 				}
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -256,6 +272,16 @@ func newMobileDevicePrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobr
 				if err != nil {
 					return err
 				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -318,6 +344,16 @@ func newMobileDevicePrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobr
 				normalized, err := normalizeInputToJSON(raw)
 				if err != nil {
 					return err
+				}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
 				}
 				body = bytes.NewReader(normalized)
 			}
