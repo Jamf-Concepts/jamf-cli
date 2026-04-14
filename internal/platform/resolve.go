@@ -92,7 +92,7 @@ func (r *Resolver) ResolveBaselineID(ctx context.Context, title string) (string,
 
 // ResolveDeviceIDBySerial returns the device ID for the given serial number.
 func (r *Resolver) ResolveDeviceIDBySerial(ctx context.Context, serial string) (string, error) {
-	devices, err := r.client.ListDevices(ctx, nil, fmt.Sprintf("serialNumber==%s", serial))
+	devices, err := r.client.ListDevices(ctx, nil, fmt.Sprintf("serialNumber==\"%s\"", serial))
 	if err != nil {
 		return "", fmt.Errorf("listing devices: %w", err)
 	}
