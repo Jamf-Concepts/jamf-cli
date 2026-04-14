@@ -83,6 +83,14 @@ func runSchoolOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]overv
 		send("dep_devices", formatCount(len(depDevices)), err)
 	})
 
+	// Platform (only when PlatformClient is configured)
+	if pc := cliCtx.PlatformClient; pc != nil {
+		wg.Go(func() {
+			blueprints, err := pc.ListBlueprints(ctx, nil, "")
+			send("blueprints", formatCount(len(blueprints)), err)
+		})
+	}
+
 	wg.Wait()
 
 	get := func(key string) string {
@@ -126,6 +134,16 @@ func runSchoolOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]overv
 				item("DEP Devices", get("dep_devices")),
 			},
 		},
+	}
+
+	// Only show Platform section when platform credentials are configured
+	if cliCtx.PlatformClient != nil {
+		sections = append(sections, overviewSection{
+			Name: "Platform",
+			Items: []overviewItem{
+				item("Blueprints", get("blueprints")),
+			},
+		})
 	}
 
 	return sections, nil
