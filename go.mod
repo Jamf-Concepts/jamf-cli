@@ -5,6 +5,7 @@ go 1.26.2
 require (
 	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.2.0
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.3.0
+	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2-0.20260414190035-1648ab3aa213
 	github.com/getkin/kin-openapi v0.135.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hashicorp/go-retryablehttp v0.7.8

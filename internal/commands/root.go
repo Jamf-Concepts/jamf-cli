@@ -28,6 +28,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
 
 // Global flags
@@ -392,6 +393,8 @@ Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
 configuration, reporting, and API automation).
 Use "jamf-cli protect" for Jamf Protect commands (endpoint security,
 analytics, threat prevention, and configuration).
+Use "jamf-cli school" for Jamf School commands (education device management,
+users, classes, and apps).
 
 Set JAMF_CLI_ARGS to prepend default flags to every invocation:
   export JAMF_CLI_ARGS='--quiet --no-input'
@@ -468,6 +471,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 			if product == "protect" {
 				return resolveProtectClient(cfg, cliCtx)
+			}
+			if product == "school" {
+				return resolveSchoolClient(cfg, cliCtx)
 			}
 
 			// Default: Jamf Pro auth flow
@@ -585,6 +591,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	// Jamf Protect product namespace
 	cmd.AddCommand(newProtectCmd(cliCtx))
 
+	// Jamf School product namespace
+	cmd.AddCommand(newSchoolCmd(cliCtx))
+
 	// Jamf Platform namespace
 	cmd.AddCommand(newPlatformCmd(cliCtx))
 
@@ -639,7 +648,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Determine product for this child's subtree.
 		childProduct := product
-		if child.Name() == "pro" || child.Name() == "protect" {
+		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" {
 			childProduct = child.Name()
 		}
 
@@ -722,14 +731,14 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 // first (a command under "protect" is always protect), then falls back to the
 // config profile's product field.
 func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
-	// Check command hierarchy: if any parent is "protect", that's definitive
+	// Check command hierarchy: if any parent is a product, that's definitive
 	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "protect" {
+		switch c.Name() {
+		case "protect":
 			return "protect"
-		}
-	}
-	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "pro" {
+		case "school":
+			return "school"
+		case "pro":
 			return "pro"
 		}
 	}
@@ -749,10 +758,14 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 	if !ok {
 		return "pro"
 	}
-	if p.Product == "protect" {
+	switch p.Product {
+	case "protect":
 		return "protect"
+	case "school":
+		return "school"
+	default:
+		return "pro"
 	}
-	return "pro"
 }
 
 // clearableProtectCache is a jamfprotect.TokenCache that stores tokens on disk
@@ -916,6 +929,86 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	}
 	sdkClient := jamfprotect.NewClient(url, cid, csecret, protectOpts...)
 	cliCtx.ProtectClient = sdkClient
+	return nil
+}
+
+// resolveSchoolClient constructs a Jamf School SDK client from config/flags/env
+// and assigns it to cliCtx.SchoolClient.
+func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	profileName := profile
+	if profileName == "" {
+		profileName = os.Getenv("JAMF_PROFILE")
+	}
+
+	url := serverURL
+	networkID := ""
+	apiKey := ""
+
+	// Environment variable fallbacks (School-specific)
+	if url == "" {
+		url = os.Getenv("JAMFSCHOOL_URL")
+	}
+	if networkID == "" {
+		networkID = os.Getenv("JAMFSCHOOL_NETWORK_ID")
+	}
+	if apiKey == "" {
+		apiKey = os.Getenv("JAMFSCHOOL_API_KEY")
+	}
+
+	// Fill from config profile
+	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+		if url == "" {
+			url = p.URL
+		}
+		if networkID == "" && p.NetworkID != "" {
+			resolved, err := config.ResolveSecret(p.NetworkID)
+			if err != nil {
+				return fmt.Errorf("resolving network-id from profile: %w", err)
+			}
+			networkID = resolved
+		}
+		if apiKey == "" && p.APIKey != "" {
+			resolved, err := config.ResolveSecret(p.APIKey)
+			if err != nil {
+				return fmt.Errorf("resolving api-key from profile: %w", err)
+			}
+			apiKey = resolved
+		}
+	}
+
+	// Also check generic env vars as fallback
+	if url == "" {
+		url = os.Getenv("JAMF_URL")
+	}
+
+	if url == "" {
+		return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMFSCHOOL_URL env var, or configure a school profile")
+	}
+	if networkID == "" || apiKey == "" {
+		return exitcode.New(exitcode.Usage, "network-id and api-key are required for Jamf School: use JAMFSCHOOL_NETWORK_ID/JAMFSCHOOL_API_KEY env vars, or configure a school profile")
+	}
+
+	// Build a retryablehttp-backed HTTP client for retry behavior.
+	jar, _ := cookiejar.New(nil)
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 3
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 30 * time.Second
+	rc.Logger = nil
+	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+	rc.HTTPClient.Timeout = 60 * time.Second
+	rc.HTTPClient.Jar = jar
+
+	stdClient := rc.StandardClient()
+	if !quiet && !verbose {
+		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+	}
+
+	schoolOpts := []jamfschool.Option{
+		jamfschool.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfschool.WithHTTPClient(stdClient),
+	}
+	cliCtx.SchoolClient = jamfschool.NewClient(url, networkID, apiKey, schoolOpts...)
 	return nil
 }
 
