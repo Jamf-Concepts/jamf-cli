@@ -220,13 +220,8 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 	}
 
 	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
-	// When we asked for page-size=1 but got more, the server ignored our filter.
-	// Fall back to exact client-side name matching.
-	results := data.Results
-	if len(results) > 1 {
-		results = filterResultsByName(results, nameField, name)
-	}
-
+	// Always verify the returned result actually matches the requested name.
+	results := filterResultsByName(data.Results, nameField, name)
 	if len(results) == 0 {
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}

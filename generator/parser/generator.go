@@ -271,7 +271,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return "{id}"
 		},
-		"hasSuffix":       strings.HasSuffix,
+		"hasSuffix": strings.HasSuffix,
+		"opHasVersionLock": func(op *Operation) bool {
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			_, ok := op.RequestBody.Schema.Properties["versionLock"]
+			return ok
+		},
 		"isPatchOp":       isPatchOp,
 		"hasPatchOp":      hasPatchOp,
 		"patchHasLookup":  func(r *Resource) bool { return patchHasLookup(r) },
@@ -1516,7 +1523,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
-{{- if $.HasVersionLock }}
+{{- if opHasVersionLock . }}
 					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 					if err != nil {
 						return fmt.Errorf("reading stdin: %w", err)
@@ -1550,11 +1557,11 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err != nil {
 					return err
 				}
-{{- if and $.HasVersionLock (eq .Name "create") }}
+{{- if and (opHasVersionLock .) (eq .Name "create") }}
 
 				// Optimistic locking: new resources require versionLock 0
 				normalized = setVersionLockZero(normalized)
-{{- else if and $.HasVersionLock (ne .Name "create") }}
+{{- else if and (opHasVersionLock .) (ne .Name "create") }}
 
 				// Optimistic locking: fetch current versionLock and inject into request
 {{- if hasSuffix .Path "/delete-multiple" }}
@@ -1866,13 +1873,8 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 	}
 
 	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
-	// When we asked for page-size=1 but got more, the server ignored our filter.
-	// Fall back to exact client-side name matching.
-	results := data.Results
-	if len(results) > 1 {
-		results = filterResultsByName(results, nameField, name)
-	}
-
+	// Always verify the returned result actually matches the requested name.
+	results := filterResultsByName(data.Results, nameField, name)
 	if len(results) == 0 {
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}

@@ -313,9 +313,6 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
-
-				// Optimistic locking: new resources require versionLock 0
-				normalized = setVersionLockZero(normalized)
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
