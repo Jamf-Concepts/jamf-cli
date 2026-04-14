@@ -767,13 +767,16 @@ type clearableProtectCache struct {
 	dir     string
 	mu      sync.Mutex
 	cleared bool
+	lastKey string
 }
 
 func (c *clearableProtectCache) Load(key string) (string, time.Time, bool) {
 	c.mu.Lock()
 	cleared := c.cleared
+	c.lastKey = key
 	c.mu.Unlock()
 	if cleared {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
 		return "", time.Time{}, false
 	}
 	data, err := os.ReadFile(filepath.Join(c.dir, "jamfprotect-token-"+key))
@@ -807,12 +810,17 @@ func (c *clearableProtectCache) Store(key string, token string, expiresAt time.T
 	return os.WriteFile(filepath.Join(c.dir, "jamfprotect-token-"+key), data, 0o600)
 }
 
-// Clear marks the cache as bypassed so the next Load returns nothing, forcing
-// the SDK to exchange fresh credentials. Store resets the bypass automatically.
+// Clear removes any cached token from disk (if the key is known) and marks the
+// cache as bypassed so the next Load returns nothing, forcing the SDK to
+// exchange fresh credentials. Store resets the bypass automatically.
 func (c *clearableProtectCache) Clear() {
 	c.mu.Lock()
 	c.cleared = true
+	key := c.lastKey
 	c.mu.Unlock()
+	if key != "" {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
+	}
 }
 
 // resolveProtectClient constructs a Jamf Protect SDK client from config/flags/env

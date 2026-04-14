@@ -34,6 +34,11 @@ type Refresher interface {
 	Refresh(ctx context.Context) (string, error)
 }
 
+// Expirer is implemented by auth providers that expose token expiry information.
+type Expirer interface {
+	ExpiresAt() time.Time
+}
+
 // TokenProvider uses a pre-existing bearer token
 type TokenProvider struct {
 	token string
