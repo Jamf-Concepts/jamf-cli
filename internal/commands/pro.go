@@ -20,6 +20,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newConfigSetupCmd())
 
 	// Handwritten Jamf Pro commands
+	cmd.AddCommand(newProAuthCmd(cliCtx))
 	cmd.AddCommand(newOverviewCmd(cliCtx))
 	cmd.AddCommand(newBackupCmd(cliCtx))
 	cmd.AddCommand(newAuditCmd(cliCtx))

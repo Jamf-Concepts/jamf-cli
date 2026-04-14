@@ -3,8 +3,9 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -23,19 +24,33 @@ func newProtectAuthCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newProtectAuthTokenCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+	cmd := &cobra.Command{
 		Use:   "token",
 		Short: "Print a valid access token",
-		Long: `Print a valid Jamf Protect access token to stdout.
-The token is automatically refreshed if expired. Useful for
-debugging API calls with curl or feeding into other tools.`,
+		Long: `Print a valid Jamf Protect access token.
+The token is automatically refreshed if expired.
+
+Output is JSON with token and expires_at fields. Use --field token to
+extract just the token string.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			token, err := cliCtx.ProtectClient.AccessToken(cmd.Context())
+			if refresh && cliCtx.ClearProtectToken != nil {
+				cliCtx.ClearProtectToken()
+			}
+			t, err := cliCtx.ProtectClient.AccessToken(cmd.Context())
 			if err != nil {
 				return fmt.Errorf("obtaining access token: %w", err)
 			}
-			_, err = fmt.Fprintln(os.Stdout, token.AccessToken)
-			return err
+			out, err := json.MarshalIndent(map[string]any{
+				"token":      t.AccessToken,
+				"expires_at": t.Expiry.UTC().Format(time.RFC3339),
+			}, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(out)
 		},
 	}
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Force a new token exchange, ignoring any cached token")
+	return cmd
 }

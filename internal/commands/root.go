@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -416,7 +417,6 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"config":     true,
 				"diff":       true,
 				"setup":      true,
-				"platform":   true,
 				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
@@ -498,6 +498,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
+			cliCtx.AuthProvider = authProvider
 
 			// Resolve effective profile name and per-profile cooldown setting.
 			resolvedProfile := profile
@@ -585,7 +586,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.AddCommand(newProtectCmd(cliCtx))
 
 	// Jamf Platform namespace
-	cmd.AddCommand(newPlatformCmd())
+	cmd.AddCommand(newPlatformCmd(cliCtx))
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
@@ -754,6 +755,74 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 	return "pro"
 }
 
+// clearableProtectCache is a jamfprotect.TokenCache that stores tokens on disk
+// (using the same file format as the SDK's built-in FileTokenCache) and
+// supports forced invalidation via Clear(). Clear() marks the cache as bypassed
+// so the next Load call returns nothing, forcing the SDK to exchange fresh
+// credentials. Store resets the bypass flag and persists the new token.
+//
+// The SDK calls Load/Store with a pre-computed key (sha256 of baseURL+clientID),
+// so we use it directly as the filename suffix — no key derivation needed here.
+type clearableProtectCache struct {
+	dir     string
+	mu      sync.Mutex
+	cleared bool
+	lastKey string
+}
+
+func (c *clearableProtectCache) Load(key string) (string, time.Time, bool) {
+	c.mu.Lock()
+	cleared := c.cleared
+	c.lastKey = key
+	c.mu.Unlock()
+	if cleared {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
+		return "", time.Time{}, false
+	}
+	data, err := os.ReadFile(filepath.Join(c.dir, "jamfprotect-token-"+key))
+	if err != nil {
+		return "", time.Time{}, false
+	}
+	var entry struct {
+		AccessToken string    `json:"access_token"`
+		ExpiresAt   time.Time `json:"expires_at"`
+	}
+	if err := json.Unmarshal(data, &entry); err != nil || entry.AccessToken == "" {
+		return "", time.Time{}, false
+	}
+	return entry.AccessToken, entry.ExpiresAt, true
+}
+
+func (c *clearableProtectCache) Store(key string, token string, expiresAt time.Time) error {
+	c.mu.Lock()
+	c.cleared = false
+	c.mu.Unlock()
+	if err := os.MkdirAll(c.dir, 0o700); err != nil {
+		return fmt.Errorf("creating protect token cache dir: %w", err)
+	}
+	data, err := json.Marshal(struct {
+		AccessToken string    `json:"access_token"`
+		ExpiresAt   time.Time `json:"expires_at"`
+	}{token, expiresAt})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(c.dir, "jamfprotect-token-"+key), data, 0o600)
+}
+
+// Clear removes any cached token from disk (if the key is known) and marks the
+// cache as bypassed so the next Load returns nothing, forcing the SDK to
+// exchange fresh credentials. Store resets the bypass automatically.
+func (c *clearableProtectCache) Clear() {
+	c.mu.Lock()
+	c.cleared = true
+	key := c.lastKey
+	c.mu.Unlock()
+	if key != "" {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
+	}
+}
+
 // resolveProtectClient constructs a Jamf Protect SDK client from config/flags/env
 // and assigns it to cliCtx.ProtectClient.
 func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
@@ -841,7 +910,9 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 		jamfprotect.WithHTTPClient(stdClient),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {
-		protectOpts = append(protectOpts, jamfprotect.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))
+		cache := &clearableProtectCache{dir: filepath.Join(cacheDir, "jamf-cli")}
+		protectOpts = append(protectOpts, jamfprotect.WithTokenCache(cache))
+		cliCtx.ClearProtectToken = cache.Clear
 	}
 	sdkClient := jamfprotect.NewClient(url, cid, csecret, protectOpts...)
 	cliCtx.ProtectClient = sdkClient
