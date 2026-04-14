@@ -34,13 +34,13 @@ type benchmarkPortableTarget struct {
 // target.deviceGroups carries group names+types for cross-instance portability.
 // apply resolves names to IDs before calling the API.
 type benchmarkPortableInput struct {
-	Title            string                               `json:"title"`
-	Description      string                               `json:"description,omitempty"`
-	SourceBaselineID string                               `json:"sourceBaselineId"`
-	Sources          []jamfplatform.CBEngineSourceV1      `json:"sources"`
-	Rules            []jamfplatform.CBEngineRuleRequestV2 `json:"rules"`
-	Target           benchmarkPortableTarget              `json:"target"`
-	EnforcementMode  string                               `json:"enforcementMode"`
+	Title            string                     `json:"title"`
+	Description      string                     `json:"description,omitempty"`
+	SourceBaselineID string                     `json:"sourceBaselineId"`
+	Sources          []jamfplatform.Source      `json:"sources"`
+	Rules            []jamfplatform.RuleRequest `json:"rules"`
+	Target           benchmarkPortableTarget    `json:"target"`
+	EnforcementMode  string                     `json:"enforcementMode"`
 }
 
 // ─── Command wiring ───────────────────────────────────────────────────────────
@@ -127,16 +127,19 @@ func newCBListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
-func flattenBenchmark(bm jamfplatform.CBEngineBenchmarkV2) map[string]any {
-	return map[string]any{
+func flattenBenchmark(bm jamfplatform.BenchmarkV2) map[string]any {
+	m := map[string]any{
 		"id":              bm.ID,
 		"title":           bm.Title,
 		"description":     bm.Description,
 		"syncState":       bm.SyncState,
 		"updateAvailable": bm.UpdateAvailable,
 		"modified":        bm.Modified,
-		"deviceGroups":    len(bm.Target.DeviceGroups),
 	}
+	if bm.Target != nil {
+		m["deviceGroups"] = len(bm.Target.DeviceGroups)
+	}
+	return m
 }
 
 func newCBGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -148,7 +151,12 @@ func newCBGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			bm, err := cliCtx.PlatformClient.GetBenchmarkByTitle(cmd.Context(), args[0])
+			r := platform.NewResolver(cliCtx.PlatformClient)
+			id, err := r.ResolveBenchmarkID(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			bm, err := cliCtx.PlatformClient.GetBenchmark(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -193,11 +201,15 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// If portable format failed or produced invalid groups, try the old SDK format.
 			var legacyGroupIDs []string
 			if !portableGroupsValid {
-				var legacy jamfplatform.CBEngineBenchmarkRequestV2
-				if err := unmarshalInput(data, &legacy); err == nil && len(legacy.Target.DeviceGroups) > 0 {
+				var legacy jamfplatform.BenchmarkRequestV2
+				if err := unmarshalInput(data, &legacy); err == nil && legacy.Target != nil && len(legacy.Target.DeviceGroups) > 0 {
+					desc := ""
+					if legacy.Description != nil {
+						desc = *legacy.Description
+					}
 					input = benchmarkPortableInput{
 						Title:            legacy.Title,
-						Description:      legacy.Description,
+						Description:      desc,
 						SourceBaselineID: legacy.SourceBaselineID,
 						Sources:          legacy.Sources,
 						Rules:            legacy.Rules,
@@ -222,13 +234,13 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 			}
-			req := &jamfplatform.CBEngineBenchmarkRequestV2{
+			req := &jamfplatform.BenchmarkRequestV2{
 				Title:            input.Title,
-				Description:      input.Description,
+				Description:      &input.Description,
 				SourceBaselineID: input.SourceBaselineID,
 				Sources:          input.Sources,
 				Rules:            input.Rules,
-				Target:           jamfplatform.CBEngineTargetV2{DeviceGroups: groupIDs},
+				Target:           &jamfplatform.TargetV2{DeviceGroups: groupIDs},
 				EnforcementMode:  input.EnforcementMode,
 			}
 			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
@@ -257,7 +269,12 @@ func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			bm, err := cliCtx.PlatformClient.GetBenchmarkByTitle(ctx, args[0])
+			r := platform.NewResolver(cliCtx.PlatformClient)
+			id, err := r.ResolveBenchmarkID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			bm, err := cliCtx.PlatformClient.GetBenchmark(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -286,27 +303,31 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			src, err := cliCtx.PlatformClient.GetBenchmarkByTitle(ctx, args[0])
+			r := platform.NewResolver(cliCtx.PlatformClient)
+			srcID, err := r.ResolveBenchmarkID(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			src, err := cliCtx.PlatformClient.GetBenchmark(ctx, srcID)
 			if err != nil {
 				return err
 			}
 			var targetGroupIDs []string
 			if len(computerGroups) > 0 {
-				r := platform.NewResolver(cliCtx.PlatformClient)
 				targetGroupIDs, err = cbResolveNameList(ctx, r, computerGroups)
 				if err != nil {
 					return err
 				}
-			} else {
+			} else if src.Target != nil {
 				targetGroupIDs = src.Target.DeviceGroups
 			}
-			req := &jamfplatform.CBEngineBenchmarkRequestV2{
+			req := &jamfplatform.BenchmarkRequestV2{
 				Title:            args[1],
-				Description:      src.Description,
+				Description:      &src.Description,
 				SourceBaselineID: src.BaselineID,
 				Sources:          src.Sources,
 				Rules:            cbRuleInfosToRequests(src.Rules),
-				Target:           jamfplatform.CBEngineTargetV2{DeviceGroups: targetGroupIDs},
+				Target:           &jamfplatform.TargetV2{DeviceGroups: targetGroupIDs},
 				EnforcementMode:  src.EnforcementMode,
 			}
 			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
@@ -546,8 +567,8 @@ func benchmarkScaffold() *benchmarkPortableInput {
 	return &benchmarkPortableInput{
 		Title:            "My Benchmark",
 		SourceBaselineID: "<baseline-id>",
-		Sources:          []jamfplatform.CBEngineSourceV1{{Branch: "main"}},
-		Rules:            []jamfplatform.CBEngineRuleRequestV2{{ID: "<rule-id>", Enabled: true}},
+		Sources:          []jamfplatform.Source{{Branch: "main"}},
+		Rules:            []jamfplatform.RuleRequest{{ID: "<rule-id>", Enabled: true}},
 		Target: benchmarkPortableTarget{
 			DeviceGroups: []benchmarkPortableGroup{
 				{Name: "<device-group-name>", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -560,9 +581,13 @@ func benchmarkScaffold() *benchmarkPortableInput {
 // benchmarkToPortable converts a benchmark API response to the portable export format.
 // Device group IDs are replaced with name+type for cross-instance portability.
 // Rules are converted from the detailed info format to the request format.
-func benchmarkToPortable(bm *jamfplatform.CBEngineBenchmarkResponseV2, groupByID map[string]jamfplatform.DeviceGroupListReadRepresentationV1) *benchmarkPortableInput {
-	portableGroups := make([]benchmarkPortableGroup, 0, len(bm.Target.DeviceGroups))
-	for _, gid := range bm.Target.DeviceGroups {
+func benchmarkToPortable(bm *jamfplatform.BenchmarkResponseV2, groupByID map[string]jamfplatform.DeviceGroupListReadRepresentationV1) *benchmarkPortableInput {
+	var deviceGroups []string
+	if bm.Target != nil {
+		deviceGroups = bm.Target.DeviceGroups
+	}
+	portableGroups := make([]benchmarkPortableGroup, 0, len(deviceGroups))
+	for _, gid := range deviceGroups {
 		pg := benchmarkPortableGroup{Name: gid} // fallback to raw ID if group not found
 		if g, ok := groupByID[gid]; ok {
 			pg = benchmarkPortableGroup{
@@ -585,12 +610,12 @@ func benchmarkToPortable(bm *jamfplatform.CBEngineBenchmarkResponseV2, groupByID
 }
 
 // cbRuleInfosToRequests converts detailed rule info (from API responses) to request format.
-func cbRuleInfosToRequests(rules []jamfplatform.CBEngineRuleInfoV1) []jamfplatform.CBEngineRuleRequestV2 {
-	reqs := make([]jamfplatform.CBEngineRuleRequestV2, 0, len(rules))
+func cbRuleInfosToRequests(rules []jamfplatform.RuleInfo) []jamfplatform.RuleRequest {
+	reqs := make([]jamfplatform.RuleRequest, 0, len(rules))
 	for _, rule := range rules {
-		req := jamfplatform.CBEngineRuleRequestV2{ID: rule.ID, Enabled: rule.Enabled}
+		req := jamfplatform.RuleRequest{ID: rule.ID, Enabled: rule.Enabled}
 		if rule.ODV != nil {
-			req.ODV = &jamfplatform.CBEngineODVRequestV2{Value: rule.ODV.Value}
+			req.ODV = &jamfplatform.OdvRequest{Value: rule.ODV.Value}
 		}
 		reqs = append(reqs, req)
 	}
@@ -658,9 +683,9 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 			}
 		}
 	}
-	rules := make([]jamfplatform.CBEngineRuleRequestV2, 0, len(resp.Rules))
+	rules := make([]jamfplatform.RuleRequest, 0, len(resp.Rules))
 	for _, rule := range resp.Rules {
-		req := jamfplatform.CBEngineRuleRequestV2{ID: rule.ID, Enabled: true}
+		req := jamfplatform.RuleRequest{ID: rule.ID, Enabled: true}
 		if rule.ODV != nil {
 			val := rule.ODV.Placeholder
 			if val == "" {
@@ -669,7 +694,7 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 			if val == "" {
 				val = "<odv-value>"
 			}
-			req.ODV = &jamfplatform.CBEngineODVRequestV2{Value: val}
+			req.ODV = &jamfplatform.OdvRequest{Value: val}
 		}
 		rules = append(rules, req)
 	}

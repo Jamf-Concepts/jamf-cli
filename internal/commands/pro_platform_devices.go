@@ -65,12 +65,8 @@ func resolveDeviceID(ctx context.Context, client registry.PlatformClient, identi
 	if uuidPattern.MatchString(identifier) {
 		return identifier, nil
 	}
-	// Treat as serial number
-	dev, err := client.GetDeviceBySerialNumber(ctx, identifier)
-	if err != nil {
-		return "", err
-	}
-	return dev.ID, nil
+	r := platform.NewResolver(client)
+	return r.ResolveDeviceIDBySerial(ctx, identifier)
 }
 
 func newPlatformDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -163,9 +159,9 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				}
 				if cmd.Flags().Changed("user-id") {
 					if userID == "" {
-						payload.UserID = jamfplatform.NewNullableStringNull()
+						payload.UserID = nil
 					} else {
-						payload.UserID = jamfplatform.NewNullableString(userID)
+						payload.UserID = &userID
 					}
 				}
 			}
@@ -382,7 +378,7 @@ func newPlatformDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			req := &jamfplatform.EraseDeviceRequestV1{}
+			req := &jamfplatform.EraseDeviceRequest{}
 			if cmd.Flags().Changed("pin") {
 				req.Pin = &pin
 			}

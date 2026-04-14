@@ -39,18 +39,26 @@ failed, and pending device counts. Requires platform gateway auth.`,
 
 			rows := make([]map[string]any, 0, len(bps))
 			for _, bp := range bps {
+				state := ""
+				if bp.DeploymentState != nil {
+					state = bp.DeploymentState.State
+				}
 				row := map[string]any{
 					"name":  bp.Name,
-					"state": bp.DeploymentState.State,
+					"state": state,
 				}
 
 				detail, err := pc.GetBlueprint(ctx, bp.ID)
 				if err == nil {
-					row["scope"] = len(detail.Scope.DeviceGroups)
+					if detail.Scope != nil {
+						row["scope"] = len(detail.Scope.DeviceGroups)
+					} else {
+						row["scope"] = 0
+					}
 					row["steps"] = len(detail.Steps)
 				}
 
-				if bp.DeploymentState.State == "DEPLOYED" {
+				if state == "DEPLOYED" {
 					report, err := pc.GetBlueprintReport(ctx, bp.ID)
 					if err == nil {
 						row["succeeded"] = report.Succeeded
@@ -321,7 +329,7 @@ var ignorableDDMReasonCodes = map[string]bool{
 }
 
 // onlyHasIgnorableReasons returns true if all reasons (or no reasons) are ignorable.
-func onlyHasIgnorableReasons(reasons []jamfplatform.StatusReportDeclarationReasonV1) bool {
+func onlyHasIgnorableReasons(reasons []jamfplatform.StatusReportDeclarationReasonDto) bool {
 	for _, r := range reasons {
 		if !ignorableDDMReasonCodes[r.Code] {
 			return false

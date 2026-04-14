@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -378,14 +379,15 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	}
 
 	// Resolve serial to platform device ID
-	dev, err := pc.GetDeviceBySerialNumber(ctx, serial)
+	r := platform.NewResolver(pc)
+	devID, err := r.ResolveDeviceIDBySerial(ctx, serial)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to resolve platform device: %v\n", err)
 		return nil
 	}
 
 	// Get device's group memberships
-	deviceGroups, err := pc.ListDeviceGroupsForDevice(ctx, dev.ID)
+	deviceGroups, err := pc.ListDeviceGroupsForDevice(ctx, devID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to fetch platform device groups: %v\n", err)
 		return nil
@@ -409,7 +411,7 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	// DDM declaration report — aggregate by source, show errors
 	go func() {
 		defer wg.Done()
-		report, err := pc.GetDeviceDeclarationReport(ctx, dev.ID)
+		report, err := pc.GetDeviceDeclarationReport(ctx, devID)
 		if err != nil {
 			return
 		}

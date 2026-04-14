@@ -1470,7 +1470,7 @@ func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *ov
 		}
 		deployed := 0
 		for _, bp := range bps {
-			if bp.DeploymentState.State == "DEPLOYED" {
+			if bp.DeploymentState != nil && bp.DeploymentState.State == "DEPLOYED" {
 				deployed++
 			}
 		}
