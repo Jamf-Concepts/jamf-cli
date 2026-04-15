@@ -202,7 +202,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var legacyGroupIDs []string
 			if !portableGroupsValid {
 				var legacy jamfplatform.BenchmarkRequestV2
-				if err := unmarshalInput(data, &legacy); err == nil && legacy.Target != nil && len(legacy.Target.DeviceGroups) > 0 {
+				if err := unmarshalInput(data, &legacy); err == nil && len(legacy.Target.DeviceGroups) > 0 {
 					desc := ""
 					if legacy.Description != nil {
 						desc = *legacy.Description
@@ -240,7 +240,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				SourceBaselineID: input.SourceBaselineID,
 				Sources:          input.Sources,
 				Rules:            input.Rules,
-				Target:           &jamfplatform.TargetV2{DeviceGroups: groupIDs},
+				Target:           jamfplatform.TargetV2{DeviceGroups: groupIDs},
 				EnforcementMode:  input.EnforcementMode,
 			}
 			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
@@ -327,7 +327,7 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				SourceBaselineID: src.BaselineID,
 				Sources:          src.Sources,
 				Rules:            cbRuleInfosToRequests(src.Rules),
-				Target:           &jamfplatform.TargetV2{DeviceGroups: targetGroupIDs},
+				Target:           jamfplatform.TargetV2{DeviceGroups: targetGroupIDs},
 				EnforcementMode:  src.EnforcementMode,
 			}
 			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)

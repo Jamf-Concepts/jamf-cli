@@ -184,7 +184,7 @@ func deviceGroupScaffold() *jamfplatform.DeviceGroupCreateRepresentationV1 {
 		Description: &desc,
 		DeviceType:  "COMPUTER",
 		GroupType:   "STATIC",
-		Members:     []string{"<device-id>"},
+		Members:     &[]string{"<device-id>"},
 	}
 }
 
@@ -274,7 +274,7 @@ func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			patch := &jamfplatform.DeviceGroupMemberPatchRepresentationV1{
-				Added: ids,
+				Added: &ids,
 			}
 			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
 				return err
@@ -307,7 +307,7 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			patch := &jamfplatform.DeviceGroupMemberPatchRepresentationV1{
-				Removed: ids,
+				Removed: &ids,
 			}
 			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
 				return err
