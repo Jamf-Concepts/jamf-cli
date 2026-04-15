@@ -616,6 +616,372 @@ func TestConvertPlist_StripsEmptyValues(t *testing.T) {
 	}
 }
 
+// testMCXMobileconfig wraps com.apple.applicationaccess inside Custom Settings (MCX).
+const testMCXMobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.mcx</string>
+			<key>PayloadUUID</key>
+			<string>AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.apple.applicationaccess</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>allowCamera</key>
+								<false/>
+								<key>allowAirDrop</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>CIS Restrictions via MCX</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.cis</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>12345678-1234-1234-1234-123456789012</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+func TestConvertMobileconfig_MCXPayload(t *testing.T) {
+	config, warnings, err := ConvertMobileconfig([]byte(testMCXMobileconfig), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have an unwrap warning
+	hasUnwrap := false
+	for _, w := range warnings {
+		if strings.Contains(w, "unwrapped") {
+			hasUnwrap = true
+		}
+	}
+	if !hasUnwrap {
+		t.Error("expected unwrap warning")
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	content, ok := result["payloadContent"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected 1 payload after MCX unwrap, got %v", result["payloadContent"])
+	}
+
+	payload := content[0].(map[string]any)
+	if payload["payloadType"] != "com.apple.applicationaccess" {
+		t.Errorf("payloadType = %v, want com.apple.applicationaccess", payload["payloadType"])
+	}
+	if payload["allowCamera"] != false {
+		t.Errorf("allowCamera = %v, want false", payload["allowCamera"])
+	}
+	if payload["allowAirDrop"] != false {
+		t.Errorf("allowAirDrop = %v, want false", payload["allowAirDrop"])
+	}
+}
+
+func TestConvertMobileconfig_MCXFilterUnsupported(t *testing.T) {
+	// MCX wrapping an unsupported domain — should be filtered
+	data := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.example.custom.domain</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>foo</key>
+								<string>bar</string>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>MCX Unsupported</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
+</dict>
+</plist>`
+	_, _, err := ConvertMobileconfig([]byte(data), true)
+	if err == nil {
+		t.Error("expected error when MCX unwraps to unsupported domain and filtering enabled")
+	}
+}
+
+func TestConvertMobileconfig_MCXMultiDomain(t *testing.T) {
+	data := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.apple.applicationaccess</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>allowCamera</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+				<key>com.apple.screensaver</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>idleTime</key>
+								<integer>600</integer>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>MCX Multi-Domain</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
+</dict>
+</plist>`
+	config, warnings, err := ConvertMobileconfig([]byte(data), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	hasUnwrap := false
+	for _, w := range warnings {
+		if strings.Contains(w, "unwrapped 2 domain") {
+			hasUnwrap = true
+		}
+	}
+	if !hasUnwrap {
+		t.Errorf("expected '2 domain' unwrap warning, got %v", warnings)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	content := result["payloadContent"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("expected 2 payloads after MCX unwrap, got %d", len(content))
+	}
+}
+
+func TestConvertMobileconfig_MCXMixedWithRegular(t *testing.T) {
+	data := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.screensaver</string>
+			<key>idleTime</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.apple.applicationaccess</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>allowCamera</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Mixed Regular and MCX</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
+</dict>
+</plist>`
+	config, _, err := ConvertMobileconfig([]byte(data), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	content := result["payloadContent"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("expected 2 payloads (1 regular + 1 unwrapped MCX), got %d", len(content))
+	}
+
+	// First is the regular screensaver payload
+	p0 := content[0].(map[string]any)
+	if p0["payloadType"] != "com.apple.screensaver" {
+		t.Errorf("payload[0] type = %v, want com.apple.screensaver", p0["payloadType"])
+	}
+
+	// Second is the unwrapped applicationaccess
+	p1 := content[1].(map[string]any)
+	if p1["payloadType"] != "com.apple.applicationaccess" {
+		t.Errorf("payload[1] type = %v, want com.apple.applicationaccess", p1["payloadType"])
+	}
+	if p1["allowCamera"] != false {
+		t.Errorf("allowCamera = %v, want false", p1["allowCamera"])
+	}
+}
+
+func TestUnwrapMCXPayloads_SetOnce(t *testing.T) {
+	payload := map[string]any{
+		"PayloadType": "com.apple.ManagedClient.preferences",
+		"PayloadContent": map[string]any{
+			"com.apple.finder": map[string]any{
+				"Set-Once": []any{
+					map[string]any{
+						"mcx_preference_settings": map[string]any{
+							"ShowHardDrivesOnDesktop": true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, warnings := unwrapMCXPayloads([]any{payload})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 unwrapped payload, got %d", len(result))
+	}
+
+	synthetic := result[0].(map[string]any)
+	if synthetic["PayloadType"] != "com.apple.finder" {
+		t.Errorf("PayloadType = %v, want com.apple.finder", synthetic["PayloadType"])
+	}
+	if synthetic["ShowHardDrivesOnDesktop"] != true {
+		t.Errorf("ShowHardDrivesOnDesktop = %v, want true", synthetic["ShowHardDrivesOnDesktop"])
+	}
+
+	if len(warnings) == 0 || !strings.Contains(warnings[0], "unwrapped") {
+		t.Errorf("expected unwrap warning, got %v", warnings)
+	}
+}
+
+func TestUnwrapMCXPayloads_NoContent(t *testing.T) {
+	payload := map[string]any{
+		"PayloadType": "com.apple.ManagedClient.preferences",
+		// No PayloadContent
+	}
+
+	result, warnings := unwrapMCXPayloads([]any{payload})
+	if len(result) != 0 {
+		t.Errorf("expected 0 results for MCX with no content, got %d", len(result))
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "no PayloadContent") {
+		t.Errorf("expected 'no PayloadContent' warning, got %v", warnings)
+	}
+}
+
+func TestUnwrapMCXPayloads_EmptySettings(t *testing.T) {
+	payload := map[string]any{
+		"PayloadType": "com.apple.ManagedClient.preferences",
+		"PayloadContent": map[string]any{
+			"com.apple.finder": map[string]any{
+				// No Forced or Set-Once
+			},
+		},
+	}
+
+	result, warnings := unwrapMCXPayloads([]any{payload})
+	if len(result) != 0 {
+		t.Errorf("expected 0 results for MCX with empty settings, got %d", len(result))
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "no extractable settings") {
+		t.Errorf("expected 'no extractable settings' warning, got %v", warnings)
+	}
+}
+
+func TestUnwrapMCXPayloads_NonMCXPassthrough(t *testing.T) {
+	payload := map[string]any{
+		"PayloadType": "com.apple.screensaver",
+		"idleTime":    600,
+	}
+
+	result, warnings := unwrapMCXPayloads([]any{payload})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 passthrough payload, got %d", len(result))
+	}
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for non-MCX payload, got %v", warnings)
+	}
+	if result[0].(map[string]any)["PayloadType"] != "com.apple.screensaver" {
+		t.Error("non-MCX payload should pass through unchanged")
+	}
+}
+
 func TestConvertMobileconfig_ProducesValidJSON(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -624,6 +990,7 @@ func TestConvertMobileconfig_ProducesValidJSON(t *testing.T) {
 		{"single", testMobileconfig},
 		{"multi", testMultiPayloadMobileconfig},
 		{"unsupported", testUnsupportedPayloadMobileconfig},
+		{"mcx", testMCXMobileconfig},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			config, _, err := ConvertMobileconfig([]byte(tc.data), false)

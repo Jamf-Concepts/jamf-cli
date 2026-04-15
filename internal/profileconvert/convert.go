@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -111,7 +112,10 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 		return nil, nil, fmt.Errorf("mobileconfig has no PayloadContent array")
 	}
 
-	var warnings []string
+	// Unwrap MCX (Custom Settings) payloads before processing
+	payloadContent, mcxWarnings := unwrapMCXPayloads(payloadContent)
+
+	warnings := append([]string(nil), mcxWarnings...)
 	payloads := make([]map[string]any, 0, len(payloadContent))
 	typeCount := make(map[string]int) // tracks per-type index for unique identifiers
 
@@ -510,6 +514,105 @@ func ConfigHasPayloads(config json.RawMessage) error {
 		return fmt.Errorf("no payloads remain after stripping defaults — the profile only contained keys at their Apple default values")
 	}
 	return nil
+}
+
+// unwrapMCXPayloads expands any com.apple.ManagedClient.preferences payloads
+// (Custom Settings / MCX) into synthetic payloads keyed by their inner
+// preference domain. Each domain in the MCX wrapper becomes a standalone
+// payload with PayloadType set to the domain identifier and settings extracted
+// from the Forced / Set-Once mcx_preference_settings dictionaries.
+//
+// Non-MCX payloads pass through unchanged.
+func unwrapMCXPayloads(payloads []any) ([]any, []string) {
+	var result []any
+	var warnings []string
+
+	for _, item := range payloads {
+		payload, ok := item.(map[string]any)
+		if !ok {
+			result = append(result, item)
+			continue
+		}
+
+		payloadType, _ := payload["PayloadType"].(string)
+		if payloadType != "com.apple.ManagedClient.preferences" {
+			result = append(result, item)
+			continue
+		}
+
+		// MCX payload — unwrap inner domains from PayloadContent dict
+		content, ok := payload["PayloadContent"].(map[string]any)
+		if !ok {
+			warnings = append(warnings,
+				"com.apple.ManagedClient.preferences payload has no PayloadContent dictionary — skipping")
+			continue
+		}
+
+		unwrapped := 0
+		for domain, domainData := range content {
+			domainDict, ok := domainData.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			settings := extractMCXSettings(domainDict)
+			if len(settings) == 0 {
+				continue
+			}
+
+			// Build a synthetic payload that looks like a native payload
+			synthetic := map[string]any{
+				"PayloadType": domain,
+			}
+			// Copy Apple metadata from the MCX wrapper (except PayloadType and PayloadContent)
+			for k, v := range payload {
+				if k == "PayloadType" || k == "PayloadContent" {
+					continue
+				}
+				if appleMetadataKeys[k] {
+					synthetic[k] = v
+				}
+			}
+			maps.Copy(synthetic, settings)
+			result = append(result, synthetic)
+			unwrapped++
+		}
+
+		if unwrapped > 0 {
+			warnings = append(warnings,
+				fmt.Sprintf("unwrapped %d domain(s) from Custom Settings (com.apple.ManagedClient.preferences) payload", unwrapped))
+		} else {
+			warnings = append(warnings,
+				"com.apple.ManagedClient.preferences payload had no extractable settings — skipping")
+		}
+	}
+
+	return result, warnings
+}
+
+// extractMCXSettings extracts preference settings from an MCX domain
+// dictionary. MCX stores settings under Forced and/or Set-Once arrays,
+// each containing dicts with an mcx_preference_settings key.
+func extractMCXSettings(domainDict map[string]any) map[string]any {
+	settings := make(map[string]any)
+	for _, arrayKey := range []string{"Forced", "Set-Once"} {
+		arr, ok := domainDict[arrayKey].([]any)
+		if !ok {
+			continue
+		}
+		for _, entry := range arr {
+			entryDict, ok := entry.(map[string]any)
+			if !ok {
+				continue
+			}
+			prefs, ok := entryDict["mcx_preference_settings"].(map[string]any)
+			if !ok {
+				continue
+			}
+			maps.Copy(settings, prefs)
+		}
+	}
+	return settings
 }
 
 // SupportedPayloadTypesList returns the supported payload types as a sorted slice
