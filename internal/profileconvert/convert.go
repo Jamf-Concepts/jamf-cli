@@ -225,8 +225,10 @@ func PayloadTypeSummary(data []byte) []string {
 	if !ok {
 		return nil
 	}
+	// Unwrap MCX payloads so the count reflects effective payloads
+	unwrapped, _ := unwrapMCXPayloads(content)
 	var types []string
-	for _, item := range content {
+	for _, item := range unwrapped {
 		if payload, ok := item.(map[string]any); ok {
 			if pt, ok := payload["PayloadType"].(string); ok {
 				types = append(types, pt)
@@ -549,7 +551,13 @@ func unwrapMCXPayloads(payloads []any) ([]any, []string) {
 		}
 
 		unwrapped := 0
-		for domain, domainData := range content {
+		domains := make([]string, 0, len(content))
+		for domain := range content {
+			domains = append(domains, domain)
+		}
+		sort.Strings(domains)
+		for _, domain := range domains {
+			domainData := content[domain]
 			domainDict, ok := domainData.(map[string]any)
 			if !ok {
 				continue
@@ -595,7 +603,7 @@ func unwrapMCXPayloads(payloads []any) ([]any, []string) {
 // each containing dicts with an mcx_preference_settings key.
 func extractMCXSettings(domainDict map[string]any) map[string]any {
 	settings := make(map[string]any)
-	for _, arrayKey := range []string{"Forced", "Set-Once"} {
+	for _, arrayKey := range []string{"Set-Once", "Forced"} {
 		arr, ok := domainDict[arrayKey].([]any)
 		if !ok {
 			continue
