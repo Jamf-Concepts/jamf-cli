@@ -351,6 +351,7 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 	result := checkEmptyPlatformScope(context.Background(), pc, pc.blueprints, pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2 (1 blueprint + 1 benchmark)", result.AffectedCount)
@@ -381,6 +382,7 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 	result := checkFailedDDMDeclarations(context.Background(), pc)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1", result.AffectedCount)
@@ -428,6 +430,7 @@ func TestFetchPlatformOverview(t *testing.T) {
 	section := fetchPlatformOverview(context.Background(), cliCtx)
 	if section == nil {
 		t.Fatal("expected platform section, got nil")
+		return
 	}
 	if section.Name != "Platform" {
 		t.Errorf("section name = %q, want Platform", section.Name)
