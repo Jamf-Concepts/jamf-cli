@@ -96,3 +96,42 @@ func TestReadProtectInput_NoInput(t *testing.T) {
 		t.Fatal("expected error when no file and no stdin pipe")
 	}
 }
+
+func TestWriteBase64File_Permissions(t *testing.T) {
+	dir := t.TempDir()
+	// "aGVsbG8=" is base64 for "hello"
+	b64 := "aGVsbG8="
+
+	tests := []struct {
+		name string
+		perm os.FileMode
+	}{
+		{"restrictive", 0o600},
+		{"world-readable", 0o644},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, tc.name+".bin")
+			if err := writeBase64File(b64, path, tc.perm); err != nil {
+				t.Fatalf("writeBase64File failed: %v", err)
+			}
+
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("stat failed: %v", err)
+			}
+			if got := info.Mode().Perm(); got != tc.perm {
+				t.Errorf("file mode = %04o, want %04o", got, tc.perm)
+			}
+
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("reading file: %v", err)
+			}
+			if string(content) != "hello" {
+				t.Errorf("content = %q, want %q", string(content), "hello")
+			}
+		})
+	}
+}
