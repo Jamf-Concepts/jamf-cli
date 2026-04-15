@@ -283,8 +283,8 @@
 
   var PRODUCT_LABELS = {
     pro: 'Jamf Pro',
-    protect: 'Jamf Protect'
-    // school: 'Jamf School',
+    protect: 'Jamf Protect',
+    school: 'Jamf School'
     // connect: 'Jamf Connect'
   };
 

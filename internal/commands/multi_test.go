@@ -356,6 +356,7 @@ func TestDetectProduct(t *testing.T) {
 	}{
 		{[]string{"pro", "comp", "list"}, "pro"},
 		{[]string{"protect", "plans", "list"}, "protect"},
+		{[]string{"school", "devices", "list"}, "school"},
 		{[]string{"config", "list"}, ""},
 		{[]string{}, ""},
 	}

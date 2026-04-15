@@ -13,6 +13,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
 
 // HTTPClient interface for making API requests.
@@ -269,6 +270,84 @@ type PlatformClient interface {
 	BaseURL() string
 }
 
+// SchoolClient defines the interface for Jamf School API operations.
+// The SDK's *jamfschool.Client satisfies this interface directly.
+type SchoolClient interface {
+	// Devices
+	GetDevice(ctx context.Context, udid string) (*jamfschool.Device, error)
+	GetDevices(ctx context.Context) ([]jamfschool.Device, error)
+	EraseDevice(ctx context.Context, udid string, clearActivationLock bool) error
+	RestartDevice(ctx context.Context, udid string, clearPasscode bool) error
+	RefreshDevice(ctx context.Context, udid string, clearErrors bool) error
+	UnenrollDevice(ctx context.Context, udid string) error
+	ClearDeviceActivationLock(ctx context.Context, udid string) error
+	TrashDevice(ctx context.Context, udid string) error
+	RestoreDevice(ctx context.Context, udid string) error
+	UpdateDeviceESIM(ctx context.Context, udid string, serverURL string, requiresNetworkTether bool) error
+
+	// Users
+	GetUser(ctx context.Context, id int64) (*jamfschool.User, error)
+	GetUsers(ctx context.Context) ([]jamfschool.User, error)
+	CreateUser(ctx context.Context, input jamfschool.UserCreateInput) (int64, error)
+	UpdateUser(ctx context.Context, id int64, input jamfschool.UserUpdateInput) error
+	MigrateUser(ctx context.Context, id, locationID int64, onlyUser bool) error
+	DeleteUser(ctx context.Context, id int64) error
+
+	// Profiles
+	GetProfile(ctx context.Context, id int64) (*jamfschool.Profile, error)
+	GetProfiles(ctx context.Context) ([]jamfschool.Profile, error)
+
+	// Apps
+	GetApp(ctx context.Context, id int64) (*jamfschool.App, error)
+	GetApps(ctx context.Context) ([]jamfschool.App, error)
+	CreateApp(ctx context.Context, input jamfschool.AppCreateInput) (int64, error)
+	TrashApp(ctx context.Context, id int64) error
+
+	// Classes
+	GetClass(ctx context.Context, uuid string) (*jamfschool.Class, error)
+	GetClasses(ctx context.Context) ([]jamfschool.Class, error)
+	CreateClass(ctx context.Context, input jamfschool.ClassCreateInput) (string, error)
+	UpdateClass(ctx context.Context, uuid string, input jamfschool.ClassUpdateInput) error
+	DeleteClass(ctx context.Context, uuid string) error
+	AssignClassUsers(ctx context.Context, uuid string, studentIDs, teacherIDs []int64) error
+	GetClassDevices(ctx context.Context, uuid string) ([]jamfschool.ClassDevice, error)
+
+	// User Groups
+	GetGroup(ctx context.Context, id int64) (*jamfschool.Group, error)
+	GetGroups(ctx context.Context) ([]jamfschool.Group, error)
+	CreateGroup(ctx context.Context, input jamfschool.GroupCreateInput) (int64, error)
+	UpdateGroup(ctx context.Context, id int64, input jamfschool.GroupUpdateInput) error
+	DeleteGroup(ctx context.Context, id int64) error
+
+	// Device Groups
+	GetDeviceGroup(ctx context.Context, id int64) (*jamfschool.DeviceGroup, error)
+	GetDeviceGroups(ctx context.Context) ([]jamfschool.DeviceGroup, error)
+	CreateDeviceGroup(ctx context.Context, input jamfschool.DeviceGroupCreateInput) (int64, error)
+	UpdateDeviceGroup(ctx context.Context, id int64, input jamfschool.DeviceGroupUpdateInput) error
+	DeleteDeviceGroup(ctx context.Context, id int64) error
+	AddDevicesToGroup(ctx context.Context, groupID int64, udids []string) error
+	RemoveDevicesFromGroup(ctx context.Context, groupID int64, udids []string) error
+	GetDeviceGroupMembers(ctx context.Context, groupID int64) ([]string, error)
+
+	// Locations
+	GetLocation(ctx context.Context, id int64) (*jamfschool.Location, error)
+	GetLocations(ctx context.Context) ([]jamfschool.Location, error)
+
+	// iBeacons
+	GetIBeacon(ctx context.Context, id int64) (*jamfschool.IBeacon, error)
+	GetIBeacons(ctx context.Context) ([]jamfschool.IBeacon, error)
+	CreateIBeacon(ctx context.Context, input jamfschool.IBeaconCreateInput) (*jamfschool.IBeacon, error)
+	UpdateIBeacon(ctx context.Context, id int64, input jamfschool.IBeaconUpdateInput) (*jamfschool.IBeacon, error)
+	DeleteIBeacon(ctx context.Context, id int64) error
+
+	// DEP Devices
+	GetDEPDevice(ctx context.Context, serial string) (*jamfschool.DEPDevice, error)
+	GetDEPDevices(ctx context.Context) ([]jamfschool.DEPDevice, error)
+
+	// Client metadata
+	BaseURL() string
+}
+
 // CLIContext holds the shared client and output formatter for all commands.
 // It is populated in PersistentPreRunE after token/URL resolution.
 type CLIContext struct {
@@ -277,6 +356,7 @@ type CLIContext struct {
 	AuthProvider        auth.Provider // resolved Pro auth provider (nil for Protect commands)
 	ProtectClient       ProtectClient
 	PlatformClient      PlatformClient
+	SchoolClient        SchoolClient
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth
 	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled
