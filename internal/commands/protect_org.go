@@ -268,7 +268,7 @@ func newProtectDownloadsPPPCCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if outPath == "" {
 				outPath = "JamfProtect-PPPC.mobileconfig"
 			}
-			return writeBase64File(downloads.PPPC, outPath)
+			return writeBase64File(downloads.PPPC, outPath, 0o644)
 		},
 	}
 
@@ -293,7 +293,7 @@ func newProtectDownloadsTamperPreventionCmd(cliCtx *registry.CLIContext) *cobra.
 			if outPath == "" {
 				outPath = "JamfProtect-TamperPrevention.mobileconfig"
 			}
-			return writeBase64File(downloads.TamperPreventionProfile, outPath)
+			return writeBase64File(downloads.TamperPreventionProfile, outPath, 0o644)
 		},
 	}
 
@@ -318,7 +318,7 @@ func newProtectDownloadsRootCACmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if outPath == "" {
 				outPath = "JamfProtect-RootCA.pem"
 			}
-			return writeBase64File(downloads.RootCA, outPath)
+			return writeBase64File(downloads.RootCA, outPath, 0o644)
 		},
 	}
 
@@ -343,7 +343,7 @@ func newProtectDownloadsCSRCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if outPath == "" {
 				outPath = "JamfProtect-CSR.p12"
 			}
-			return writeBase64File(downloads.CSR, outPath)
+			return writeBase64File(downloads.CSR, outPath, 0o600)
 		},
 	}
 
@@ -368,7 +368,7 @@ func newProtectDownloadsWebsocketAuthCmd(cliCtx *registry.CLIContext) *cobra.Com
 			if outPath == "" {
 				outPath = "JamfProtect-WebsocketAuth.p12"
 			}
-			return writeBase64File(downloads.WebsocketAuth, outPath)
+			return writeBase64File(downloads.WebsocketAuth, outPath, 0o600)
 		},
 	}
 
@@ -391,12 +391,12 @@ func buildProtectPackageURL(baseURL, packageName, installerUUID string) string {
 }
 
 // writeBase64File decodes a base64 string and writes the result to a file.
-func writeBase64File(b64 string, path string) error {
+func writeBase64File(b64 string, path string, perm os.FileMode) error {
 	data, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return fmt.Errorf("decoding base64 data: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, perm); err != nil {
 		return fmt.Errorf("writing file: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", path, len(data))
