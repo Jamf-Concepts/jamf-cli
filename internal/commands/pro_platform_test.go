@@ -269,6 +269,7 @@ func TestCheckUndeployedBlueprints(t *testing.T) {
 	result := checkUndeployedBlueprints(pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2", result.AffectedCount)
@@ -301,6 +302,7 @@ func TestCheckBlueprintFailures(t *testing.T) {
 	result := checkBlueprintFailures(context.Background(), pc, pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1", result.AffectedCount)
@@ -323,6 +325,7 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 	result := checkBenchmarkUpdates(pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2", result.AffectedCount)

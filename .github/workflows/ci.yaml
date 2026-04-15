@@ -36,3 +36,6 @@ jobs:
 
       - name: Verify site generator compiles
         run: go build ./generator/site/...
+
+      - name: Verify site supports all products
+        run: ./scripts/verify-site-products.sh

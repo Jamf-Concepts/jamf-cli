@@ -317,6 +317,12 @@ a.stat-card:hover {
 }
 .stat-card[data-product="protect"] .stat-value { color: var(--product-protect); }
 
+.stat-card[data-product="school"] {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.08);
+}
+.stat-card[data-product="school"] .stat-value { color: var(--product-school); }
+
 .stat-card[data-product="core"] {
   border-color: var(--border);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
@@ -347,6 +353,10 @@ a.stat-card:hover {
 
 .stat-card[data-product="protect"] .stat-label .product-icon {
   color: var(--product-protect);
+}
+
+.stat-card[data-product="school"] .stat-label .product-icon {
+  color: var(--product-school);
 }
 
 .stat-secondary {
@@ -638,6 +648,8 @@ a.stat-card:hover {
 .tab[data-filter="protect"] { color: var(--product-protect); }
 .tab[data-filter="pro"].active { background: var(--product-pro); border-color: var(--product-pro); color: #fff; }
 .tab[data-filter="protect"].active { background: var(--product-protect); border-color: var(--product-protect); color: #fff; }
+.tab[data-filter="school"] { color: var(--product-school); }
+.tab[data-filter="school"].active { background: var(--product-school); border-color: var(--product-school); color: #fff; }
 
 /* Search */
 .catalog-controls {

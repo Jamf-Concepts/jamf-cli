@@ -117,13 +117,16 @@
 
     var proCount = 0;
     var protectCount = 0;
+    var schoolCount = 0;
     for (var i = 0; i < data.commands.length; i++) {
       if (data.commands[i].product === 'pro') proCount++;
       else if (data.commands[i].product === 'protect') protectCount++;
+      else if (data.commands[i].product === 'school') schoolCount++;
     }
-    var coreCount = count - proCount - protectCount;
+    var coreCount = count - proCount - protectCount - schoolCount;
     setText('stat-pro', proCount.toLocaleString());
     setText('stat-protect', protectCount.toLocaleString());
+    setText('stat-school', schoolCount.toLocaleString());
     setText('stat-core', coreCount.toLocaleString());
 
     // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
