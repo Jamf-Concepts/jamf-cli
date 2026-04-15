@@ -32,7 +32,7 @@ html {
   /* Product colors — add new products here */
   --product-pro: #0073EC;
   --product-protect: #0E9F6E;
-  /* --product-school: #F59E0B; */
+  --product-school: #F59E0B;
   /* --product-connect: #AF52DE; */
 
   /* Indicator colors */
@@ -741,6 +741,8 @@ a.stat-card:hover {
 .product-divider[data-product="pro"]::after { background: var(--product-pro); opacity: 0.3; }
 .product-divider[data-product="protect"] .product-divider-label { color: var(--product-protect); }
 .product-divider[data-product="protect"]::after { background: var(--product-protect); opacity: 0.3; }
+.product-divider[data-product="school"] .product-divider-label { color: var(--product-school); }
+.product-divider[data-product="school"]::after { background: var(--product-school); opacity: 0.3; }
 
 /* Count badge on group headers */
 .group-count-badge {
@@ -856,6 +858,10 @@ a.stat-card:hover {
   border: 1px solid rgba(14, 159, 110, 0.3);
   box-shadow: 0 0 6px rgba(14, 159, 110, 0.15);
 }
+.catalog-group.getting-started[data-product="school"] .catalog-group-header {
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
+}
 
 .catalog-group[data-product="pro"] .catalog-group-header {
   border-left-color: var(--product-pro);
@@ -867,6 +873,11 @@ a.stat-card:hover {
   color: var(--product-protect);
   background: #E8F8F2;
 }
+.catalog-group[data-product="school"] .catalog-group-header {
+  border-left-color: var(--product-school);
+  color: var(--product-school);
+  background: #FEF3C7;
+}
 
 @media (prefers-color-scheme: dark) {
   .catalog-group[data-product="pro"] .catalog-group-header {
@@ -874,6 +885,9 @@ a.stat-card:hover {
   }
   .catalog-group[data-product="protect"] .catalog-group-header {
     background: #0d2420;
+  }
+  .catalog-group[data-product="school"] .catalog-group-header {
+    background: #271d08;
   }
 }
 
@@ -1062,7 +1076,7 @@ a.stat-card:hover {
 /* Product-specific command colors — add new products here */
 .command-row[data-product="pro"] .command-name { color: var(--product-pro); }
 .command-row[data-product="protect"] .command-name { color: var(--product-protect); }
-/* .command-row[data-product="school"] .command-name { color: var(--product-school); } */
+.command-row[data-product="school"] .command-name { color: var(--product-school); }
 /* .command-row[data-product="connect"] .command-name { color: var(--product-connect); } */
 
 .command-desc {
@@ -1141,6 +1155,11 @@ a.stat-card:hover {
   background: rgba(80, 222, 175, 0.08);
 }
 
+.cmd-product-badge[data-product="school"] {
+  color: var(--product-school);
+  background: rgba(245, 158, 11, 0.08);
+}
+
 /* Cross-product reference badge */
 .xref-badge {
   display: inline-flex;
@@ -1162,6 +1181,11 @@ a.stat-card:hover {
 .xref-badge[data-product="protect"] {
   background: rgba(80, 222, 175, 0.1);
   color: var(--product-protect);
+}
+
+.xref-badge[data-product="school"] {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--product-school);
 }
 
 .detail-breadcrumb {
@@ -1901,6 +1925,9 @@ footer .footer-meta {
 :root[data-theme="dark"] .catalog-group[data-product="protect"] .catalog-group-header {
   background: #0d2420;
 }
+:root[data-theme="dark"] .catalog-group[data-product="school"] .catalog-group-header {
+  background: #271d08;
+}
 :root[data-theme="dark"] .flag-pill {
   background: rgba(100, 116, 139, 0.12);
   color: #64748b;
@@ -1930,6 +1957,9 @@ footer .footer-meta {
   }
   :root[data-theme="light"] .catalog-group[data-product="protect"] .catalog-group-header {
     background: #E8F8F2;
+  }
+  :root[data-theme="light"] .catalog-group[data-product="school"] .catalog-group-header {
+    background: #FEF3C7;
   }
   :root[data-theme="light"] .flag-pill {
     background: rgba(100, 116, 139, 0.08);

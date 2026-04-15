@@ -661,6 +661,8 @@ func detectProduct(innerArgs []string) string {
 			return "pro"
 		case "protect":
 			return "protect"
+		case "school":
+			return "school"
 		}
 		// Stop at first non-flag argument
 		if !strings.HasPrefix(arg, "-") {

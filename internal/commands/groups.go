@@ -23,6 +23,7 @@ var rootGroupMap = map[string]string{
 	"multi":      "core",
 	"pro":        "products",
 	"protect":    "products",
+	"school":     "products",
 	"platform":   "products",
 }
 
@@ -417,13 +418,66 @@ func applyProtectGroups(protect *cobra.Command) {
 	}
 }
 
+// ─── Jamf School groups (children of the "school" command) ──────────────────
+
+const (
+	groupSchoolCore     = "school-core"
+	groupSchoolDevices  = "school-devices"
+	groupSchoolUsers    = "school-users"
+	groupSchoolContent  = "school-content"
+	groupSchoolInfra    = "school-infra"
+	groupSchoolPlatform = "school-platform"
+)
+
+var schoolGroups = []*cobra.Group{
+	{ID: groupSchoolCore, Title: "Core Commands:"},
+	{ID: groupSchoolDevices, Title: "Devices:"},
+	{ID: groupSchoolUsers, Title: "Users & Organization:"},
+	{ID: groupSchoolContent, Title: "Content:"},
+	{ID: groupSchoolInfra, Title: "Infrastructure:"},
+	{ID: groupSchoolPlatform, Title: "Platform:"},
+}
+
+var schoolGroupMap = map[string]string{
+	"setup":    groupSchoolCore,
+	"overview": groupSchoolCore,
+
+	"devices":       groupSchoolDevices,
+	"device-groups": groupSchoolDevices,
+
+	"users":   groupSchoolUsers,
+	"groups":  groupSchoolUsers,
+	"classes": groupSchoolUsers,
+
+	"profiles": groupSchoolContent,
+	"apps":     groupSchoolContent,
+
+	"locations":   groupSchoolInfra,
+	"ibeacons":    groupSchoolInfra,
+	"dep-devices": groupSchoolInfra,
+
+	"blueprints":  groupSchoolPlatform,
+	"ddm-reports": groupSchoolPlatform,
+}
+
+func applySchoolGroups(school *cobra.Command) {
+	school.AddGroup(schoolGroups...)
+	school.SetHelpCommandGroupID(groupSchoolCore)
+
+	for _, cmd := range school.Commands() {
+		if gid, ok := schoolGroupMap[cmd.Name()]; ok {
+			cmd.GroupID = gid
+		}
+	}
+}
+
 // groupTitleMap is a cached lookup from group ID to display title, built once on first use.
 var groupTitleMap map[string]string
 
 func groupTitle(id string) string {
 	if groupTitleMap == nil {
 		groupTitleMap = make(map[string]string)
-		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups} {
+		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups, schoolGroups} {
 			for _, g := range groups {
 				groupTitleMap[g.ID] = strings.TrimSuffix(g.Title, ":")
 			}
