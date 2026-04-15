@@ -119,6 +119,7 @@ func TestResolveDeviceByIdentifier_NotFound(t *testing.T) {
 	_, _, err := resolveDeviceByIdentifier(context.Background(), client, "ghost-machine")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "no device found") {
 		t.Errorf("error = %q, want it to contain %q", err.Error(), "no device found")
@@ -176,6 +177,7 @@ func TestResolveDeviceByIdentifier_MultipleMatches(t *testing.T) {
 	_, _, err := resolveDeviceByIdentifier(context.Background(), client, "MacBook")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "multiple devices match") {
 		t.Errorf("error = %q, want it to contain %q", err.Error(), "multiple devices match")

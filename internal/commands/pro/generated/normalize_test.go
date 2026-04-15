@@ -13,6 +13,7 @@ func TestNormalizeInputToJSON(t *testing.T) {
 		out, err := normalizeInputToJSON(input)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		if string(out) != string(input) {
 			t.Errorf("got %s, want %s", out, input)
@@ -24,6 +25,7 @@ func TestNormalizeInputToJSON(t *testing.T) {
 		out, err := normalizeInputToJSON(input)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(out, &got); err != nil {
@@ -42,6 +44,7 @@ func TestNormalizeInputToJSON(t *testing.T) {
 		out, err := normalizeInputToJSON(input)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(out, &got); err != nil {
@@ -64,6 +67,7 @@ func TestNormalizeInputToJSON(t *testing.T) {
 		out, err := normalizeInputToJSON(input)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(out, &got); err != nil {
@@ -90,6 +94,7 @@ func TestNormalizeInputToJSON(t *testing.T) {
 		out, err := normalizeInputToJSON(input)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		if string(out) != string(input) {
 			t.Errorf("got %s, want %s", out, input)

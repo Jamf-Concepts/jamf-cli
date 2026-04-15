@@ -76,6 +76,7 @@ func TestBackup_DirectoryStructure(t *testing.T) {
 	policyDir := filepath.Join(outDir, "policies")
 	if _, err := os.Stat(policyDir); os.IsNotExist(err) {
 		t.Fatal("policies directory not created")
+		return
 	}
 
 	// Verify files exist with slugified names
@@ -179,6 +180,7 @@ func TestBackup_PartialFailure(t *testing.T) {
 	// Should return error indicating failures occurred
 	if err == nil {
 		t.Fatal("runBackup should return error when failures exist")
+		return
 	}
 
 	// Good policy should be exported

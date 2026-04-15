@@ -395,9 +395,11 @@ func TestProtectAuthTokenSubcommandExists(t *testing.T) {
 	authCmd := findSubcommand(protect, "auth")
 	if authCmd == nil {
 		t.Fatal("auth command not found under protect")
+		return
 	}
 	if findSubcommand(authCmd, "token") == nil {
 		t.Fatal("expected 'token' subcommand under 'protect auth'")
+		return
 	}
 }
 
@@ -423,6 +425,7 @@ func TestProtectAuthToken_Output(t *testing.T) {
 	expiresAt, ok := m["expires_at"]
 	if !ok {
 		t.Fatal("expires_at must be present in output")
+		return
 	}
 	ts, ok := expiresAt.(string)
 	if !ok {
@@ -441,6 +444,7 @@ func TestProtectAuthToken_AccessTokenError(t *testing.T) {
 	_, err := runProtectAuthToken(t, pc)
 	if err == nil {
 		t.Fatal("expected error from AccessToken failure, got nil")
+		return
 	}
 }
 

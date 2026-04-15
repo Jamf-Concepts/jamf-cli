@@ -125,6 +125,7 @@ func TestFetchPaginatedCount_Error(t *testing.T) {
 	_, err := fetchPaginatedCount(context.Background(), client, "/v1/buildings")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -136,6 +137,7 @@ func TestFetchArrayCount_Error(t *testing.T) {
 	_, err := fetchArrayCount(context.Background(), client, "/v1/nonexistent")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -353,6 +355,7 @@ func TestFetchJSON_HTTPError(t *testing.T) {
 	_, err := fetchJSON(context.Background(), client, "/v1/jamf-pro-version")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 500") {
 		t.Errorf("expected HTTP 500 in error, got: %v", err)
@@ -369,6 +372,7 @@ func TestFetchJSON_InvalidJSON(t *testing.T) {
 	_, err := fetchJSON(context.Background(), client, "/v1/test")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
+		return
 	}
 }
 
@@ -428,6 +432,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 	install, ok := data["installSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("installSettings not a map")
+		return
 	}
 	if got := enabledDisabled(install["installAutomatically"]); got != "enabled" {
 		t.Errorf("installAutomatically = %q, want %q", got, "enabled")
@@ -436,6 +441,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 	login, ok := data["loginSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("loginSettings not a map")
+		return
 	}
 	if level, ok := login["userLoginLevel"].(string); !ok || level != "Required" {
 		t.Errorf("userLoginLevel = %v, want %q", login["userLoginLevel"], "Required")
@@ -444,6 +450,7 @@ func TestFetchSelfServiceSettings(t *testing.T) {
 	config, ok := data["configurationSettings"].(map[string]any)
 	if !ok {
 		t.Fatal("configurationSettings not a map")
+		return
 	}
 	if got := enabledDisabled(config["notificationsEnabled"]); got != "disabled" {
 		t.Errorf("notificationsEnabled = %q, want %q", got, "disabled")
@@ -752,6 +759,7 @@ func TestFetchClassicCount_HTTPError(t *testing.T) {
 	_, err := fetchClassicCount(context.Background(), client, "/JSSResource/policies", "policies")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -923,6 +931,7 @@ func TestRunOverview_FullMock(t *testing.T) {
 
 	if len(sections) == 0 {
 		t.Fatal("expected non-empty sections")
+		return
 	}
 
 	// Flatten to a map for easy assertions
@@ -1000,6 +1009,7 @@ func TestRunOverview_AllAPIErrors(t *testing.T) {
 
 	if len(sections) == 0 {
 		t.Fatal("expected sections even when all API calls fail")
+		return
 	}
 }
 
@@ -1077,6 +1087,7 @@ func TestFetchCDPFileCount_BadResponse(t *testing.T) {
 	_, err := fetchCDPFileCount(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error for missing results array, got nil")
+		return
 	}
 }
 

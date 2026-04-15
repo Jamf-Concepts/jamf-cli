@@ -117,14 +117,17 @@
 
     var proCount = 0;
     var protectCount = 0;
+    var schoolCount = 0;
     for (var i = 0; i < data.commands.length; i++) {
       if (data.commands[i].product === 'pro') proCount++;
       else if (data.commands[i].product === 'protect') protectCount++;
+      else if (data.commands[i].product === 'school') schoolCount++;
     }
-    var coreCount = count - proCount - protectCount;
-    setText('stat-pro', proCount.toLocaleString());
-    setText('stat-protect', protectCount.toLocaleString());
-    setText('stat-core', coreCount.toLocaleString());
+    var coreCount = count - proCount - protectCount - schoolCount;
+    animateCount('stat-pro', proCount);
+    animateCount('stat-protect', protectCount);
+    animateCount('stat-school', schoolCount);
+    animateCount('stat-core', coreCount);
 
     // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
     var resources = {};
@@ -151,6 +154,25 @@
     if (footerVersion && version) {
       footerVersion.textContent = ' · v' + version;
     }
+  }
+
+  function animateCount(id, target) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var duration = 1200;
+    var start = null;
+    function step(ts) {
+      if (!start) start = ts;
+      var progress = Math.min((ts - start) / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(eased * target).toLocaleString();
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        el.classList.add('loaded');
+      }
+    }
+    requestAnimationFrame(step);
   }
 
   function setText(id, text) {

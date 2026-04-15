@@ -88,6 +88,7 @@ func TestConfigValidate_MissingFile(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error for missing config file")
+		return
 	}
 	if !strings.Contains(buf.String(), "does not exist") {
 		t.Errorf("expected 'does not exist' in output:\n%s", buf.String())
@@ -98,6 +99,7 @@ func TestConfigValidate_InvalidYAML(t *testing.T) {
 	out, err := runValidateCmd(t, "{{not: yaml: at: all")
 	if err == nil {
 		t.Fatal("expected error for invalid YAML")
+		return
 	}
 	if !strings.Contains(out, "Invalid YAML") {
 		t.Errorf("expected 'Invalid YAML' in output:\n%s", out)
@@ -112,6 +114,7 @@ profiles: {}
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for invalid output format")
+		return
 	}
 	if !strings.Contains(out, "Invalid default-output") {
 		t.Errorf("expected 'Invalid default-output' in output:\n%s", out)
@@ -131,6 +134,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for missing default profile")
+		return
 	}
 	if !strings.Contains(out, "not found in profiles") {
 		t.Errorf("expected 'not found in profiles' in output:\n%s", out)
@@ -148,6 +152,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for missing URL")
+		return
 	}
 	if !strings.Contains(out, "Missing url") {
 		t.Errorf("expected 'Missing url' in output:\n%s", out)
@@ -164,6 +169,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for invalid auth method")
+		return
 	}
 	if !strings.Contains(out, "Invalid auth-method") {
 		t.Errorf("expected 'Invalid auth-method' in output:\n%s", out)
@@ -180,6 +186,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for missing oauth2 credentials")
+		return
 	}
 	if !strings.Contains(out, "Missing client-id") {
 		t.Errorf("expected 'Missing client-id' in output:\n%s", out)
@@ -200,6 +207,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for unresolvable env secret")
+		return
 	}
 	if !strings.Contains(out, "not resolvable") {
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)
@@ -235,6 +243,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for literal token")
+		return
 	}
 	if !strings.Contains(out, "not resolvable") {
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)
@@ -317,6 +326,7 @@ profiles:
 	out, err := runValidateCmd(t, yaml)
 	if err == nil {
 		t.Fatal("expected error for missing keychain items")
+		return
 	}
 	if !strings.Contains(out, "not resolvable") {
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)

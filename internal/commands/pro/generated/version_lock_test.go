@@ -63,6 +63,7 @@ func TestInjectVersionLocks(t *testing.T) {
 		out, err := injectVersionLocks(userData, serverResp)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		got := parseJSON(t, out)
 		if vl := got["versionLock"]; vl != float64(42) {
@@ -86,6 +87,7 @@ func TestInjectVersionLocks(t *testing.T) {
 		out, err := injectVersionLocks(userData, serverResp)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		got := parseJSON(t, out)
 		if vl := got["versionLock"]; vl != float64(10) {
@@ -119,6 +121,7 @@ func TestInjectVersionLocks(t *testing.T) {
 		out, err := injectVersionLocks(userData, serverResp)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		got := parseJSON(t, out)
 		if vl := got["versionLock"]; vl != float64(5) {
@@ -136,6 +139,7 @@ func TestInjectVersionLocks(t *testing.T) {
 		out, err := injectVersionLocks(userData, serverResp)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		got := parseJSON(t, out)
 		if name := got["displayName"]; name != "MyName" {
@@ -155,6 +159,7 @@ func TestInjectVersionLocks(t *testing.T) {
 		out, err := injectVersionLocks(userData, serverResp)
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		if string(out) != "not json" {
 			t.Errorf("expected unchanged input, got %s", out)

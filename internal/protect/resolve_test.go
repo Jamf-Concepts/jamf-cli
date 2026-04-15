@@ -73,6 +73,7 @@ func TestResolvePlanID_NotFound(t *testing.T) {
 	_, err := r.ResolvePlanID(context.Background(), "Nonexistent")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	want := `plan "Nonexistent" not found`
 	if got := err.Error(); len(got) < len(want) || got[:len(want)] != want {
@@ -135,6 +136,7 @@ func TestResolveAnalyticUUID_NotFound(t *testing.T) {
 	_, err := r.ResolveAnalyticUUID(context.Background(), "Missing")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	want := `analytic "Missing" not found`
 	if got := err.Error(); len(got) < len(want) || got[:len(want)] != want {
@@ -203,6 +205,7 @@ func TestResolveComputerUUID_NotFound(t *testing.T) {
 	_, err := r.ResolveComputerUUID(context.Background(), "unknown-host")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	want := `computer "unknown-host" not found`
 	if got := err.Error(); len(got) < len(want) || got[:len(want)] != want {

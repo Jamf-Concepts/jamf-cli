@@ -353,6 +353,7 @@ func TestSchoolGroupToInput_MapsFields(t *testing.T) {
 	}
 	if input.ACL == nil {
 		t.Fatal("ACL should not be nil")
+		return
 	}
 	if input.ACL.Teacher != "Allow" {
 		t.Errorf("ACL.Teacher = %q, want %q", input.ACL.Teacher, "Allow")
@@ -449,6 +450,7 @@ func TestParseInt64List_Invalid(t *testing.T) {
 	_, err := parseInt64List("1,abc,3")
 	if err == nil {
 		t.Fatal("expected error for invalid input")
+		return
 	}
 }
 

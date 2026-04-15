@@ -16,6 +16,7 @@ func findSchoolCmd(t *testing.T) *cobra.Command {
 	cmd := findSubcommand(root, "school")
 	if cmd == nil {
 		t.Fatal("school command not found")
+		return nil
 	}
 	return cmd
 }
@@ -24,6 +25,7 @@ func TestSchoolCommandExists(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 	if findSubcommand(root, "school") == nil {
 		t.Fatal("expected 'school' subcommand on root")
+		return
 	}
 }
 
@@ -126,6 +128,7 @@ func TestSchoolDevicesSubcommands(t *testing.T) {
 	devices := findSubcommand(school, "devices")
 	if devices == nil {
 		t.Fatal("devices subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "restart", "refresh", "unenroll", "erase", "clear-activation-lock", "trash", "restore"}
@@ -143,6 +146,7 @@ func TestSchoolUsersSubcommands(t *testing.T) {
 	users := findSubcommand(school, "users")
 	if users == nil {
 		t.Fatal("users subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export"}
@@ -160,6 +164,7 @@ func TestSchoolClassesSubcommands(t *testing.T) {
 	classes := findSubcommand(school, "classes")
 	if classes == nil {
 		t.Fatal("classes subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export", "assign-users", "devices"}
@@ -177,6 +182,7 @@ func TestSchoolDeviceGroupsSubcommands(t *testing.T) {
 	dg := findSubcommand(school, "device-groups")
 	if dg == nil {
 		t.Fatal("device-groups subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export", "members", "add-devices", "remove-devices"}
@@ -194,6 +200,7 @@ func TestSchoolIBeaconsSubcommands(t *testing.T) {
 	ib := findSubcommand(school, "ibeacons")
 	if ib == nil {
 		t.Fatal("ibeacons subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export"}

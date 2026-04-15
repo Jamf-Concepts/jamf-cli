@@ -19,11 +19,13 @@ func TestTryAggregate_ReportFormat(t *testing.T) {
 	merged := tryAggregate(results)
 	if merged == nil {
 		t.Fatal("expected aggregation, got nil")
+		return
 	}
 	// Summary should be summed (total) but not days
 	summary, _ := merged["summary"].(map[string]any)
 	if summary == nil {
 		t.Fatal("missing summary")
+		return
 	}
 	if total, _ := summary["total"].(float64); total != 30 {
 		t.Errorf("total = %v, want 30", total)
@@ -50,6 +52,7 @@ func TestTryAggregate_FlatArray(t *testing.T) {
 	merged := tryAggregate(results)
 	if merged == nil {
 		t.Fatal("expected aggregation, got nil")
+		return
 	}
 	resultsList, _ := merged["results"].([]any)
 	if len(resultsList) != 3 {
@@ -70,6 +73,7 @@ func TestTryAggregate_EmptyArray(t *testing.T) {
 	merged := tryAggregate(results)
 	if merged == nil {
 		t.Fatal("expected aggregation, got nil")
+		return
 	}
 	resultsList, _ := merged["results"].([]any)
 	if len(resultsList) != 1 {
@@ -85,6 +89,7 @@ func TestTryAggregate_FailedChildExcluded(t *testing.T) {
 	merged := tryAggregate(results)
 	if merged == nil {
 		t.Fatal("expected aggregation, got nil")
+		return
 	}
 	resultsList, _ := merged["results"].([]any)
 	if len(resultsList) != 1 {
@@ -111,6 +116,7 @@ func TestTryAggregate_ScalarOnlyObject(t *testing.T) {
 	merged := tryAggregate(results)
 	if merged == nil {
 		t.Fatal("expected aggregation for flat array, got nil")
+		return
 	}
 	// These are flat arrays (len > 1 per child isn't required), so they go through
 	// the flat array path, not the single-object report path

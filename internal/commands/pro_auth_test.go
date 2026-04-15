@@ -67,6 +67,7 @@ func parseAuthTokenOutput(t *testing.T, data []byte) map[string]any {
 	t.Helper()
 	if len(data) == 0 {
 		t.Fatal("command produced no output")
+		return nil
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -147,9 +148,11 @@ func TestProAuthCommandExists(t *testing.T) {
 	pro := findSubcommand(root, "pro")
 	if pro == nil {
 		t.Fatal("pro command not found")
+		return
 	}
 	if findSubcommand(pro, "auth") == nil {
 		t.Fatal("expected 'auth' subcommand under 'pro'")
+		return
 	}
 }
 
@@ -158,13 +161,16 @@ func TestProAuthTokenCommandExists(t *testing.T) {
 	pro := findSubcommand(root, "pro")
 	if pro == nil {
 		t.Fatal("pro command not found")
+		return
 	}
 	authCmd := findSubcommand(pro, "auth")
 	if authCmd == nil {
 		t.Fatal("auth command not found under pro")
+		return
 	}
 	if findSubcommand(authCmd, "token") == nil {
 		t.Fatal("expected 'token' subcommand under 'pro auth'")
+		return
 	}
 }
 
@@ -172,6 +178,7 @@ func TestProAuthGroupedInCore(t *testing.T) {
 	gid, ok := proGroupMap["auth"]
 	if !ok {
 		t.Fatal("'auth' not found in proGroupMap")
+		return
 	}
 	if gid != groupCore {
 		t.Errorf("proGroupMap[auth] = %q, want %q", gid, groupCore)
@@ -183,9 +190,11 @@ func TestPlatformAuthCommandExists(t *testing.T) {
 	platform := findSubcommand(root, "platform")
 	if platform == nil {
 		t.Fatal("platform command not found")
+		return
 	}
 	if findSubcommand(platform, "auth") == nil {
 		t.Fatal("expected 'auth' subcommand under 'platform'")
+		return
 	}
 }
 
@@ -194,13 +203,16 @@ func TestPlatformAuthTokenCommandExists(t *testing.T) {
 	platform := findSubcommand(root, "platform")
 	if platform == nil {
 		t.Fatal("platform command not found")
+		return
 	}
 	authCmd := findSubcommand(platform, "auth")
 	if authCmd == nil {
 		t.Fatal("auth command not found under platform")
+		return
 	}
 	if findSubcommand(authCmd, "token") == nil {
 		t.Fatal("expected 'token' subcommand under 'platform auth'")
+		return
 	}
 }
 
@@ -233,6 +245,7 @@ func TestProAuthToken_OAuth2Provider_WithExpiry(t *testing.T) {
 	expiresAt, ok := m["expires_at"]
 	if !ok {
 		t.Fatal("expires_at must be present for oauth2 auth")
+		return
 	}
 	ts, ok := expiresAt.(string)
 	if !ok {
@@ -252,6 +265,7 @@ func TestProAuthToken_Error(t *testing.T) {
 	_, err := runProAuthToken(t, p)
 	if err == nil {
 		t.Fatal("expected error from failing provider, got nil")
+		return
 	}
 }
 
@@ -276,6 +290,7 @@ func TestPlatformAuthToken_Error(t *testing.T) {
 	_, err := runPlatformAuthToken(t, p)
 	if err == nil {
 		t.Fatal("expected error from failing provider, got nil")
+		return
 	}
 }
 

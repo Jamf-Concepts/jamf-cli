@@ -71,6 +71,7 @@ func TestCompletionInstall_NoShell(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for unsupported shell")
+		return
 	}
 	if !strings.Contains(err.Error(), "could not detect shell") {
 		t.Errorf("error = %q, want to contain 'could not detect shell'", err.Error())
@@ -152,6 +153,7 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 	zshDir := dir + "/.zsh/completions"
 	if err := os.MkdirAll(zshDir, 0o755); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	root := NewRootCmd("test", "abc123", "2024-01-01")

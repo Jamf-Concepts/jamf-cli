@@ -186,6 +186,7 @@ func TestRunDeviceDeepDive_NotFound(t *testing.T) {
 	_, err := runDeviceDeepDive(context.Background(), &registry.CLIContext{Client: client}, "ghost-machine")
 	if err == nil {
 		t.Fatal("expected error for unresolvable device, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "no device found") {
 		t.Errorf("error = %q, want it to contain %q", err.Error(), "no device found")

@@ -27,6 +27,7 @@ func TestOAuth2Provider_GetToken_Success(t *testing.T) {
 		}
 		if err := r.ParseForm(); err != nil {
 			t.Fatal(err)
+			return
 		}
 		if r.FormValue("grant_type") != "client_credentials" {
 			t.Errorf("expected grant_type=client_credentials, got %s", r.FormValue("grant_type"))
@@ -124,6 +125,7 @@ func TestOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for zero expires_in")
+		return
 	}
 }
 
@@ -138,6 +140,7 @@ func TestOAuth2Provider_GetToken_ServerError(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid credentials")
+		return
 	}
 }
 
@@ -153,6 +156,7 @@ func TestTokenProvider_GetToken(t *testing.T) {
 	token, err := p.GetToken(context.Background())
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	if token != "my-token" {
 		t.Errorf("expected my-token, got %s", token)
@@ -164,6 +168,7 @@ func TestTokenProvider_GetToken_Empty(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for empty token")
+		return
 	}
 }
 
@@ -183,6 +188,7 @@ func TestPlatformOAuth2Provider_GetToken_Success(t *testing.T) {
 		}
 		if err := r.ParseForm(); err != nil {
 			t.Fatal(err)
+			return
 		}
 		if r.FormValue("grant_type") != "client_credentials" {
 			t.Errorf("expected grant_type=client_credentials, got %s", r.FormValue("grant_type"))
@@ -250,6 +256,7 @@ func TestPlatformOAuth2Provider_GetToken_InvalidCredentials(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid credentials")
+		return
 	}
 }
 
@@ -268,6 +275,7 @@ func TestPlatformOAuth2Provider_GetToken_EmptyAccessToken(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for empty access_token")
+		return
 	}
 }
 
@@ -286,6 +294,7 @@ func TestPlatformOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for zero expires_in")
+		return
 	}
 }
 
@@ -347,6 +356,7 @@ func TestOAuth2Provider_GetToken_SavesToDiskCache(t *testing.T) {
 	tc, ok := loadTokenCache(cachePath)
 	if !ok {
 		t.Fatal("expected cache file to exist after token exchange")
+		return
 	}
 	if tc.Token != "disk-cache-token" {
 		t.Errorf("expected disk-cache-token in cache, got %s", tc.Token)
@@ -478,6 +488,7 @@ func TestPlatformOAuth2Provider_GetToken_SavesToDiskCache(t *testing.T) {
 	tc, ok := loadTokenCache(cachePath)
 	if !ok {
 		t.Fatal("expected cache file to exist after token exchange")
+		return
 	}
 	if tc.Token != "platform-disk-token" {
 		t.Errorf("expected platform-disk-token in cache, got %s", tc.Token)
