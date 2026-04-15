@@ -61,6 +61,7 @@ func TestFilterProfiles_NoMatch(t *testing.T) {
 	_, err := filterProfiles(names, "missing-*")
 	if err == nil {
 		t.Fatal("expected error for no matches")
+		return
 	}
 	if !strings.Contains(err.Error(), "no profiles match") {
 		t.Errorf("error = %q, want it to contain 'no profiles match'", err.Error())
@@ -73,6 +74,7 @@ func TestFilterProfiles_InvalidPattern(t *testing.T) {
 	_, err := filterProfiles(names, "[invalid")
 	if err == nil {
 		t.Fatal("expected error for invalid pattern")
+		return
 	}
 }
 
@@ -94,6 +96,7 @@ func TestValidateProfileNames_Unknown(t *testing.T) {
 	_, err := validateProfileNames(cfg, []string{"default", "nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for unknown profile")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want it to contain 'not found'", err.Error())
@@ -142,6 +145,7 @@ func TestResolveURLToProfile_NotFound(t *testing.T) {
 	_, err := resolveURLToProfile(cfg, "https://unknown.jamfcloud.com")
 	if err == nil {
 		t.Fatal("expected error for unknown URL")
+		return
 	}
 	if !strings.Contains(err.Error(), "no profile found") {
 		t.Errorf("error = %q, want it to contain 'no profile found'", err.Error())
@@ -154,6 +158,7 @@ func TestReadProfilesFromFile_ProfileNames(t *testing.T) {
 	f, err := os.CreateTemp("", "profiles-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -181,6 +186,7 @@ func TestReadProfilesFromFile_URLs(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -206,6 +212,7 @@ func TestReadProfilesFromFile_Dedup(t *testing.T) {
 	f, err := os.CreateTemp("", "dup-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -229,6 +236,7 @@ func TestReadProfilesFromFile_UnknownURL(t *testing.T) {
 	f, err := os.CreateTemp("", "unknown-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -238,6 +246,7 @@ func TestReadProfilesFromFile_UnknownURL(t *testing.T) {
 	_, err = readProfilesFromFile(cfg, f.Name())
 	if err == nil {
 		t.Fatal("expected error for unknown URL")
+		return
 	}
 	if !strings.Contains(err.Error(), "no profile found") {
 		t.Errorf("error = %q, want it to contain 'no profile found'", err.Error())
@@ -333,6 +342,7 @@ func TestParseRange(t *testing.T) {
 	start, end, ok := parseRange("3-7")
 	if !ok {
 		t.Fatal("expected ok for valid range")
+		return
 	}
 	if start != 3 || end != 7 {
 		t.Errorf("got %d-%d, want 3-7", start, end)
@@ -470,6 +480,7 @@ func TestResolveMultiProfiles_NoMatchingProduct(t *testing.T) {
 	_, err := resolveMultiProfiles(cfg, "*", "", "", "protect", true)
 	if err == nil {
 		t.Fatal("expected error when no profiles match product")
+		return
 	}
 	if !strings.Contains(err.Error(), "no matching") {
 		t.Errorf("error = %q, want it to contain 'no matching'", err.Error())
@@ -482,6 +493,7 @@ func TestResolveMultiProfiles_EmptyConfig(t *testing.T) {
 	_, err := resolveMultiProfiles(cfg, "*", "", "", "", true)
 	if err == nil {
 		t.Fatal("expected error for empty config")
+		return
 	}
 	if !strings.Contains(err.Error(), "no profiles configured") {
 		t.Errorf("error = %q, want it to contain 'no profiles configured'", err.Error())
@@ -495,6 +507,7 @@ func TestResolveMultiProfiles_NoInput(t *testing.T) {
 	_, err := resolveMultiProfiles(cfg, "", "", "", "", true)
 	if err == nil {
 		t.Fatal("expected error for no flags with --no-input")
+		return
 	}
 	if !strings.Contains(err.Error(), "--filter") {
 		t.Errorf("error = %q, want it to mention --filter", err.Error())

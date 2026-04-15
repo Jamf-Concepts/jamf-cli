@@ -62,7 +62,7 @@ After modifying a template: `make generate && make test`
 | Change how commands.json is generated for the site | `generator/site/main.go` |
 | Add a new product color to the site | CSS vars in `docs/site/style.css` (search "add new products here") + `PRODUCT_LABELS` and `CORE_SUBGROUPS` in `docs/site/catalog.js` |
 | Reclassify a command group on the site | `catalog.js` — `CORE_SUBGROUPS` map, `GROUP_ORDER` array, `reclassifyCoreCommands()` |
-| Add a new Jamf product namespace | Also update site: `PRODUCT_LABELS` in `catalog.js`, `--product-*` CSS vars, product badge selectors |
+| Add a new Jamf product namespace | Also update site (see "Adding a new product namespace" workflow). Run `make verify-site` to check |
 
 ## Build & Dev Commands
 
@@ -73,6 +73,7 @@ make lint                   # golangci-lint (skips generated code via .golangci.
 make generate               # Regenerate commands from OpenAPI specs, Classic manifest, and DDM component scaffolds
 make sync-specs             # Copy specs from jamf/jss repo, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
+make verify-site            # Check that site supports all product namespaces (CI-safe)
 make site                   # Build binary, generate commands.json, serve site locally at :8080
 make fmt                    # go fmt + gofumpt
 go test -v -run TestFoo ./internal/commands/...  # Run a single test
@@ -173,9 +174,10 @@ The site at `docs/site/` auto-deploys on every push to `main` via `.github/workf
 
 **What auto-updates:** command list, counts, groups, products, flags, aliases, version, timestamp, "New" badges (diff against previous deploy).
 
-**What needs manual updates when adding a product:**
-1. `docs/site/style.css` — add `--product-<name>` CSS variable and all `[data-product="<name>"]` selectors (search "add new products here")
-2. `docs/site/catalog.js` — add to `PRODUCT_LABELS` map
+**What needs manual updates when adding a product** (CI enforces via `make verify-site`):
+1. `docs/site/index.html` — add stat card (`id="stat-<name>"`, `data-product="<name>"`, `data-tab="<name>"`), add filter tab (`data-filter="<name>"`), update subtitle and meta descriptions
+2. `docs/site/style.css` — add `--product-<name>` CSS variable, `.stat-card[data-product="<name>"]` border/shadow, `.stat-card .product-icon` color, `.tab[data-filter="<name>"]` color and `.active` styles, and all `[data-product="<name>"]` selectors (search "add new products here")
+3. `docs/site/catalog.js` — add to `PRODUCT_LABELS` map, add `setText('stat-<name>', ...)` counter and product count variable in the stats loop
 
 **What needs manual updates when reclassifying groups:**
 1. `docs/site/catalog.js` — `GROUP_ORDER` array (display order), `CORE_SUBGROUPS` map (splits Core Commands), `GETTING_STARTED_ORDER` (sort within Getting Started)
@@ -446,3 +448,8 @@ These helpers are shared by both Protect and Platform commands (originally Prote
 3. If the product has generated commands, create `internal/commands/newproduct/generated/`
 4. Wire the bridge into `root.go`
 5. Add root group mapping in `groups.go` (`rootGroupMap`)
+6. **Update the showcase site** (see "What needs manual updates when adding a product" under GitHub Pages Site):
+   - `index.html` — stat card, filter tab, subtitle, meta descriptions
+   - `style.css` — CSS variable, stat-card styling, tab styling, product selectors
+   - `catalog.js` — `PRODUCT_LABELS` entry, stat counter
+7. Verify with `make verify-site` (also runs in CI)

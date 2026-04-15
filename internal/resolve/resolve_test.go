@@ -154,6 +154,7 @@ func TestResolveComputer_NotFound(t *testing.T) {
 	_, err := ResolveComputer(context.Background(), client, "NOSUCH", "", "")
 	if err == nil {
 		t.Fatal("expected error for not found")
+		return
 	}
 	if !strings.Contains(err.Error(), "no computer found") {
 		t.Errorf("error = %q, want to contain 'no computer found'", err.Error())
@@ -174,6 +175,7 @@ func TestResolveComputer_MultipleMatches(t *testing.T) {
 	_, err := ResolveComputer(context.Background(), client, "", "Mac", "")
 	if err == nil {
 		t.Fatal("expected error for multiple matches")
+		return
 	}
 	if !strings.Contains(err.Error(), "multiple computers found") {
 		t.Errorf("error = %q, want to contain 'multiple computers found'", err.Error())
@@ -185,6 +187,7 @@ func TestResolveComputer_NoFlags(t *testing.T) {
 	_, err := ResolveComputer(context.Background(), client, "", "", "")
 	if err == nil {
 		t.Fatal("expected error when no flags provided")
+		return
 	}
 	if !strings.Contains(err.Error(), "required") {
 		t.Errorf("error = %q, want to contain 'required'", err.Error())
@@ -229,6 +232,7 @@ func TestResolveComputersFromFile(t *testing.T) {
 	content := "# Comment\nC02X1234\n\n42\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	client := &mockClient{responses: map[string]mockResponse{
@@ -250,10 +254,12 @@ func TestReadEntriesFromFile_EmptyFile(t *testing.T) {
 	path := filepath.Join(dir, "empty.txt")
 	if err := os.WriteFile(path, []byte("# only comments\n\n"), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 	_, err := readEntriesFromFile(path)
 	if err == nil {
 		t.Fatal("expected error for empty file")
+		return
 	}
 	if !strings.Contains(err.Error(), "no entries") {
 		t.Errorf("error = %q, want to contain 'no entries'", err.Error())
@@ -339,6 +345,7 @@ func TestResolveClassicComputerGroupID_NotFound(t *testing.T) {
 	_, err := ResolveClassicComputerGroupID(context.Background(), client, "NoSuch")
 	if err == nil {
 		t.Fatal("expected error for 404")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want to contain 'not found'", err.Error())
@@ -374,6 +381,7 @@ func TestResolveClassicMobileGroupID_NotFound(t *testing.T) {
 	_, err := ResolveClassicMobileGroupID(context.Background(), client, "NoSuch")
 	if err == nil {
 		t.Fatal("expected error for 404")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want to contain 'not found'", err.Error())

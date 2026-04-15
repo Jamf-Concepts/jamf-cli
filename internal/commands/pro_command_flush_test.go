@@ -194,6 +194,7 @@ func TestComputerFlushCommands_InvalidStatus(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error for invalid status")
+		return
 	}
 	if !strings.Contains(err.Error(), "invalid --status") {
 		t.Errorf("error = %q, want to contain 'invalid --status'", err.Error())
@@ -220,6 +221,7 @@ func TestComputerFlushCommands_NoInputGuard(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when --no-input without --yes")
+		return
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Errorf("error = %q, want to contain '--yes'", err.Error())
@@ -349,6 +351,7 @@ func TestComputerFlushCommands_NoInputGroup_Errors(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when --no-input without --yes for group target")
+		return
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Errorf("error = %q, want to contain '--yes'", err.Error())
@@ -430,6 +433,7 @@ func TestMobileFlushCommands_NoInputGroup_Errors(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when --no-input without --yes for group target")
+		return
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Errorf("error = %q, want to contain '--yes'", err.Error())
@@ -451,6 +455,7 @@ func TestMobileFlushCommands_NoTargetFlag_Errors(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when no target flag provided")
+		return
 	}
 	if !strings.Contains(err.Error(), "required") {
 		t.Errorf("error = %q, want to contain 'required'", err.Error())

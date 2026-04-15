@@ -108,6 +108,7 @@ func TestRunReportPatchStatus_FetchError(t *testing.T) {
 	_, err := runReportPatchStatus(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -301,6 +302,7 @@ func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
 	_, err := runReportDeviceCompliance(context.Background(), errClient, 14)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -352,6 +354,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 	}
 	if miniRow == nil {
 		t.Fatal("missing Mac mini row")
+		return
 	}
 	if miniRow["count"] != 1 {
 		t.Errorf("Mac mini count = %v, want 1", miniRow["count"])
@@ -367,6 +370,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 	}
 	if mbpRow == nil {
 		t.Fatal("missing MacBook Pro row")
+		return
 	}
 	if mbpRow["count"] != 2 {
 		t.Errorf("MacBook Pro count = %v, want 2", mbpRow["count"])
@@ -462,6 +466,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 	}
 	if chrome123 == nil {
 		t.Fatal("missing Google Chrome 123.0 row")
+		return
 	}
 	if chrome123["device_count"] != 2 {
 		t.Errorf("Chrome 123.0 device_count = %v, want 2", chrome123["device_count"])
@@ -516,6 +521,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true)
 	if err == nil {
 		t.Fatal("expected error for no matches with filter, got nil")
+		return
 	}
 }
 
@@ -645,6 +651,7 @@ func TestRunReportEAResults_NoMatchFilter(t *testing.T) {
 	_, err := runReportEAResults(context.Background(), client, "nonexistent-ea-xyz", true)
 	if err == nil {
 		t.Fatal("expected error for no matching EAs, got nil")
+		return
 	}
 }
 
@@ -674,6 +681,7 @@ func TestRunReportEAResults_EAFetchError(t *testing.T) {
 	_, err := runReportEAResults(context.Background(), client, "", true)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -745,6 +753,7 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 	// Should have both summary and per-device rows
 	if result.Summary == nil {
 		t.Fatal("expected summary section")
+		return
 	}
 	if len(result.Devices) != 3 {
 		t.Fatalf("got %d device rows, want 3", len(result.Devices))
@@ -774,6 +783,7 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 	}
 	if macB == nil {
 		t.Fatal("missing Mac-B row")
+		return
 	}
 	if macB["filevault"] != "UNENCRYPTED" {
 		t.Errorf("Mac-B filevault = %q, want UNENCRYPTED", macB["filevault"])
@@ -806,6 +816,7 @@ func TestRunReportSecurity_FetchError(t *testing.T) {
 	_, err := runReportSecurity(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 

@@ -1219,6 +1219,7 @@ func TestPrint_CSV_UnsupportedType(t *testing.T) {
 	err := f.Print("not a slice of maps")
 	if err == nil {
 		t.Fatal("expected error for unsupported CSV type")
+		return
 	}
 	if !strings.Contains(err.Error(), "not supported") {
 		t.Errorf("expected 'not supported' in error, got: %v", err)

@@ -324,6 +324,7 @@ func TestParsePolicyLogDate_Epoch(t *testing.T) {
 	d := parsePolicyLogDate(m)
 	if d.IsZero() {
 		t.Fatal("expected non-zero date")
+		return
 	}
 	if d.Year() != 2024 {
 		t.Errorf("year = %d, want 2024", d.Year())
@@ -335,6 +336,7 @@ func TestParsePolicyLogDate_RFC3339(t *testing.T) {
 	d := parsePolicyLogDate(m)
 	if d.IsZero() {
 		t.Fatal("expected non-zero date")
+		return
 	}
 	if d.Day() != 1 || d.Month() != 4 {
 		t.Errorf("date = %v, want April 1", d)
@@ -413,6 +415,7 @@ func TestFetchAllPolicyLogs_FetchError(t *testing.T) {
 	_, err := fetchAllPolicyLogs(context.Background(), client, "10", time.Time{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -471,6 +474,7 @@ func TestFetchAndCheckPolicies_ListError(t *testing.T) {
 	_, _, _, err := fetchAndCheckPolicies(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 

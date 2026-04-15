@@ -9,6 +9,7 @@ import (
 func TestBackupResources_NotEmpty(t *testing.T) {
 	if len(BackupResources) == 0 {
 		t.Fatal("BackupResources should not be empty")
+		return
 	}
 }
 

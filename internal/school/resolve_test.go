@@ -132,6 +132,7 @@ func TestResolveDeviceUDID_NotFound(t *testing.T) {
 	_, err := r.ResolveDeviceUDID(context.Background(), "unknown")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -205,6 +206,7 @@ func TestResolveUserID_NotFound(t *testing.T) {
 	_, err := r.ResolveUserID(context.Background(), "nobody")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -261,6 +263,7 @@ func TestResolveProfileID_NotFound(t *testing.T) {
 	_, err := r.ResolveProfileID(context.Background(), "Missing")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -295,6 +298,7 @@ func TestResolveAppID_NotFound(t *testing.T) {
 	_, err := r.ResolveAppID(context.Background(), "Numbers")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -329,6 +333,7 @@ func TestResolveClassUUID_NotFound(t *testing.T) {
 	_, err := r.ResolveClassUUID(context.Background(), "History")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -363,6 +368,7 @@ func TestResolveGroupID_NotFound(t *testing.T) {
 	_, err := r.ResolveGroupID(context.Background(), "Admins")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -397,6 +403,7 @@ func TestResolveDeviceGroupID_NotFound(t *testing.T) {
 	_, err := r.ResolveDeviceGroupID(context.Background(), "Missing")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -431,6 +438,7 @@ func TestResolveLocationID_NotFound(t *testing.T) {
 	_, err := r.ResolveLocationID(context.Background(), "Nowhere")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 
@@ -465,5 +473,6 @@ func TestResolveIBeaconID_NotFound(t *testing.T) {
 	_, err := r.ResolveIBeaconID(context.Background(), "Cafeteria")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }

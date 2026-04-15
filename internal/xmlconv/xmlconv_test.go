@@ -185,11 +185,13 @@ func TestToMap_DetailResponse(t *testing.T) {
 	policy, ok := m["policy"].(map[string]any)
 	if !ok {
 		t.Fatal("expected m[\"policy\"] to be a map")
+		return
 	}
 
 	general, ok := policy["general"].(map[string]any)
 	if !ok {
 		t.Fatal("expected policy[\"general\"] to be a map")
+		return
 	}
 	if general["id"] != 1.0 {
 		t.Errorf("general[\"id\"] = %v, want 1", general["id"])
@@ -204,6 +206,7 @@ func TestToMap_DetailResponse(t *testing.T) {
 	scope, ok := policy["scope"].(map[string]any)
 	if !ok {
 		t.Fatal("expected policy[\"scope\"] to be a map")
+		return
 	}
 	if scope["all_computers"] != false {
 		t.Errorf("scope[\"all_computers\"] = %v, want false", scope["all_computers"])
@@ -229,6 +232,7 @@ func TestToMap_DetailResponse(t *testing.T) {
 	group, ok := groups[0].(map[string]any)
 	if !ok {
 		t.Fatal("expected computer_groups[0] to be a map")
+		return
 	}
 	if group["name"] != "All Managed" {
 		t.Errorf("group[\"name\"] = %v, want \"All Managed\"", group["name"])
@@ -279,6 +283,7 @@ func TestToMap_ComputerGroupDetail(t *testing.T) {
 	group, ok := m["computer_group"].(map[string]any)
 	if !ok {
 		t.Fatal("expected m[\"computer_group\"] to be a map")
+		return
 	}
 	if group["is_smart"] != false {
 		t.Errorf("is_smart = %v, want false", group["is_smart"])
@@ -309,10 +314,12 @@ func TestToJSON(t *testing.T) {
 	policy, ok := m["policy"].(map[string]any)
 	if !ok {
 		t.Fatal("expected m[\"policy\"] to be a map")
+		return
 	}
 	general, ok := policy["general"].(map[string]any)
 	if !ok {
 		t.Fatal("expected policy[\"general\"] to be a map")
+		return
 	}
 	if general["name"] != "Test" {
 		t.Errorf("name = %v, want \"Test\"", general["name"])
@@ -340,6 +347,7 @@ func TestToMap_EmptyCollections(t *testing.T) {
 	scope, ok := m["scope"].(map[string]any)
 	if !ok {
 		t.Fatal("expected m[\"scope\"] to be a map")
+		return
 	}
 
 	// computers with <size>0 → empty array

@@ -47,6 +47,7 @@ func TestCollectCommands(t *testing.T) {
 
 	if len(entries) == 0 {
 		t.Fatal("expected at least one command entry")
+		return
 	}
 
 	// Verify version command is present (it has a Run func)
@@ -260,6 +261,7 @@ func TestFormatError_JSON(t *testing.T) {
 
 	if !handled {
 		t.Fatal("FormatError should return true for json format")
+		return
 	}
 
 	var buf bytes.Buffer
@@ -318,6 +320,7 @@ func TestDryRunClient_GET_PassesThrough(t *testing.T) {
 	}
 	if !mock.called {
 		t.Fatal("GET should pass through to inner client")
+		return
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -334,6 +337,7 @@ func TestDryRunClient_HEAD_PassesThrough(t *testing.T) {
 	}
 	if !mock.called {
 		t.Fatal("HEAD should pass through to inner client")
+		return
 	}
 }
 
@@ -348,6 +352,7 @@ func TestDryRunClient_POST_Intercepted(t *testing.T) {
 	}
 	if mock.called {
 		t.Fatal("POST should NOT pass through to inner client")
+		return
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -369,6 +374,7 @@ func TestDryRunClient_PUT_Intercepted(t *testing.T) {
 	}
 	if mock.called {
 		t.Fatal("PUT should NOT pass through to inner client")
+		return
 	}
 }
 
@@ -382,6 +388,7 @@ func TestDryRunClient_PATCH_Intercepted(t *testing.T) {
 	}
 	if mock.called {
 		t.Fatal("PATCH should NOT pass through to inner client")
+		return
 	}
 }
 
@@ -395,6 +402,7 @@ func TestDryRunClient_DELETE_Intercepted(t *testing.T) {
 	}
 	if mock.called {
 		t.Fatal("DELETE should NOT pass through to inner client")
+		return
 	}
 }
 
@@ -471,6 +479,7 @@ func TestPersistentPreRunE_MissingURL(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error when URL is missing")
+		return
 	}
 	if !strings.Contains(err.Error(), "server URL is required") {
 		t.Errorf("error = %q, want to contain 'server URL is required'", err.Error())
@@ -492,6 +501,7 @@ func TestPersistentPreRunE_MissingAuth(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error when auth is missing")
+		return
 	}
 	if !strings.Contains(err.Error(), "authentication required") {
 		t.Errorf("error = %q, want to contain 'authentication required'", err.Error())
@@ -513,6 +523,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for partial OAuth2 credentials")
+		return
 	}
 	if !strings.Contains(err.Error(), "client secret is required") {
 		t.Errorf("error = %q, want to contain 'client secret is required'", err.Error())
@@ -534,6 +545,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for partial OAuth2 credentials")
+		return
 	}
 	if !strings.Contains(err.Error(), "client ID is required") {
 		t.Errorf("error = %q, want to contain 'client ID is required'", err.Error())
@@ -680,6 +692,7 @@ func TestCLIOutputPrintRaw_NonJSON(t *testing.T) {
 	err := o.PrintRaw([]byte(`this is plain text, not json or xml`))
 	if err == nil {
 		t.Fatal("expected error for non-JSON input")
+		return
 	}
 	if !strings.Contains(err.Error(), "cannot extract field from non-JSON response") {
 		t.Errorf("error = %q, want to contain 'cannot extract field from non-JSON response'", err.Error())
@@ -696,6 +709,7 @@ func TestCLIOutputPrintRaw_ScalarJSON(t *testing.T) {
 	err := o.PrintRaw([]byte(`"hello"`))
 	if err == nil {
 		t.Fatal("expected error for scalar JSON")
+		return
 	}
 	if !strings.Contains(err.Error(), "cannot extract field") {
 		t.Errorf("error = %q, want to contain 'cannot extract field'", err.Error())
@@ -740,6 +754,7 @@ func TestResolveAuth_EnvCredentials(t *testing.T) {
 			}
 			if provider == nil {
 				t.Fatal("expected non-nil auth provider")
+				return
 			}
 		})
 	}
@@ -761,6 +776,7 @@ func TestResolveAuth_TokenFromFile(t *testing.T) {
 	}
 	if provider == nil {
 		t.Fatal("expected non-nil auth provider from token file")
+		return
 	}
 }
 
@@ -775,6 +791,7 @@ func TestResolveAuth_TokenFileMissing(t *testing.T) {
 	_, _, err := resolveAuth(cfg)
 	if err == nil {
 		t.Fatal("expected error for missing token file")
+		return
 	}
 	if !strings.Contains(err.Error(), "reading token file") {
 		t.Errorf("error = %q, want to contain 'reading token file'", err.Error())
@@ -819,6 +836,7 @@ profiles:
 	}
 	if provider == nil {
 		t.Fatal("expected non-nil provider from profile")
+		return
 	}
 }
 
@@ -848,6 +866,7 @@ profiles:
 	}
 	if provider == nil {
 		t.Fatal("expected non-nil oauth2 provider")
+		return
 	}
 }
 
@@ -900,6 +919,7 @@ func TestResolveAuth_ProfileNotFound(t *testing.T) {
 	_, _, err = resolveAuth(cfg)
 	if err == nil {
 		t.Fatal("expected error for nonexistent profile")
+		return
 	}
 	if !strings.Contains(err.Error(), "loading profile") {
 		t.Errorf("error = %q, want to contain 'loading profile'", err.Error())
@@ -973,6 +993,7 @@ func TestSpinnerClient_PassesThrough(t *testing.T) {
 	}
 	if !mock.called {
 		t.Fatal("expected inner client to be called")
+		return
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want 200", resp.StatusCode)
@@ -1000,6 +1021,7 @@ func TestCLIOutputPrintResponse_ReadError(t *testing.T) {
 	err := o.PrintResponse(resp)
 	if err == nil {
 		t.Fatal("expected error from failed body read")
+		return
 	}
 }
 
