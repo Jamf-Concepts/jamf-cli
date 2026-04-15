@@ -37,6 +37,7 @@ func TestGenerate_ProducesFile(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	code := string(content)
@@ -88,6 +89,7 @@ func TestGenerate_ListOnly(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	code := string(content)
@@ -134,6 +136,7 @@ func TestGenerate_ExtraLookups(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	code := string(content)
@@ -164,6 +167,7 @@ func TestGenerateRegistry(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	code := string(content)
@@ -210,6 +214,7 @@ func TestGenerate_ClassicExamples(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -259,6 +264,7 @@ func TestGenerate_ClassicExamples_ListOnly(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -296,6 +302,7 @@ func TestGenerate_CustomIDPath(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -345,6 +352,7 @@ func TestGenerate_ExtraLookupsOnlyResource(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -421,6 +429,7 @@ func TestGenerate_BadOutputDir(t *testing.T) {
 	_, err := gen.Generate(resource)
 	if err == nil {
 		t.Fatal("expected error for nonexistent output dir")
+		return
 	}
 	if !strings.Contains(err.Error(), "creating file") {
 		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
@@ -437,6 +446,7 @@ func TestGenerateRegistry_BadOutputDir(t *testing.T) {
 	_, err := gen.GenerateRegistry(resources)
 	if err == nil {
 		t.Fatal("expected error for nonexistent output dir")
+		return
 	}
 	if !strings.Contains(err.Error(), "creating file") {
 		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
@@ -495,6 +505,7 @@ func TestGenerate_ApplyCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -554,6 +565,7 @@ func TestGenerate_NoApply_WithoutName(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -586,6 +598,7 @@ func TestGenerate_NoApply_WithoutCreateUpdate(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -618,6 +631,7 @@ func TestGenerate_ApplyExample(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -651,6 +665,7 @@ func TestGenerateRegistry_WithApplyHelpers(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -696,6 +711,7 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -744,6 +760,7 @@ func TestGenerate_NoDeleteByName_WithoutNameLookup(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -773,6 +790,7 @@ func TestGenerateRegistry_NoApplyHelpers_WhenNotNeeded(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 

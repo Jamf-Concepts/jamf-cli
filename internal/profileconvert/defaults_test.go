@@ -736,6 +736,7 @@ func TestSchemaFetcher_CachesResults(t *testing.T) {
 
 	if d1 == nil || d2 == nil {
 		t.Fatal("expected non-nil defaults")
+		return
 	}
 	if d1 != d2 {
 		t.Error("expected same pointer from cache")

@@ -47,6 +47,7 @@ func TestResolveSecret_Literal_Rejected(t *testing.T) {
 	_, err := ResolveSecret("my-plain-secret")
 	if err == nil {
 		t.Fatal("expected error for literal secret, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "unrecognized secret format") {
 		t.Errorf("unexpected error message: %v", err)
@@ -68,6 +69,7 @@ func TestResolveSecret_Env_Missing(t *testing.T) {
 	_, err := ResolveSecret("env:DEFINITELY_NOT_SET_98765")
 	if err == nil {
 		t.Fatal("expected error for missing env var")
+		return
 	}
 }
 
@@ -76,6 +78,7 @@ func TestResolveSecret_File(t *testing.T) {
 	path := filepath.Join(dir, "secret.txt")
 	if err := os.WriteFile(path, []byte("file-value\n"), 0o600); err != nil {
 		t.Fatal(err)
+		return
 	}
 	val, err := ResolveSecret("file:" + path)
 	if err != nil {
@@ -90,6 +93,7 @@ func TestResolveSecret_File_Missing(t *testing.T) {
 	_, err := ResolveSecret("file:/nonexistent/path/secret.txt")
 	if err == nil {
 		t.Fatal("expected error for missing file")
+		return
 	}
 }
 
@@ -138,6 +142,7 @@ func TestResolveSecret_Keychain_NotFound(t *testing.T) {
 	_, err := ResolveSecret("keychain:jamf-cli/missing/secret")
 	if err == nil {
 		t.Fatal("expected error for missing keychain item")
+		return
 	}
 }
 
@@ -322,6 +327,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error for invalid YAML")
+		return
 	}
 	if !strings.Contains(err.Error(), "parsing config") {
 		t.Errorf("error = %q, want to contain 'parsing config'", err.Error())
@@ -345,6 +351,7 @@ func TestSave_ReadOnlyDir(t *testing.T) {
 	err := Save(cfg)
 	if err == nil {
 		t.Fatal("expected error writing to read-only directory")
+		return
 	}
 }
 
@@ -364,6 +371,7 @@ func TestLoad_NilProfiles(t *testing.T) {
 	// Profiles map should be initialized even if missing from YAML
 	if cfg.Profiles == nil {
 		t.Fatal("expected non-nil Profiles map")
+		return
 	}
 }
 
@@ -507,6 +515,7 @@ func TestGetProfile_Missing(t *testing.T) {
 	_, _, err := GetProfile(cfg, "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for missing profile")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want to contain 'not found'", err.Error())
@@ -523,6 +532,7 @@ func TestGetProfile_NoDefault(t *testing.T) {
 	_, _, err := GetProfile(cfg, "")
 	if err == nil {
 		t.Fatal("expected error when no default profile and empty name")
+		return
 	}
 	if !strings.Contains(err.Error(), "no profile specified") {
 		t.Errorf("error = %q, want to contain 'no profile specified'", err.Error())

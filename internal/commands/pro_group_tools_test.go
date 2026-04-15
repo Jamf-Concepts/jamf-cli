@@ -333,6 +333,7 @@ func TestRunGroupToolsMembers_NotFound(t *testing.T) {
 	err := runGroupToolsMembers(context.Background(), cliCtx, "Nonexistent Group")
 	if err == nil {
 		t.Fatal("expected error for nonexistent group")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want to contain 'not found'", err.Error())

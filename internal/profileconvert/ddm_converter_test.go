@@ -142,6 +142,7 @@ func TestConvertPasscode_UnknownKeys(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 
 	found := false
@@ -175,6 +176,7 @@ func TestConvertSafari_AllKeys(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 
 	// Non-safari key should be in remaining
@@ -262,6 +264,7 @@ func TestConvertSafari_KeysWithNoDDMEquivalent(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config from safariAllowPopups")
+		return
 	}
 
 	// Keys without DDM equivalent should be in remaining
@@ -300,6 +303,7 @@ func TestConvertSoftwareUpdate_Deferrals(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 
 	// Non-deferral key should be in remaining
@@ -454,6 +458,7 @@ func TestConvertSoftwareUpdate_AppDeferralWarning(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config from forceDelayedSoftwareUpdates")
+		return
 	}
 
 	// App deferral keys should be returned to remaining
@@ -487,6 +492,7 @@ func TestConvertRSR_BothKeys(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 
 	// Non-RSR key should be in remaining
@@ -530,6 +536,7 @@ func TestConvertRSR_InstallOnly(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 	if remaining != nil {
 		t.Errorf("expected nil remaining, got %v", remaining)
@@ -587,6 +594,7 @@ func TestConvertSoftwareUpdateProfile_AllKeys(t *testing.T) {
 	}
 	if config == nil {
 		t.Fatal("expected config")
+		return
 	}
 
 	// Keys without DDM mapping should be in remaining
@@ -835,6 +843,7 @@ func TestConvertToDDMComponents_MergedSoftwareUpdateSettings(t *testing.T) {
 	}
 	if suComponent == nil {
 		t.Fatal("expected software-update-settings component")
+		return
 	}
 
 	// Count occurrences — should be exactly 1
@@ -902,6 +911,7 @@ func TestConvertToDDMComponents_MergedSoftwareUpdateSettings(t *testing.T) {
 	// allowCamera from applicationaccess should be in the profile wrapper
 	if result.ProfileConfig == nil {
 		t.Fatal("expected ProfileConfig for remaining applicationaccess keys")
+		return
 	}
 }
 
@@ -1042,6 +1052,7 @@ func TestConvertToDDMComponents_MixedPayloads(t *testing.T) {
 	// Screensaver should be in the profile wrapper
 	if result.ProfileConfig == nil {
 		t.Fatal("expected ProfileConfig for screensaver payload")
+		return
 	}
 
 	var parsed map[string]any
@@ -1123,6 +1134,7 @@ func TestConvertToDDMComponents_ApplicationAccess(t *testing.T) {
 	// Non-safari, non-deferral keys should be in profile wrapper
 	if result.ProfileConfig == nil {
 		t.Fatal("expected ProfileConfig for remaining applicationaccess keys")
+		return
 	}
 	var parsed map[string]any
 	if err := json.Unmarshal(result.ProfileConfig, &parsed); err != nil {
@@ -1228,6 +1240,7 @@ func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
 	_, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
 	if err == nil {
 		t.Fatal("expected error when all payloads filtered")
+		return
 	}
 	if err.Error() != "no payloads remain after filtering" {
 		t.Errorf("unexpected error: %v", err)

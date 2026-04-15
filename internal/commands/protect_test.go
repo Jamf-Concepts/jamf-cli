@@ -26,6 +26,7 @@ func findProtectCmd(t *testing.T) *cobra.Command {
 	cmd := findSubcommand(root, "protect")
 	if cmd == nil {
 		t.Fatal("protect command not found")
+		return nil
 	}
 	return cmd
 }
@@ -34,6 +35,7 @@ func TestProtectCommandExists(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 	if findSubcommand(root, "protect") == nil {
 		t.Fatal("expected 'protect' subcommand on root")
+		return
 	}
 }
 
@@ -140,6 +142,7 @@ func TestProtectAlertsSubcommands(t *testing.T) {
 	alerts := findSubcommand(protect, "alerts")
 	if alerts == nil {
 		t.Fatal("alerts subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "update-status", "status-counts"}
@@ -157,6 +160,7 @@ func TestProtectInsightsSubcommands(t *testing.T) {
 	insights := findSubcommand(protect, "insights")
 	if insights == nil {
 		t.Fatal("insights subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "enable", "disable", "computers", "compliance-score"}
@@ -174,6 +178,7 @@ func TestProtectAuditLogsSubcommands(t *testing.T) {
 	al := findSubcommand(protect, "audit-logs")
 	if al == nil {
 		t.Fatal("audit-logs subcommand not found")
+		return
 	}
 
 	expected := []string{"list"}
@@ -191,6 +196,7 @@ func TestProtectComputersSubcommands(t *testing.T) {
 	computers := findSubcommand(protect, "computers")
 	if computers == nil {
 		t.Fatal("computers subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "delete", "set-plan", "update"}
@@ -208,6 +214,7 @@ func TestProtectPlansSubcommands(t *testing.T) {
 	plans := findSubcommand(protect, "plans")
 	if plans == nil {
 		t.Fatal("plans subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export", "config-profile"}
@@ -225,6 +232,7 @@ func TestProtectAnalyticsSubcommands(t *testing.T) {
 	analytics := findSubcommand(protect, "analytics")
 	if analytics == nil {
 		t.Fatal("analytics subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export", "import"}
@@ -242,6 +250,7 @@ func TestProtectRSCSSubcommands(t *testing.T) {
 	rscs := findSubcommand(protect, "removable-storage-control-sets")
 	if rscs == nil {
 		t.Fatal("removable-storage-control-sets subcommand not found")
+		return
 	}
 
 	expected := []string{"list", "get", "apply", "delete", "export", "add-rule", "remove-rule"}

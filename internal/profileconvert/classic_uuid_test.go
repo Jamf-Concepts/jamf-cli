@@ -108,6 +108,7 @@ func TestInjectIdentifiers_InvalidNewPlist(t *testing.T) {
 	_, err := InjectIdentifiers([]byte("not a plist"), existing)
 	if err == nil {
 		t.Fatal("expected error for invalid new plist")
+		return
 	}
 	if !strings.Contains(err.Error(), "parsing new mobileconfig") {
 		t.Errorf("error = %q, want to contain 'parsing new mobileconfig'", err.Error())
@@ -193,6 +194,7 @@ func TestExtractProfileIdentifiers_InvalidPlist(t *testing.T) {
 	_, _, err := ExtractProfileIdentifiers([]byte("not a plist"))
 	if err == nil {
 		t.Fatal("expected error for invalid plist")
+		return
 	}
 	if !strings.Contains(err.Error(), "parsing mobileconfig") {
 		t.Errorf("error = %q, want to contain 'parsing mobileconfig'", err.Error())

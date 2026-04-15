@@ -180,6 +180,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -256,6 +257,7 @@ paths: {}
 `
 		if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 			t.Fatal(err)
+			return
 		}
 
 		resources, err := ParseSpec(specPath)
@@ -272,6 +274,7 @@ func TestParseSpec_InvalidFile(t *testing.T) {
 	_, err := ParseSpec("/nonexistent/path/spec.yaml")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
+		return
 	}
 }
 
@@ -369,6 +372,7 @@ components:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -377,6 +381,7 @@ components:
 	}
 	if len(resources) == 0 {
 		t.Fatal("ParseSpec() returned no resources")
+		return
 	}
 	resource := resources[0]
 
@@ -824,6 +829,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -832,6 +838,7 @@ paths:
 	}
 	if len(resources) == 0 {
 		t.Fatal("ParseSpec() returned no resources")
+		return
 	}
 	resource := resources[0]
 
@@ -908,6 +915,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -916,6 +924,7 @@ paths:
 	}
 	if len(resources) == 0 {
 		t.Fatal("ParseSpec() returned no resources")
+		return
 	}
 	resource := resources[0]
 
@@ -947,6 +956,7 @@ func TestParseSpec_RealJamfProtectSpec(t *testing.T) {
 	}
 	if len(resources) == 0 {
 		t.Fatal("ParseSpec(JamfProtect.yaml) returned no resources")
+		return
 	}
 	resource := resources[0]
 
@@ -999,6 +1009,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -1007,6 +1018,7 @@ paths:
 	}
 	if len(resources) == 0 {
 		t.Fatal("ParseSpec() returned no resources")
+		return
 	}
 	resource := resources[0]
 
@@ -1130,6 +1142,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
@@ -1319,6 +1332,7 @@ paths:
 `
 	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseSpec(specPath)
