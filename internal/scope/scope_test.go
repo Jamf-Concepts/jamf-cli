@@ -76,6 +76,7 @@ func TestScopeXML_UnmarshalPolicy(t *testing.T) {
 	}
 	if env.Scope.LimitToUsers == nil {
 		t.Fatal("limit_to_users is nil")
+		return
 	}
 	if len(env.Scope.LimitToUsers.UserGroups.Items) != 2 {
 		t.Errorf("limit_to_users.user_groups: got %d, want 2", len(env.Scope.LimitToUsers.UserGroups.Items))
@@ -171,6 +172,7 @@ func TestAddToScope_TargetComputerGroup(t *testing.T) {
 
 	if !AddToScope(s, "policy", "target", "computer-group", "New Group") {
 		t.Fatal("expected true")
+		return
 	}
 	if len(s.ComputerGroups.Items) != 2 {
 		t.Fatalf("got %d, want 2", len(s.ComputerGroups.Items))
@@ -190,9 +192,11 @@ func TestAddToScope_Idempotent(t *testing.T) {
 
 	if AddToScope(s, "policy", "target", "computer-group", "existing") {
 		t.Fatal("expected false for case-insensitive duplicate")
+		return
 	}
 	if len(s.ComputerGroups.Items) != 1 {
 		t.Fatal("scope should be unchanged")
+		return
 	}
 }
 
@@ -201,12 +205,15 @@ func TestAddToScope_CreatesSection(t *testing.T) {
 
 	if !AddToScope(s, "policy", "exclusion", "computer-group", "Test") {
 		t.Fatal("expected true")
+		return
 	}
 	if s.Exclusions == nil {
 		t.Fatal("exclusions should be created")
+		return
 	}
 	if len(s.Exclusions.ComputerGroups.Items) != 1 {
 		t.Fatal("should have 1 item")
+		return
 	}
 	if s.Exclusions.ComputerGroups.ElemName != "computer_group" {
 		t.Errorf("ElemName = %q, want %q", s.Exclusions.ComputerGroups.ElemName, "computer_group")
@@ -220,9 +227,11 @@ func TestAddToScope_Limitation(t *testing.T) {
 
 	if !AddToScope(s, "policy", "limitation", "network-segment", "Guest") {
 		t.Fatal("expected true")
+		return
 	}
 	if len(s.Limitations.NetworkSegments.Items) != 1 {
 		t.Fatal("should have 1 item")
+		return
 	}
 }
 
@@ -233,10 +242,12 @@ func TestAddToScope_PolicyLimitUserGroup(t *testing.T) {
 
 	if !AddToScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
+		return
 	}
 
 	if s.LimitToUsers == nil {
 		t.Fatal("limit_to_users should be created")
+		return
 	}
 	groups := s.LimitToUsers.UserGroups.Items
 	if len(groups) != 1 || groups[0] != "Staff" {
@@ -253,6 +264,7 @@ func TestAddToScope_PolicyLimitUserGroup_Idempotent(t *testing.T) {
 
 	if AddToScope(s, "policy", "limitation", "user-group", "staff") {
 		t.Fatal("expected false for case-insensitive duplicate")
+		return
 	}
 }
 
@@ -261,6 +273,7 @@ func TestAddToScope_NonPolicyLimitUserGroup(t *testing.T) {
 
 	if !AddToScope(s, "os_x_configuration_profile", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
+		return
 	}
 
 	// Should go to limitations.user_groups, NOT limit_to_users
@@ -284,6 +297,7 @@ func TestRemoveFromScope_TargetComputerGroup(t *testing.T) {
 
 	if !RemoveFromScope(s, "policy", "target", "computer-group", "Remove") {
 		t.Fatal("expected true")
+		return
 	}
 	if len(s.ComputerGroups.Items) != 1 {
 		t.Fatalf("got %d, want 1", len(s.ComputerGroups.Items))
@@ -300,6 +314,7 @@ func TestRemoveFromScope_NotFound(t *testing.T) {
 
 	if RemoveFromScope(s, "policy", "target", "computer-group", "Nonexistent") {
 		t.Fatal("expected false")
+		return
 	}
 }
 
@@ -310,6 +325,7 @@ func TestRemoveFromScope_CaseInsensitive(t *testing.T) {
 
 	if !RemoveFromScope(s, "policy", "target", "computer-group", "test group") {
 		t.Fatal("expected case-insensitive match")
+		return
 	}
 }
 
@@ -318,6 +334,7 @@ func TestRemoveFromScope_MissingSection(t *testing.T) {
 
 	if RemoveFromScope(s, "policy", "exclusion", "computer-group", "Test") {
 		t.Fatal("expected false when section missing")
+		return
 	}
 }
 
@@ -330,6 +347,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup(t *testing.T) {
 
 	if !RemoveFromScope(s, "policy", "limitation", "user-group", "staff") {
 		t.Fatal("expected true (case-insensitive)")
+		return
 	}
 	if len(s.LimitToUsers.UserGroups.Items) != 1 {
 		t.Fatalf("got %d, want 1", len(s.LimitToUsers.UserGroups.Items))
@@ -348,6 +366,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup_NotFound(t *testing.T) {
 
 	if RemoveFromScope(s, "policy", "limitation", "user-group", "Nonexistent") {
 		t.Fatal("expected false")
+		return
 	}
 }
 
@@ -366,6 +385,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup_InLimitations(t *testing.T) {
 
 	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true — should find in limitations/user_groups")
+		return
 	}
 	if len(s.Limitations.UserGroups.Items) != 0 {
 		t.Error("should have removed from limitations/user_groups")
@@ -387,6 +407,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
 
 	if !RemoveFromScope(s, "policy", "limitation", "user-group", "Staff") {
 		t.Fatal("expected true")
+		return
 	}
 	if len(s.LimitToUsers.UserGroups.Items) != 0 {
 		t.Error("should have removed from limit_to_users")

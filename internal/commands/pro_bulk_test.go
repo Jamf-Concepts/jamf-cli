@@ -744,6 +744,7 @@ func TestAddToGroup_SmartGroupRejected(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected error when targeting a smart group, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "smart group") {
 		t.Errorf("expected 'smart group' in error, got: %v", err)
@@ -830,6 +831,7 @@ func TestFromFileMutualExclusion(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected error when both --from-file and --group are set")
+		return
 	}
 	if !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Errorf("expected 'mutually exclusive' in error, got: %v", err)
@@ -958,6 +960,7 @@ func TestSendCommand_DestructiveRequiresYesToo(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected error for EraseDevice without --yes")
+		return
 	}
 	if !strings.Contains(err.Error(), "destructive") {
 		t.Errorf("expected 'destructive' in error, got: %v", err)
@@ -976,6 +979,7 @@ func TestSendCommand_InvalidCommandName(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected error for unknown command name")
+		return
 	}
 	if !strings.Contains(err.Error(), "SelfDestruct") {
 		t.Errorf("expected command name in error, got: %v", err)
@@ -1007,6 +1011,7 @@ func TestDisablePolicies_PartialFailure(t *testing.T) {
 	// Partial failure: command should return an error for non-zero exit code
 	if err == nil {
 		t.Fatal("expected error on partial failure")
+		return
 	}
 
 	// Stderr should mention both "ok" (policy 1) and "ERROR" (policy 2)
@@ -1043,6 +1048,7 @@ func TestSendCommand_PartialFailure(t *testing.T) {
 	// Partial failure: command should return an error for non-zero exit code
 	if err == nil {
 		t.Fatal("expected error on partial failure")
+		return
 	}
 
 	if !strings.Contains(stderr, "ok") {

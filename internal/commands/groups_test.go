@@ -42,6 +42,7 @@ func TestApplyProGroups_AllCommandsGrouped(t *testing.T) {
 	}
 	if pro == nil {
 		t.Fatal("expected 'pro' subcommand on root")
+		return
 	}
 
 	for _, cmd := range pro.Commands() {
@@ -66,6 +67,7 @@ func TestApplyProGroups_GroupsRegistered(t *testing.T) {
 	}
 	if pro == nil {
 		t.Fatal("expected 'pro' subcommand on root")
+		return
 	}
 
 	groups := pro.Groups()

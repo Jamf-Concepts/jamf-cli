@@ -75,6 +75,7 @@ func TestRunReportPatchPolicyFailures_FetchError(t *testing.T) {
 	_, err := runReportPatchPolicyFailures(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 }
 

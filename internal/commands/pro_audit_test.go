@@ -489,6 +489,7 @@ func TestRunAudit_InvalidCategory(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid category")
+		return
 	}
 }
 

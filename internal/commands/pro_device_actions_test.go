@@ -38,6 +38,7 @@ func TestDeviceTarget_Validate(t *testing.T) {
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatal("expected error")
+					return
 				}
 				if !strings.Contains(err.Error(), tt.wantErr) {
 					t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErr)
@@ -279,6 +280,7 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	err := executeAction(cmd, dt, devices, false, false, cfg)
 	if err == nil {
 		t.Fatal("expected error for destructive op without --yes in no-input mode")
+		return
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Errorf("error should mention --yes, got: %v", err)
@@ -336,6 +338,7 @@ func TestSendMobileModernMDMCommand_MissingManagementID(t *testing.T) {
 	err := sendMobileModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "RESTART_DEVICE"})
 	if err == nil {
 		t.Fatal("expected error for missing managementId, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "managementId") {
 		t.Errorf("error = %q, want it to mention managementId", err.Error())
@@ -368,6 +371,7 @@ func TestSendComputerModernMDMCommand_MissingManagementID(t *testing.T) {
 	err := sendComputerModernMDMCommand(cmd, cliCtx, d, map[string]any{"commandType": "DEVICE_LOCK"})
 	if err == nil {
 		t.Fatal("expected error for missing managementId, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "managementId") {
 		t.Errorf("error = %q, want it to mention managementId", err.Error())

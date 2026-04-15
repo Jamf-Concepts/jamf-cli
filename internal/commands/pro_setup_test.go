@@ -317,6 +317,7 @@ func TestSetupClient_CreateAPIRole_Forbidden(t *testing.T) {
 	_, err := client.createAPIRole(context.Background(), "test-role", nil)
 	if err == nil {
 		t.Fatal("expected error for forbidden")
+		return
 	}
 }
 
@@ -382,6 +383,7 @@ func TestSetupClient_GenerateClientCredentials_Error(t *testing.T) {
 	_, _, err := client.generateClientCredentials(context.Background(), 1)
 	if err == nil {
 		t.Fatal("expected error for server error")
+		return
 	}
 }
 
@@ -407,6 +409,7 @@ func TestSetupClient_CreateAPIIntegration_Forbidden(t *testing.T) {
 	_, err := client.createAPIIntegration(context.Background(), "test-int", nil)
 	if err == nil {
 		t.Fatal("expected error for forbidden")
+		return
 	}
 	if !strings.Contains(err.Error(), "lacks permission") {
 		t.Errorf("error = %q, want to contain 'lacks permission'", err.Error())
@@ -424,6 +427,7 @@ func TestSetupClient_CreateAPIIntegration_ServerError(t *testing.T) {
 	_, err := client.createAPIIntegration(context.Background(), "test-int", nil)
 	if err == nil {
 		t.Fatal("expected error for server error")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 500") {
 		t.Errorf("error = %q, want to contain 'HTTP 500'", err.Error())
@@ -441,6 +445,7 @@ func TestSetupClient_FetchPrivileges_HTTPError(t *testing.T) {
 	_, err := client.fetchPrivileges(context.Background())
 	if err == nil {
 		t.Fatal("expected error for HTTP error")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 403") {
 		t.Errorf("error = %q, want to contain 'HTTP 403'", err.Error())
@@ -458,6 +463,7 @@ func TestSetupClient_FetchPrivileges_InvalidJSON(t *testing.T) {
 	_, err := client.fetchPrivileges(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 	if !strings.Contains(err.Error(), "parsing privileges") {
 		t.Errorf("error = %q, want to contain 'parsing privileges'", err.Error())
@@ -475,6 +481,7 @@ func TestSetupClient_CreateAPIRole_ServerError(t *testing.T) {
 	_, err := client.createAPIRole(context.Background(), "test-role", nil)
 	if err == nil {
 		t.Fatal("expected error for bad request")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 400") {
 		t.Errorf("error = %q, want to contain 'HTTP 400'", err.Error())
@@ -565,6 +572,7 @@ func TestSetupClient_FindAPIRoleByName_Multiple(t *testing.T) {
 	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
 	if err == nil {
 		t.Fatal("expected error for multiple matches")
+		return
 	}
 	if !strings.Contains(err.Error(), "multiple") {
 		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
@@ -582,6 +590,7 @@ func TestSetupClient_FindAPIRoleByName_HTTPError(t *testing.T) {
 	_, err := client.findAPIRoleByName(context.Background(), "jamf-cli-standard")
 	if err == nil {
 		t.Fatal("expected error for HTTP error")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 403") {
 		t.Errorf("error = %q, want it to contain 'HTTP 403'", err.Error())
@@ -645,6 +654,7 @@ func TestSetupClient_FindAPIIntegrationByName_Multiple(t *testing.T) {
 	_, err := client.findAPIIntegrationByName(context.Background(), "jamf-cli")
 	if err == nil {
 		t.Fatal("expected error for multiple matches")
+		return
 	}
 	if !strings.Contains(err.Error(), "multiple") {
 		t.Errorf("error = %q, want it to contain 'multiple'", err.Error())
@@ -686,6 +696,7 @@ func TestSetupClient_UpdateAPIRole_Forbidden(t *testing.T) {
 	err := client.updateAPIRole(context.Background(), "role-42", "jamf-cli-standard", nil)
 	if err == nil {
 		t.Fatal("expected error for forbidden")
+		return
 	}
 	if !strings.Contains(err.Error(), "lacks permission") {
 		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
@@ -734,6 +745,7 @@ func TestSetupClient_UpdateAPIIntegration_Forbidden(t *testing.T) {
 	err := client.updateAPIIntegration(context.Background(), 7, "jamf-cli", nil)
 	if err == nil {
 		t.Fatal("expected error for forbidden")
+		return
 	}
 	if !strings.Contains(err.Error(), "lacks permission") {
 		t.Errorf("error = %q, want it to contain 'lacks permission'", err.Error())
@@ -769,6 +781,7 @@ func TestReadURLsFromFile(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -798,6 +811,7 @@ func TestReadURLsFromFile_Duplicates(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-dup-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -820,6 +834,7 @@ func TestReadURLsFromFile_DuplicatesAcrossFormats(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-dup-fmt-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -846,6 +861,7 @@ func TestReadURLsFromFile_Empty(t *testing.T) {
 	f, err := os.CreateTemp("", "urls-empty-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	defer func() { _ = os.Remove(f.Name()) }()
 
@@ -855,6 +871,7 @@ func TestReadURLsFromFile_Empty(t *testing.T) {
 	_, err = readURLsFromFile(f.Name())
 	if err == nil {
 		t.Fatal("expected error for empty file")
+		return
 	}
 	if !strings.Contains(err.Error(), "no URLs found") {
 		t.Errorf("error = %q, want it to contain 'no URLs found'", err.Error())
@@ -865,6 +882,7 @@ func TestReadURLsFromFile_NotFound(t *testing.T) {
 	_, err := readURLsFromFile("/tmp/nonexistent-url-file-12345.txt")
 	if err == nil {
 		t.Fatal("expected error for missing file")
+		return
 	}
 }
 

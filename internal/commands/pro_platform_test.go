@@ -269,6 +269,7 @@ func TestCheckUndeployedBlueprints(t *testing.T) {
 	result := checkUndeployedBlueprints(pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2", result.AffectedCount)
@@ -301,6 +302,7 @@ func TestCheckBlueprintFailures(t *testing.T) {
 	result := checkBlueprintFailures(context.Background(), pc, pc.blueprints)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1", result.AffectedCount)
@@ -323,6 +325,7 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 	result := checkBenchmarkUpdates(pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2", result.AffectedCount)
@@ -348,6 +351,7 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 	result := checkEmptyPlatformScope(context.Background(), pc, pc.blueprints, pc.benchmarks)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 2 {
 		t.Errorf("affected = %d, want 2 (1 blueprint + 1 benchmark)", result.AffectedCount)
@@ -378,6 +382,7 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 	result := checkFailedDDMDeclarations(context.Background(), pc)
 	if result == nil {
 		t.Fatal("expected result, got nil")
+		return
 	}
 	if result.AffectedCount != 1 {
 		t.Errorf("affected = %d, want 1", result.AffectedCount)
@@ -425,6 +430,7 @@ func TestFetchPlatformOverview(t *testing.T) {
 	section := fetchPlatformOverview(context.Background(), cliCtx)
 	if section == nil {
 		t.Fatal("expected platform section, got nil")
+		return
 	}
 	if section.Name != "Platform" {
 		t.Errorf("section name = %q, want Platform", section.Name)
@@ -456,6 +462,7 @@ func TestFetchPlatformOverview_UsesAllMockData(t *testing.T) {
 	section := fetchPlatformOverview(context.Background(), cliCtx)
 	if section == nil {
 		t.Fatal("expected platform section, got nil")
+		return
 	}
 	if section.Name != "Platform" {
 		t.Errorf("section name = %q, want Platform", section.Name)
@@ -495,6 +502,7 @@ func TestRandomizePayloadIdentifiers(t *testing.T) {
 	content, ok := resultConfig["payloadContent"].([]any)
 	if !ok || len(content) != 2 {
 		t.Fatal("expected 2 payloadContent items")
+		return
 	}
 
 	for i, item := range content {
@@ -847,6 +855,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 	// ODV enrichment: Placeholder wins
 	if result.Rules[2].ODV == nil {
 		t.Fatal("rule[2] (os_password_hint_remove): ODV should be non-nil")
+		return
 	}
 	if result.Rules[2].ODV.Value != "5" {
 		t.Errorf("rule[2].ODV.Value = %q, want placeholder %q", result.Rules[2].ODV.Value, "5")
@@ -854,6 +863,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 	// ODV enrichment: Value fallback
 	if result.Rules[3].ODV == nil {
 		t.Fatal("rule[3] (os_max_retry_unlock): ODV should be non-nil")
+		return
 	}
 	if result.Rules[3].ODV.Value != "10" {
 		t.Errorf("rule[3].ODV.Value = %q, want value fallback %q", result.Rules[3].ODV.Value, "10")
@@ -861,6 +871,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 	// ODV enrichment: sentinel fallback
 	if result.Rules[4].ODV == nil {
 		t.Fatal("rule[4] (os_screensaver_timeout): ODV should be non-nil")
+		return
 	}
 	if result.Rules[4].ODV.Value != "<odv-value>" {
 		t.Errorf("rule[4].ODV.Value = %q, want sentinel %q", result.Rules[4].ODV.Value, "<odv-value>")
@@ -881,6 +892,7 @@ func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 	cmd.SetArgs([]string{"--scaffold-from-baseline", "bad-id"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected error for unknown baseline ID, got nil")
+		return
 	}
 }
 
@@ -963,6 +975,7 @@ func TestCBClone(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	if req.Title != "Cloned Benchmark" {
 		t.Errorf("cloned title = %q, want %q", req.Title, "Cloned Benchmark")
@@ -1013,6 +1026,7 @@ func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "new-grp-id" {
 		t.Errorf("target groups = %v, want [new-grp-id]", req.Target.DeviceGroups)
@@ -1055,6 +1069,7 @@ func TestCBDeleteNoArgs(t *testing.T) {
 	cmd.SetArgs([]string{"--yes"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected error when no ID or --name provided")
+		return
 	}
 }
 
@@ -1087,6 +1102,7 @@ func TestCBApply_ResolvesGroupNames(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "grp-resolved-id" {
 		t.Errorf("target groups = %v, want [grp-resolved-id]", req.Target.DeviceGroups)
@@ -1122,6 +1138,7 @@ func TestCBApply_ComputerGroupOverride(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "override-id" {
 		t.Errorf("target groups = %v, want [override-id]", req.Target.DeviceGroups)
@@ -1152,6 +1169,7 @@ func TestCBApply_LegacyFormat(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	if req.Title != "Legacy Benchmark" {
 		t.Errorf("title = %q, want %q", req.Title, "Legacy Benchmark")
@@ -1187,6 +1205,7 @@ func TestCBApply_LegacyFormatWithGroupOverride(t *testing.T) {
 	req := pc.createdBenchmark
 	if req == nil {
 		t.Fatal("CreateBenchmark was not called")
+		return
 	}
 	// --computer-group should override even in legacy mode.
 	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "override-id" {
@@ -1288,6 +1307,7 @@ func TestResolveBlueprintID_BothErrors(t *testing.T) {
 	_, err := resolveBlueprintID(context.Background(), &registry.CLIContext{}, []string{"abc"}, "name")
 	if err == nil {
 		t.Fatal("expected error when both args and name flag provided")
+		return
 	}
 }
 
@@ -1295,6 +1315,7 @@ func TestResolveBlueprintID_NeitherErrors(t *testing.T) {
 	_, err := resolveBlueprintID(context.Background(), &registry.CLIContext{}, nil, "")
 	if err == nil {
 		t.Fatal("expected error when neither args nor name flag provided")
+		return
 	}
 }
 
@@ -1470,6 +1491,7 @@ func TestDownloadClassicProfile_NotFound(t *testing.T) {
 	_, err := downloadClassicProfile(cmd, cliCtx, "Missing Profile", "computer")
 	if err == nil {
 		t.Fatal("expected error for 404 response")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected 'not found' error, got %q", err.Error())
@@ -1486,6 +1508,7 @@ func TestDownloadClassicProfile_NoPayloads(t *testing.T) {
 	_, err := downloadClassicProfile(cmd, cliCtx, "Empty Profile", "computer")
 	if err == nil {
 		t.Fatal("expected error for missing payloads")
+		return
 	}
 	if !strings.Contains(err.Error(), "no <payloads>") {
 		t.Errorf("expected 'no <payloads>' error, got %q", err.Error())
@@ -1500,6 +1523,7 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 	_, err := downloadClassicProfile(cmd, cliCtx, "Test", "computer")
 	if err == nil {
 		t.Fatal("expected error for nil client")
+		return
 	}
 	if !strings.Contains(err.Error(), "authentication") {
 		t.Errorf("expected authentication error, got %q", err.Error())
@@ -1678,6 +1702,7 @@ func TestParseBlueprintApplyInput_NoName(t *testing.T) {
 	_, err := parseBlueprintApplyInput(context.Background(), []byte(input), nil, nil)
 	if err == nil {
 		t.Fatal("expected error for missing name")
+		return
 	}
 }
 

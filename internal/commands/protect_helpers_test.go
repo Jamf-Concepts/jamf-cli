@@ -46,6 +46,7 @@ func TestUnmarshalProtectInput_Invalid(t *testing.T) {
 	err := unmarshalInput([]byte("<<<garbage>>>"), &out)
 	if err == nil {
 		t.Fatal("expected error for garbage input")
+		return
 	}
 }
 
@@ -86,6 +87,7 @@ func TestReadProtectInput_EmptyFromFile(t *testing.T) {
 	_, err := readInput("/nonexistent/path/does-not-exist.json")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
+		return
 	}
 }
 
@@ -94,6 +96,7 @@ func TestReadProtectInput_NoInput(t *testing.T) {
 	_, err := readInput("")
 	if err == nil {
 		t.Fatal("expected error when no file and no stdin pipe")
+		return
 	}
 }
 

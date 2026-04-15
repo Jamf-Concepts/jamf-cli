@@ -242,6 +242,7 @@ func TestDo_Forbidden403(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err == nil {
 		t.Fatal("expected error for 403")
+		return
 	}
 
 	code := exitcode.CodeFrom(err)
@@ -264,6 +265,7 @@ func TestDo_NotFound404(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings/999", nil)
 	if err == nil {
 		t.Fatal("expected error for 404")
+		return
 	}
 
 	code := exitcode.CodeFrom(err)
@@ -286,6 +288,7 @@ func TestDo_ServerError500(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err == nil {
 		t.Fatal("expected error for 500")
+		return
 	}
 
 	code := exitcode.CodeFrom(err)
@@ -308,6 +311,7 @@ func TestDo_Unauthorized401(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err == nil {
 		t.Fatal("expected error for 401")
+		return
 	}
 
 	code := exitcode.CodeFrom(err)
@@ -327,6 +331,7 @@ func TestDo_RateLimited429(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err == nil {
 		t.Fatal("expected error for 429")
+		return
 	}
 
 	code := exitcode.CodeFrom(err)
@@ -397,6 +402,7 @@ func TestDoWithRetry_SucceedsAfterFailure(t *testing.T) {
 			hj, ok := w.(http.Hijacker)
 			if !ok {
 				t.Fatal("server does not support hijacking")
+				return
 			}
 			conn, _, _ := hj.Hijack()
 			_ = conn.Close()
@@ -457,6 +463,7 @@ func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			t.Fatal("server does not support hijacking")
+			return
 		}
 		conn, _, _ := hj.Hijack()
 		_ = conn.Close()
@@ -467,6 +474,7 @@ func TestDoWithRetry_ExhaustsRetries(t *testing.T) {
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err == nil {
 		t.Fatal("expected error after exhausting retries")
+		return
 	}
 
 	if !strings.Contains(err.Error(), fmt.Sprintf("after %d retries", 3)) {

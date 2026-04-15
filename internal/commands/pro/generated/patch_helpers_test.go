@@ -40,6 +40,7 @@ func TestSetNestedValue(t *testing.T) {
 		m := map[string]any{}
 		if err := setNestedValue(m, []string{"name"}, "Alice"); err != nil {
 			t.Fatal(err)
+			return
 		}
 		if m["name"] != "Alice" {
 			t.Errorf("got %v, want Alice", m["name"])
@@ -50,6 +51,7 @@ func TestSetNestedValue(t *testing.T) {
 		m := map[string]any{}
 		if err := setNestedValue(m, []string{"general", "managed"}, true); err != nil {
 			t.Fatal(err)
+			return
 		}
 		general, ok := m["general"].(map[string]any)
 		if !ok {
@@ -66,6 +68,7 @@ func TestSetNestedValue(t *testing.T) {
 		}
 		if err := setNestedValue(m, []string{"general", "assetTag"}, "TAG"); err != nil {
 			t.Fatal(err)
+			return
 		}
 		general := m["general"].(map[string]any)
 		if general["name"] != "existing" {
@@ -91,10 +94,12 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		data, err := buildMergePatchFromSet([]string{"name=Alice"})
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(data, &got); err != nil {
 			t.Fatal(err)
+			return
 		}
 		if got["name"] != "Alice" {
 			t.Errorf("name = %v, want Alice", got["name"])
@@ -105,10 +110,12 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		data, err := buildMergePatchFromSet([]string{"general.managed=true"})
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(data, &got); err != nil {
 			t.Fatal(err)
+			return
 		}
 		general, ok := got["general"].(map[string]any)
 		if !ok {
@@ -123,14 +130,17 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		data, err := buildMergePatchFromSet([]string{"assetTag=null"})
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(data, &got); err != nil {
 			t.Fatal(err)
+			return
 		}
 		v, exists := got["assetTag"]
 		if !exists {
 			t.Fatal("assetTag key missing from output")
+			return
 		}
 		if v != nil {
 			t.Errorf("assetTag = %v, want nil (JSON null)", v)
@@ -145,10 +155,12 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(data, &got); err != nil {
 			t.Fatal(err)
+			return
 		}
 		general := got["general"].(map[string]any)
 		if general["assetTag"] != "CORP-001" {
@@ -180,10 +192,12 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		data, err := buildMergePatchFromSet([]string{"purchasing.lifeExpectancy=5"})
 		if err != nil {
 			t.Fatal(err)
+			return
 		}
 		var got map[string]any
 		if err := json.Unmarshal(data, &got); err != nil {
 			t.Fatal(err)
+			return
 		}
 		purchasing := got["purchasing"].(map[string]any)
 		// JSON numbers unmarshal to float64; confirm it round-trips as 5

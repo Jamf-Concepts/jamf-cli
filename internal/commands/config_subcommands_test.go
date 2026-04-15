@@ -199,6 +199,7 @@ func TestConfigRemoveProfile_NotFound(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error for nonexistent profile")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected 'not found' in error, got: %v", err)
@@ -260,6 +261,7 @@ func TestConfigSetDefault_NotFound(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error for nonexistent profile")
+		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected 'not found' in error, got: %v", err)
@@ -469,6 +471,7 @@ func TestAddProfile_ValidationErrors(t *testing.T) {
 			err := cmd.Execute()
 			if err == nil {
 				t.Fatal("expected error")
+				return
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErr)
@@ -534,6 +537,7 @@ func TestStoreOrRefSecret_KeychainFailure(t *testing.T) {
 	err := storeOrRefSecret(&failingKeychainStore{}, "prof", "secret", "bare-value", &dest)
 	if err == nil {
 		t.Fatal("expected error for failing keychain")
+		return
 	}
 	if !strings.Contains(err.Error(), "keychain") {
 		t.Errorf("expected keychain error, got: %v", err)

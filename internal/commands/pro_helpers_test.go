@@ -79,6 +79,7 @@ func TestStripServerFields(t *testing.T) {
 	scope, ok := stripped["scope"].(map[string]any)
 	if !ok {
 		t.Fatal("scope should be a nested map")
+		return
 	}
 	if _, ok := scope["id"]; ok {
 		t.Error("nested id should be stripped")
@@ -286,6 +287,7 @@ func TestFetchAllPaginated_HTTPError(t *testing.T) {
 	_, err := FetchAllPaginated(context.Background(), client, "/v1/scripts", 100)
 	if err == nil {
 		t.Fatal("expected error for missing mock")
+		return
 	}
 }
 
@@ -300,6 +302,7 @@ func TestFetchAllPaginated_HTTP403(t *testing.T) {
 	_, err := FetchAllPaginated(context.Background(), client, "/v1/categories", 100)
 	if err == nil {
 		t.Fatal("expected error for HTTP 403")
+		return
 	}
 	if !strings.Contains(err.Error(), "HTTP 403") {
 		t.Errorf("error = %q, want to contain 'HTTP 403'", err.Error())
@@ -350,6 +353,7 @@ func TestFetchClassicList_HTTPError(t *testing.T) {
 	_, err := FetchClassicList(context.Background(), client, "/JSSResource/policies", "policies")
 	if err == nil {
 		t.Fatal("expected error for HTTP 403")
+		return
 	}
 }
 

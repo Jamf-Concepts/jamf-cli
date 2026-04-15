@@ -58,6 +58,7 @@ func TestAddProfile_NoInputRejected(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when --no-input is set")
+		return
 	}
 	if !strings.Contains(err.Error(), "cannot use --no-input") {
 		t.Errorf("error = %q, want to contain 'cannot use --no-input'", err.Error())

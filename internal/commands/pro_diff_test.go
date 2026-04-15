@@ -82,6 +82,7 @@ func TestLoadSnapshotFromDirectory_Basic(t *testing.T) {
 	policies, ok := snapshot["policies"]
 	if !ok {
 		t.Fatal("expected 'policies' resource bucket in snapshot")
+		return
 	}
 	if len(policies) != 2 {
 		t.Errorf("expected 2 policies, got %d", len(policies))
@@ -90,6 +91,7 @@ func TestLoadSnapshotFromDirectory_Basic(t *testing.T) {
 	chrome, ok := policies["Deploy Chrome"]
 	if !ok {
 		t.Fatal("expected 'Deploy Chrome' object")
+		return
 	}
 	// _meta should be stripped
 	if _, hasMeta := chrome["_meta"]; hasMeta {
@@ -116,6 +118,7 @@ func TestLoadSnapshotFromDirectory_JSONFormat(t *testing.T) {
 	scripts, ok := snapshot["scripts"]
 	if !ok {
 		t.Fatal("expected 'scripts' in snapshot")
+		return
 	}
 	if _, ok := scripts["Run Updates"]; !ok {
 		t.Error("expected 'Run Updates' object")
@@ -190,6 +193,7 @@ func TestLoadSnapshotFromDirectory_NotADirectory(t *testing.T) {
 	f, err := os.CreateTemp("", "not-a-dir-*.txt")
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	_ = f.Close()
 	defer func() { _ = os.Remove(f.Name()) }()

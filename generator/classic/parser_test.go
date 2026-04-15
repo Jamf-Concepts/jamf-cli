@@ -27,6 +27,7 @@ func TestParseManifest_ValidFile(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
@@ -63,11 +64,13 @@ func TestParseManifest_DefaultCLIName(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	if resources[0].CLIName != "classic-policies" {
@@ -92,11 +95,13 @@ func TestParseManifest_CustomCLIName(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	r := resources[0]
@@ -123,11 +128,13 @@ func TestParseManifest_DefaultSingular(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	if resources[0].Singular != "package" {
@@ -145,11 +152,13 @@ func TestParseManifest_MissingName(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	_, err := ParseManifest(manifest)
 	if err == nil {
 		t.Fatal("expected error for missing name, got nil")
+		return
 	}
 }
 
@@ -163,11 +172,13 @@ func TestParseManifest_MissingPath(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	_, err := ParseManifest(manifest)
 	if err == nil {
 		t.Fatal("expected error for missing path, got nil")
+		return
 	}
 }
 
@@ -182,6 +193,7 @@ func TestParseManifest_DefaultOperationsAndLookups(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
@@ -231,6 +243,7 @@ func TestParseManifest_IDPath(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
@@ -267,6 +280,7 @@ func TestParseManifest_ExplicitEmptyOperations(t *testing.T) {
 `)
 	if err := os.WriteFile(manifest, data, 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	resources, err := ParseManifest(manifest)
@@ -286,6 +300,7 @@ func TestParseManifest_FileNotFound(t *testing.T) {
 	_, err := ParseManifest("/nonexistent/path")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
+		return
 	}
 }
 
@@ -294,11 +309,13 @@ func TestParseManifest_InvalidYAML(t *testing.T) {
 	manifest := filepath.Join(dir, "resources.yaml")
 	if err := os.WriteFile(manifest, []byte("{{invalid yaml}}"), 0o644); err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	_, err := ParseManifest(manifest)
 	if err == nil {
 		t.Fatal("expected error for invalid YAML, got nil")
+		return
 	}
 }
 

@@ -160,6 +160,7 @@ func TestDedupeOperations(t *testing.T) {
 		getOp := findOp(got, "get")
 		if getOp == nil {
 			t.Fatal("no get operation after dedup")
+			return
 		} else if getOp.Path != "/v2/computer-groups/smart-groups/{id}" {
 			t.Errorf("get path = %q, want /v2/computer-groups/smart-groups/{id}", getOp.Path)
 		}
@@ -175,6 +176,7 @@ func TestDedupeOperations(t *testing.T) {
 		getOp := findOp(got, "get")
 		if getOp == nil {
 			t.Fatal("no get operation after dedup")
+			return
 		} else if getOp.Path != "/v1/foo/bar/{id}" {
 			t.Errorf("get path = %q, want /v1/foo/bar/{id}", getOp.Path)
 		}
@@ -441,6 +443,7 @@ func TestGenerate_ProducesValidGoFile(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -497,6 +500,7 @@ func TestGenerate_ListOnly(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -544,6 +548,7 @@ func TestGenerate_DestructiveOps(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -579,6 +584,7 @@ func TestGenerateRegistry(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -801,6 +807,7 @@ func TestGenerate_ScaffoldFlag(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -851,6 +858,7 @@ func TestGenerate_ExampleText(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -890,6 +898,7 @@ func TestGenerate_BadOutputDir(t *testing.T) {
 	_, err := gen.Generate(resource)
 	if err == nil {
 		t.Fatal("expected error for nonexistent output dir")
+		return
 	}
 	if !strings.Contains(err.Error(), "creating file") {
 		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
@@ -906,6 +915,7 @@ func TestGenerateRegistry_BadOutputDir(t *testing.T) {
 	_, err := gen.GenerateRegistry(resources)
 	if err == nil {
 		t.Fatal("expected error for nonexistent output dir")
+		return
 	}
 	if !strings.Contains(err.Error(), "creating file") {
 		t.Errorf("error = %q, want to contain 'creating file'", err.Error())
@@ -944,6 +954,7 @@ func TestGenerate_IsList(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -988,6 +999,7 @@ func TestGenerate_DeleteMultipleOp(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1030,6 +1042,7 @@ func TestGenerate_ArrayQueryParam(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1157,6 +1170,7 @@ func TestGenerate_DeleteByNameCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1209,6 +1223,7 @@ func TestGenerate_NoDeleteByName_WithoutDelete(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1310,6 +1325,7 @@ func TestGenerate_ApplyCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1373,6 +1389,7 @@ func TestGenerate_ApplyWithDisplayName(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1405,6 +1422,7 @@ func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1582,6 +1600,7 @@ func TestGenerate_GetNameFlag(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1832,6 +1851,7 @@ func TestGenerate_MultiParamCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -1948,6 +1968,7 @@ func TestGenerate_IDFieldInNameResolution(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
@@ -2136,6 +2157,7 @@ func TestGeneratePatchCommand(t *testing.T) {
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 	code := string(content)
 
