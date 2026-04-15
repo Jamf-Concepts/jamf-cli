@@ -65,12 +65,35 @@ var protectAliases = map[string][]string{
 	"computers":                      {"comp"},
 	"data-forwarding":                {"df"},
 	"data-retention":                 {"dr"},
+	"audit-logs":                     {"al"},
+	"insights":                       {"ins"},
 }
 
 // applyProtectAliases appends aliases to protect subcommands.
 func applyProtectAliases(parent *cobra.Command) {
 	for _, cmd := range parent.Commands() {
 		if aliases, ok := protectAliases[cmd.Name()]; ok {
+			cmd.Aliases = append(cmd.Aliases, aliases...)
+		}
+	}
+}
+
+// schoolAliases maps Jamf School command names to their short aliases.
+var schoolAliases = map[string][]string{
+	"devices":       {"dev"},
+	"device-groups": {"dg"},
+	"classes":       {"cls"},
+	"locations":     {"loc"},
+	"dep-devices":   {"dep"},
+	"ibeacons":      {"ib"},
+	"blueprints":    {"bp"},
+	"ddm-reports":   {"ddm"},
+}
+
+// applySchoolAliases appends aliases to school subcommands.
+func applySchoolAliases(parent *cobra.Command) {
+	for _, cmd := range parent.Commands() {
+		if aliases, ok := schoolAliases[cmd.Name()]; ok {
 			cmd.Aliases = append(cmd.Aliases, aliases...)
 		}
 	}

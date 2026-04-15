@@ -20,6 +20,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newConfigSetupCmd())
 
 	// Handwritten Jamf Pro commands
+	cmd.AddCommand(newProAuthCmd(cliCtx))
 	cmd.AddCommand(newOverviewCmd(cliCtx))
 	cmd.AddCommand(newBackupCmd(cliCtx))
 	cmd.AddCommand(newAuditCmd(cliCtx))
@@ -79,6 +80,8 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"computers"}, newComputerRestartCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers"}, newComputerSetRecoveryLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerSettingsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
 
 	addSubcommand(cmd, []string{"computers"}, newComputerFlushCommandsCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileFlushCommandsCmd(cliCtx))
@@ -93,6 +96,14 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileDisableLostModeCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobilePlayLostModeSoundCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileClearRestrictionsPasswordCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileSettingsCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRequestMirroringCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileStopMirroringCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileRefreshCellularPlansCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileApplyRedemptionCodeCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileDeleteUserCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileLogOutUserCmd(cliCtx))
+	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnlockUserAccountCmd(cliCtx))
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)

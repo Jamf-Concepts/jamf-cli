@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -22,13 +23,17 @@ type Config struct {
 
 // Profile represents a server profile for a Jamf product.
 type Profile struct {
-	Product      string `yaml:"product,omitempty"` // "pro" (default) or "protect"
-	URL          string `yaml:"url"`
-	AuthMethod   string `yaml:"auth-method"` // token, oauth2, platform
-	Token        string `yaml:"token,omitempty"`
-	ClientID     string `yaml:"client-id,omitempty"`
-	ClientSecret string `yaml:"client-secret,omitempty"`
-	TenantID     string `yaml:"tenant-id,omitempty"` // pro platform auth only
+	Product             string         `yaml:"product,omitempty"` // "pro" (default), "protect", or "school"
+	URL                 string         `yaml:"url"`
+	AuthMethod          string         `yaml:"auth-method"` // token, oauth2, platform, apikey
+	Token               string         `yaml:"token,omitempty"`
+	ClientID            string         `yaml:"client-id,omitempty"`
+	ClientSecret        string         `yaml:"client-secret,omitempty"`
+	TenantID            string         `yaml:"tenant-id,omitempty"`    // platform auth
+	PlatformURL         string         `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
+	NetworkID           string         `yaml:"network-id,omitempty"`   // school only
+	APIKey              string         `yaml:"api-key,omitempty"`      // school only
+	DestructiveCooldown *time.Duration `yaml:"destructive-cooldown,omitempty"`
 }
 
 const (

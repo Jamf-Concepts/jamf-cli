@@ -100,6 +100,29 @@ func confirmDelete(resourceType, name string, yes bool) (bool, error) {
 	return true, nil
 }
 
+// confirmAction prompts for confirmation before a device action (restart, erase, etc.).
+// Returns true if the operation should proceed, false if it was dry-run/aborted.
+func confirmAction(action, name string, yes bool) (bool, error) {
+	if dryRun {
+		fmt.Fprintf(os.Stderr, "[dry-run] Would %s %q\n", action, name)
+		return false, nil
+	}
+	if !yes {
+		if noInput {
+			return false, fmt.Errorf("destructive operation requires --yes when --no-input is set")
+		}
+		fmt.Fprintf(os.Stderr, "This will %s %q. Type 'yes' to confirm: ", action, name)
+		var confirm string
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			return false, fmt.Errorf("reading confirmation: %w", err)
+		}
+		if confirm != "yes" {
+			return false, fmt.Errorf("aborted")
+		}
+	}
+	return true, nil
+}
+
 // confirmReplace prompts for confirmation before replacing an existing resource.
 // Returns true if the operation should proceed, false if it was dry-run/aborted.
 func confirmReplace(resourceType, name string, yes bool) (bool, error) {

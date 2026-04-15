@@ -712,6 +712,92 @@ func TestDetectSingleton(t *testing.T) {
 	}
 }
 
+func TestDetectVersionLock(t *testing.T) {
+	versionLockSchema := &Schema{
+		Properties: map[string]*Property{
+			"displayName": {Name: "displayName", Type: "string"},
+			"versionLock": {Name: "versionLock", Type: "integer"},
+		},
+	}
+	noVersionLockSchema := &Schema{
+		Properties: map[string]*Property{
+			"name": {Name: "name", Type: "string"},
+		},
+	}
+
+	tests := []struct {
+		name string
+		ops  []*Operation
+		want bool
+	}{
+		{
+			name: "PUT with versionLock in request body",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v3/computer-prestages"},
+				{
+					Name: "update", Method: "PUT", Path: "/v3/computer-prestages/{id}",
+					RequestBody: &RequestBody{Schema: versionLockSchema},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "POST with versionLock in request body",
+			ops: []*Operation{
+				{
+					Name: "create-scope", Method: "POST", Path: "/v2/computer-prestages/{id}/scope",
+					RequestBody: &RequestBody{Schema: versionLockSchema},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "no versionLock in any request body",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/buildings"},
+				{
+					Name: "create", Method: "POST", Path: "/v1/buildings",
+					RequestBody: &RequestBody{Schema: noVersionLockSchema},
+				},
+				{
+					Name: "update", Method: "PUT", Path: "/v1/buildings/{id}",
+					RequestBody: &RequestBody{Schema: noVersionLockSchema},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "GET-only operations (no request body)",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "nil request body on PUT",
+			ops: []*Operation{
+				{Name: "update", Method: "PUT", Path: "/v1/things/{id}"},
+			},
+			want: false,
+		},
+		{
+			name: "empty operations",
+			ops:  []*Operation{},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectVersionLock(tt.ops)
+			if got != tt.want {
+				t.Errorf("detectVersionLock() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseSpec_SingletonSpec(t *testing.T) {
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "CacheSettings.yaml")
@@ -1913,4 +1999,89 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 			t.Errorf("%s IDField = %q, want %q", tt.name, r.IDField, tt.wantID)
 		}
 	}
+}
+
+func TestParseSchema_AllOfFlattening(t *testing.T) {
+	t.Run("merges properties from allOf items", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"name":        {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+						"displayName": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					},
+				}},
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"extra": {Value: &openapi3.Schema{Type: &openapi3.Types{"boolean"}}},
+					},
+				}},
+			},
+		}
+		s := parseSchema("TestAllOf", schema)
+		if len(s.Properties) != 3 {
+			t.Fatalf("expected 3 properties, got %d: %v", len(s.Properties), propKeys(s.Properties))
+		}
+		for _, name := range []string{"name", "displayName", "extra"} {
+			if _, ok := s.Properties[name]; !ok {
+				t.Errorf("missing property %q", name)
+			}
+		}
+	})
+
+	t.Run("merges nested allOf (two levels)", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: &openapi3.Schema{
+					AllOf: openapi3.SchemaRefs{
+						{Value: &openapi3.Schema{
+							Properties: openapi3.Schemas{
+								"baseField": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+							},
+						}},
+					},
+					Properties: openapi3.Schemas{
+						"midField": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					},
+				}},
+				{Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"topField": {Value: &openapi3.Schema{Type: &openapi3.Types{"boolean"}}},
+					},
+				}},
+			},
+		}
+		s := parseSchema("TestNestedAllOf", schema)
+		if len(s.Properties) != 3 {
+			t.Fatalf("expected 3 properties, got %d: %v", len(s.Properties), propKeys(s.Properties))
+		}
+		for _, name := range []string{"baseField", "midField", "topField"} {
+			if _, ok := s.Properties[name]; !ok {
+				t.Errorf("missing property %q", name)
+			}
+		}
+	})
+
+	t.Run("direct properties still work", func(t *testing.T) {
+		schema := &openapi3.Schema{
+			Properties: openapi3.Schemas{
+				"name": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			},
+		}
+		s := parseSchema("TestDirect", schema)
+		if len(s.Properties) != 1 {
+			t.Fatalf("expected 1 property, got %d", len(s.Properties))
+		}
+		if _, ok := s.Properties["name"]; !ok {
+			t.Error("missing property name")
+		}
+	})
+}
+
+func propKeys(m map[string]*Property) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

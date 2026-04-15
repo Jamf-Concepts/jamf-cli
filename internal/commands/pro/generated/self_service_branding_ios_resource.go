@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -243,15 +244,14 @@ func newSelfServiceBrandingIosCreateCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "brandingName": "Self Service",
   "brandingNameColorCode": "000000",
   "headerBackgroundColorCode": "FFFFFF",
   "iconId": 1,
   "menuIconColorCode": "000001",
   "statusBarTextColor": "dark"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path
@@ -268,7 +268,15 @@ func newSelfServiceBrandingIosCreateCmd(ctx *registry.CLIContext) *cobra.Command
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
@@ -308,15 +316,14 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "brandingName": "Self Service",
   "brandingNameColorCode": "000000",
   "headerBackgroundColorCode": "FFFFFF",
   "iconId": 1,
   "menuIconColorCode": "000001",
   "statusBarTextColor": "dark"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -348,7 +355,15 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
 			if err != nil {
@@ -435,6 +450,12 @@ func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/self-service/branding/ios/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
@@ -453,11 +474,16 @@ func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 
@@ -470,21 +496,25 @@ func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newSelfServiceBrandingIosApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a self-service-branding-ios by name",
-		Long: `Create or replace a self-service-branding-ios. Reads JSON from --from-file or stdin.
+		Long: `Create or replace a self-service-branding-ios. Reads JSON or YAML from --from-file or stdin.
 
 The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a self-service-branding-ios from a file
+		Example: `  # Apply a self-service-branding-ios from a JSON file
   jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json
+
+  # Apply a self-service-branding-ios from a YAML file
+  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.yaml
 
   # Apply from stdin
   cat self-service-branding-ios.json | jamf-cli self-service-branding-ios apply
@@ -496,9 +526,23 @@ If not, a new resource is created.`,
   jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "brandingName": "Self Service",
+  "brandingNameColorCode": "000000",
+  "headerBackgroundColorCode": "FFFFFF",
+  "iconId": 1,
+  "menuIconColorCode": "000001",
+  "statusBarTextColor": "dark"
+}`, ctx.Output.Format())
+			}
 
-			// Read input
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -559,9 +603,10 @@ If not, a new resource is created.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

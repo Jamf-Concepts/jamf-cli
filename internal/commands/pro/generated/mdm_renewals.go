@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -161,6 +162,12 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
 			// Build request path
 			path := "/v1/mdm-renewal/renewal-strategies/{clientManagementId}"
 			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(resolvedID), 1)
@@ -179,11 +186,16 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
 
@@ -214,15 +226,14 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
-				fmt.Println(`{
+				return printScaffoldOutput(`{
   "clientManagementId": "550e8400-e29b-41d4-a716-446655440000",
   "mdmCheckinUrl": "https://example.jamfcloud.com/mdm/CheckInURL",
   "mdmProfileNeedsRenewalDueToCaRenewed": false,
   "mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring": true,
   "mdmServerUrl": "https://example.jamfcloud.com/mdm/ServerURL",
   "renewMdmProfileStartDate": "2021-12-31T16:00:00Z"
-}`)
-				return nil
+}`, ctx.Output.Format())
 			}
 
 			// Build request path

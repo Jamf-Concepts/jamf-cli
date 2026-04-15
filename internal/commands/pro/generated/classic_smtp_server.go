@@ -9,10 +9,9 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"github.com/spf13/cobra"
 )
 
 // NewClassicSmtpServerCmd creates the classic-smtp-server command group

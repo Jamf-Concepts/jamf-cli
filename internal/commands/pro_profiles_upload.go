@@ -16,6 +16,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
@@ -84,14 +85,13 @@ payload. Otherwise a new profile record is created.`, cfg.resourceName),
 
 			fmt.Fprintf(os.Stderr, "Profile: %s (%d bytes)\n", profileName, len(payload))
 
-			// Check for existing profile by name
-			existingID, err := lookupClassicProfileByName(ctx, client, cfg.apiPath, cfg.xmlRoot, profileName)
+			// Check for existing profile by name; also returns the existing
+			// payload plist so we can preserve PayloadUUID/PayloadIdentifier
+			// without a second API call.
+			existingID, existingPayload, err := lookupClassicProfileByName(ctx, client, cfg.apiPath, cfg.xmlRoot, profileName)
 			if err != nil {
 				return err
 			}
-
-			// Build XML body
-			xmlBody := buildProfileXML(cfg.xmlRoot, profileName, string(payload))
 
 			if existingID != "" {
 				if !flagYes {
@@ -107,8 +107,17 @@ payload. Otherwise a new profile record is created.`, cfg.resourceName),
 					}
 				}
 
+				// Preserve PayloadUUID and PayloadIdentifier from the existing
+				// profile so devices treat this as an update, not a new install.
+				if len(existingPayload) > 0 {
+					if modified, injectErr := profileconvert.InjectIdentifiers(payload, existingPayload); injectErr == nil {
+						payload = modified
+					}
+				}
+
 				// Update existing
 				fmt.Fprintf(os.Stderr, "Updating existing profile (id %s)...\n", existingID)
+				xmlBody := buildProfileXML(cfg.xmlRoot, profileName, string(payload))
 				path := fmt.Sprintf("/JSSResource/%s/id/%s", cfg.apiPath, url.PathEscape(existingID))
 				resp, err := client.Do(ctx, "PUT", path, bytes.NewReader(xmlBody))
 				if err != nil {
@@ -119,6 +128,7 @@ payload. Otherwise a new profile record is created.`, cfg.resourceName),
 			} else {
 				// Create new
 				fmt.Fprintf(os.Stderr, "Creating profile %q...\n", profileName)
+				xmlBody := buildProfileXML(cfg.xmlRoot, profileName, string(payload))
 				path := fmt.Sprintf("/JSSResource/%s/id/0", cfg.apiPath)
 				resp, err := client.Do(ctx, "POST", path, bytes.NewReader(xmlBody))
 				if err != nil {
@@ -141,38 +151,44 @@ payload. Otherwise a new profile record is created.`, cfg.resourceName),
 }
 
 // lookupClassicProfileByName tries to GET a profile by name from the Classic API.
-// Returns the ID if found, empty string if not found (404).
-func lookupClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, xmlRoot, name string) (string, error) {
+// Returns the ID and payload plist if found, empty string + nil if not found (404).
+// Returning the payload in the same call avoids a second round-trip when the
+// caller needs to preserve PayloadUUID/PayloadIdentifier on update.
+func lookupClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, xmlRoot, name string) (id string, payloadPlist []byte, err error) {
 	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		// 404 means not found — that's fine
 		if isNotFound(err) {
-			return "", nil
+			return "", nil, nil
 		}
-		return "", fmt.Errorf("looking up profile: %w", err)
+		return "", nil, fmt.Errorf("looking up profile: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	// Parse XML to extract ID
+	// Parse XML to extract ID and existing payload plist.
 	if xmlconv.IsXML(body) {
-		m, err := xmlconv.ToMap(body)
-		if err != nil {
-			return "", nil
+		m, parseErr := xmlconv.ToMap(body)
+		if parseErr != nil {
+			return "", nil, nil
 		}
 		if root, ok := m[xmlRoot].(map[string]any); ok {
 			if general, ok := root["general"].(map[string]any); ok {
-				return extractField(general, "id"), nil
+				id = extractField(general, "id")
+				if payloads, ok := general["payloads"].(string); ok && payloads != "" {
+					payloadPlist = []byte(payloads)
+				}
+				return id, payloadPlist, nil
 			}
 		}
 	}
 
-	return "", nil
+	return "", nil, nil
 }
 
 // buildProfileXML constructs the Classic API XML envelope for a configuration profile.

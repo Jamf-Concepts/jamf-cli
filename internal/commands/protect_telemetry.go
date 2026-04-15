@@ -86,11 +86,15 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
 		yes      bool
+		scaffold bool
 	)
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a telemetry configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if scaffold {
+				return printExport(jamfprotect.TelemetryV2Input{})
+			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
 			if err != nil {
@@ -137,6 +141,7 @@ func newProtectTelemetryApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print an empty JSON template and exit")
 	return cmd
 }
 

@@ -97,12 +97,16 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
 		yes      bool
+		scaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update an API client",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if scaffold {
+				return printExport(jamfprotect.ApiClientInput{})
+			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
 			if err != nil {
@@ -150,6 +154,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print an empty JSON template and exit")
 
 	return cmd
 }

@@ -77,6 +77,8 @@ func TestProtectAliases(t *testing.T) {
 		{"cf", "config-freeze"},
 		{"df", "data-forwarding"},
 		{"dr", "data-retention"},
+		{"al", "audit-logs"},
+		{"ins", "insights"},
 	}
 
 	for _, tc := range tests {
@@ -101,6 +103,8 @@ func TestProtectSubcommands(t *testing.T) {
 		"auth",
 		"plans",
 		"computers",
+		"alerts",
+		"insights",
 		"analytics",
 		"analytic-sets",
 		"exception-sets",
@@ -118,12 +122,82 @@ func TestProtectSubcommands(t *testing.T) {
 		"downloads",
 		"config-freeze",
 		"connections",
+		"audit-logs",
+		"permissions",
 	}
 
 	for _, name := range expected {
 		t.Run(name, func(t *testing.T) {
 			if findSubcommand(protect, name) == nil {
 				t.Errorf("expected protect subcommand %q", name)
+			}
+		})
+	}
+}
+
+func TestProtectAlertsSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	alerts := findSubcommand(protect, "alerts")
+	if alerts == nil {
+		t.Fatal("alerts subcommand not found")
+	}
+
+	expected := []string{"list", "get", "update-status", "status-counts"}
+	for _, name := range expected {
+		t.Run(name, func(t *testing.T) {
+			if findSubcommand(alerts, name) == nil {
+				t.Errorf("expected alerts subcommand %q", name)
+			}
+		})
+	}
+}
+
+func TestProtectInsightsSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	insights := findSubcommand(protect, "insights")
+	if insights == nil {
+		t.Fatal("insights subcommand not found")
+	}
+
+	expected := []string{"list", "enable", "disable", "computers", "compliance-score"}
+	for _, name := range expected {
+		t.Run(name, func(t *testing.T) {
+			if findSubcommand(insights, name) == nil {
+				t.Errorf("expected insights subcommand %q", name)
+			}
+		})
+	}
+}
+
+func TestProtectAuditLogsSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	al := findSubcommand(protect, "audit-logs")
+	if al == nil {
+		t.Fatal("audit-logs subcommand not found")
+	}
+
+	expected := []string{"list"}
+	for _, name := range expected {
+		t.Run(name, func(t *testing.T) {
+			if findSubcommand(al, name) == nil {
+				t.Errorf("expected audit-logs subcommand %q", name)
+			}
+		})
+	}
+}
+
+func TestProtectComputersSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	computers := findSubcommand(protect, "computers")
+	if computers == nil {
+		t.Fatal("computers subcommand not found")
+	}
+
+	expected := []string{"list", "get", "delete", "set-plan", "update"}
+	for _, name := range expected {
+		t.Run(name, func(t *testing.T) {
+			if findSubcommand(computers, name) == nil {
+				t.Errorf("expected computers subcommand %q", name)
 			}
 		})
 	}

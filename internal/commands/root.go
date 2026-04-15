@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -27,6 +28,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
 
 // Global flags
@@ -391,6 +393,8 @@ Use "jamf-cli pro" for Jamf Pro commands (device management, inventory,
 configuration, reporting, and API automation).
 Use "jamf-cli protect" for Jamf Protect commands (endpoint security,
 analytics, threat prevention, and configuration).
+Use "jamf-cli school" for Jamf School commands (education device management,
+users, classes, and apps).
 
 Set JAMF_CLI_ARGS to prepend default flags to every invocation:
   export JAMF_CLI_ARGS='--quiet --no-input'
@@ -416,7 +420,6 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"config":     true,
 				"diff":       true,
 				"setup":      true,
-				"platform":   true,
 				"multi":      true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
@@ -429,8 +432,11 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				}
 			}
 
-			// --scaffold just prints a JSON template — no auth needed
+			// --scaffold just prints a JSON template — no auth needed.
+			// Set up a basic formatter first so commands can call ctx.Output.Format()
+			// to respect -o yaml even without a full auth round-trip.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
+				cliCtx.Output = &cliOutput{output.New(outputFmt, noColor, wide)}
 				return nil
 			}
 
@@ -466,6 +472,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if product == "protect" {
 				return resolveProtectClient(cfg, cliCtx)
 			}
+			if product == "school" {
+				return resolveSchoolClient(cfg, cliCtx)
+			}
 
 			// Default: Jamf Pro auth flow
 			resolvedURL, authProvider, err := resolveAuth(cfg)
@@ -495,6 +504,22 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
+			cliCtx.AuthProvider = authProvider
+
+			// Resolve effective profile name and per-profile cooldown setting.
+			resolvedProfile := profile
+			if resolvedProfile == "" {
+				resolvedProfile = os.Getenv("JAMF_PROFILE")
+			}
+			if resolvedProfile == "" {
+				resolvedProfile = cfg.DefaultProfile
+			}
+			cliCtx.ProfileName = resolvedProfile
+			if resolvedProfile != "" {
+				if p, ok := cfg.Profiles[resolvedProfile]; ok {
+					cliCtx.DestructiveCooldown = p.DestructiveCooldown
+				}
+			}
 
 			// When platform gateway auth is active, also construct the
 			// Platform SDK client for platform-native commands (blueprints,
@@ -566,8 +591,11 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	// Jamf Protect product namespace
 	cmd.AddCommand(newProtectCmd(cliCtx))
 
+	// Jamf School product namespace
+	cmd.AddCommand(newSchoolCmd(cliCtx))
+
 	// Jamf Platform namespace
-	cmd.AddCommand(newPlatformCmd())
+	cmd.AddCommand(newPlatformCmd(cliCtx))
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
@@ -620,7 +648,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Determine product for this child's subtree.
 		childProduct := product
-		if child.Name() == "pro" || child.Name() == "protect" {
+		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" {
 			childProduct = child.Name()
 		}
 
@@ -703,14 +731,14 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 // first (a command under "protect" is always protect), then falls back to the
 // config profile's product field.
 func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
-	// Check command hierarchy: if any parent is "protect", that's definitive
+	// Check command hierarchy: if any parent is a product, that's definitive
 	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "protect" {
+		switch c.Name() {
+		case "protect":
 			return "protect"
-		}
-	}
-	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "pro" {
+		case "school":
+			return "school"
+		case "pro":
 			return "pro"
 		}
 	}
@@ -730,10 +758,82 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 	if !ok {
 		return "pro"
 	}
-	if p.Product == "protect" {
+	switch p.Product {
+	case "protect":
 		return "protect"
+	case "school":
+		return "school"
+	default:
+		return "pro"
 	}
-	return "pro"
+}
+
+// clearableProtectCache is a jamfprotect.TokenCache that stores tokens on disk
+// (using the same file format as the SDK's built-in FileTokenCache) and
+// supports forced invalidation via Clear(). Clear() marks the cache as bypassed
+// so the next Load call returns nothing, forcing the SDK to exchange fresh
+// credentials. Store resets the bypass flag and persists the new token.
+//
+// The SDK calls Load/Store with a pre-computed key (sha256 of baseURL+clientID),
+// so we use it directly as the filename suffix — no key derivation needed here.
+type clearableProtectCache struct {
+	dir     string
+	mu      sync.Mutex
+	cleared bool
+	lastKey string
+}
+
+func (c *clearableProtectCache) Load(key string) (string, time.Time, bool) {
+	c.mu.Lock()
+	cleared := c.cleared
+	c.lastKey = key
+	c.mu.Unlock()
+	if cleared {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
+		return "", time.Time{}, false
+	}
+	data, err := os.ReadFile(filepath.Join(c.dir, "jamfprotect-token-"+key))
+	if err != nil {
+		return "", time.Time{}, false
+	}
+	var entry struct {
+		AccessToken string    `json:"access_token"`
+		ExpiresAt   time.Time `json:"expires_at"`
+	}
+	if err := json.Unmarshal(data, &entry); err != nil || entry.AccessToken == "" {
+		return "", time.Time{}, false
+	}
+	return entry.AccessToken, entry.ExpiresAt, true
+}
+
+func (c *clearableProtectCache) Store(key string, token string, expiresAt time.Time) error {
+	c.mu.Lock()
+	c.cleared = false
+	c.mu.Unlock()
+	if err := os.MkdirAll(c.dir, 0o700); err != nil {
+		return fmt.Errorf("creating protect token cache dir: %w", err)
+	}
+	data, err := json.Marshal(struct {
+		AccessToken string    `json:"access_token"`
+		ExpiresAt   time.Time `json:"expires_at"`
+	}{token, expiresAt})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(c.dir, "jamfprotect-token-"+key), data, 0o600)
+}
+
+// Clear removes any cached token from disk (if the key is known) and marks the
+// cache as bypassed so the next Load returns nothing, forcing the SDK to
+// exchange fresh credentials. Store resets the bypass automatically.
+func (c *clearableProtectCache) Clear() {
+	c.mu.Lock()
+	c.cleared = true
+	key := c.lastKey
+	c.mu.Unlock()
+	if key != "" {
+		_ = os.Remove(filepath.Join(c.dir, "jamfprotect-token-"+key))
+	}
 }
 
 // resolveProtectClient constructs a Jamf Protect SDK client from config/flags/env
@@ -813,15 +913,133 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
 
+	stdClient := rc.StandardClient()
+	if !quiet && !verbose {
+		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+	}
+
 	protectOpts := []jamfprotect.Option{
 		jamfprotect.WithUserAgent("jamf-cli/" + cliVersion),
-		jamfprotect.WithHTTPClient(rc.StandardClient()),
+		jamfprotect.WithHTTPClient(stdClient),
 	}
 	if cacheDir, err := os.UserCacheDir(); err == nil {
-		protectOpts = append(protectOpts, jamfprotect.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))
+		cache := &clearableProtectCache{dir: filepath.Join(cacheDir, "jamf-cli")}
+		protectOpts = append(protectOpts, jamfprotect.WithTokenCache(cache))
+		cliCtx.ClearProtectToken = cache.Clear
 	}
 	sdkClient := jamfprotect.NewClient(url, cid, csecret, protectOpts...)
 	cliCtx.ProtectClient = sdkClient
+	return nil
+}
+
+// resolveSchoolClient constructs a Jamf School SDK client from config/flags/env
+// and assigns it to cliCtx.SchoolClient.
+func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	profileName := profile
+	if profileName == "" {
+		profileName = os.Getenv("JAMF_PROFILE")
+	}
+
+	url := serverURL
+	networkID := os.Getenv("JAMFSCHOOL_NETWORK_ID")
+	apiKey := os.Getenv("JAMFSCHOOL_API_KEY")
+
+	// Environment variable fallbacks (School-specific)
+	if url == "" {
+		url = os.Getenv("JAMFSCHOOL_URL")
+	}
+
+	// Platform API credentials (optional — enables blueprints + DDM reports)
+	platformURL := os.Getenv("JAMFSCHOOL_PLATFORM_URL")
+	cid := os.Getenv("JAMF_CLIENT_ID")
+	csecret := os.Getenv("JAMF_CLIENT_SECRET")
+	tid := os.Getenv("JAMF_TENANT_ID")
+
+	// Fill from config profile
+	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+		if url == "" {
+			url = p.URL
+		}
+		if networkID == "" && p.NetworkID != "" {
+			resolved, err := config.ResolveSecret(p.NetworkID)
+			if err != nil {
+				return fmt.Errorf("resolving network-id from profile: %w", err)
+			}
+			networkID = resolved
+		}
+		if apiKey == "" && p.APIKey != "" {
+			resolved, err := config.ResolveSecret(p.APIKey)
+			if err != nil {
+				return fmt.Errorf("resolving api-key from profile: %w", err)
+			}
+			apiKey = resolved
+		}
+		// Platform credentials from profile (env vars take precedence)
+		if platformURL == "" && p.PlatformURL != "" {
+			platformURL = p.PlatformURL
+		}
+		if cid == "" && p.ClientID != "" {
+			resolved, err := config.ResolveSecret(p.ClientID)
+			if err != nil {
+				return fmt.Errorf("resolving client-id from profile: %w", err)
+			}
+			cid = resolved
+		}
+		if csecret == "" && p.ClientSecret != "" {
+			resolved, err := config.ResolveSecret(p.ClientSecret)
+			if err != nil {
+				return fmt.Errorf("resolving client-secret from profile: %w", err)
+			}
+			csecret = resolved
+		}
+		if tid == "" && p.TenantID != "" {
+			tid = p.TenantID
+		}
+	}
+
+	// Also check generic env vars as fallback
+	if url == "" {
+		url = os.Getenv("JAMF_URL")
+	}
+
+	if url == "" {
+		return exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMFSCHOOL_URL env var, or configure a school profile")
+	}
+	if networkID == "" || apiKey == "" {
+		return exitcode.New(exitcode.Usage, "network-id and api-key are required for Jamf School: use JAMFSCHOOL_NETWORK_ID/JAMFSCHOOL_API_KEY env vars, or configure a school profile")
+	}
+
+	// Build a retryablehttp-backed HTTP client for retry behavior.
+	jar, _ := cookiejar.New(nil)
+	rc := retryablehttp.NewClient()
+	rc.RetryMax = 3
+	rc.RetryWaitMin = 1 * time.Second
+	rc.RetryWaitMax = 30 * time.Second
+	rc.Logger = nil
+	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
+	rc.HTTPClient.Timeout = 60 * time.Second
+	rc.HTTPClient.Jar = jar
+
+	stdClient := rc.StandardClient()
+	if !quiet && !verbose {
+		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
+	}
+
+	schoolOpts := []jamfschool.Option{
+		jamfschool.WithUserAgent("jamf-cli/" + cliVersion),
+		jamfschool.WithHTTPClient(stdClient),
+	}
+	cliCtx.SchoolClient = jamfschool.NewClient(url, networkID, apiKey, schoolOpts...)
+
+	// When platform credentials are present, also construct the Platform SDK
+	// client for blueprint and DDM report commands.
+	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
+		cliCtx.PlatformClient = newPlatformSDKClient(
+			platformURL, cid, csecret, tid,
+			!quiet && !verbose,
+		)
+	}
+
 	return nil
 }
 

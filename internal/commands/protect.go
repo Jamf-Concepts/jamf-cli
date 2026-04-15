@@ -33,6 +33,10 @@ func newProtectCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	// Endpoints
 	cmd.AddCommand(newProtectComputersCmd(cliCtx))
+	cmd.AddCommand(newProtectAlertsCmd(cliCtx))
+
+	// Security Configuration (compliance)
+	cmd.AddCommand(newProtectInsightsCmd(cliCtx))
 
 	// Organization
 	cmd.AddCommand(newProtectDataForwardingCmd(cliCtx))
@@ -40,12 +44,14 @@ func newProtectCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectDownloadsCmd(cliCtx))
 	cmd.AddCommand(newProtectConfigFreezeCmd(cliCtx))
 	cmd.AddCommand(newProtectConnectionsCmd(cliCtx))
+	cmd.AddCommand(newProtectAuditLogsCmd(cliCtx))
 
 	// Access & Identity
 	cmd.AddCommand(newProtectRolesCmd(cliCtx))
 	cmd.AddCommand(newProtectUsersCmd(cliCtx))
 	cmd.AddCommand(newProtectGroupsCmd(cliCtx))
 	cmd.AddCommand(newProtectApiClientsCmd(cliCtx))
+	cmd.AddCommand(newProtectPermissionsCmd(cliCtx))
 
 	// Apply aliases and groups
 	applyProtectAliases(cmd)

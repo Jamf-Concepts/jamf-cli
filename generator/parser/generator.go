@@ -271,6 +271,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return "{id}"
 		},
+		"hasSuffix": strings.HasSuffix,
+		"opHasVersionLock": func(op *Operation) bool {
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			_, ok := op.RequestBody.Schema.Properties["versionLock"]
+			return ok
+		},
 		"isPatchOp":       isPatchOp,
 		"hasPatchOp":      hasPatchOp,
 		"patchHasLookup":  func(r *Resource) bool { return patchHasLookup(r) },
@@ -300,6 +308,22 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		},
 		"hasScaffold":  hasScaffold,
 		"scaffoldJSON": scaffoldJSON,
+		"applyScaffoldJSON": func(ops []*Operation) string {
+			for _, op := range ops {
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil {
+					return scaffoldJSON(op.RequestBody.Schema)
+				}
+			}
+			return "{}"
+		},
+		"hasApplyScaffold": func(ops []*Operation) bool {
+			for _, op := range ops {
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+					return true
+				}
+			}
+			return false
+		},
 		"opHasScaffold": func(op *Operation) bool {
 			// Multipart uploads use --file, not a JSON scaffold.
 			if op.RequestBody != nil && op.RequestBody.IsMultipart {
@@ -633,9 +657,10 @@ func hasQueryParams(ops []*Operation) bool {
 
 func needsFmt(r *Resource) bool {
 	// fmt is needed for: destructive confirmations, query param formatting,
-	// delete success message, scaffold output, apply status messages, multipart error wrapping,
+	// delete success message, apply status messages, multipart error wrapping,
 	// patch-by-name error messages, --set parse errors, name-lookup error messages
-	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || hasScaffold(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
+	// (scaffold output moved to printScaffoldOutput in registry — no longer needs fmt here)
+	if hasDestructive(r.Operations) || hasQueryParams(r.Operations) || hasDelete(r.Operations) || shouldGenerateApply(r) || needsMultipart(r) || hasAnyBinaryResponse(r) || patchHasLookup(r) || hasPatchOp(r.Operations) {
 		return true
 	}
 	for _, op := range r.Operations {
@@ -1050,13 +1075,13 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) }}
+{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) (hasPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
 	"encoding/json"
 {{- end }}
-{{- if or (needsFmt .) (hasList .Operations) }}
+{{- if or (needsFmt .) (hasList .Operations) (hasPostOrPut .Operations) }}
 	"fmt"
 {{- end }}
 {{- if or (hasPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
@@ -1082,6 +1107,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+{{- if hasDestructive .Operations }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
+{{- end }}
 )
 
 // New{{ .GoName }}Cmd creates the {{ .Name }} command group
@@ -1178,8 +1206,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasScaffold . }}
 
 			if flagScaffold {
-				fmt.Println(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `)
-				return nil
+				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -1308,6 +1335,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if confirm != "yes" {
 					return fmt.Errorf("aborted")
 				}
+			}
+{{- end }}
+{{- if .IsDestructive }}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
 			}
 {{- end }}
 
@@ -1488,13 +1523,61 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			} else {
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
+{{- if opHasVersionLock . }}
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized, err := normalizeInputToJSON(raw)
+					if err != nil {
+						return err
+					}
+					vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+					if vlErr != nil {
+						return vlErr
+					}
+					normalized, vlErr = injectVersionLocks(normalized, vlResp)
+					if vlErr != nil {
+						return vlErr
+					}
+					body = bytes.NewReader(normalized)
+{{- else }}
 					body = os.Stdin
+{{- end }}
 				}
 			}
 {{- else }}
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+{{- if and (opHasVersionLock .) (eq .Name "create") }}
+
+				// Optimistic locking: new resources require versionLock 0
+				normalized = setVersionLockZero(normalized)
+{{- else if and (opHasVersionLock .) (ne .Name "create") }}
+
+				// Optimistic locking: fetch current versionLock and inject into request
+{{- if hasSuffix .Path "/delete-multiple" }}
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, strings.TrimSuffix(path, "/delete-multiple"))
+{{- else }}
+				vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, path)
+{{- end }}
+				if vlErr != nil {
+					return vlErr
+				}
+				normalized, vlErr = injectVersionLocks(normalized, vlResp)
+				if vlErr != nil {
+					return vlErr
+				}
+{{- end }}
+				body = bytes.NewReader(normalized)
 			}
 {{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, body)
@@ -1506,6 +1589,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 {{ if eq .Method "DELETE" }}
 			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
 				fmt.Fprintln(os.Stderr, "Deleted successfully")
 				return nil
 			}
@@ -1527,7 +1611,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			_, err = io.Copy(os.Stdout, resp.Body)
 			return err
 {{- else }}
+{{- if .IsDestructive }}
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+{{- else }}
 			return ctx.Output.PrintResponse(resp)
+{{- end }}
 {{- end }}
 		},
 	}
@@ -1586,18 +1678,24 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile   string
 		flagYes    bool
 		flagDryRun bool
+{{- if hasApplyScaffold .Operations }}
+		flagScaffold bool
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
-		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON from --from-file or stdin.
+		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.` + "`" + `,
-		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a file
+		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
   jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json
+
+  # Apply a {{ .NameSingular }} from a YAML file
+  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
 
   # Apply from stdin
   cat {{ .NameSingular }}.json | jamf-cli {{ .Name }} apply
@@ -1610,8 +1708,18 @@ If not, a new resource is created.` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
-			// Read input
+{{- if hasApplyScaffold .Operations }}
+			if flagScaffold {
+				return printScaffoldOutput(` + "`" + `{{ applyScaffoldJSON .Operations }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+
+			// Read input (JSON or YAML)
 			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			data, err = normalizeInputToJSON(data)
 			if err != nil {
 				return err
 			}
@@ -1635,6 +1743,9 @@ If not, a new resource is created.` + "`" + `,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .NameSingular }} %q\n", name)
 					return nil
 				}
+{{- if .HasVersionLock }}
+				data = setVersionLockZero(data)
+{{- end }}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1662,6 +1773,16 @@ If not, a new resource is created.` + "`" + `,
 			}
 
 			updatePath := strings.Replace("{{ updatePath .Operations }}", "{{ updatePathParam .Operations }}", url.PathEscape(id), 1)
+{{- if .HasVersionLock }}
+			vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, updatePath)
+			if vlErr != nil {
+				return vlErr
+			}
+			data, vlErr = injectVersionLocks(data, vlResp)
+			if vlErr != nil {
+				return vlErr
+			}
+{{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
@@ -1672,9 +1793,12 @@ If not, a new resource is created.` + "`" + `,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+{{- if hasApplyScaffold .Operations }}
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+{{- end }}
 
 	return cmd
 }
@@ -1696,6 +1820,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -1747,8 +1872,15 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}
 
+	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
+	// Always verify the returned result actually matches the requested name.
+	results := filterResultsByName(data.Results, nameField, name)
+	if len(results) == 0 {
+		return "", fmt.Errorf("no resource found with name %q", name)
+	}
+
 	var first map[string]any
-	if err := json.Unmarshal(data.Results[0], &first); err != nil {
+	if err := json.Unmarshal(results[0], &first); err != nil {
 		return "", fmt.Errorf("parsing lookup result: %w", err)
 	}
 
@@ -1769,6 +1901,25 @@ func extractIDString(obj map[string]any, field string) string {
 	default:
 		return ""
 	}
+}
+
+// filterResultsByName filters JSON results to those with an exact name match.
+// Some API endpoints ignore RSQL filter params (e.g. prestages) and return all
+// results. This provides a client-side fallback for accurate name resolution.
+func filterResultsByName(results []json.RawMessage, nameField, name string) []json.RawMessage {
+	var filtered []json.RawMessage
+	for _, raw := range results {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		if v, ok := obj[nameField]; ok {
+			if s, ok := v.(string); ok && s == name {
+				filtered = append(filtered, raw)
+			}
+		}
+	}
+	return filtered
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.
@@ -1794,6 +1945,42 @@ func readApplyInput(fromFile string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input required: use --from-file or pipe data to stdin")
+}
+
+// printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
+// output format requests it.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func printScaffoldOutput(jsonStr, format string) error {
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+			return fmt.Errorf("scaffold marshal error: %w", err)
+		}
+		enc := yaml.NewEncoder(os.Stdout)
+		enc.SetIndent(2)
+		return enc.Encode(v)
+	}
+	fmt.Println(jsonStr)
+	return nil
+}
+
+// normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func normalizeInputToJSON(data []byte) ([]byte, error) {
+	// Fast path: already JSON
+	if json.Valid(data) {
+		return data, nil
+	}
+	// Try YAML → any → JSON
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
+	}
+	return out, nil
 }
 
 // extractJSONField extracts a string field from a JSON object.
@@ -1852,12 +2039,19 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 		return "", nil // Not found — caller should create
 	}
 
+	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
+	// Always apply exact name matching to guard against false positives.
+	results := filterResultsByName(data.Results, nameField, name)
+	if len(results) == 0 {
+		return "", nil // Not found — caller should create
+	}
+
 	// Parse results to extract IDs
 	type applyMatch struct {
 		id string
 	}
 	var matches []applyMatch
-	for _, raw := range data.Results {
+	for _, raw := range results {
 		var obj map[string]any
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
@@ -1951,5 +2145,88 @@ func parsePatchValue(s string) any {
 		return i
 	}
 	return s
+}
+
+// fetchVersionLock GETs a resource and returns the raw response body.
+// The caller uses this to extract versionLock values for optimistic locking.
+func fetchVersionLock(ctx context.Context, client registry.HTTPClient, getPath string) ([]byte, error) {
+	resp, err := client.Do(ctx, "GET", getPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching resource for version lock: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("reading version lock response: %w", err)
+	}
+	return body, nil
+}
+
+// injectVersionLocks deep-merges all versionLock fields from a GET response
+// into the user-provided request body. This ensures optimistic locking fields
+// are current without requiring users to manually fetch and set them.
+func injectVersionLocks(data, serverResponse []byte) ([]byte, error) {
+	var dst, src map[string]any
+	if err := json.Unmarshal(data, &dst); err != nil {
+		return data, nil // unparseable input — pass through unchanged
+	}
+	if err := json.Unmarshal(serverResponse, &src); err != nil {
+		return data, fmt.Errorf("parsing server response for version lock: %w", err)
+	}
+	mergeVersionLocks(dst, src)
+	out, err := json.Marshal(dst)
+	if err != nil {
+		return data, nil
+	}
+	return out, nil
+}
+
+// mergeVersionLocks recursively copies versionLock fields from src into dst.
+func mergeVersionLocks(dst, src map[string]any) {
+	if vl, ok := src["versionLock"]; ok {
+		dst["versionLock"] = vl
+	}
+	for key, srcVal := range src {
+		srcObj, ok := srcVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		dstVal, ok := dst[key]
+		if !ok {
+			continue
+		}
+		dstObj, ok := dstVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		mergeVersionLocks(dstObj, srcObj)
+	}
+}
+
+// setVersionLockZero recursively sets all versionLock fields to 0 in the JSON document.
+// Used when creating new resources that require optimistic locking.
+func setVersionLockZero(data []byte) []byte {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return data
+	}
+	zeroVersionLocks(obj)
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return data
+	}
+	return out
+}
+
+// zeroVersionLocks recursively sets all versionLock fields to 0.
+func zeroVersionLocks(obj map[string]any) {
+	if _, ok := obj["versionLock"]; ok {
+		obj["versionLock"] = 0
+	}
+	for _, v := range obj {
+		if nested, ok := v.(map[string]any); ok {
+			zeroVersionLocks(nested)
+		}
+	}
 }
 `
