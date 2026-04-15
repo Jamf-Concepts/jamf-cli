@@ -327,9 +327,9 @@ func blueprintCreateToUpdate(c *jamfplatform.CreateBlueprintRequest) *jamfplatfo
 	update := &jamfplatform.UpdateBlueprintRequest{
 		Name:        &c.Name,
 		Description: c.Description,
-		Steps:       c.Steps,
+		Steps:       &c.Steps,
 	}
-	if c.Scope != nil {
+	if len(c.Scope.DeviceGroups) > 0 {
 		update.Scope = &jamfplatform.BlueprintScope{
 			DeviceGroups: c.Scope.DeviceGroups,
 		}
@@ -341,7 +341,7 @@ func blueprintScaffold() *jamfplatform.CreateBlueprintRequest {
 	stepName := "Step 1"
 	return &jamfplatform.CreateBlueprintRequest{
 		Name: "My Blueprint",
-		Scope: &jamfplatform.CreateScope{
+		Scope: jamfplatform.CreateScope{
 			DeviceGroups: []string{"<device-group-id>"},
 		},
 		Steps: []jamfplatform.BlueprintStep{
@@ -735,7 +735,6 @@ Examples:
 				Scope: &jamfplatform.BlueprintScope{
 					DeviceGroups: newScope,
 				},
-				Steps: bp.Steps,
 			}
 			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
@@ -823,7 +822,6 @@ Examples:
 				Scope: &jamfplatform.BlueprintScope{
 					DeviceGroups: newScope,
 				},
-				Steps: bp.Steps,
 			}
 			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
@@ -953,7 +951,7 @@ The source scope is copied by default. Use --scope to override device group targ
 			createReq := &jamfplatform.CreateBlueprintRequest{
 				Name:        args[1],
 				Description: source.Description,
-				Scope: &jamfplatform.CreateScope{
+				Scope: jamfplatform.CreateScope{
 					DeviceGroups: groups,
 				},
 				Steps: steps,
@@ -1463,7 +1461,7 @@ Examples:
 			importStepName := "Step 1"
 			createReq := &jamfplatform.CreateBlueprintRequest{
 				Name: name,
-				Scope: &jamfplatform.CreateScope{
+				Scope: jamfplatform.CreateScope{
 					DeviceGroups: scopeGroups,
 				},
 				Steps: []jamfplatform.BlueprintStep{
@@ -1833,9 +1831,6 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 			return nil, fmt.Errorf("input must include a 'name' field")
 		}
 		if len(scopeOverrideIDs) > 0 {
-			if req.Scope == nil {
-				req.Scope = &jamfplatform.CreateScope{}
-			}
 			req.Scope.DeviceGroups = scopeOverrideIDs
 		}
 		return &req, nil
@@ -1863,7 +1858,7 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 
 	req := &jamfplatform.CreateBlueprintRequest{
 		Name: exp.Name,
-		Scope: &jamfplatform.CreateScope{
+		Scope: jamfplatform.CreateScope{
 			DeviceGroups: groupIDs,
 		},
 		Steps: exp.Steps,

@@ -110,7 +110,7 @@ func (m *platformMockClient) CreateBenchmark(_ context.Context, req *jamfplatfor
 		Description:     desc,
 		BaselineID:      req.SourceBaselineID,
 		Sources:         req.Sources,
-		Target:          req.Target,
+		Target:          &req.Target,
 		EnforcementMode: req.EnforcementMode,
 	}, nil
 }
@@ -1135,7 +1135,7 @@ func TestCBApply_LegacyFormat(t *testing.T) {
 		EnforcementMode:  "AUDIT",
 		Sources:          []jamfplatform.Source{{Branch: "main"}},
 		Rules:            []jamfplatform.RuleRequest{{ID: "r1", Enabled: true}},
-		Target:           &jamfplatform.TargetV2{DeviceGroups: []string{"raw-group-id-1"}},
+		Target:           jamfplatform.TargetV2{DeviceGroups: []string{"raw-group-id-1"}},
 	}
 	path := writeTempJSON(t, legacy)
 
@@ -1171,7 +1171,7 @@ func TestCBApply_LegacyFormatWithGroupOverride(t *testing.T) {
 		Title:            "Legacy With Override",
 		SourceBaselineID: "bl-1",
 		EnforcementMode:  "AUDIT",
-		Target:           &jamfplatform.TargetV2{DeviceGroups: []string{"old-id"}},
+		Target:           jamfplatform.TargetV2{DeviceGroups: []string{"old-id"}},
 	}
 	path := writeTempJSON(t, legacy)
 
@@ -1740,7 +1740,7 @@ func TestBlueprintExportRoundTrip(t *testing.T) {
 	if req.Name != "Round Trip BP" {
 		t.Errorf("name: got %q", req.Name)
 	}
-	if req.Scope == nil || len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "target-uuid" {
+	if len(req.Scope.DeviceGroups) != 1 || req.Scope.DeviceGroups[0] != "target-uuid" {
 		t.Errorf("target scope: got %v, want [target-uuid]", req.Scope)
 	}
 	if len(req.Steps) != 1 || req.Steps[0].Name == nil || *req.Steps[0].Name != "Step 1" {
