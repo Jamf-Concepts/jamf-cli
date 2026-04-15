@@ -48,7 +48,7 @@ func newPlatformSetupCmd() *cobra.Command {
 		Use:   "setup",
 		Short: "Configure a Jamf Platform Gateway profile",
 		Long: `Guided setup for platform gateway authentication. Prompts for region,
-tenant ID, and API client credentials, validates them against the gateway,
+API client credentials, and tenant ID, validates them against the gateway,
 and saves the profile. This profile enables both Pro API and Platform API
 commands.
 
@@ -98,16 +98,8 @@ Create API client credentials in the Jamf Account portal
 			}
 			gatewayURL = normalizeURL(gatewayURL)
 
-			// 3. Tenant ID
-			_, _ = fmt.Fprint(w, "\nTenant ID (from Jamf Account portal): ")
-			line, _ = reader.ReadString('\n')
-			tenantID := strings.TrimSpace(line)
-			if tenantID == "" {
-				return fmt.Errorf("tenant ID is required")
-			}
-
-			// 4. Client credentials (interactive only)
-			_, _ = fmt.Fprint(w, "Client ID: ")
+			// 3. Client credentials (interactive only)
+			_, _ = fmt.Fprint(w, "\nClient ID: ")
 			line, _ = reader.ReadString('\n')
 			clientID := strings.TrimSpace(line)
 			if clientID == "" {
@@ -123,6 +115,14 @@ Create API client credentials in the Jamf Account portal
 			clientSecret := string(secretBytes)
 			if clientSecret == "" {
 				return fmt.Errorf("client secret is required")
+			}
+
+			// 4. Tenant ID
+			_, _ = fmt.Fprint(w, "Tenant ID (from Jamf Account portal): ")
+			line, _ = reader.ReadString('\n')
+			tenantID := strings.TrimSpace(line)
+			if tenantID == "" {
+				return fmt.Errorf("tenant ID is required")
 			}
 
 			// 5. Validate credentials

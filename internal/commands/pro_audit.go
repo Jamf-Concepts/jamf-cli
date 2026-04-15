@@ -547,10 +547,10 @@ func runPlatformAuditChecks(ctx context.Context, pc registry.PlatformClient) []a
 	return results
 }
 
-func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditResult {
+func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
-		if bp.DeploymentState.State != "DEPLOYED" {
+		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" {
 			count++
 		}
 	}
@@ -566,10 +566,10 @@ func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditRes
 	}
 }
 
-func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverviewV1) *auditResult {
+func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
-		if bp.DeploymentState.State != "DEPLOYED" {
+		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" {
 			continue
 		}
 		report, err := pc.GetBlueprintReport(ctx, bp.ID)
@@ -592,10 +592,10 @@ func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps
 	}
 }
 
-func checkStaleBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditResult {
+func checkStaleBlueprints(bps []jamfplatform.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
-		if bp.DeploymentState.State != "DEPLOYED" || bp.DeploymentState.LastDeployment == nil {
+		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" || bp.DeploymentState.LastDeployment == nil {
 			continue
 		}
 		// Blueprint was updated after its last deployment
@@ -623,7 +623,7 @@ func checkStaleBlueprints(bps []jamfplatform.BlueprintOverviewV1) *auditResult {
 	}
 }
 
-func checkBenchmarkUpdates(resp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
+func checkBenchmarkUpdates(resp *jamfplatform.BenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		if b.UpdateAvailable {
@@ -642,7 +642,7 @@ func checkBenchmarkUpdates(resp *jamfplatform.CBEngineBenchmarksResponseV2) *aud
 	}
 }
 
-func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, resp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
+func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, resp *jamfplatform.BenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		bm, err := pc.GetBenchmark(ctx, b.ID)
@@ -665,7 +665,7 @@ func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, 
 	}
 }
 
-func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverviewV1, bmResp *jamfplatform.CBEngineBenchmarksResponseV2) *auditResult {
+func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverview, bmResp *jamfplatform.BenchmarksResponseV2) *auditResult {
 	count := 0
 
 	// Check blueprints with empty scope
@@ -674,7 +674,7 @@ func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bp
 		if err != nil {
 			continue
 		}
-		if len(detail.Scope.DeviceGroups) == 0 {
+		if detail.Scope == nil || len(detail.Scope.DeviceGroups) == 0 {
 			count++
 		}
 	}
@@ -682,7 +682,7 @@ func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bp
 	// Check benchmarks with empty target
 	if bmResp != nil {
 		for _, b := range bmResp.Benchmarks {
-			if len(b.Target.DeviceGroups) == 0 {
+			if b.Target == nil || len(b.Target.DeviceGroups) == 0 {
 				count++
 			}
 		}

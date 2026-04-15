@@ -90,6 +90,18 @@ func (r *Resolver) ResolveBaselineID(ctx context.Context, title string) (string,
 	return id, nil
 }
 
+// ResolveDeviceIDBySerial returns the device ID for the given serial number.
+func (r *Resolver) ResolveDeviceIDBySerial(ctx context.Context, serial string) (string, error) {
+	devices, err := r.client.ListDevices(ctx, nil, fmt.Sprintf("serialNumber==\"%s\"", serial))
+	if err != nil {
+		return "", fmt.Errorf("listing devices: %w", err)
+	}
+	if len(devices) == 0 {
+		return "", fmt.Errorf("device with serial %q not found: %w", serial, ErrNotFound)
+	}
+	return devices[0].ID, nil
+}
+
 // ResolveDeviceGroupID returns the ID for a device group with the given name.
 func (r *Resolver) ResolveDeviceGroupID(ctx context.Context, name string) (string, error) {
 	if r.groups == nil {
