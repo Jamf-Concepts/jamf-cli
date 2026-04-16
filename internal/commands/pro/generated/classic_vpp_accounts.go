@@ -136,7 +136,7 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_account",
 		Long:  "Create a new vpp_account. Reads XML body from stdin.",
@@ -154,6 +154,7 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppaccounts/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -162,9 +163,11 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_account",

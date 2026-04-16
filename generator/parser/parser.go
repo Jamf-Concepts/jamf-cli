@@ -68,6 +68,52 @@ func ApplyLookupFields(resources []*Resource) {
 	}
 }
 
+// resourceFileFields maps canonical resource names to file-sourced body fields
+// exposed on create/update/apply/patch. Each entry adds a dedicated flag whose
+// file contents are injected into the parsed request body pre-marshal, so callers
+// don't need to include the target property/value in their JSON input.
+var resourceFileFields = map[string][]FileField{
+	"scripts": {{
+		Flag:         "script-file",
+		Field:        "scriptContents",
+		Encoding:     "raw",
+		Desc:         "Path to a script file; contents populate scriptContents",
+		NameFallback: "keep-ext",
+	}},
+	"computer-extension-attributes": {{
+		Flag:         "script-file",
+		Field:        "scriptContents",
+		Encoding:     "raw",
+		Desc:         "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)",
+		NameFallback: "keep-ext",
+	}},
+	"volume-purchasing-locations": {{
+		Flag:         "token-file",
+		Field:        "serviceToken",
+		Encoding:     "base64",
+		Desc:         "Path to a VPP service token (.vpptoken); contents are base64-encoded into serviceToken",
+		NameFallback: "none",
+	}},
+	"device-enrollment-instances": {{
+		Flag:           "token-file",
+		Field:          "encodedToken",
+		Encoding:       "base64",
+		Desc:           "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken",
+		CompanionField: "tokenFileName",
+		NameFallback:   "none",
+	}},
+}
+
+// ApplyFileFields sets FileFields on resources listed in resourceFileFields.
+// Must be called after DeduplicateVersioned/ApplyNameOverrides so names are canonical.
+func ApplyFileFields(resources []*Resource) {
+	for _, r := range resources {
+		if fields, ok := resourceFileFields[r.Name]; ok {
+			r.FileFields = fields
+		}
+	}
+}
+
 // resourceNameFieldOverrides maps canonical resource names to the correct RSQL
 // filter field for name-based lookups. Used when detectNameField() returns the
 // wrong value — typically because the name lives in a nested object (e.g.

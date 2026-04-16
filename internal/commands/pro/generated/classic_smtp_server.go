@@ -79,6 +79,7 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a smtp_server",

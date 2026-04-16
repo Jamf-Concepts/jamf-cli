@@ -148,7 +148,7 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_invitation",
 		Long:  "Create a new mobile_device_invitation. Reads XML body from stdin.",
@@ -166,6 +166,7 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceinvitations/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -174,6 +175,7 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicMobileInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {

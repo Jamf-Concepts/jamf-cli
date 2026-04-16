@@ -136,7 +136,7 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_assignment",
 		Long:  "Create a new vpp_assignment. Reads XML body from stdin.",
@@ -154,6 +154,7 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppassignments/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -162,9 +163,11 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a vpp_assignment",

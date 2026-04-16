@@ -10,6 +10,20 @@ type LookupField struct {
 	Desc      string // Flag description shown in --help
 }
 
+// FileField declares a resource field whose value is sourced from a local file
+// via a dedicated CLI flag on create/update/apply/patch. The file contents are
+// injected into the request body pre-marshal, overwriting any value the caller
+// may have supplied in the body. Encoding, companion-field population, and
+// name fallback are all driven per entry.
+type FileField struct {
+	Flag           string // CLI flag name, e.g. "script-file"
+	Field          string // Request-body property that receives the file contents, e.g. "scriptContents"
+	Encoding       string // "raw" (string) or "base64"
+	Desc           string // Flag description shown in --help
+	CompanionField string // Optional: body property auto-populated with filepath.Base(path) when absent (e.g. "tokenFileName" for DEP)
+	NameFallback   string // "none" | "keep-ext" | "strip-ext" — when the body lacks a name, derive one from the filename
+}
+
 // TableColumn defines a preferred column for list table output.
 type TableColumn struct {
 	Field string // JSON field path (e.g., "general.name") — may use dot-notation for nested fields
@@ -31,6 +45,7 @@ type Resource struct {
 	NameLookupPath    string        // Override list path for name resolution (when the standard list endpoint ignores RSQL)
 	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
 	HasVersionLock    bool          // True when PUT/POST request body includes versionLock (optimistic locking for prestages)
+	FileFields        []FileField   // File-sourced request-body fields (attached via --script-file, --token-file, etc.)
 	TableColumns      []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
 	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)
 	GetDetailPath     string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.

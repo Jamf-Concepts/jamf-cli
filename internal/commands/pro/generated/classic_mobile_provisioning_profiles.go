@@ -156,7 +156,7 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 }
 
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_provisioning_profile",
 		Long:  "Create a new mobile_device_provisioning_profile. Reads XML body from stdin.",
@@ -174,6 +174,7 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceprovisioningprofiles/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -182,6 +183,7 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -341,12 +343,16 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "mobile_device_provisioning_profile")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "mobile_device_provisioning_profile")
 			if err != nil {
 				return err
 			}
@@ -359,7 +365,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile_device_provisioning_profile %q\n", name)
 					return nil
@@ -371,6 +378,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created mobile_device_provisioning_profile %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace

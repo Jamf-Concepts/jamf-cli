@@ -17,6 +17,23 @@ type ClassicResource struct {
 	HasScope        bool     // true if the resource supports scope operations
 	IDPath          string   // path segment between base path and ID value; defaults to "id" (e.g. "groupid" → /accounts/groupid/{id})
 	IsConfigProfile bool     // true for macOS and mobile device configuration profile resources
+	FileFields      []ClassicFileField
+}
+
+// ClassicFileField declares a resource field whose value is sourced from a
+// local file via a dedicated CLI flag on create/update/apply. The file contents
+// are injected as children of a named XML parent before the body is sent.
+// Encoding controls how the file contents are embedded: "xml-cdata" wraps them
+// in a CDATA section (for mobileconfig), "raw" inserts the XML subtree as-is
+// (for AppConfig plists).
+type ClassicFileField struct {
+	Flag                       string // CLI flag name, e.g. "mobileconfig-file"
+	XMLPath                    string // Slash-delimited path under the resource root, e.g. "general/payloads"
+	Encoding                   string // "xml-cdata" | "raw"
+	Desc                       string // Flag description shown in --help
+	NameFallback               string // "none" | "keep-ext" | "strip-ext"
+	PreservePayloadIdentifiers bool   // If true, fetch existing payloads on update and call profileconvert.InjectIdentifiers
+	FetchMergePut              bool   // If true, apply must fetch existing record, overlay only the file field, and PUT
 }
 
 // HasOperation returns true if the resource supports the given operation.

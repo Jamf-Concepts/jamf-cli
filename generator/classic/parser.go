@@ -114,5 +114,44 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		HasScope:        entry.Scope,
 		IDPath:          idPath,
 		IsConfigProfile: entry.Path == "osxconfigurationprofiles" || entry.Path == "mobiledeviceconfigurationprofiles",
+		FileFields:      classicFileFields[entry.Path],
 	}, nil
+}
+
+// classicFileFields maps the manifest's "path" (e.g. "osxconfigurationprofiles")
+// to the file-sourced fields the resource exposes on create/update/apply.
+// See ClassicFileField for semantics.
+var classicFileFields = map[string][]ClassicFileField{
+	"osxconfigurationprofiles": {{
+		Flag:                       "mobileconfig-file",
+		XMLPath:                    "general/payloads",
+		Encoding:                   "xml-cdata",
+		Desc:                       "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>",
+		NameFallback:               "strip-ext",
+		PreservePayloadIdentifiers: true,
+	}},
+	"mobiledeviceconfigurationprofiles": {{
+		Flag:                       "mobileconfig-file",
+		XMLPath:                    "general/payloads",
+		Encoding:                   "xml-cdata",
+		Desc:                       "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>",
+		NameFallback:               "strip-ext",
+		PreservePayloadIdentifiers: true,
+	}},
+	"macapplications": {{
+		Flag:          "appconfig-file",
+		XMLPath:       "app_configuration/preferences",
+		Encoding:      "xml-cdata",
+		Desc:          "Path to an AppConfig plist; contents populate <app_configuration><preferences>",
+		NameFallback:  "none",
+		FetchMergePut: true,
+	}},
+	"mobiledeviceapplications": {{
+		Flag:          "appconfig-file",
+		XMLPath:       "app_configuration/preferences",
+		Encoding:      "xml-cdata",
+		Desc:          "Path to an AppConfig plist; contents populate <app_configuration><preferences>",
+		NameFallback:  "none",
+		FetchMergePut: true,
+	}},
 }

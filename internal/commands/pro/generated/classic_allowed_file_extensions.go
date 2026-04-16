@@ -148,7 +148,7 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a allowed_file_extension",
 		Long:  "Create a new allowed_file_extension. Reads XML body from stdin.",
@@ -166,6 +166,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/allowedfileextensions/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -174,6 +175,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {

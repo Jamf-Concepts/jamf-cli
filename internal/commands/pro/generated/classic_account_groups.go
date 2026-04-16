@@ -99,7 +99,7 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a account_group",
 		Long:  "Create a new account_group. Reads XML body from stdin.",
@@ -117,6 +117,7 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/accounts/groupid/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -125,9 +126,11 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a account_group",

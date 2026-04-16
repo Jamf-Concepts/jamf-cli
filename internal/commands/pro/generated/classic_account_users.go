@@ -99,7 +99,7 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a account_user",
 		Long:  "Create a new account_user. Reads XML body from stdin.",
@@ -117,6 +117,7 @@ func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/accounts/userid/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -125,9 +126,11 @@ func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicAccountUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a account_user",

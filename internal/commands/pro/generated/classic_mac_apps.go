@@ -162,7 +162,10 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var (
+		flagAppconfigFile string
+	)
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mac_application",
 		Long:  "Create a new mac_application. Reads XML body from stdin.",
@@ -171,15 +174,27 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
+			anyFileFlag := flagAppconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --appconfig-file")
+			}
+			bodyBytes, err := injectClassicFileFields(bodyBytes, "mac_application", []classicFileFieldSpec{
+				{FilePath: flagAppconfigFile, ParentPath: []string{"app_configuration"}, LeafName: "preferences", Encoding: "xml-cdata", NameFallback: "none"},
+			})
+			if err != nil {
+				return err
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/macapplications/id/0", bytes.NewReader(bodyBytes))
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/macapplications/id/0", body)
 			if err != nil {
 				return err
 			}
@@ -188,10 +203,16 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
+	return cmd
 }
 
 func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
+	var (
+		flagAppconfigFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
@@ -203,24 +224,66 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
 
-			var path string
+			anyFileFlag := flagAppconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --appconfig-file")
+			}
+
+			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
+			var resolvedID string
+			var existingBody []byte
+
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/macapplications/name/%s", url.PathEscape(flagName))
+
+				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", flagName)
+				if ferr != nil || id == "" {
+					return fmt.Errorf("no mac_application found with name %q", flagName)
+				}
+				resolvedID = id
+				existingBody = body
+
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(args[0]))
+				resolvedID = args[0]
+
+				path := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
+				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
+				if ferr != nil {
+					return fmt.Errorf("fetching existing mac_application: %w", ferr)
+				}
+				existingBody, _ = io.ReadAll(respX.Body)
+				_ = respX.Body.Close()
+
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			// Fetch-merge-put: start from the existing record, overlay file field.
+			if len(existingBody) == 0 {
+				return fmt.Errorf("could not fetch existing mac_application for merge-put")
+			}
+			bodyBytes = existingBody
+
+			var injErr error
+			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "mac_application", []classicFileFieldSpec{
+				{FilePath: flagAppconfigFile, ParentPath: []string{"app_configuration"}, LeafName: "preferences", Encoding: "xml-cdata", NameFallback: "none"},
+			})
+			if injErr != nil {
+				return injErr
+			}
+
+			path := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(resolvedID))
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
+
 			if err != nil {
 				return err
 			}
@@ -232,6 +295,7 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mac_application by name")
 
+	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
 	return cmd
 }
 
@@ -321,9 +385,11 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMacAppsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile          string
+		flagYes           bool
+		flagDryRun        bool
+		flagName          string
+		flagAppconfigFile string
 	)
 
 	cmd := &cobra.Command{
@@ -347,14 +413,33 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
+			anyFileFlag := flagAppconfigFile != ""
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+
+			// Inject file fields before name extraction so name-fallback (if any)
+			// can populate <general><name> for lookup.
+			data, err = injectClassicFileFields(data, "mac_application", []classicFileFieldSpec{
+				{FilePath: flagAppconfigFile, ParentPath: []string{"app_configuration"}, LeafName: "preferences", Encoding: "xml-cdata", NameFallback: "none"},
+			})
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "mac_application")
-			if err != nil {
-				return err
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			if flagName != "" {
+				name = flagName
+			} else {
+				name, err = extractClassicName(data, "mac_application")
+				if err != nil {
+					return fmt.Errorf("--name is required when input body is empty: %w", err)
+				}
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
@@ -365,18 +450,10 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create mac_application %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/macapplications/id/0", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created mac_application %q\n", name)
-				return ctx.Output.PrintResponse(resp)
+				// Not found — create (not allowed for fetch-merge-put resources)
+
+				return fmt.Errorf("no mac_application found with name %q — this resource must already exist (apply is fetch-merge-put only)", name)
+
 			}
 
 			// Found — replace
@@ -396,6 +473,21 @@ If not, a new resource is created.`,
 				}
 			}
 
+			// Fetch the existing full record and overlay the file field(s) — the
+			// user's input (if any) is ignored beyond name resolution; AppConfig
+			// injection preserves every other field on the record.
+			_, fullBody, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "macapplications", name)
+			if ferr != nil || len(fullBody) == 0 {
+				return fmt.Errorf("fetching existing mac_application for merge-put: %w", ferr)
+			}
+			data = fullBody
+			data, err = injectClassicFileFields(data, "mac_application", []classicFileFieldSpec{
+				{FilePath: flagAppconfigFile, ParentPath: []string{"app_configuration"}, LeafName: "preferences", Encoding: "xml-cdata", NameFallback: "none"},
+			})
+			if err != nil {
+				return err
+			}
+
 			updatePath := fmt.Sprintf("/JSSResource/macapplications/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
@@ -410,6 +502,9 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing mac_application to update (required when body is empty)")
+
+	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
 
 	return cmd
 }

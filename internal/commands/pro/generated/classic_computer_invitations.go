@@ -155,7 +155,7 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_invitation",
 		Long:  "Create a new computer_invitation. Reads XML body from stdin.",
@@ -173,6 +173,7 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerinvitations/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -181,6 +182,7 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {

@@ -238,7 +238,8 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
+		flagScaffold   bool
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -287,16 +288,29 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -310,6 +324,7 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
 
 	return cmd
 }
@@ -318,6 +333,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -382,16 +399,29 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -406,6 +436,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
 
 	return cmd
 }
@@ -817,16 +849,19 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -1031,10 +1066,11 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 
 func newComputerExtensionAttributesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
+		fromFile       string
+		flagYes        bool
+		flagDryRun     bool
+		flagScaffold   bool
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -1080,12 +1116,23 @@ If not, a new resource is created.`,
 }`, ctx.Output.Format())
 			}
 
-			// Read input (JSON or YAML)
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
 			data, err := readApplyInput(fromFile)
-			if err != nil {
+			anyFileFlag := flagScriptFile != ""
+			if err != nil && !anyFileFlag {
 				return err
 			}
-			data, err = normalizeInputToJSON(data)
+			err = nil
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+			data, err = injectFileFields(data, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
 			if err != nil {
 				return err
 			}
@@ -1150,6 +1197,7 @@ If not, a new resource is created.`,
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
 
 	return cmd
 }

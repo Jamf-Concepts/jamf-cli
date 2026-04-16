@@ -4,11 +4,13 @@ package generated
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -321,6 +323,80 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		}
 	}
 	return filtered
+}
+
+// fileFieldSpec describes one request-body field whose value is sourced from
+// a local file. The generator emits these specs inline per operation.
+type fileFieldSpec struct {
+	FilePath       string // value of the user-facing flag (e.g. --script-file); empty = skip
+	Field          string // JSON property to populate (e.g. "scriptContents")
+	Encoding       string // "raw" | "base64"
+	CompanionField string // optional JSON property auto-filled with filepath.Base(FilePath) when absent
+	NameFallback   string // "none" | "keep-ext" | "strip-ext"
+	NameField      string // resource's name property (usually "name")
+}
+
+// injectFileFields overlays file-sourced fields into a JSON request body.
+// If body is empty and at least one file flag is active, a new object is
+// constructed. File values overwrite any value already present in the body;
+// companion and name fields are only filled when absent.
+// NOTE: Also used by classic helpers (same generated package).
+func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
+	active := false
+	for _, s := range specs {
+		if s.FilePath != "" {
+			active = true
+			break
+		}
+	}
+	if !active {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	for _, s := range specs {
+		if s.FilePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(s.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		}
+		switch s.Encoding {
+		case "base64":
+			m[s.Field] = base64.StdEncoding.EncodeToString(data)
+		default:
+			m[s.Field] = string(data)
+		}
+		if s.CompanionField != "" {
+			if _, has := m[s.CompanionField]; !has {
+				m[s.CompanionField] = filepath.Base(s.FilePath)
+			}
+		}
+		if s.NameFallback != "" && s.NameFallback != "none" && s.NameField != "" {
+			if _, has := m[s.NameField]; !has {
+				name := filepath.Base(s.FilePath)
+				if s.NameFallback == "strip-ext" {
+					if idx := strings.LastIndex(name, "."); idx > 0 {
+						name = name[:idx]
+					}
+				}
+				m[s.NameField] = name
+			}
+		}
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling body after file-field injection: %w", err)
+	}
+	return out, nil
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.

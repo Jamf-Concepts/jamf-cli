@@ -156,7 +156,7 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a network_segment",
 		Long:  "Create a new network_segment. Reads XML body from stdin.",
@@ -174,6 +174,7 @@ func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/networksegments/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -182,6 +183,7 @@ func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicNetworkSegmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -341,12 +343,16 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "network_segment")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "network_segment")
 			if err != nil {
 				return err
 			}
@@ -359,7 +365,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create network_segment %q\n", name)
 					return nil
@@ -371,6 +378,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created network_segment %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace
