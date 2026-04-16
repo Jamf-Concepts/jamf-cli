@@ -162,6 +162,7 @@ func (f *Formatter) printCSV(data any) error {
 		if len(v) == 0 {
 			return nil
 		}
+		v = flattenRows(v)
 		headers := sortedKeys(v[0])
 		_ = w.Write(headers)
 		for _, row := range v {
@@ -182,6 +183,7 @@ func (f *Formatter) printPlain(data any) error {
 	// Tab-separated, no headers
 	switch v := data.(type) {
 	case []map[string]any:
+		v = flattenRows(v)
 		for _, row := range v {
 			keys := sortedKeys(row)
 			vals := make([]string, len(keys))
@@ -208,6 +210,9 @@ func (f *Formatter) printTable(data any) error {
 		return nil
 	}
 
+	// Flatten nested objects to dot-notation columns for readable table output
+	rows = flattenRows(rows)
+
 	allKeys := sortedKeys(rows[0])
 
 	// Filter columns unless --wide is set
@@ -215,7 +220,7 @@ func (f *Formatter) printTable(data any) error {
 	if f.wide {
 		keys = allKeys
 	} else {
-		keys = defaultColumns(allKeys)
+		keys = defaultColumns(allKeys, rows[0])
 		if len(keys) == 0 {
 			keys = allKeys // fallback if no default columns found
 		}
@@ -373,16 +378,20 @@ func (f *Formatter) PrintError(err error, code string, details map[string]any) {
 }
 
 // keyPriority returns the sort priority for a column key.
-// "id" gets priority 0, "name" gets priority 1, everything else gets 2.
+// "id" gets priority 0, "name" (or "section.name") gets priority 1, everything else gets 2.
 func keyPriority(key string) int {
 	switch key {
 	case "id":
 		return 0
 	case "name":
 		return 1
-	default:
-		return 2
 	}
+	// Dotted keys: "general.name" → priority 1 (single nesting level only)
+	parts := strings.Split(key, ".")
+	if len(parts) == 2 && parts[1] == "name" {
+		return 1
+	}
+	return 2
 }
 
 // sortedKeys returns map keys in deterministic order:
@@ -409,12 +418,144 @@ const defaultColumnLimit = 8
 
 // defaultColumns returns columns to show when not in wide mode.
 // Shows up to defaultColumnLimit columns in sortedKeys order (id first,
-// name second, then alphabetical). Use --wide for all columns.
-func defaultColumns(allKeys []string) []string {
+// name second, then alphabetical). Array-valued columns (which render as
+// huge compact JSON in table mode) are pushed after scalar columns so they
+// only fill remaining slots. Use --wide for all columns.
+func defaultColumns(allKeys []string, firstRow map[string]any) []string {
 	if len(allKeys) <= defaultColumnLimit {
 		return allKeys
 	}
-	return allKeys[:defaultColumnLimit]
+	var scalars, arrays []string
+	for _, k := range allKeys {
+		if _, isArr := firstRow[k].([]any); isArr {
+			arrays = append(arrays, k)
+		} else {
+			scalars = append(scalars, k)
+		}
+	}
+	result := scalars
+	if len(result) < defaultColumnLimit {
+		remaining := defaultColumnLimit - len(result)
+		if remaining > len(arrays) {
+			remaining = len(arrays)
+		}
+		result = append(result, arrays[:remaining]...)
+	}
+	if len(result) > defaultColumnLimit {
+		result = result[:defaultColumnLimit]
+	}
+	return result
+}
+
+// flattenRows flattens nested objects in each row to dot-notation keys for
+// table/csv/plain display. Empty objects, empty arrays, and nil values are
+// dropped. Non-empty arrays are kept as-is. Returns the original slice
+// unchanged when no row contains a nested object (zero allocation fast path).
+func flattenRows(rows []map[string]any) []map[string]any {
+	needsFlatten := false
+	for _, row := range rows {
+		for _, v := range row {
+			if m, ok := v.(map[string]any); ok && len(m) > 0 {
+				needsFlatten = true
+				break
+			}
+		}
+		if needsFlatten {
+			break
+		}
+	}
+	if !needsFlatten {
+		return rows
+	}
+	result := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		flat := make(map[string]any)
+		flattenMap(flat, "", row)
+		result[i] = flat
+	}
+	return stripCommonPrefix(result)
+}
+
+// flattenMap recursively flattens nested maps into dot-notation keys.
+func flattenMap(dst map[string]any, prefix string, src map[string]any) {
+	for k, v := range src {
+		key := k
+		if prefix != "" {
+			key = prefix + "." + k
+		}
+		switch val := v.(type) {
+		case map[string]any:
+			if len(val) == 0 {
+				continue
+			}
+			flattenMap(dst, key, val)
+		case []any:
+			if len(val) == 0 {
+				continue
+			}
+			dst[key] = v
+		case nil:
+			continue
+		default:
+			dst[key] = v
+		}
+	}
+}
+
+// stripCommonPrefix removes a shared dot-notation prefix from flattened keys
+// when all dotted keys share the same first segment (e.g. all start with
+// "general."). This turns "general.name" → "name", "general.platform" →
+// "platform", etc. If keys come from multiple sections or stripping would
+// collide with an existing key, the rows are returned unchanged.
+func stripCommonPrefix(rows []map[string]any) []map[string]any {
+	if len(rows) == 0 {
+		return rows
+	}
+	first := rows[0]
+
+	// Collect dotted keys and non-dotted keys
+	var dottedKeys []string
+	nonDotted := make(map[string]bool)
+	for k := range first {
+		if strings.Contains(k, ".") {
+			dottedKeys = append(dottedKeys, k)
+		} else {
+			nonDotted[k] = true
+		}
+	}
+	if len(dottedKeys) < 2 {
+		return rows
+	}
+
+	// Find common first-segment prefix
+	dot := strings.Index(dottedKeys[0], ".")
+	if dot < 0 {
+		return rows
+	}
+	prefix := dottedKeys[0][:dot+1]
+	for _, k := range dottedKeys[1:] {
+		if !strings.HasPrefix(k, prefix) {
+			return rows
+		}
+	}
+
+	// Check for collisions with existing non-dotted keys
+	for _, k := range dottedKeys {
+		if nonDotted[strings.TrimPrefix(k, prefix)] {
+			return rows
+		}
+	}
+
+	// Strip the prefix from all rows
+	result := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		newRow := make(map[string]any, len(row))
+		for k, v := range row {
+			newRow[strings.TrimPrefix(k, prefix)] = v
+		}
+		result[i] = newRow
+	}
+	return result
 }
 
 // FormatValue converts a value to its string representation for table/csv/plain output.

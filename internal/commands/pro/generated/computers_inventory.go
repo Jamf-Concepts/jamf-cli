@@ -68,6 +68,10 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/computers-inventory"
+			// Apply default list sections when --section was not explicitly set
+			if !cmd.Flags().Changed("section") {
+				flagSection = []string{"GENERAL", "HARDWARE", "OPERATING_SYSTEM"}
+			}
 
 			// Build query string
 			var queryParts []string
@@ -156,6 +160,14 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "id", label: "id"},
+					{field: "general.name", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "operatingSystem.version", label: "osVersion"},
+					{field: "general.lastContactTime", label: "lastContactTime"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 
@@ -233,7 +245,10 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v3/computers-inventory/{id}"
+			path := "/v3/computers-inventory-detail/{id}"
+			if cmd.Flags().Changed("section") {
+				path = "/v3/computers-inventory/{id}"
+			}
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -258,7 +273,7 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=general&section=hardware")
+	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
@@ -711,6 +726,14 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "id", label: "id"},
+					{field: "general.name", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "operatingSystem.version", label: "osVersion"},
+					{field: "general.lastContactTime", label: "lastContactTime"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 
