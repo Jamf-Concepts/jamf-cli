@@ -46,6 +46,12 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
 	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
 
+	// Suppress generated Classic "computers" (basic v1 list) — replaced by
+	// "computers-inventory" which is aliased to "computers"/"comp" and has the
+	// full modern v3 CRUD plus curated table output. MDM actions continue to be
+	// wired into "computers" via addSubcommand (resolves via alias).
+	removeSubcommand(cmd, []string{}, "computers")
+
 	// Suppress generated commands duplicated by richer handwritten versions (see #39)
 	// Handwritten counterparts support --serial/--name/--group/--from-file targeting and bulk ops.
 	removeSubcommand(cmd, []string{}, "erase-device-computers")              // → pro comp erase
@@ -64,26 +70,26 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"classic-mobile-config-profiles"}, newMobileProfileUploadCmd(cliCtx))
 
 	// Add device action subcommands to generated resource parents
-	addSubcommand(cmd, []string{"computers"}, newComputerEraseCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerRemoveMDMCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerRedeployFrameworkCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerBlankPushCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerDDMSyncCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerRenewMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEraseCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerBlankPushCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDDMSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRenewMDMCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
 
 	// Modern API computer MDM commands
-	addSubcommand(cmd, []string{"computers"}, newComputerLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerEnableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerDisableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerRestartCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerShutdownCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerSetRecoveryLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerSettingsCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEnableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDisableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSettingsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
 
-	addSubcommand(cmd, []string{"computers"}, newComputerFlushCommandsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computers-inventory"}, newComputerFlushCommandsCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileFlushCommandsCmd(cliCtx))
 
 	// Mobile device MDM commands (modern API where available, Classic where not)
