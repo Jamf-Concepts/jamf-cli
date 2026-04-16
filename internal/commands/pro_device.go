@@ -19,8 +19,9 @@ import (
 
 func newDeviceCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
-		Use:   "device <name|serial|id>",
-		Short: "Show a comprehensive view of a single device",
+		Use:    "device <name|serial|id>",
+		Hidden: true,
+		Short:  "Show a comprehensive view of a single device",
 		Long: `Display a detailed, aggregated view of a single Jamf Pro device including
 identity, hardware, OS, security posture, user info, MDM command history,
 and policy execution logs.
