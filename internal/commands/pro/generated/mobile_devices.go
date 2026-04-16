@@ -135,6 +135,14 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "id", label: "id"},
+					{field: "name", label: "name"},
+					{field: "serialNumber", label: "serial"},
+					{field: "model", label: "model"},
+					{field: "type", label: "type"},
+					{field: "username", label: "username"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 

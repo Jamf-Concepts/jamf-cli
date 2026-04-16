@@ -103,6 +103,9 @@ func main() {
 	// resource names are in their final canonical form.
 	parser.ApplyLookupFields(resources)
 
+	// Apply preferred table columns and default sections for list commands.
+	parser.ApplyTableColumns(resources)
+
 	// Track every file we write so we can delete stale files from previous generator runs.
 	generatedFiles := make(map[string]bool)
 

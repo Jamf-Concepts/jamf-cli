@@ -108,6 +108,49 @@ var resourceIDFieldOverrides = map[string]string{
 	"groups": "groupPlatformId",
 }
 
+// resourceTableColumns maps canonical resource names to preferred columns for
+// list table output. When set, the generated list command selects exactly these
+// columns for table/csv/plain output instead of the generic alphabetical selection.
+// JSON/YAML output is unaffected.
+var resourceTableColumns = map[string][]TableColumn{
+	"computers-inventory": {
+		{Field: "id", Label: "id"},
+		{Field: "general.name", Label: "name"},
+		{Field: "hardware.serialNumber", Label: "serial"},
+		{Field: "hardware.model", Label: "model"},
+		{Field: "operatingSystem.version", Label: "osVersion"},
+		{Field: "general.lastContactTime", Label: "lastContactTime"},
+	},
+	"mobile-devices": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "serialNumber", Label: "serial"},
+		{Field: "model", Label: "model"},
+		{Field: "type", Label: "type"},
+		{Field: "username", Label: "username"},
+	},
+}
+
+// resourceDefaultSections maps canonical resource names to the default --section
+// values for list commands. When set, the generated list command fetches these
+// sections by default to ensure table output has the necessary data.
+var resourceDefaultSections = map[string][]string{
+	"computers-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
+}
+
+// ApplyTableColumns sets TableColumns and DefaultSections on resources that have
+// preferred column configuration. Must be called after ApplyNameOverrides.
+func ApplyTableColumns(resources []*Resource) {
+	for _, r := range resources {
+		if cols, ok := resourceTableColumns[r.Name]; ok {
+			r.TableColumns = cols
+		}
+		if sections, ok := resourceDefaultSections[r.Name]; ok {
+			r.DefaultSections = sections
+		}
+	}
+}
+
 // ApplyNameFieldOverrides corrects NameField and IDField values that the
 // auto-detection heuristics got wrong. Must be called after ApplyNameOverrides
 // so resource names are in their final canonical form.

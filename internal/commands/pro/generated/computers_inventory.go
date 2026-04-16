@@ -68,6 +68,10 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v3/computers-inventory"
+			// Apply default list sections when --section was not explicitly set
+			if !cmd.Flags().Changed("section") {
+				flagSection = []string{"GENERAL", "HARDWARE", "OPERATING_SYSTEM"}
+			}
 
 			// Build query string
 			var queryParts []string
@@ -156,6 +160,14 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "id", label: "id"},
+					{field: "general.name", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "operatingSystem.version", label: "osVersion"},
+					{field: "general.lastContactTime", label: "lastContactTime"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 
@@ -711,6 +723,14 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "id", label: "id"},
+					{field: "general.name", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "operatingSystem.version", label: "osVersion"},
+					{field: "general.lastContactTime", label: "lastContactTime"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 

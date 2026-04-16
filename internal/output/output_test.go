@@ -210,9 +210,81 @@ func TestPrintRaw_Table_NestedObject(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// Nested objects should be rendered as compact JSON
-	if !strings.Contains(out, `{"cpu":"M1","ram":"16GB"}`) {
-		t.Errorf("expected compact JSON for nested object, got:\n%s", out)
+	// Nested object flattened; common prefix "details." stripped since all dotted keys share it
+	if !strings.Contains(out, "CPU") {
+		t.Errorf("expected CPU column header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "M1") {
+		t.Errorf("expected M1 value, got:\n%s", out)
+	}
+	if !strings.Contains(out, "RAM") {
+		t.Errorf("expected RAM column header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "16GB") {
+		t.Errorf("expected 16GB value, got:\n%s", out)
+	}
+}
+
+func TestPrintRaw_Table_NestedFlattening_ComputersInventory(t *testing.T) {
+	f, buf := newTestFormatter("table")
+	// Simulated computers-inventory response: useful data nested, empty sections dropped
+	input := `[{"id":"5","udid":"ABC-123","general":{"name":"MacBook Pro","platform":"Mac","supervised":true},"applications":[],"hardware":{}}]`
+	err := f.PrintRaw([]byte(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	// Common prefix "general." should be stripped — column shows NAME not GENERAL.NAME
+	if !strings.Contains(out, "NAME") {
+		t.Errorf("expected NAME column, got:\n%s", out)
+	}
+	if strings.Contains(out, "GENERAL.NAME") {
+		t.Errorf("common prefix should be stripped — expected NAME not GENERAL.NAME, got:\n%s", out)
+	}
+	if !strings.Contains(out, "MacBook Pro") {
+		t.Errorf("expected 'MacBook Pro' value, got:\n%s", out)
+	}
+	// Empty arrays/objects should be dropped
+	if strings.Contains(out, "APPLICATIONS") {
+		t.Errorf("empty array 'applications' should be dropped, got:\n%s", out)
+	}
+	if strings.Contains(out, "HARDWARE") {
+		t.Errorf("empty object 'hardware' should be dropped, got:\n%s", out)
+	}
+}
+
+func TestPrintRaw_Table_MixedPrefixesNotStripped(t *testing.T) {
+	f, buf := newTestFormatter("table")
+	f.wide = true
+	// Two different section prefixes — should NOT strip
+	input := `[{"id":"5","general":{"name":"Mac"},"hardware":{"serial":"ABC"}}]`
+	err := f.PrintRaw([]byte(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "GENERAL.NAME") {
+		t.Errorf("mixed prefixes should NOT be stripped, expected GENERAL.NAME, got:\n%s", out)
+	}
+	if !strings.Contains(out, "HARDWARE.SERIAL") {
+		t.Errorf("mixed prefixes should NOT be stripped, expected HARDWARE.SERIAL, got:\n%s", out)
+	}
+}
+
+func TestPrintRaw_Table_NoFlatteningForFlatData(t *testing.T) {
+	f, buf := newTestFormatter("table")
+	// Flat data should pass through unchanged (no nested objects)
+	input := `[{"id":1,"name":"Test","serial":"ABC"}]`
+	err := f.PrintRaw([]byte(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "NAME") {
+		t.Errorf("expected NAME column for flat data, got:\n%s", out)
+	}
+	if !strings.Contains(out, "SERIAL") {
+		t.Errorf("expected SERIAL column for flat data, got:\n%s", out)
 	}
 }
 
@@ -416,6 +488,96 @@ func TestSortedKeys(t *testing.T) {
 		if keys[i] != k {
 			t.Errorf("key[%d] = %q, want %q (full: %v)", i, keys[i], k, keys)
 		}
+	}
+}
+
+func TestSortedKeys_DottedNames(t *testing.T) {
+	m := map[string]any{
+		"id":               "5",
+		"udid":             "ABC",
+		"general.name":     "MacBook",
+		"general.platform": "Mac",
+	}
+	keys := sortedKeys(m)
+	// id first, general.name second (dotted name priority), rest alphabetical
+	if keys[0] != "id" {
+		t.Errorf("expected id first, got %q", keys[0])
+	}
+	if keys[1] != "general.name" {
+		t.Errorf("expected general.name second, got %q", keys[1])
+	}
+}
+
+func TestKeyPriority_DottedNames(t *testing.T) {
+	tests := []struct {
+		key      string
+		expected int
+	}{
+		{"id", 0},
+		{"name", 1},
+		{"general.name", 1},
+		{"general.platform", 2},
+		{"general.site.name", 2}, // two dots — not promoted
+		{"udid", 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.key, func(t *testing.T) {
+			got := keyPriority(tc.key)
+			if got != tc.expected {
+				t.Errorf("keyPriority(%q) = %d, want %d", tc.key, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFlattenRows_FlatData(t *testing.T) {
+	rows := []map[string]any{
+		{"id": float64(1), "name": "Test"},
+	}
+	result := flattenRows(rows)
+	// Should return original slice (no allocation)
+	if len(result) != 1 || result[0]["name"] != "Test" {
+		t.Errorf("flat data should pass through unchanged, got: %v", result)
+	}
+}
+
+func TestFlattenRows_NestedData(t *testing.T) {
+	rows := []map[string]any{
+		{
+			"id":          "5",
+			"general":     map[string]any{"name": "Mac", "platform": "Mac"},
+			"hardware":    map[string]any{}, // empty — dropped
+			"apps":        []any{},          // empty array — dropped
+			"tags":        []any{"a", "b"},  // non-empty array — kept
+			"description": nil,              // nil — dropped
+		},
+	}
+	result := flattenRows(rows)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(result))
+	}
+	flat := result[0]
+	if flat["id"] != "5" {
+		t.Errorf("id should be preserved, got %v", flat["id"])
+	}
+	// Common prefix "general." stripped since all dotted keys share it
+	if flat["name"] != "Mac" {
+		t.Errorf("general.name should be flattened and prefix-stripped to 'name', got %v", flat["name"])
+	}
+	if flat["platform"] != "Mac" {
+		t.Errorf("general.platform should be flattened and prefix-stripped to 'platform', got %v", flat["platform"])
+	}
+	if _, ok := flat["hardware"]; ok {
+		t.Error("empty object 'hardware' should be dropped")
+	}
+	if _, ok := flat["apps"]; ok {
+		t.Error("empty array 'apps' should be dropped")
+	}
+	if _, ok := flat["tags"]; !ok {
+		t.Error("non-empty array 'tags' should be kept")
+	}
+	if _, ok := flat["description"]; ok {
+		t.Error("nil 'description' should be dropped")
 	}
 }
 
@@ -720,7 +882,7 @@ func TestPrintRaw_Table_WideMode(t *testing.T) {
 
 func TestDefaultColumns(t *testing.T) {
 	allKeys := []string{"zebra", "id", "serial", "name", "status", "extra"}
-	result := defaultColumns(allKeys)
+	result := defaultColumns(allKeys, nil)
 
 	// 6 keys <= 8 limit, so all are returned
 	if len(result) != 6 {
@@ -730,7 +892,7 @@ func TestDefaultColumns(t *testing.T) {
 
 func TestDefaultColumns_NoStatusColumns(t *testing.T) {
 	allKeys := []string{"id", "name", "serial", "extra"}
-	result := defaultColumns(allKeys)
+	result := defaultColumns(allKeys, nil)
 
 	// 4 keys <= 8 limit, so all are returned
 	if len(result) != 4 {
@@ -740,7 +902,7 @@ func TestDefaultColumns_NoStatusColumns(t *testing.T) {
 
 func TestDefaultColumns_NoDefaultColumns(t *testing.T) {
 	allKeys := []string{"serial", "extra", "zebra"}
-	result := defaultColumns(allKeys)
+	result := defaultColumns(allKeys, nil)
 
 	// 3 keys <= 8 limit, so all are returned
 	if len(result) != 3 {
@@ -750,11 +912,33 @@ func TestDefaultColumns_NoDefaultColumns(t *testing.T) {
 
 func TestDefaultColumns_OverLimit(t *testing.T) {
 	allKeys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
-	result := defaultColumns(allKeys)
+	row := map[string]any{"a": "1", "b": "2", "c": "3", "d": "4", "e": "5", "f": "6", "g": "7", "h": "8", "i": "9", "j": "10"}
+	result := defaultColumns(allKeys, row)
 
 	// 10 keys > 8 limit, so only first 8 returned
 	if len(result) != 8 {
 		t.Fatalf("expected 8 columns (truncated to limit), got %d: %v", len(result), result)
+	}
+}
+
+func TestDefaultColumns_ArraysDeprioritized(t *testing.T) {
+	// 10 keys: 8 scalar + 2 array. Arrays should be pushed after scalars.
+	allKeys := []string{"id", "name", "bigArray", "c", "d", "e", "f", "otherArray", "g", "h"}
+	row := map[string]any{
+		"id": "1", "name": "Test", "c": "c", "d": "d", "e": "e", "f": "f", "g": "g", "h": "h",
+		"bigArray":   []any{"x", "y"},
+		"otherArray": []any{"a"},
+	}
+	result := defaultColumns(allKeys, row)
+
+	if len(result) != 8 {
+		t.Fatalf("expected 8 columns, got %d: %v", len(result), result)
+	}
+	// Array columns should not be in the first 8 (there are 8 scalar columns)
+	for _, k := range result {
+		if k == "bigArray" || k == "otherArray" {
+			t.Errorf("array column %q should be deprioritized out of default 8, got: %v", k, result)
+		}
 	}
 }
 
@@ -782,7 +966,7 @@ func TestPrintRaw_Table_FallbackToAllColumns(t *testing.T) {
 
 func TestDefaultColumns_WithImportantColumns(t *testing.T) {
 	allKeys := []string{"id", "name", "serialNumber", "lastContactDate", "udid", "extra", "status"}
-	result := defaultColumns(allKeys)
+	result := defaultColumns(allKeys, nil)
 
 	// 7 keys <= 8 limit, so all are returned
 	if len(result) != 7 {

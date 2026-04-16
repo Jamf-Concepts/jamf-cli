@@ -250,9 +250,50 @@ func extractIDString(obj map[string]any, field string) string {
 	}
 }
 
+// resolveNestedField resolves a dot-notation field path (e.g. "general.name")
+// from a parsed JSON object. Returns the string value and whether the field was
+// found. A field is "not found" when any segment of the path is missing (e.g.
+// the response didn't include the hardware section).
+func resolveNestedField(obj map[string]any, field string) (string, bool) {
+	if !strings.Contains(field, ".") {
+		if s, ok := obj[field].(string); ok {
+			return s, true
+		}
+		_, exists := obj[field]
+		return "", exists
+	}
+	parts := strings.Split(field, ".")
+	var current any = obj
+	for _, part := range parts[:len(parts)-1] {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return "", false
+		}
+		current, ok = m[part]
+		if !ok {
+			return "", false
+		}
+	}
+	m, ok := current.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	v, exists := m[parts[len(parts)-1]]
+	if !exists {
+		return "", false
+	}
+	if s, ok := v.(string); ok {
+		return s, true
+	}
+	return "", true
+}
+
 // filterResultsByName filters JSON results to those with an exact name match.
 // Some API endpoints ignore RSQL filter params (e.g. prestages) and return all
 // results. This provides a client-side fallback for accurate name resolution.
+// Supports dot-notation fields (e.g. "general.name", "hardware.serialNumber").
+// When the field is absent from the response (e.g. the hardware section wasn't
+// returned), the result is kept — the server's RSQL filter is trusted.
 func filterResultsByName(results []json.RawMessage, nameField, name string) []json.RawMessage {
 	var filtered []json.RawMessage
 	for _, raw := range results {
@@ -260,10 +301,9 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			continue
 		}
-		if v, ok := obj[nameField]; ok {
-			if s, ok := v.(string); ok && s == name {
-				filtered = append(filtered, raw)
-			}
+		val, found := resolveNestedField(obj, nameField)
+		if !found || val == name {
+			filtered = append(filtered, raw)
 		}
 	}
 	return filtered
@@ -331,10 +371,18 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 }
 
 // extractJSONField extracts a string field from a JSON object.
+// Supports dot-notation fields (e.g. "general.name").
 func extractJSONField(data []byte, field string) (string, error) {
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return "", fmt.Errorf("parsing JSON: %w", err)
+	}
+	if strings.Contains(field, ".") {
+		val, found := resolveNestedField(obj, field)
+		if !found || val == "" {
+			return "", fmt.Errorf("field %q not found or empty", field)
+		}
+		return val, nil
 	}
 	val, ok := obj[field]
 	if !ok {
@@ -573,4 +621,65 @@ func zeroVersionLocks(obj map[string]any) {
 			zeroVersionLocks(nested)
 		}
 	}
+}
+
+// tableColumn defines a preferred column for list table output.
+type tableColumn struct {
+	field string
+	label string
+}
+
+// selectTableColumns transforms a JSON array to include only the specified
+// columns with display labels. Only applies for table/csv/plain formats;
+// JSON/YAML output is returned unchanged.
+func selectTableColumns(data []byte, columns []tableColumn, format string) []byte {
+	if format == "json" || format == "yaml" || format == "xml" || format == "raw" {
+		return data
+	}
+
+	var items []json.RawMessage
+	if err := json.Unmarshal(data, &items); err != nil {
+		return data
+	}
+
+	result := make([]map[string]any, 0, len(items))
+	for _, raw := range items {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		row := make(map[string]any, len(columns))
+		for _, col := range columns {
+			row[col.label] = resolveFieldValue(obj, col.field)
+		}
+		result = append(result, row)
+	}
+
+	out, err := json.Marshal(result)
+	if err != nil {
+		return data
+	}
+	return out
+}
+
+// resolveFieldValue extracts a value from a JSON object using a dot-notation
+// field path (e.g. "general.name"). Returns nil if any segment is missing.
+func resolveFieldValue(obj map[string]any, field string) any {
+	if !strings.Contains(field, ".") {
+		return obj[field]
+	}
+	parts := strings.Split(field, ".")
+	var current any = obj
+	for _, part := range parts[:len(parts)-1] {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = m[part]
+	}
+	m, ok := current.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return m[parts[len(parts)-1]]
 }
