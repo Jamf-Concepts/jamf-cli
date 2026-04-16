@@ -1355,7 +1355,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 
 			// Build request path
+{{- if and $.GetDetailPath (not .IsList) (opHasNameLookup . $) (hasSectionParam .) }}
+			path := "{{ $.GetDetailPath }}"
+			if cmd.Flags().Changed("section") {
+				path = "{{ .Path }}"
+			}
+{{- else }}
 			path := "{{ .Path }}"
+{{- end }}
 {{- if and (isPatchOp .) (patchHasLookup $) }}
 			path = strings.Replace(path, "{{ patchPathParam $.Operations }}", url.PathEscape(resolvedPatchID), 1)
 {{- else if and (not (isPatchOp .)) (opHasNameLookup . $) }}

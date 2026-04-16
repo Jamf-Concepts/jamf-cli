@@ -19,7 +19,7 @@ paths:
         - name: section
           in: query
           description: 'section of computer details, if not specified, General section data is returned.
-            Multiple section parameters are supported, e.g. section=general&section=hardware'
+            Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE'
           required: false
           schema:
             type: array

@@ -245,7 +245,10 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v3/computers-inventory/{id}"
+			path := "/v3/computers-inventory-detail/{id}"
+			if cmd.Flags().Changed("section") {
+				path = "/v3/computers-inventory/{id}"
+			}
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -270,7 +273,7 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=general&section=hardware")
+	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")

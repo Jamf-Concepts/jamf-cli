@@ -27,7 +27,6 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
-	cmd.AddCommand(newMobileDevicesDetailCmd(ctx))
 
 	return cmd
 }
@@ -217,7 +216,7 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/mobile-devices/{id}"
+			path := "/v2/mobile-devices/{id}/detail"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -372,76 +371,6 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			"assetTag=", "enforceName=", "location.buildingId=", "location.departmentId=", "location.emailAddress=", "location.phoneNumber=", "location.position=", "location.realName=", "location.room=", "location.username=", "name=", "siteId=", "timeZone=", "tvos.airplayPassword=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
-	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
-	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
-
-	return cmd
-}
-
-func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName   string
-		flagSerial string
-		flagUdid   string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "detail [<id>]",
-		Short: "Get Mobile Device",
-		Long:  "Get MobileDevice",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-
-			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
-				if err != nil {
-					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
-				}
-				resolvedID = rid
-			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
-				if err != nil {
-					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
-				}
-				resolvedID = rid
-			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
-			}
-
-			// Build request path
-			path := "/v2/mobile-devices/{id}/detail"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
