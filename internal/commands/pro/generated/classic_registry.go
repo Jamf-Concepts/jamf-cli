@@ -451,7 +451,9 @@ func classicXMLEscape(s string) string {
 
 // fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
 // returning the bytes and its ID. Used by apply for resources that need
-// fetch-merge-put semantics (e.g. mac/mobile app AppConfig).
+// fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error
+// if the API responds with a non-2xx status so the caller doesn't PUT back an
+// HTML error page as the "existing record".
 func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
 	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
 	resp, err := client.Do(ctx, "GET", path, nil)
@@ -461,7 +463,10 @@ func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, 
 	defer func() { _ = resp.Body.Close() }()
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("reading GET %s: %w", path, err)
+	}
+	if resp.StatusCode >= 400 {
+		return "", nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
 	}
 	m, mapErr := xmlconv.ToMap(body)
 	if mapErr == nil {

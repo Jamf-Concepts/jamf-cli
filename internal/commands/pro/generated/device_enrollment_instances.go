@@ -796,7 +796,7 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 
 			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				var renameID string
-				respBytes, readErr := io.ReadAll(resp.Body)
+				respBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 				_ = resp.Body.Close()
 				if readErr != nil {
 					return fmt.Errorf("reading upload response: %w", readErr)

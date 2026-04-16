@@ -260,8 +260,15 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if ferr != nil {
 					return fmt.Errorf("fetching existing mac_application: %w", ferr)
 				}
-				existingBody, _ = io.ReadAll(respX.Body)
+				var readErr error
+				existingBody, readErr = io.ReadAll(respX.Body)
 				_ = respX.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading existing mac_application: %w", readErr)
+				}
+				if respX.StatusCode >= 400 {
+					return fmt.Errorf("fetching existing mac_application: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
+				}
 
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
