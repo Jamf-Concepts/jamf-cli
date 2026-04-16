@@ -65,22 +65,22 @@ func TestCollectCommands(t *testing.T) {
 		t.Error("expected 'version' command in entries")
 	}
 
-	// Verify a generated command like "pro computers list" is present
+	// Verify a generated command like "pro computers-inventory list" is present
 	found = false
 	for _, e := range entries {
-		if e.Command == "pro computers list" {
+		if e.Command == "pro computers-inventory list" {
 			found = true
 			if len(e.Aliases) == 0 {
-				t.Error("expected pro computers list to have aliases (e.g., 'comp')")
+				t.Error("expected pro computers-inventory list to have aliases (e.g., 'comp')")
 			}
 			if len(e.Flags) == 0 {
-				t.Error("expected pro computers list to have flags")
+				t.Error("expected pro computers-inventory list to have flags")
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("expected 'pro computers list' command in entries")
+		t.Error("expected 'pro computers-inventory list' command in entries")
 	}
 
 	// Verify 'commands' and 'help' are excluded
@@ -181,13 +181,13 @@ func TestCollectCommands_ProductAndGroup(t *testing.T) {
 
 	var found *commandEntry
 	for i := range entries {
-		if entries[i].Command == "pro computers list" {
+		if entries[i].Command == "pro computers-inventory list" {
 			found = &entries[i]
 			break
 		}
 	}
 	if found == nil {
-		t.Fatal("expected 'pro computers list' in entries")
+		t.Fatal("expected 'pro computers-inventory list' in entries")
 		return
 	}
 	if found.Product != "pro" {

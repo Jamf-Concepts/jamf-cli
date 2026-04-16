@@ -27,7 +27,6 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
-	cmd.AddCommand(newMobileDevicesDetailCmd(ctx))
 
 	return cmd
 }
@@ -37,6 +36,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPage     int
 		flagPageSize int
 		flagSort     []string
+		flagSection  []string
 		flagAll      bool
 		flagLimit    int
 	)
@@ -54,7 +54,11 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-devices"
+			path := "/v2/mobile-devices/detail"
+			// Apply default list sections when --section was not explicitly set
+			if !cmd.Flags().Changed("section") {
+				flagSection = []string{"GENERAL", "HARDWARE"}
+			}
 
 			// Build query string
 			var queryParts []string
@@ -69,6 +73,11 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
+			if len(flagSection) > 0 {
+				for _, v := range flagSection {
+					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -81,7 +90,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/mobile-devices"
+					pagePath := "/v2/mobile-devices/detail"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -135,6 +144,14 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "mobileDeviceId", label: "id"},
+					{field: "general.displayName", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "general.osVersion", label: "osVersion"},
+					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
+				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
 
@@ -152,6 +169,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
@@ -209,7 +227,7 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/mobile-devices/{id}"
+			path := "/v2/mobile-devices/{id}/detail"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -364,76 +382,6 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			"assetTag=", "enforceName=", "location.buildingId=", "location.departmentId=", "location.emailAddress=", "location.phoneNumber=", "location.position=", "location.realName=", "location.room=", "location.username=", "name=", "siteId=", "timeZone=", "tvos.airplayPassword=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
-	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
-	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
-
-	return cmd
-}
-
-func newMobileDevicesDetailCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName   string
-		flagSerial string
-		flagUdid   string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "detail [<id>]",
-		Short: "Get Mobile Device",
-		Long:  "Get MobileDevice",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-
-			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
-				if err != nil {
-					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
-				}
-				resolvedID = rid
-			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
-				if err != nil {
-					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
-				}
-				resolvedID = rid
-			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
-			}
-
-			// Build request path
-			path := "/v2/mobile-devices/{id}/detail"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")

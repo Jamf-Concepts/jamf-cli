@@ -10,7 +10,7 @@ import (
 
 func TestApplyAliases(t *testing.T) {
 	parent := &cobra.Command{Use: "pro"}
-	parent.AddCommand(&cobra.Command{Use: "computers"})
+	parent.AddCommand(&cobra.Command{Use: "computers-inventory"})
 	parent.AddCommand(&cobra.Command{Use: "mobile-devices"})
 	parent.AddCommand(&cobra.Command{Use: "scripts"})
 	parent.AddCommand(&cobra.Command{Use: "buildings"})
@@ -25,7 +25,7 @@ func TestApplyAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"computers", []string{"comp"}},
+		{"computers-inventory", []string{"computers", "comp"}},
 		{"mobile-devices", []string{"md"}},
 		{"scripts", []string{"scr"}},
 		{"buildings", []string{"bld"}},

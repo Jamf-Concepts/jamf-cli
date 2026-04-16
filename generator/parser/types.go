@@ -10,6 +10,12 @@ type LookupField struct {
 	Desc      string // Flag description shown in --help
 }
 
+// TableColumn defines a preferred column for list table output.
+type TableColumn struct {
+	Field string // JSON field path (e.g., "general.name") — may use dot-notation for nested fields
+	Label string // Display label (e.g., "name") — used as the column header
+}
+
 // Resource represents a parsed API resource (e.g., buildings, computers)
 type Resource struct {
 	Name              string // e.g., "buildings"
@@ -25,6 +31,9 @@ type Resource struct {
 	NameLookupPath    string        // Override list path for name resolution (when the standard list endpoint ignores RSQL)
 	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
 	HasVersionLock    bool          // True when PUT/POST request body includes versionLock (optimistic locking for prestages)
+	TableColumns      []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
+	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)
+	GetDetailPath     string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.
 }
 
 // Operation represents an API operation (endpoint)

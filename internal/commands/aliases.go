@@ -7,7 +7,7 @@ import "github.com/spf13/cobra"
 // commandAliases maps Jamf Pro command names to their short aliases.
 // Applied to children of the "pro" command.
 var commandAliases = map[string][]string{
-	"computers":              {"comp"},
+	"computers-inventory":    {"computers", "comp"},
 	"mobile-devices":         {"md"},
 	"scripts":                {"scr"},
 	"buildings":              {"bld"},

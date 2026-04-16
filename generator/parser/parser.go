@@ -108,6 +108,196 @@ var resourceIDFieldOverrides = map[string]string{
 	"groups": "groupPlatformId",
 }
 
+// resourceTableColumns maps canonical resource names to preferred columns for
+// list table output. When set, the generated list command selects exactly these
+// columns for table/csv/plain output instead of the generic alphabetical selection.
+// JSON/YAML output is unaffected.
+var resourceTableColumns = map[string][]TableColumn{
+	"computers-inventory": {
+		{Field: "id", Label: "id"},
+		{Field: "general.name", Label: "name"},
+		{Field: "hardware.serialNumber", Label: "serial"},
+		{Field: "hardware.model", Label: "model"},
+		{Field: "operatingSystem.version", Label: "osVersion"},
+		{Field: "general.lastContactTime", Label: "lastContactTime"},
+	},
+	"mobile-devices": {
+		{Field: "mobileDeviceId", Label: "id"},
+		{Field: "general.displayName", Label: "name"},
+		{Field: "hardware.serialNumber", Label: "serial"},
+		{Field: "hardware.model", Label: "model"},
+		{Field: "general.osVersion", Label: "osVersion"},
+		{Field: "general.lastInventoryUpdateDate", Label: "lastInventoryUpdate"},
+	},
+}
+
+// resourceDefaultSections maps canonical resource names to the default --section
+// values for list commands. When set, the generated list command fetches these
+// sections by default to ensure table output has the necessary data.
+var resourceDefaultSections = map[string][]string{
+	"computers-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
+	"mobile-devices":      {"GENERAL", "HARDWARE"},
+}
+
+// resourceListDetailPathOverrides maps canonical resource names to a detail list
+// endpoint that supports --section filtering. The list operation's path is swapped
+// and a section query parameter is injected. DefaultSections provides defaults.
+var resourceListDetailPathOverrides = map[string]string{
+	// /v2/mobile-devices returns flat basic records;
+	// /v2/mobile-devices/detail returns sectioned records with richer data.
+	"mobile-devices": "/v2/mobile-devices/detail",
+}
+
+// ApplyListDetailPaths swaps the "list" operation's path to a richer detail
+// endpoint and injects a section query parameter. Must be called after
+// ApplyNameOverrides and before ApplyTableColumns.
+func ApplyListDetailPaths(resources []*Resource) {
+	for _, r := range resources {
+		detailPath, ok := resourceListDetailPathOverrides[r.Name]
+		if !ok {
+			continue
+		}
+		for _, op := range r.Operations {
+			if op.Name == "list" && op.Method == "GET" {
+				op.Path = detailPath
+				// Inject section parameter if not already present.
+				hasSection := false
+				for _, p := range op.Parameters {
+					if p.Name == "section" {
+						hasSection = true
+						break
+					}
+				}
+				if !hasSection {
+					op.Parameters = append(op.Parameters, &Parameter{
+						Name:        "section",
+						In:          "query",
+						Description: "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE",
+						Type:        "string",
+						IsArray:     true,
+					})
+				}
+				break
+			}
+		}
+	}
+}
+
+// resourceGetDetailPathOverrides maps canonical resource names to an alternate
+// detail path that the "get" command should use instead of the basic GET/{id}.
+// When set, the "get" operation's path is swapped to the detail endpoint (which
+// returns all sections/fields) and any operations made redundant by the swap
+// (e.g. a "detail" subcommand) are removed.
+var resourceGetDetailPathOverrides = map[string]struct {
+	DetailPath string   // Path to use for "get" (must contain {id})
+	Remove     []string // Operation names to remove (now redundant)
+}{
+	// /v3/computers-inventory/{id} returns only requested sections;
+	// /v3/computers-inventory-detail/{id} returns all sections — better for "get".
+	"computers-inventory": {
+		DetailPath: "/v3/computers-inventory-detail/{id}",
+	},
+	// /v2/mobile-devices/{id} returns basic info;
+	// /v2/mobile-devices/{id}/detail returns full detail — better for "get".
+	// The parser auto-created a "detail" subcommand from the detail path; remove it.
+	"mobile-devices": {
+		DetailPath: "/v2/mobile-devices/{id}/detail",
+		Remove:     []string{"detail"},
+	},
+}
+
+// ApplyGetDetailPaths configures "get" commands to use a richer detail endpoint.
+// For resources whose get has a section parameter (e.g. computers-inventory), the
+// detail path is stored in GetDetailPath and used as the default — specifying
+// --section overrides back to the original path. For resources without section
+// filtering (e.g. mobile-devices), the get path is swapped outright.
+// Must be called after ApplyNameOverrides.
+func ApplyGetDetailPaths(resources []*Resource) {
+	for _, r := range resources {
+		override, ok := resourceGetDetailPathOverrides[r.Name]
+		if !ok {
+			continue
+		}
+
+		// Collect all "get" GET operations. Some resources have two: one on the
+		// basic path (with section param) and one on the detail path (without).
+		var getOps []*Operation
+		for _, op := range r.Operations {
+			if op.Name == "get" && op.Method == "GET" {
+				getOps = append(getOps, op)
+			}
+		}
+		if len(getOps) == 0 {
+			continue
+		}
+
+		// Check if any get op has a section query parameter.
+		var sectionGet *Operation
+		for _, op := range getOps {
+			for _, p := range op.Parameters {
+				if p.In == "query" && p.Name == "section" {
+					sectionGet = op
+					break
+				}
+			}
+			if sectionGet != nil {
+				break
+			}
+		}
+
+		// Pick the surviving get operation and configure the detail path.
+		var keeper *Operation
+		if sectionGet != nil {
+			// Keep the section-capable get. Template will use GetDetailPath when
+			// --section is not explicitly set, falling back to the original path
+			// with section params when --section is provided.
+			keeper = sectionGet
+			r.GetDetailPath = override.DetailPath
+		} else {
+			// No section filtering — swap the path outright and strip query params.
+			keeper = getOps[0]
+			keeper.Path = override.DetailPath
+			var kept []*Parameter
+			for _, p := range keeper.Parameters {
+				if p.In == "path" {
+					kept = append(kept, p)
+				}
+			}
+			keeper.Parameters = kept
+		}
+
+		// Remove duplicate "get" GET ops and any operations listed in Remove.
+		removeSet := make(map[string]bool, len(override.Remove))
+		for _, name := range override.Remove {
+			removeSet[name] = true
+		}
+		var kept []*Operation
+		for _, op := range r.Operations {
+			if removeSet[op.Name] {
+				continue
+			}
+			if op.Name == "get" && op.Method == "GET" && op != keeper {
+				continue
+			}
+			kept = append(kept, op)
+		}
+		r.Operations = kept
+	}
+}
+
+// ApplyTableColumns sets TableColumns and DefaultSections on resources that have
+// preferred column configuration. Must be called after ApplyNameOverrides.
+func ApplyTableColumns(resources []*Resource) {
+	for _, r := range resources {
+		if cols, ok := resourceTableColumns[r.Name]; ok {
+			r.TableColumns = cols
+		}
+		if sections, ok := resourceDefaultSections[r.Name]; ok {
+			r.DefaultSections = sections
+		}
+	}
+}
+
 // ApplyNameFieldOverrides corrects NameField and IDField values that the
 // auto-detection heuristics got wrong. Must be called after ApplyNameOverrides
 // so resource names are in their final canonical form.
