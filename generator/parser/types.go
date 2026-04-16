@@ -16,13 +16,14 @@ type LookupField struct {
 // may have supplied in the body. Encoding, companion-field population, and
 // name fallback are all driven per entry.
 type FileField struct {
-	Flag           string // CLI flag name, e.g. "script-file"
-	Field          string // Request-body property that receives the file contents, e.g. "scriptContents"
-	Encoding       string // "raw" (string) or "base64"
-	Desc           string // Flag description shown in --help
-	CompanionField string // Optional: body property auto-populated with filepath.Base(path) when absent (e.g. "tokenFileName" for DEP)
-	NameFallback   string // "none" | "keep-ext" | "strip-ext" — when the body lacks a name, derive one from the filename
-	NameFlag       bool   // When true, emit a --name flag on create/apply/upload-style ops that sets the body's name field (for tokens whose filename makes a poor record name).
+	Flag              string // CLI flag name, e.g. "script-file"
+	Field             string // Request-body property that receives the file contents, e.g. "scriptContents"
+	Encoding          string // "raw" (string) or "base64"
+	Desc              string // Flag description shown in --help
+	CompanionField    string // Optional: body property auto-populated with filepath.Base(path) when absent (e.g. "tokenFileName" for DEP)
+	NameFallback      string // "none" | "keep-ext" | "strip-ext" — when the body lacks a name, derive one from the filename
+	NameFlag          bool   // When true, emit a --name flag on create/apply/upload-style ops that sets the body's name field (for tokens whose filename makes a poor record name).
+	RenameAfterUpload bool   // When true, and --name is supplied on an upload-style op whose request schema rejects a name field (e.g. DEP /upload-token → DeviceEnrollmentTokenDto has only encodedToken + tokenFileName), the generator emits a follow-up GET+PUT on the standard update path to apply the name.
 }
 
 // TableColumn defines a preferred column for list table output.

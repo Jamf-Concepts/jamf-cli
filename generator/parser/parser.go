@@ -99,16 +99,14 @@ var resourceFileFields = map[string][]FileField{
 		NameFlag:     true,
 	}},
 	"device-enrollment-instances": {{
-		Flag:           "token-file",
-		Field:          "encodedToken",
-		Encoding:       "base64",
-		Desc:           "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken",
-		CompanionField: "tokenFileName",
-		NameFallback:   "none",
-		// No NameFlag: the /upload-token endpoint's DeviceEnrollmentTokenDto
-		// schema rejects unknown fields, and the standard update PUT already
-		// owns --name for lookup. Users rename an existing DEP instance via
-		// `pro device-enrollment-instances update --name <old> <<< '{"name":"<new>"}'`.
+		Flag:              "token-file",
+		Field:             "encodedToken",
+		Encoding:          "base64",
+		Desc:              "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken",
+		CompanionField:    "tokenFileName",
+		NameFallback:      "none",
+		NameFlag:          true,
+		RenameAfterUpload: true, // /upload-token and /{id}/upload-token reject a "name" field; follow up with PUT /v1/device-enrollments/{id}
 	}},
 }
 

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -732,6 +733,8 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 	var (
 		flagScaffold  bool
 		flagTokenFile string
+
+		flagRename string
 	)
 
 	cmd := &cobra.Command{
@@ -791,12 +794,43 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 			}
 			defer resp.Body.Close()
 
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+				respBytes, readErr := io.ReadAll(resp.Body)
+				_ = resp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading upload response: %w", readErr)
+				}
+				var postResp map[string]any
+				if err := json.Unmarshal(respBytes, &postResp); err == nil {
+					if v, ok := postResp["id"].(string); ok {
+						renameID = v
+					} else if v, ok := postResp["id"].(float64); ok {
+						renameID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if renameID == "" {
+					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --rename")
+				}
+				renameURL := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "name", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to /v1/device-enrollments/{id} (this endpoint's body rejects a name field)")
 
 	return cmd
 }
@@ -941,6 +975,8 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 		flagName     string
 
 		flagTokenFile string
+
+		flagRename string
 	)
 
 	cmd := &cobra.Command{
@@ -1016,6 +1052,21 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 			}
 			defer resp.Body.Close()
 
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+				_ = resp.Body.Close()
+				renameID = resolvedID
+				renameURL := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "name", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -1024,6 +1075,8 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-enrollment-instance by name")
 
 	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to /v1/device-enrollments/{id} (this endpoint's body rejects a name field)")
 
 	return cmd
 }

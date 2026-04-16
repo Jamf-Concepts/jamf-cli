@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -323,6 +324,43 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		}
 	}
 	return filtered
+}
+
+// renameResourceByID performs a fetch-merge-put to set a single field (name)
+// on an existing resource. Used for upload-style endpoints whose request body
+// schema rejects a name — the token upload runs first, then this helper
+// applies the user's --name in a follow-up PUT against the standard update
+// path. Read-only fields from the GET response are included in the PUT body;
+// Jamf APIs that mark fields readOnly typically ignore them on update.
+func renameResourceByID(ctx context.Context, client registry.HTTPClient, updateURL, field, value string) error {
+	resp, err := client.Do(ctx, "GET", updateURL, nil)
+	if err != nil {
+		return fmt.Errorf("fetching existing record: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return fmt.Errorf("reading existing record: %w", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(body, &record); err != nil {
+		return fmt.Errorf("parsing existing record: %w", err)
+	}
+	record[field] = value
+	putBody, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshaling rename body: %w", err)
+	}
+	putResp, err := client.Do(ctx, "PUT", updateURL, bytes.NewReader(putBody))
+	if err != nil {
+		return fmt.Errorf("PUT rename: %w", err)
+	}
+	defer func() { _ = putResp.Body.Close() }()
+	if putResp.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(io.LimitReader(putResp.Body, 64<<10))
+		return fmt.Errorf("PUT %s returned %d: %s", updateURL, putResp.StatusCode, string(errBody))
+	}
+	return nil
 }
 
 // setBodyStringField sets a top-level string field on a JSON body, leaving
