@@ -122,12 +122,12 @@ var resourceTableColumns = map[string][]TableColumn{
 		{Field: "general.lastContactTime", Label: "lastContactTime"},
 	},
 	"mobile-devices": {
-		{Field: "id", Label: "id"},
-		{Field: "name", Label: "name"},
-		{Field: "serialNumber", Label: "serial"},
-		{Field: "model", Label: "model"},
-		{Field: "type", Label: "type"},
-		{Field: "username", Label: "username"},
+		{Field: "mobileDeviceId", Label: "id"},
+		{Field: "general.displayName", Label: "name"},
+		{Field: "general.serialNumber", Label: "serial"},
+		{Field: "general.model", Label: "model"},
+		{Field: "general.osVersion", Label: "osVersion"},
+		{Field: "general.lastInventoryUpdateDate", Label: "lastInventoryUpdate"},
 	},
 }
 
@@ -136,6 +136,51 @@ var resourceTableColumns = map[string][]TableColumn{
 // sections by default to ensure table output has the necessary data.
 var resourceDefaultSections = map[string][]string{
 	"computers-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
+	"mobile-devices":      {"GENERAL"},
+}
+
+// resourceListDetailPathOverrides maps canonical resource names to a detail list
+// endpoint that supports --section filtering. The list operation's path is swapped
+// and a section query parameter is injected. DefaultSections provides defaults.
+var resourceListDetailPathOverrides = map[string]string{
+	// /v2/mobile-devices returns flat basic records;
+	// /v2/mobile-devices/detail returns sectioned records with richer data.
+	"mobile-devices": "/v2/mobile-devices/detail",
+}
+
+// ApplyListDetailPaths swaps the "list" operation's path to a richer detail
+// endpoint and injects a section query parameter. Must be called after
+// ApplyNameOverrides and before ApplyTableColumns.
+func ApplyListDetailPaths(resources []*Resource) {
+	for _, r := range resources {
+		detailPath, ok := resourceListDetailPathOverrides[r.Name]
+		if !ok {
+			continue
+		}
+		for _, op := range r.Operations {
+			if op.Name == "list" && op.Method == "GET" {
+				op.Path = detailPath
+				// Inject section parameter if not already present.
+				hasSection := false
+				for _, p := range op.Parameters {
+					if p.Name == "section" {
+						hasSection = true
+						break
+					}
+				}
+				if !hasSection {
+					op.Parameters = append(op.Parameters, &Parameter{
+						Name:        "section",
+						In:          "query",
+						Description: "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE",
+						Type:        "string",
+						IsArray:     true,
+					})
+				}
+				break
+			}
+		}
+	}
 }
 
 // resourceGetDetailPathOverrides maps canonical resource names to an alternate

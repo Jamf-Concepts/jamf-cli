@@ -36,6 +36,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPage     int
 		flagPageSize int
 		flagSort     []string
+		flagSection  []string
 		flagAll      bool
 		flagLimit    int
 	)
@@ -53,7 +54,11 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/mobile-devices"
+			path := "/v2/mobile-devices/detail"
+			// Apply default list sections when --section was not explicitly set
+			if !cmd.Flags().Changed("section") {
+				flagSection = []string{"GENERAL"}
+			}
 
 			// Build query string
 			var queryParts []string
@@ -68,6 +73,11 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
 			}
+			if len(flagSection) > 0 {
+				for _, v := range flagSection {
+					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -80,7 +90,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/mobile-devices"
+					pagePath := "/v2/mobile-devices/detail"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -135,12 +145,12 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				combined = selectTableColumns(combined, []tableColumn{
-					{field: "id", label: "id"},
-					{field: "name", label: "name"},
-					{field: "serialNumber", label: "serial"},
-					{field: "model", label: "model"},
-					{field: "type", label: "type"},
-					{field: "username", label: "username"},
+					{field: "mobileDeviceId", label: "id"},
+					{field: "general.displayName", label: "name"},
+					{field: "general.serialNumber", label: "serial"},
+					{field: "general.model", label: "model"},
+					{field: "general.osVersion", label: "osVersion"},
+					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
 				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
@@ -159,6 +169,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
