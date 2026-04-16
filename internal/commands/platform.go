@@ -38,7 +38,7 @@ var platformGatewayRegions = []struct {
 }{
 	{"US", "https://us.apigw.jamf.com"},
 	{"EU", "https://eu.apigw.jamf.com"},
-	{"APAC", "https://ap.apigw.jamf.com"},
+	{"APAC", "https://apac.apigw.jamf.com"},
 }
 
 func newPlatformSetupCmd() *cobra.Command {
