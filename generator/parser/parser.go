@@ -748,6 +748,33 @@ func filterToCanonicalPrefix(ops []*Operation) []*Operation {
 	return filtered
 }
 
+// hasResponseCode reports whether an openapi3 operation declares the given
+// HTTP response code. Used alongside isCollectionRootPath to distinguish a
+// mis-annotated CRUD create (201) from a legitimate collection-root action
+// (200/202/204) when x-action: true is set.
+func hasResponseCode(op *openapi3.Operation, code string) bool {
+	if op == nil || op.Responses == nil {
+		return false
+	}
+	return op.Responses.Value(code) != nil
+}
+
+// isCollectionRootPath reports whether path is a plain collection root: a
+// version prefix followed by exactly one resource segment, with no path
+// parameters (e.g. /v1/foo, /preview/bar). Used to guard against upstream
+// specs that mis-tag a collection-root CRUD op with x-action: true.
+func isCollectionRootPath(path string) bool {
+	if strings.Contains(path, "{") {
+		return false
+	}
+	stripped := stripVersionPrefix(path)
+	if stripped == path {
+		return false
+	}
+	rest := strings.TrimPrefix(stripped, "/")
+	return rest != "" && !strings.Contains(rest, "/")
+}
+
 // stripVersionPrefix removes a leading version segment (v1, v2, v3, preview,
 // etc.) from a path, leaving the leading slash intact.
 // e.g. /v1/self-service/branding → /self-service/branding
@@ -1117,6 +1144,17 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	opName := inferOperationName(path, method, isAction)
+	// Correct an upstream mis-annotation: some Jamf specs tag a plain
+	// collection-root CRUD create (e.g. POST /v1/mobile-device-extension-attributes)
+	// with x-action: true, which otherwise causes the CREATE to be named after
+	// the collection segment and shadowed under the group. Detect by path shape
+	// (version prefix + single non-param segment) plus a 201 response, which is
+	// the reliable signal that this POST actually creates a new resource. True
+	// actions like /v1/slasa (204), /v1/deploy-package (200), and
+	// /v2/patch-management-accept-disclaimer (202) keep their x-action naming.
+	if isAction && strings.ToLower(method) == "post" && isCollectionRootPath(path) && hasResponseCode(op, "201") {
+		opName = "create"
+	}
 	// Allow spec authors to override the inferred operation name via x-operation-name.
 	// Useful for disambiguating endpoints that would otherwise collide
 	// (e.g. /active/pem → "active-pem" vs /{id}/pem → "pem").

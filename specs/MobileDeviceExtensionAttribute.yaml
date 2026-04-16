@@ -1,44 +1,435 @@
-openapi: 3.0.1
+openapi: 3.0.3
 info:
-  title: Jamf Pro API - advanced search
+  title: Jamf Pro API - Mobile Device Extension Attributes
   version: 0.0.1
+servers:
+  - url: 'https'
 paths:
-  /devices/extensionAttributes:
+  /v1/mobile-device-extension-attributes:
     get:
       tags:
-      - mobile-device-extension-attributes-preview
-      summary: |
-         Get Mobile Device Extension Attribute values placed in select paramter
-      description: Gets Mobile Device Extension Attribute values placed in select
-        parameter.
+        - mobile-device-extension-attributes
+      summary: Retrieve Mobile Device Extension Attributes.
+      description: Retrieves all mobile device extension attributes configuration.
+      x-required-privileges:
+        - Read Mobile Device Extension Attributes
       parameters:
-      - name: select
-        in: query
-        description: |
-          Acceptable values currently include:
-          * name
-        schema:
-          type: string
-          default: name
+        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        -   name: sort
+            in: query
+            description: 'Sorts results by one or more criteria, following the format property:asc/desc.<br/>
+                    Default sort is name:asc.<br/>
+                    If using multiple criteria, separate with commas. Allows sort for id and name.'
+            explode: true
+            schema:
+              type: array
+              items:
+                type: string
+              default: [name.asc]
+        -   name: filter
+            in: query
+            description: 'Filters results.
+                    Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/>
+                    Can be combined with paging and sorting.<br/>
+                    Fields allowed in the query: id, name <br/>
+                    Default filter is an empty query and returns all results from the requested page.'
+            schema:
+              type: string
+              default: ''
       responses:
         200:
-          description: Successful response - Extension Attributes retrieved
+          description: Mobile Device Extension Attribute objects has been fetched successfully.
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/MobileDeviceExtensionAttributeResults'
+                $ref: '#/components/schemas/MobileDeviceExtensionAttributeSearchResults'
+        404:
+          description: Mobile Device Extension Attribute objects could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+    post:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Create Mobile Device Extension Attribute.
+      description: Create Mobile Device Extension Attribute to collect extra inventory information.
+      requestBody:
+        description: Mobile Device Extension Attribute to be created.
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MobileDeviceExtensionAttributes'
+        required: true
+      responses:
+        201:
+          description: Mobile Device Extension Attribute was successfully created.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br>
+            1) Required fields are not provided in request body.</br>
+            2) Fields which are not associated with provided inputType has some value.</br>
+            3) Any values outside of the allowed range are included in the request body.</br>
+            4) LDAP is not configured.</br>
+            5) Error occurred during database create operation.</br>
+            6) Duplicate name is provided.</br>
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
-      - Read Mobile Device Extension Attributes
+        - Create Mobile Device Extension Attributes
+      x-action: true
+  /v1/mobile-device-extension-attributes/{id}:
+    get:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Get specified Mobile Device Extension Attribute object.
+      description: Gets specified Mobile Device Extension Attribute object.
+      parameters:
+        -   name: id
+            in: path
+            description: Unique ID of Mobile Device Extension Attribute.
+            required: true
+            schema:
+              type: string
+      responses:
+        200:
+          description: Mobile Device Extension Attribute object has been fetched successfully.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDeviceExtensionAttributes'
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
+        404:
+          description: Specified Mobile Device Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Mobile Device Extension Attributes
+    put:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Update specified Mobile Device Extension Attribute object.
+      description: Update specified Mobile Device Extension Attribute object.
+      parameters:
+        - name: id
+          in: path
+          description: Unique ID of Mobile Device Extension Attribute.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Mobile Device Extension Attribute object to be updated. IDs defined in this body will be ignored.
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/MobileDeviceExtensionAttributes'
+        required: true
+      responses:
+        202:
+          description: Mobile Device Extension Attribute updated successfully.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/MobileDeviceExtensionAttributes'
+        400:
+          description: Bad Request. Specified Mobile Device Extension Attribute could not be updated due to bad request. Possible reasons are:</br>
+            1) The specified extension attribute id does not include a valid number.</br>
+            2) Duplicate name is provided.</br>
+            3) Required fields are not provided in request body.</br>
+            4) Fields which are not associated with provided inputType has some value.</br>
+            5) Any values outside of the allowed range are included in the request body.</br>
+            6) LDAP is not configured.</br>
+            7) Error occurred during database update operation.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        404:
+          description: Specified Mobile Device Extension Attribute object does not exist. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Mobile Device Extension Attributes
+    delete:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Delete a Mobile Device Extension Attribute by ID.
+      description: |
+        Deletes the Mobile Device Extension Attribute identified by the provided ID.<\br>
+        In addition to removing the attribute itself, this operation will also delete any related dependent data, including:<\br>
+          - Associated popup menu choices.<\br>
+          - Fields used in saved search displays.<\br>
+          - User preferences that reference the attribute.
+      parameters:
+        - name: id
+          in: path
+          description: Unique ID of Mobile Device Extension Attribute.
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: The Mobile Device Extension was successfully deleted.
+        400:
+          description: Bad Request. The server could not process the request due to invalid input. Possible reasons are:</br>
+              - The specified extension attribute ID is not a valid number.
+              - The ID is missing or improperly formatted.
+        404:
+          description: Not Found. The specified Mobile Device Extension Attribute does not exist. This may indicate that the resource is missing, or the client is not authorized to access it.
+      x-required-privileges:
+        - Delete Mobile Device Extension Attributes
+
+  /v1/mobile-device-extension-attributes/{id}/data-dependency:
+    get:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Get smart group dependent object for a specified mobile device extension attribute
+      description: Get smart group dependent object for a specified mobile device extension attribute
+      parameters:
+        - name: id
+          in: path
+          description: Unique ID of mobile device extension attribute.
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Fetches list of dependent objects for a specified mobile device extension attribute.
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DependencyObjectResults'
+        404:
+          description: Specified mobile device extension attribute id were not found in database.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Mobile Device Extension Attributes
+  /v1/mobile-device-extension-attributes/{id}/history:
+    get:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Get specified Mobile Device Extension Attribute History object
+      description: Get specified Mobile Device Extension Attribute history object
+      parameters:
+        - name: id
+          in: path
+          description: Instance ID of Mobile Device Extension Attribute
+          required: true
+          schema:
+            type: string
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
+        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - name: sort
+          in: query
+          description: 'Sorts results by one or more criteria, following the format property:asc/desc.
+                    Default sort is ID:asc.
+                    If using multiple criteria, separate with commas.'
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+            default: [ id:asc ]
+        - name: filter
+          in: query
+          description: 'Filters results.
+                    Use RSQL format for query.
+                    Allows for many fields, including ID, name, etc.
+                    Can be combined with paging and sorting.
+                    Default filter is an empty query and returns all results from the requested page.'
+          schema:
+            type: string
+            default: ''
+      responses:
+        200:
+          description: Details of Mobile Device Extension Attribute history were found.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
+        400:
+          description: Bad Request. Specified Mobile Device Extension Attribute history object could not be found. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Read Mobile Device Extension Attributes
+    post:
+      tags:
+        - mobile-device-extension-attributes
+      summary: Add specified Mobile Device Extension Attribute history object notes
+      description: Add specified Mobile Device Extension Attribute history object notes
+      parameters:
+        - name: id
+          in: path
+          description: Instance ID of Mobile Device Extension Attribute
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: History note to be created
+        content:
+          'application/json':
+            schema:
+              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: Mobile Device Extension Attribute history note created successfully.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
+        400:
+          description: Bad Request. Error creating history note. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
+          content:
+            'application/json':
+              schema:
+                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      x-required-privileges:
+        - Update Mobile Device Extension Attributes
 components:
   schemas:
-    MobileDeviceExtensionAttributeResults:
+    DependencyObjectResults:
       type: object
       properties:
-        extensionAttributes:
+        totalCount:
+          type: integer
+          example: 1
+        results :
           type: array
+          minItems: 0
           items:
             type: object
             properties:
-              name:
+              id:
+                type: integer
+                description: Unique Id for Dependency Object.
+                example: 1
+              objectId:
+                type: integer
+                description: Object Type Id of the dependency object.
+                example: 1
+              nameLocalization:
                 type: string
-                example: extAttribute1
+                description: Name of localization which display dependent object.
+                example: 'SMART_COMPUTER_GROUPS'
+              identifiableName:
+                type: string
+                description: Name of the dependent object.
+                example: 'identifiableName'
+              hyperlink:
+                type: string
+                description: Link to dependent object or to page with list of dependent objects.
+                example: '/smartMobileDeviceGroups.html'
+    MobileDeviceExtensionAttributeSearchResults:
+      type: object
+      required:
+        - totalCount
+      properties:
+        totalCount:
+          type: integer
+          example: 1
+        results:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/MobileDeviceExtensionAttributes'
+
+    ExtensionAttributes:
+      type: object
+      required:
+        - name
+        - dataType
+      properties:
+        id:
+          type: string
+          description: Unique Id for Mobile Device Extension Attribute.
+          example: 1
+          readOnly: true
+        name:
+          type: string
+          description: Display name for the extension attribute.
+          example: 'MobileDeviceExtensionAttribute'
+        description:
+          type: string
+          description: Description for the extension attribute.
+          example: 'Mobile Device Extension Attribute'
+        dataType:
+          type: string
+          description: Type of data being collected.
+          enum:
+            - INTEGER
+            - STRING
+            - DATE
+          default: STRING
+    MobileDeviceExtensionAttributes:
+      allOf:
+        - "$ref": '#/components/schemas/ExtensionAttributes'
+        - type: object
+          required:
+            - inventoryDisplayType
+            - inputType
+          properties:
+            inventoryDisplayType:
+              type: string
+              description: Category in which to display the extension attribute in Jamf Pro.
+              enum:
+                - GENERAL
+                - HARDWARE
+                - USER_AND_LOCATION
+                - PURCHASING
+                - EXTENSION_ATTRIBUTES
+              example: 'GENERAL'
+              default: GENERAL
+            inputType:
+              type: string
+              description:
+                Extension attributes collect inventory data by using an input type.The type of the Input used to populate the extension attribute.
+              enum:
+                - TEXT
+                - POPUP
+                - DIRECTORY_SERVICE_ATTRIBUTE_MAPPING
+              default: TEXT
+            popupMenuChoices:
+              type: array
+              description: When added with list of choices while creating mobile device extension attributes these Pop-up menu can be displayed in inventory information. User can choose a value from the pop-up menu list when enrolling a mobile device any time using Jamf Pro. Provide popupMenuChoices only when inputType is 'POPUP'.
+              minItems: 0
+              items:
+                type: string
+                description: Popup Menu choices.
+              example: [ "Test","Popup" ]
+            ldapAttributeMapping:
+              type: string
+              description: Directory Service attribute use to populate the extension attribute. <br/>
+                Required when inputType is "DIRECTORY_SERVICE_ATTRIBUTE_MAPPING"
+              example: 'ldapAttributeMapping'
+            ldapExtensionAttributeAllowed:
+              type: boolean
+              description: Collect multiple values for this extension attribute. ldapExtensionAttributeAllowed is disabled by default, only for inputType 'DIRECTORY_SERVICE_ATTRIBUTE_MAPPING' it can be enabled. It's value cannot be modified during edit operation.<br/>
+                Possible values are:<br/>
+                false <br/>
+                true <br/>
+              example: false
+              default: false

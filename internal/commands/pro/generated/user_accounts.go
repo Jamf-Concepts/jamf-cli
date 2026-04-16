@@ -28,8 +28,8 @@ func NewUserAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newUserAccountsListCmd(ctx))
 	cmd.AddCommand(newUserAccountsGetCmd(ctx))
+	cmd.AddCommand(newUserAccountsCreateCmd(ctx))
 	cmd.AddCommand(newUserAccountsDeleteCmd(ctx))
-	cmd.AddCommand(newUserAccountsAccountsCmd(ctx))
 
 	return cmd
 }
@@ -226,6 +226,83 @@ func newUserAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newUserAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Adds new account.",
+		Long:  "Adds the user account provided.",
+		Example: `  # Show the JSON template for creating a user-account
+  jamf-cli user-accounts create --scaffold
+
+  # Create a user-account from JSON
+  echo '{"name":"Example"}' | jamf-cli user-accounts create
+
+  # Get a user-account, modify it, and create a copy
+  jamf-cli user-accounts get 1 -o json | jq '.name = "Copy"' | jamf-cli user-accounts create`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accessLevel": "",
+  "accountStatus": "",
+  "accountType": "",
+  "changePasswordOnNextLogin": true,
+  "distinguishedName": "",
+  "email": "bob@jamf.com",
+  "ldapServerId": -1,
+  "phone": "715-999-9999",
+  "plainPassword": "testpassword4321",
+  "privilegeLevel": "",
+  "realname": "Bob Jones",
+  "siteId": -1,
+  "username": "testusername"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/accounts"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err := normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
 func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -335,75 +412,6 @@ func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user-account by name")
-
-	return cmd
-}
-
-func newUserAccountsAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "accounts",
-		Short: "Adds new account.",
-		Long:  "Adds the user account provided.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "accessLevel": "",
-  "accountStatus": "",
-  "accountType": "",
-  "changePasswordOnNextLogin": true,
-  "distinguishedName": "",
-  "email": "bob@jamf.com",
-  "ldapServerId": -1,
-  "phone": "715-999-9999",
-  "plainPassword": "testpassword4321",
-  "privilegeLevel": "",
-  "realname": "Bob Jones",
-  "siteId": -1,
-  "username": "testusername"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/accounts"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err := normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

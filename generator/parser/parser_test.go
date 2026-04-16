@@ -244,6 +244,118 @@ paths:
 	}
 }
 
+// TestParseSpec_XActionMisannotation verifies the parser correctly handles
+// upstream specs that mis-tag a plain collection-root CRUD create
+// (e.g. POST /v1/foo that returns 201) with x-action: true, while still
+// honouring x-action for genuine collection-root actions that don't return 201.
+func TestParseSpec_XActionMisannotation(t *testing.T) {
+	spec := `openapi: 3.0.1
+info:
+  title: Things
+  version: 1.0.0
+paths:
+  /v1/things:
+    get:
+      summary: List things
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200': {description: OK}
+    post:
+      summary: Create a thing
+      x-action: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201': {description: Created}
+  /v1/things/{id}:
+    get:
+      summary: Get a thing
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200': {description: OK}
+`
+	actionSpec := `openapi: 3.0.1
+info:
+  title: Deploy Thing
+  version: 1.0.0
+paths:
+  /v1/deploy-thing:
+    post:
+      summary: Deploy a thing
+      x-action: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200': {description: OK}
+`
+
+	t.Run("mis-annotated POST with 201 resolves to create", func(t *testing.T) {
+		dir := t.TempDir()
+		specPath := filepath.Join(dir, "Thing.yaml")
+		if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		resources, err := ParseSpec(specPath)
+		if err != nil {
+			t.Fatalf("ParseSpec() error = %v", err)
+		}
+		if len(resources) == 0 {
+			t.Fatal("no resources")
+		}
+		var createFound bool
+		for _, op := range resources[0].Operations {
+			if op.Method == "POST" && op.Path == "/v1/things" {
+				if op.Name != "create" {
+					t.Errorf("POST /v1/things name = %q, want %q", op.Name, "create")
+				}
+				createFound = true
+			}
+		}
+		if !createFound {
+			t.Error("expected POST /v1/things operation")
+		}
+	})
+
+	t.Run("genuine collection-root action keeps path-segment name", func(t *testing.T) {
+		dir := t.TempDir()
+		specPath := filepath.Join(dir, "DeployThing.yaml")
+		if err := os.WriteFile(specPath, []byte(actionSpec), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		resources, err := ParseSpec(specPath)
+		if err != nil {
+			t.Fatalf("ParseSpec() error = %v", err)
+		}
+		if len(resources) == 0 {
+			t.Fatal("no resources")
+		}
+		for _, op := range resources[0].Operations {
+			if op.Method == "POST" && op.Path == "/v1/deploy-thing" {
+				if op.Name != "deploy-thing" {
+					t.Errorf("POST /v1/deploy-thing name = %q, want %q", op.Name, "deploy-thing")
+				}
+			}
+		}
+	})
+}
+
 func TestParseSpec_SkipsLibraryFiles(t *testing.T) {
 	dir := t.TempDir()
 

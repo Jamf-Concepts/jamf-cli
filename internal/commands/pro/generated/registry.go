@@ -73,7 +73,6 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewDeviceComplianceInformationsCmd(ctx))
 	root.AddCommand(NewDeviceEnrollmentInstanceSyncStatesCmd(ctx))
 	root.AddCommand(NewDeviceEnrollmentInstancesCmd(ctx))
-	root.AddCommand(NewDeviceExtensionAttributesCmd(ctx))
 	root.AddCommand(NewDigiCertSettingsCmd(ctx))
 	root.AddCommand(NewDistributionPointsCmd(ctx))
 	root.AddCommand(NewDockItemsCmd(ctx))

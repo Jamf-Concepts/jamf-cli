@@ -55,6 +55,18 @@ sync-specs:
 		-exec cp {} specs/ +
 	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/common/*.yaml" \
 		-exec cp {} specs/ +
+	@# Normalise upstream naming where the spec filename doesn't match its paths.
+	@# MobileDeviceExtensionAttribute.yaml upstream holds only the legacy preview
+	@# endpoint (/devices/extensionAttributes — tag mobile-device-extension-attributes-preview)
+	@# which returns just names and is redundant with the full /v1 CRUD. Drop it
+	@# and rename DeviceExtensionAttribute.yaml (which actually contains the
+	@# /v1/mobile-device-extension-attributes CRUD) into its place so the parser
+	@# derives the correct resource name from the filename.
+	@if [ -f specs/DeviceExtensionAttribute.yaml ]; then \
+		rm -f specs/MobileDeviceExtensionAttribute.yaml; \
+		mv specs/DeviceExtensionAttribute.yaml specs/MobileDeviceExtensionAttribute.yaml; \
+		echo "  Renamed DeviceExtensionAttribute.yaml → MobileDeviceExtensionAttribute.yaml (legacy preview dropped)"; \
+	fi
 	@dupes=$$(ls specs/*.yaml | xargs -n1 basename | sort | uniq -d); \
 		if [ -n "$$dupes" ]; then \
 			echo "Error: duplicate spec filenames (last-write-wins risk):"; \
