@@ -57,7 +57,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			path := "/v2/mobile-devices/detail"
 			// Apply default list sections when --section was not explicitly set
 			if !cmd.Flags().Changed("section") {
-				flagSection = []string{"GENERAL"}
+				flagSection = []string{"GENERAL", "HARDWARE"}
 			}
 
 			// Build query string
@@ -147,8 +147,8 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 				combined = selectTableColumns(combined, []tableColumn{
 					{field: "mobileDeviceId", label: "id"},
 					{field: "general.displayName", label: "name"},
-					{field: "general.serialNumber", label: "serial"},
-					{field: "general.model", label: "model"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
 					{field: "general.osVersion", label: "osVersion"},
 					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
 				}, ctx.Output.Format())

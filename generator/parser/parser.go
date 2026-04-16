@@ -124,8 +124,8 @@ var resourceTableColumns = map[string][]TableColumn{
 	"mobile-devices": {
 		{Field: "mobileDeviceId", Label: "id"},
 		{Field: "general.displayName", Label: "name"},
-		{Field: "general.serialNumber", Label: "serial"},
-		{Field: "general.model", Label: "model"},
+		{Field: "hardware.serialNumber", Label: "serial"},
+		{Field: "hardware.model", Label: "model"},
 		{Field: "general.osVersion", Label: "osVersion"},
 		{Field: "general.lastInventoryUpdateDate", Label: "lastInventoryUpdate"},
 	},
@@ -136,7 +136,7 @@ var resourceTableColumns = map[string][]TableColumn{
 // sections by default to ensure table output has the necessary data.
 var resourceDefaultSections = map[string][]string{
 	"computers-inventory": {"GENERAL", "HARDWARE", "OPERATING_SYSTEM"},
-	"mobile-devices":      {"GENERAL"},
+	"mobile-devices":      {"GENERAL", "HARDWARE"},
 }
 
 // resourceListDetailPathOverrides maps canonical resource names to a detail list
