@@ -87,12 +87,16 @@ var resourceFileFields = map[string][]FileField{
 		Desc:         "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)",
 		NameFallback: "keep-ext",
 	}},
-	"volume-purchasing-locations": {{
-		Flag:         "token-file",
-		Field:        "serviceToken",
-		Encoding:     "base64",
-		Desc:         "Path to a VPP service token (.vpptoken); contents are base64-encoded into serviceToken",
+	"vpp-locations": {{
+		Flag:  "token-file",
+		Field: "serviceToken",
+		// .vpptoken files are already a base64-encoded JSON blob; Jamf expects
+		// that string verbatim — base64-encoding again would double-wrap and
+		// get rejected with INVALID_FIELD ("not parsable as a VPP token").
+		Encoding:     "raw",
+		Desc:         "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim",
 		NameFallback: "none",
+		NameFlag:     true,
 	}},
 	"device-enrollment-instances": {{
 		Flag:           "token-file",
@@ -101,6 +105,10 @@ var resourceFileFields = map[string][]FileField{
 		Desc:           "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken",
 		CompanionField: "tokenFileName",
 		NameFallback:   "none",
+		// No NameFlag: the /upload-token endpoint's DeviceEnrollmentTokenDto
+		// schema rejects unknown fields, and the standard update PUT already
+		// owns --name for lookup. Users rename an existing DEP instance via
+		// `pro device-enrollment-instances update --name <old> <<< '{"name":"<new>"}'`.
 	}},
 }
 

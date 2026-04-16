@@ -374,6 +374,46 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return false
 		},
+		"opHasFileFieldNameFlag": func(op *Operation, r *Resource) bool {
+			// Only emit the body-name --name flag on ops where it doesn't
+			// collide with an existing lookup --name. update/get/delete/patch
+			// with name-lookup already own the --name flag for resolution.
+			if opHasNameLookup(op, r) {
+				return false
+			}
+			hasNameFlag := false
+			for _, ff := range r.FileFields {
+				if ff.NameFlag {
+					hasNameFlag = true
+					break
+				}
+			}
+			if !hasNameFlag {
+				return false
+			}
+			// Emit on create and any non-CRUD op whose request body accepts one
+			// of the configured file fields (e.g. upload-token, upload-token-by-id).
+			// Skip "update" — user renames via piped body on update.
+			if op.Name == "create" {
+				return true
+			}
+			if op.RequestBody != nil && op.RequestBody.Schema != nil {
+				for _, ff := range r.FileFields {
+					if _, ok := op.RequestBody.Schema.Properties[ff.Field]; ok {
+						return true
+					}
+				}
+			}
+			return false
+		},
+		"hasFileFieldNameFlag": func(r *Resource) bool {
+			for _, ff := range r.FileFields {
+				if ff.NameFlag {
+					return true
+				}
+			}
+			return false
+		},
 		"resourceNameField": func(r *Resource) string {
 			if r.NameField != "" {
 				return r.NameField
@@ -1209,6 +1249,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasFileFields . $ }}
 {{ range $.FileFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
+{{- if opHasFileFieldNameFlag . $ }}
+		flagBodyName string
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
@@ -1644,6 +1687,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// any value the caller supplied in the body; companion fields and name
 			// fallbacks only fill when absent.
 			var fileFieldErr error
+{{- if opHasFileFieldNameFlag . $ }}
+			normalized, fileFieldErr = setBodyStringField(normalized, "{{ resourceNameField $ }}", flagBodyName)
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+{{- end }}
 			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
 {{- range $.FileFields }}
 				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
@@ -1748,6 +1797,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasFileFields . $ }}
 {{ range $.FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
+{{- if opHasFileFieldNameFlag . $ }}
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ $.NameSingular }} (sets the body's {{ resourceNameField $ }} field)")
+{{- end }}
 
 	return cmd
 }
@@ -1764,6 +1816,9 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 {{- if .FileFields }}
 {{ range .FileFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
+{{- if hasFileFieldNameFlag . }}
+		flagBodyName string
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
@@ -1817,6 +1872,12 @@ If not, a new resource is created.` + "`" + `,
 					return err
 				}
 			}
+{{- if hasFileFieldNameFlag . }}
+			data, err = setBodyStringField(data, "{{ resourceNameField $ }}", flagBodyName)
+			if err != nil {
+				return err
+			}
+{{- end }}
 {{- if .FileFields }}
 			data, err = injectFileFields(data, []fileFieldSpec{
 {{- range .FileFields }}
@@ -1906,6 +1967,9 @@ If not, a new resource is created.` + "`" + `,
 {{- if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
+{{- if hasFileFieldNameFlag . }}
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ .NameSingular }} (sets the body's {{ resourceNameField . }} field)")
+{{- end }}
 
 	return cmd
 }
@@ -2084,6 +2148,28 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		}
 	}
 	return filtered
+}
+
+// setBodyStringField sets a top-level string field on a JSON body, leaving
+// other fields untouched. Empty value is a no-op; empty body is bootstrapped
+// to {} first. Used to apply a user-supplied --name flag to the request body
+// without requiring them to hand-build JSON.
+// NOTE: Also used by classic helpers (same generated package).
+func setBodyStringField(body []byte, field, value string) ([]byte, error) {
+	if value == "" {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	m[field] = value
+	return json.Marshal(m)
 }
 
 // fileFieldSpec describes one request-body field whose value is sourced from

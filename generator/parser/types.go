@@ -22,6 +22,7 @@ type FileField struct {
 	Desc           string // Flag description shown in --help
 	CompanionField string // Optional: body property auto-populated with filepath.Base(path) when absent (e.g. "tokenFileName" for DEP)
 	NameFallback   string // "none" | "keep-ext" | "strip-ext" — when the body lacks a name, derive one from the filename
+	NameFlag       bool   // When true, emit a --name flag on create/apply/upload-style ops that sets the body's name field (for tokens whose filename makes a poor record name).
 }
 
 // TableColumn defines a preferred column for list table output.

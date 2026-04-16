@@ -325,6 +325,28 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 	return filtered
 }
 
+// setBodyStringField sets a top-level string field on a JSON body, leaving
+// other fields untouched. Empty value is a no-op; empty body is bootstrapped
+// to {} first. Used to apply a user-supplied --name flag to the request body
+// without requiring them to hand-build JSON.
+// NOTE: Also used by classic helpers (same generated package).
+func setBodyStringField(body []byte, field, value string) ([]byte, error) {
+	if value == "" {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	m[field] = value
+	return json.Marshal(m)
+}
+
 // fileFieldSpec describes one request-body field whose value is sourced from
 // a local file. The generator emits these specs inline per operation.
 type fileFieldSpec struct {
