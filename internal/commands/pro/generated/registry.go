@@ -222,6 +222,21 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
 	// Always verify the returned result actually matches the requested name.
 	results := filterResultsByName(data.Results, nameField, name)
+	if len(results) == 0 && data.TotalCount > len(data.Results) {
+		// RSQL was likely ignored and we only got the first page. Re-fetch all results.
+		allPath := fmt.Sprintf("%s?page-size=%d", listPath, data.TotalCount)
+		allResp, err := client.Do(ctx, "GET", allPath, nil)
+		if err == nil {
+			allBody, _ := io.ReadAll(io.LimitReader(allResp.Body, 8<<20))
+			allResp.Body.Close()
+			var allData struct {
+				Results []json.RawMessage `json:"results"`
+			}
+			if json.Unmarshal(allBody, &allData) == nil && len(allData.Results) > 0 {
+				results = filterResultsByName(allData.Results, nameField, name)
+			}
+		}
+	}
 	if len(results) == 0 {
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}
