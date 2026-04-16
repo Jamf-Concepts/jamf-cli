@@ -99,7 +99,11 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 		return nil, fmt.Errorf("mobileconfig has no PayloadContent array")
 	}
 
+	// Unwrap MCX (Custom Settings) payloads before processing
+	payloadContent, mcxWarnings := unwrapMCXPayloads(payloadContent)
+
 	result := &DDMConversionResult{DisplayName: displayName}
+	result.Warnings = append(result.Warnings, mcxWarnings...)
 	var profilePayloads []map[string]any
 	seenComponents := make(map[string]bool)
 	typeCount := make(map[string]int) // tracks per-type index for unique identifiers

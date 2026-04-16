@@ -1247,6 +1247,147 @@ func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
 	}
 }
 
+func TestConvertToDDMComponents_MCXWrappedApplicationaccess(t *testing.T) {
+	// MCX wrapping com.apple.applicationaccess should unwrap and hit the
+	// safari / software-update / RSR converters just like a native payload.
+	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadIdentifier</key>
+			<string>com.example.mcx</string>
+			<key>PayloadUUID</key>
+			<string>UUID-MCX</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.apple.applicationaccess</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>safariAllowPopups</key>
+								<false/>
+								<key>allowCamera</key>
+								<false/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>CIS Restrictions MCX</string>
+	<key>PayloadIdentifier</key>
+	<string>com.example.cis</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// safariAllowAutoFill should trigger the safari converter
+	hasSafari := false
+	for _, c := range result.NativeComponents {
+		if c.Identifier == "com.jamf.ddm.safari-settings" {
+			hasSafari = true
+		}
+	}
+	if !hasSafari {
+		t.Error("expected safari-settings native component from MCX-wrapped applicationaccess")
+	}
+
+	// allowCamera is not handled by any DDM converter, so it should end up
+	// in the configuration-profile wrapper
+	if result.ProfileConfig == nil {
+		t.Error("expected ProfileConfig for remaining applicationaccess keys")
+	}
+
+	// Should have MCX unwrap warning
+	hasUnwrap := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "unwrapped") {
+			hasUnwrap = true
+		}
+	}
+	if !hasUnwrap {
+		t.Error("expected MCX unwrap warning")
+	}
+}
+
+func TestConvertToDDMComponents_MCXWrappedPasscode(t *testing.T) {
+	// MCX wrapping com.apple.mobiledevice.passwordpolicy should fully convert
+	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.apple.mobiledevice.passwordpolicy</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>minLength</key>
+								<integer>8</integer>
+								<key>requireAlphanumeric</key>
+								<true/>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>MCX Passcode</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	hasPasscode := false
+	for _, c := range result.NativeComponents {
+		if c.Identifier == "com.jamf.ddm.passcode-settings" {
+			hasPasscode = true
+		}
+	}
+	if !hasPasscode {
+		t.Error("expected passcode-settings native component from MCX-wrapped passwordpolicy")
+	}
+}
+
 // --- Registry tests ---
 
 func TestFindConverters(t *testing.T) {
