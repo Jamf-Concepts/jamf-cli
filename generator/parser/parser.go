@@ -132,6 +132,11 @@ var resourceNameFieldOverrides = map[string]string{
 	// Groups list endpoint requires "groupName"; plain "name" field wins the
 	// heuristic but is not a filterable field on this endpoint.
 	"groups": "groupName",
+	// Mobile device groups (smart + static) expose "groupName" — the detected
+	// "displayName" is used in the POST/PUT body but does not appear in list
+	// responses, so both filter lookups and backup file naming fail silently.
+	"mobile-device-groups-smart-groups":  "groupName",
+	"mobile-device-groups-static-groups": "groupName",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path
@@ -159,6 +164,10 @@ var resourceIDFieldOverrides = map[string]string{
 	// Groups list response uses "groupPlatformId" (UUID) for PATCH/DELETE paths,
 	// not the legacy integer "groupJamfProId".
 	"groups": "groupPlatformId",
+	// Mobile device groups (smart + static) list response uses "groupId" as
+	// the identifier; "id" is not present.
+	"mobile-device-groups-smart-groups":  "groupId",
+	"mobile-device-groups-static-groups": "groupId",
 }
 
 // resourceTableColumns maps canonical resource names to preferred columns for

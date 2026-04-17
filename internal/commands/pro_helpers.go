@@ -94,6 +94,78 @@ func FetchAllPaginated(ctx context.Context, client registry.HTTPClient, basePath
 	return all, nil
 }
 
+// FetchClassicListSubset performs a GET on a Classic API endpoint that hosts
+// multiple sibling collections under a single root (currently only
+// /JSSResource/accounts, which nests <users> and <groups> inside <accounts>)
+// and returns the items belonging to the named subset. The runtime mirror of
+// the list_subset manifest opt-in handled by the classic generator in PR 152.
+func FetchClassicListSubset(ctx context.Context, client registry.HTTPClient, path, subset string) ([]map[string]any, error) {
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only XML responses carry the nested subset layout; JSON (via Accept
+	// override) would already be flat, so no special handling is required.
+	if !xmlconv.IsXML(body) {
+		return nil, nil
+	}
+
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing XML: %w", err)
+	}
+
+	// Unwrap the single root element. Classic list responses always have
+	// exactly one top-level element (e.g. <accounts>) wrapping the collection.
+	if len(m) != 1 {
+		return nil, fmt.Errorf("unexpected classic list shape: got %d root elements, want 1", len(m))
+	}
+	var rootMap map[string]any
+	for _, v := range m {
+		var ok bool
+		rootMap, ok = v.(map[string]any)
+		if !ok {
+			return nil, nil
+		}
+	}
+
+	subVal, ok := rootMap[subset]
+	if !ok {
+		return nil, nil
+	}
+	subMap, ok := subVal.(map[string]any)
+	if !ok {
+		// Empty <users/> or <users></users> — treat as empty set.
+		return nil, nil
+	}
+
+	var items []map[string]any
+	for _, v := range subMap {
+		switch vv := v.(type) {
+		case map[string]any:
+			items = append(items, vv)
+		case []any:
+			for _, it := range vv {
+				if im, ok := it.(map[string]any); ok {
+					items = append(items, im)
+				}
+			}
+		}
+	}
+	return items, nil
+}
+
 // FetchClassicList performs a GET on a Classic API list endpoint and returns
 // the unwrapped array. Classic API returns XML; JSON is handled as a fallback.
 func FetchClassicList(ctx context.Context, client registry.HTTPClient, path, wrapperKey string) ([]any, error) {

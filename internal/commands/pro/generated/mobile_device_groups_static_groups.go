@@ -190,7 +190,7 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}
@@ -331,12 +331,12 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no mobile-device-groups-static-groups found with displayName %q", flagName)
+					return fmt.Errorf("no mobile-device-groups-static-groups found with groupName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -455,7 +455,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}

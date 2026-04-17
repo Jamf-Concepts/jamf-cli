@@ -271,6 +271,112 @@ func TestBackup_DuplicateNames(t *testing.T) {
 	}
 }
 
+func TestClampConcurrency(t *testing.T) {
+	cases := []struct {
+		in, want int
+	}{
+		{0, backupDefaultConcurrency},
+		{-1, backupDefaultConcurrency},
+		{1, 1},
+		{3, 3},
+		{5, 5},
+		{10, backupMaxConcurrency},
+		{11, backupMaxConcurrency},
+		{50, backupMaxConcurrency},
+	}
+	for _, c := range cases {
+		if got := clampConcurrency(c.in); got != c.want {
+			t.Errorf("clampConcurrency(%d) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
+func TestBackup_AccountsSubset(t *testing.T) {
+	// Classic /JSSResource/accounts returns users + groups combined; the
+	// subset-aware lister must fan each out into its own subdirectory and
+	// fetch details via the user/group-specific endpoints.
+	combinedAccountsXML := `<?xml version="1.0" encoding="UTF-8"?>
+<accounts>
+  <users>
+    <user><id>1</id><name>alice</name></user>
+    <user><id>2</id><name>bob</name></user>
+  </users>
+  <groups>
+    <group><id>10</id><name>admins</name></group>
+  </groups>
+</accounts>`
+
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/accounts":            {200, combinedAccountsXML},
+			"/JSSResource/accounts/userid/1":   {200, `<user><id>1</id><name>alice</name><email>alice@example.com</email></user>`},
+			"/JSSResource/accounts/userid/2":   {200, `<user><id>2</id><name>bob</name><email>bob@example.com</email></user>`},
+			"/JSSResource/accounts/groupid/10": {200, `<group><id>10</id><name>admins</name><privileges><jss_objects/></privileges></group>`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	if err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "accounts",
+		Concurrency: 2,
+	}); err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	// Two users, one group, in separate subdirs.
+	wantFiles := []string{
+		filepath.Join(outDir, "accounts", "users", "alice.yaml"),
+		filepath.Join(outDir, "accounts", "users", "bob.yaml"),
+		filepath.Join(outDir, "accounts", "groups", "admins.yaml"),
+	}
+	for _, path := range wantFiles {
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected backup file %s: %v", path, err)
+		}
+	}
+}
+
+func TestBackup_SitesListOnly(t *testing.T) {
+	// Sites have no per-ID detail endpoint — the list response is already the
+	// complete record. ListOnly mode must write each list item directly
+	// without attempting a per-ID GET (which would 404).
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v1/sites": {200, `[{"id":"1","name":"HQ"},{"id":"2","name":"Remote Office"}]`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	if err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "sites",
+		Concurrency: 2,
+	}); err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	for _, name := range []string{"hq.yaml", "remote-office.yaml"} {
+		if _, err := os.Stat(filepath.Join(outDir, "sites", name)); err != nil {
+			t.Errorf("expected %s: %v", name, err)
+		}
+	}
+}
+
 func TestExtractID(t *testing.T) {
 	tests := []struct {
 		input map[string]any
