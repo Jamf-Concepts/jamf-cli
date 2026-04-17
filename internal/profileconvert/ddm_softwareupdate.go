@@ -5,6 +5,7 @@ package profileconvert
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 )
@@ -64,9 +65,7 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 	if !forceDelayed && !forceMajor && !forceApp {
 		// All force flags are false — nothing active to convert.
 		// Return keys to remaining so they stay in the profile wrapper.
-		for k, v := range deferralKeys {
-			remaining[k] = v
-		}
+		maps.Copy(remaining, deferralKeys)
 		return nil, remaining, nil, nil
 	}
 
@@ -172,8 +171,6 @@ func clearIncluded(m map[string]any) {
 
 // mergeDeferrals overlays converted deferral values onto the base defaults.
 func mergeDeferrals(base, converted map[string]any) map[string]any {
-	for k, v := range converted {
-		base[k] = v
-	}
+	maps.Copy(base, converted)
 	return base
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -847,12 +848,7 @@ func needsMultipart(r *Resource) bool {
 }
 
 func hasAnyBinaryResponse(r *Resource) bool {
-	for _, op := range r.Operations {
-		if opHasBinaryResponse(op) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(r.Operations, opHasBinaryResponse)
 }
 
 func opHasBinaryResponse(op *Operation) bool {
@@ -990,12 +986,7 @@ func isPatchOp(op *Operation) bool {
 
 // hasPatchOp reports whether any operation in the slice satisfies isPatchOp.
 func hasPatchOp(ops []*Operation) bool {
-	for _, op := range ops {
-		if isPatchOp(op) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(ops, isPatchOp)
 }
 
 // patchHasLookup returns true when the resource's patch command should support
@@ -1032,18 +1023,19 @@ func patchExampleText(r *Resource, op *Operation) string {
 		return fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
 			bin, r.Name, bin, r.Name, bin, r.Name)
 	}
-	base := fmt.Sprintf("  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2",
+	var base strings.Builder
+	fmt.Fprintf(&base, "  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2",
 		bin, r.Name, bin, r.Name)
 	if patchHasLookup(r) {
-		base += fmt.Sprintf("\n\n  # Update by name\n  %s %s patch --name \"Example\" --set general.managed=true",
+		fmt.Fprintf(&base, "\n\n  # Update by name\n  %s %s patch --name \"Example\" --set general.managed=true",
 			bin, r.Name)
 		for _, lf := range r.LookupFields {
-			base += fmt.Sprintf("\n\n  # Update by %s\n  %s %s patch --%s <value> --set general.managed=true",
+			fmt.Fprintf(&base, "\n\n  # Update by %s\n  %s %s patch --%s <value> --set general.managed=true",
 				lf.Flag, bin, r.Name, lf.Flag)
 		}
 	}
-	base += fmt.Sprintf("\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json", bin, r.Name)
-	return base
+	fmt.Fprintf(&base, "\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json", bin, r.Name)
+	return base.String()
 }
 
 // patchPath returns the path of the first PATCH operation.

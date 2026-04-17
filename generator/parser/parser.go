@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -374,8 +375,8 @@ func ApplyNameFieldOverrides(resources []*Resource) {
 // Handles: -ies → -y (policies → policy), -sses → -ss (statuses → status),
 // -s → "" (buildings → building).
 func singularize(name string) string {
-	if strings.HasSuffix(name, "ies") {
-		return strings.TrimSuffix(name, "ies") + "y"
+	if before, ok := strings.CutSuffix(name, "ies"); ok {
+		return before + "y"
 	}
 	if strings.HasSuffix(name, "sses") {
 		return strings.TrimSuffix(name, "es")
@@ -478,13 +479,7 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 	// (e.g. /v1/branding-images/download/{id} appearing in Icon.yaml alongside /v1/icon).
 	filteredOps := filterToCanonicalPrefix(allOps)
 	for _, op := range allOps {
-		found := false
-		for _, fop := range filteredOps {
-			if fop == op {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(filteredOps, op)
 		if !found {
 			fmt.Fprintf(os.Stderr, "  Warning: %s %s not in canonical prefix family — skipped\n", op.Method, op.Path)
 		}
@@ -833,10 +828,10 @@ func isCollectionRootPath(path string) bool {
 // Paths without a version prefix are returned unchanged.
 func stripVersionPrefix(path string) string {
 	trimmed := strings.TrimPrefix(path, "/")
-	if idx := strings.Index(trimmed, "/"); idx != -1 {
-		prefix := trimmed[:idx]
+	if before, after, ok := strings.Cut(trimmed, "/"); ok {
+		prefix := before
 		if strings.HasPrefix(prefix, "v") || prefix == "preview" {
-			return "/" + trimmed[idx+1:]
+			return "/" + after
 		}
 	}
 	return path
@@ -946,10 +941,10 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 func compareAPIVersions(path1, path2 string) int {
 	rank := func(path string) int {
 		trimmed := strings.TrimPrefix(path, "/")
-		idx := strings.Index(trimmed, "/")
+		before, _, ok := strings.Cut(trimmed, "/")
 		var prefix string
-		if idx != -1 {
-			prefix = trimmed[:idx]
+		if ok {
+			prefix = before
 		} else {
 			prefix = trimmed
 		}
@@ -1678,8 +1673,8 @@ func detectIDField(schemas map[string]*Schema, ops []*Operation) string {
 
 	// 3. If the path param ends in "Id", try the bare prefix as a property name.
 	//    e.g. "keyId" → "key", "languageId" → "language"
-	if strings.HasSuffix(pathParam, "Id") {
-		bare := strings.TrimSuffix(pathParam, "Id")
+	if before, ok := strings.CutSuffix(pathParam, "Id"); ok {
+		bare := before
 		if bare != "" && schemaHasProperty(schemas, bare) {
 			return bare
 		}

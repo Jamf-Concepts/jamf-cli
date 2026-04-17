@@ -212,15 +212,16 @@ func templateFuncs() template.FuncMap {
 		},
 		"parentPathLiteral": func(path string) string {
 			parts := strings.Split(path, "/")
-			out := "[]string{"
+			var out strings.Builder
+			out.WriteString("[]string{")
 			for i, p := range parts[:len(parts)-1] {
 				if i > 0 {
-					out += ", "
+					out.WriteString(", ")
 				}
-				out += "\"" + p + "\""
+				out.WriteString("\"" + p + "\"")
 			}
-			out += "}"
-			return out
+			out.WriteString("}")
+			return out.String()
 		},
 		"leafName": func(path string) string {
 			parts := strings.Split(path, "/")
