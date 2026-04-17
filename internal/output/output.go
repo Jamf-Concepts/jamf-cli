@@ -435,10 +435,7 @@ func defaultColumns(allKeys []string, firstRow map[string]any) []string {
 	}
 	result := scalars
 	if len(result) < defaultColumnLimit {
-		remaining := defaultColumnLimit - len(result)
-		if remaining > len(arrays) {
-			remaining = len(arrays)
-		}
+		remaining := min(defaultColumnLimit-len(result), len(arrays))
 		result = append(result, arrays[:remaining]...)
 	}
 	if len(result) > defaultColumnLimit {

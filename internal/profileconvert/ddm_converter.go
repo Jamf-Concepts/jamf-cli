@@ -5,6 +5,7 @@ package profileconvert
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 
 	"howett.net/plist"
@@ -211,9 +212,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 						"payloadType":       payloadType,
 						"payloadIdentifier": generatePayloadIdentifier(payloadType, idx),
 					}
-					for k, v := range remaining {
-						entry[k] = v
-					}
+					maps.Copy(entry, remaining)
 					profilePayloads = append(profilePayloads, entry)
 				}
 			} else {
@@ -223,9 +222,7 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 					"payloadType":       payloadType,
 					"payloadIdentifier": generatePayloadIdentifier(payloadType, idx),
 				}
-				for k, v := range remaining {
-					entry[k] = v
-				}
+				maps.Copy(entry, remaining)
 				profilePayloads = append(profilePayloads, entry)
 			}
 		}

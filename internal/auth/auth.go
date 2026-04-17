@@ -157,7 +157,7 @@ type persistedCookie struct {
 	Value    string    `json:"value"`
 	Path     string    `json:"path,omitempty"`
 	Domain   string    `json:"domain,omitempty"`
-	Expires  time.Time `json:"expires,omitempty"`
+	Expires  time.Time `json:"expires"`
 	Secure   bool      `json:"secure,omitempty"`
 	HttpOnly bool      `json:"http_only,omitempty"`
 }

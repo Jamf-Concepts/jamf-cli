@@ -480,3 +480,73 @@ func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, 
 	}
 	return id, body, nil
 }
+
+// sliceClassicListSubsetXML returns the <subset>...</subset> subtree from a
+// combined Classic API XML response, prefixed with the XML declaration. This
+// preserves the exact wire format so pretty-printed XML (and -o raw) match what
+// other classic list commands emit. When the subset element is absent or
+// malformed, the body is returned unchanged.
+func sliceClassicListSubsetXML(body []byte, subset string) []byte {
+	openTag := []byte("<" + subset + ">")
+	closeTag := []byte("</" + subset + ">")
+	si := bytes.Index(body, openTag)
+	ei := bytes.Index(body, closeTag)
+	if si < 0 || ei < 0 || ei < si {
+		// Also handle self-closing <subset/>.
+		if bytes.Contains(body, []byte("<"+subset+"/>")) {
+			return []byte(`<?xml version="1.0" encoding="UTF-8"?><` + subset + `/>`)
+		}
+		return body
+	}
+	subtree := body[si : ei+len(closeTag)]
+	out := make([]byte, 0, len(subtree)+64)
+	out = append(out, []byte(`<?xml version="1.0" encoding="UTF-8"?>`)...)
+	out = append(out, subtree...)
+	return out
+}
+
+// extractClassicListSubset parses the combined Classic API XML response and
+// returns the repeated items under the named subset element (e.g. "users" or
+// "groups" under <accounts>). An absent or self-closing subset returns an empty
+// slice — the caller can still format "No results" cleanly.
+func extractClassicListSubset(body []byte, subset string) ([]map[string]any, error) {
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing XML: %w", err)
+	}
+	var rootVal any
+	for _, v := range m {
+		rootVal = v
+		break
+	}
+	rootMap, ok := rootVal.(map[string]any)
+	if !ok {
+		return []map[string]any{}, nil
+	}
+	subVal, ok := rootMap[subset]
+	if !ok {
+		return []map[string]any{}, nil
+	}
+	subMap, ok := subVal.(map[string]any)
+	if !ok {
+		// Empty <users/> or <users></users> comes through as "" — treat as empty.
+		return []map[string]any{}, nil
+	}
+	var items []map[string]any
+	for _, v := range subMap {
+		switch vv := v.(type) {
+		case map[string]any:
+			items = append(items, vv)
+		case []any:
+			for _, it := range vv {
+				if im, ok := it.(map[string]any); ok {
+					items = append(items, im)
+				}
+			}
+		}
+	}
+	if items == nil {
+		items = []map[string]any{}
+	}
+	return items, nil
+}

@@ -18,6 +18,12 @@ type ClassicResource struct {
 	IDPath          string   // path segment between base path and ID value; defaults to "id" (e.g. "groupid" → /accounts/groupid/{id})
 	IsConfigProfile bool     // true for macOS and mobile device configuration profile resources
 	FileFields      []ClassicFileField
+	// ListSubset marks a list operation as sharing the list endpoint with a
+	// sibling resource: GET /JSSResource/{path} returns both, and the generated
+	// list command extracts only the named sub-element before formatting.
+	// Used for /accounts (returns users + groups combined under <accounts>).
+	// Empty for normal list endpoints.
+	ListSubset string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

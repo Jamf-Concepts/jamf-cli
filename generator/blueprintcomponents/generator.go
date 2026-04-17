@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -248,9 +249,7 @@ func walkAllOf(refs openapi3.SchemaRefs, depth int) any {
 	for _, ref := range refs {
 		sub := schemaToExample(ref, depth+1)
 		if m, ok := sub.(map[string]any); ok {
-			for k, v := range m {
-				result[k] = v
-			}
+			maps.Copy(result, m)
 		}
 	}
 	return result
@@ -348,11 +347,11 @@ func constValue(schema *openapi3.Schema) any {
 // "com.jamf.ddm.software-update-settings" → "software-update-settings"
 // "com.jamf.ddm-configuration-profile" → "ddm-configuration-profile"
 func shortName(identifier string) string {
-	if strings.HasPrefix(identifier, "com.jamf.ddm.") {
-		return strings.TrimPrefix(identifier, "com.jamf.ddm.")
+	if after, ok := strings.CutPrefix(identifier, "com.jamf.ddm."); ok {
+		return after
 	}
-	if strings.HasPrefix(identifier, "com.jamf.") {
-		return strings.TrimPrefix(identifier, "com.jamf.")
+	if after, ok := strings.CutPrefix(identifier, "com.jamf."); ok {
+		return after
 	}
 	return identifier
 }

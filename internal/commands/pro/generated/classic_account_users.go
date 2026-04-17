@@ -24,6 +24,8 @@ func NewClassicAccountUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage jamf pro account users via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+	cmd.AddCommand(newClassicAccountUsersListCmd(ctx))
+
 	cmd.AddCommand(newClassicAccountUsersGetCmd(ctx))
 
 	cmd.AddCommand(newClassicAccountUsersCreateCmd(ctx))
@@ -33,6 +35,50 @@ func NewClassicAccountUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicAccountUsersDeleteCmd(ctx))
 
 	return cmd
+}
+
+func newClassicAccountUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all account-users",
+		Example: `  # List all account-users
+  jamf-cli classic-account-users list
+
+  # List account-users and extract IDs
+  jamf-cli classic-account-users list --field id`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Classic API returns XML list responses.
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// /JSSResource/accounts returns users + groups combined; narrow to
+			// the "users" subset so this command behaves like a
+			// standalone list. Default to pretty-printed XML (matching other
+			// classic lists); -o json/yaml/table/csv extract structured items.
+			subsetXML := sliceClassicListSubsetXML(body, "users")
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(subsetXML)
+			}
+			if xmlconv.IsXML(body) {
+				items, err := extractClassicListSubset(body, "users")
+				if err == nil {
+					jsonItems, mErr := json.Marshal(items)
+					if mErr == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+			}
+			return ctx.Output.PrintRaw(subsetXML)
+		},
+	}
 }
 
 func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {

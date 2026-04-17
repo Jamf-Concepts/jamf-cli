@@ -194,6 +194,14 @@ func templateFuncs() template.FuncMap {
 			}
 			return false
 		},
+		"anyListSubset": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if r.ListSubset != "" {
+					return true
+				}
+			}
+			return false
+		},
 		"hasFetchMergePut": func(r ClassicResource) bool {
 			for _, ff := range r.FileFields {
 				if ff.FetchMergePut {
@@ -204,15 +212,16 @@ func templateFuncs() template.FuncMap {
 		},
 		"parentPathLiteral": func(path string) string {
 			parts := strings.Split(path, "/")
-			out := "[]string{"
+			var out strings.Builder
+			out.WriteString("[]string{")
 			for i, p := range parts[:len(parts)-1] {
 				if i > 0 {
-					out += ", "
+					out.WriteString(", ")
 				}
-				out += "\"" + p + "\""
+				out.WriteString("\"" + p + "\"")
 			}
-			out += "}"
-			return out
+			out.WriteString("}")
+			return out.String()
 		},
 		"leafName": func(path string) string {
 			parts := strings.Split(path, "/")
@@ -334,6 +343,26 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+{{- if .ListSubset }}
+			// /JSSResource/{{ .Path }} returns users + groups combined; narrow to
+			// the "{{ .ListSubset }}" subset so this command behaves like a
+			// standalone list. Default to pretty-printed XML (matching other
+			// classic lists); -o json/yaml/table/csv extract structured items.
+			subsetXML := sliceClassicListSubsetXML(body, "{{ .ListSubset }}")
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(subsetXML)
+			}
+			if xmlconv.IsXML(body) {
+				items, err := extractClassicListSubset(body, "{{ .ListSubset }}")
+				if err == nil {
+					jsonItems, mErr := json.Marshal(items)
+					if mErr == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+			}
+			return ctx.Output.PrintRaw(subsetXML)
+{{- else }}
 			// Default to pretty-printed XML; use -o json/yaml/table/csv for structured output.
 			// -o xml = pretty-printed XML, -o raw = exact wire bytes.
 			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
@@ -357,6 +386,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 			return ctx.Output.PrintRaw(body)
+{{- end }}
 		},
 	}
 }
@@ -914,21 +944,25 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 {{- end }}
-{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
+	"fmt"
+{{- end }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) }}
 	"bytes"
+{{- end }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"net/url"
 {{- end }}
 
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
 {{- if anyIsConfigProfile . }}
@@ -1352,6 +1386,77 @@ func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, 
 		}
 	}
 	return id, body, nil
+}
+{{ end }}
+{{ if anyListSubset . }}
+// sliceClassicListSubsetXML returns the <subset>...</subset> subtree from a
+// combined Classic API XML response, prefixed with the XML declaration. This
+// preserves the exact wire format so pretty-printed XML (and -o raw) match what
+// other classic list commands emit. When the subset element is absent or
+// malformed, the body is returned unchanged.
+func sliceClassicListSubsetXML(body []byte, subset string) []byte {
+	openTag := []byte("<" + subset + ">")
+	closeTag := []byte("</" + subset + ">")
+	si := bytes.Index(body, openTag)
+	ei := bytes.Index(body, closeTag)
+	if si < 0 || ei < 0 || ei < si {
+		// Also handle self-closing <subset/>.
+		if bytes.Contains(body, []byte("<"+subset+"/>")) {
+			return []byte(` + "`" + `<?xml version="1.0" encoding="UTF-8"?><` + "`" + ` + subset + ` + "`" + `/>` + "`" + `)
+		}
+		return body
+	}
+	subtree := body[si : ei+len(closeTag)]
+	out := make([]byte, 0, len(subtree)+64)
+	out = append(out, []byte(` + "`" + `<?xml version="1.0" encoding="UTF-8"?>` + "`" + `)...)
+	out = append(out, subtree...)
+	return out
+}
+
+// extractClassicListSubset parses the combined Classic API XML response and
+// returns the repeated items under the named subset element (e.g. "users" or
+// "groups" under <accounts>). An absent or self-closing subset returns an empty
+// slice — the caller can still format "No results" cleanly.
+func extractClassicListSubset(body []byte, subset string) ([]map[string]any, error) {
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return nil, fmt.Errorf("parsing XML: %w", err)
+	}
+	var rootVal any
+	for _, v := range m {
+		rootVal = v
+		break
+	}
+	rootMap, ok := rootVal.(map[string]any)
+	if !ok {
+		return []map[string]any{}, nil
+	}
+	subVal, ok := rootMap[subset]
+	if !ok {
+		return []map[string]any{}, nil
+	}
+	subMap, ok := subVal.(map[string]any)
+	if !ok {
+		// Empty <users/> or <users></users> comes through as "" — treat as empty.
+		return []map[string]any{}, nil
+	}
+	var items []map[string]any
+	for _, v := range subMap {
+		switch vv := v.(type) {
+		case map[string]any:
+			items = append(items, vv)
+		case []any:
+			for _, it := range vv {
+				if im, ok := it.(map[string]any); ok {
+					items = append(items, im)
+				}
+			}
+		}
+	}
+	if items == nil {
+		items = []map[string]any{}
+	}
+	return items, nil
 }
 {{ end }}
 `

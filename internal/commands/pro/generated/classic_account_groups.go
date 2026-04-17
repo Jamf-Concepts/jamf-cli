@@ -24,6 +24,8 @@ func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage jamf pro account groups via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
+	cmd.AddCommand(newClassicAccountGroupsListCmd(ctx))
+
 	cmd.AddCommand(newClassicAccountGroupsGetCmd(ctx))
 
 	cmd.AddCommand(newClassicAccountGroupsCreateCmd(ctx))
@@ -33,6 +35,50 @@ func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicAccountGroupsDeleteCmd(ctx))
 
 	return cmd
+}
+
+func newClassicAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all account-groups",
+		Example: `  # List all account-groups
+  jamf-cli classic-account-groups list
+
+  # List account-groups and extract IDs
+  jamf-cli classic-account-groups list --field id`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			// Classic API returns XML list responses.
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// /JSSResource/accounts returns users + groups combined; narrow to
+			// the "groups" subset so this command behaves like a
+			// standalone list. Default to pretty-printed XML (matching other
+			// classic lists); -o json/yaml/table/csv extract structured items.
+			subsetXML := sliceClassicListSubsetXML(body, "groups")
+			if (!cmd.Flags().Changed("output") && !cmd.Flags().Changed("field") && ctx.Output.Format() == "json") || ctx.Output.Format() == "xml" || ctx.Output.Format() == "raw" {
+				return ctx.Output.PrintBytes(subsetXML)
+			}
+			if xmlconv.IsXML(body) {
+				items, err := extractClassicListSubset(body, "groups")
+				if err == nil {
+					jsonItems, mErr := json.Marshal(items)
+					if mErr == nil {
+						return ctx.Output.PrintRaw(jsonItems)
+					}
+				}
+			}
+			return ctx.Output.PrintRaw(subsetXML)
+		},
+	}
 }
 
 func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
