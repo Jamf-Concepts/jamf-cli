@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,7 +15,17 @@ import (
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// newTestCtx builds a CLIContext whose Output writes to w in the given format.
+// Used to capture structured output from config commands in tests.
+func newTestCtx(w io.Writer, format string) *registry.CLIContext {
+	formatter := output.New(format, true, false)
+	formatter.SetWriter(w)
+	return &registry.CLIContext{Output: &cliOutput{formatter}}
+}
 
 // --- config show tests ---
 
@@ -29,8 +40,8 @@ profiles:
 `
 	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
-	cmd := newConfigShowCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigShowCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -39,19 +50,22 @@ profiles:
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "# Config file:") {
-		t.Error("expected config file header")
+	if !strings.Contains(out, `"config-file"`) {
+		t.Errorf("expected config-file key in output:\n%s", out)
 	}
 	if !strings.Contains(out, "prod.jamfcloud.com") {
-		t.Error("expected URL in output")
+		t.Errorf("expected URL in output:\n%s", out)
+	}
+	if !strings.Contains(out, `"default-profile": "prod"`) {
+		t.Errorf("expected default-profile in output:\n%s", out)
 	}
 }
 
 func TestConfigShow_MissingFile(t *testing.T) {
 	setupTempConfig(t)
 
-	cmd := newConfigShowCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigShowCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -85,8 +99,8 @@ func TestConfigPath_PrintsPath(t *testing.T) {
 func TestConfigList_Empty(t *testing.T) {
 	setupTempConfig(t)
 
-	cmd := newConfigListCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigListCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -94,8 +108,12 @@ func TestConfigList_Empty(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(buf.String(), "No profiles configured") {
-		t.Errorf("expected 'No profiles configured' message, got:\n%s", buf.String())
+	out := buf.String()
+	if !strings.Contains(out, "No profiles configured") {
+		t.Errorf("expected 'No profiles configured' hint on stderr, got:\n%s", out)
+	}
+	if !strings.Contains(out, "[]") {
+		t.Errorf("expected empty JSON array when no profiles, got:\n%s", out)
 	}
 }
 
@@ -112,8 +130,8 @@ profiles:
 `
 	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
-	cmd := newConfigListCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigListCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -121,16 +139,21 @@ profiles:
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	out := buf.String()
-	// Alpha should be marked as active (default)
-	if !strings.Contains(out, "* alpha") {
-		t.Error("expected alpha to be marked as default with *")
+	var rows []map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &rows); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
 	}
-	if !strings.Contains(out, "beta") {
-		t.Error("expected beta in output")
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d: %v", len(rows), rows)
 	}
-	if !strings.Contains(out, "alpha.jamfcloud.com") {
-		t.Error("expected alpha URL in output")
+	if rows[0]["name"] != "alpha" || rows[0]["default"] != true {
+		t.Errorf("expected alpha as default, got: %v", rows[0])
+	}
+	if rows[1]["name"] != "beta" {
+		t.Errorf("expected beta second, got: %v", rows[1])
+	}
+	if rows[0]["url"] != "https://alpha.jamfcloud.com" {
+		t.Errorf("expected alpha URL, got: %v", rows[0]["url"])
 	}
 }
 
@@ -383,8 +406,8 @@ func TestConfigList_WithStatus(t *testing.T) {
 			yaml := fmt.Sprintf("default-profile: test\nprofiles:\n  test:\n    url: %s\n    auth-method: token\n", srv.URL)
 			_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600)
 
-			cmd := newConfigListCmd()
 			buf := &bytes.Buffer{}
+			cmd := newConfigListCmd(newTestCtx(buf, "json"))
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
 			cmd.SetArgs([]string{"--status"})

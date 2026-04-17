@@ -40,8 +40,8 @@ func runValidateCmd(t *testing.T, yamlContent string) (string, error) {
 		}
 	}
 
-	cmd := newConfigValidateCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigValidateCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -66,8 +66,8 @@ profiles:
 	if err != nil {
 		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "All checks passed") {
-		t.Errorf("expected 'All checks passed' in output:\n%s", out)
+	if strings.Contains(out, `"fail"`) {
+		t.Errorf("expected no failures, got:\n%s", out)
 	}
 }
 
@@ -80,8 +80,8 @@ func TestConfigValidate_MissingFile(t *testing.T) {
 	}
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	cmd := newConfigValidateCmd()
 	buf := &bytes.Buffer{}
+	cmd := newConfigValidateCmd(newTestCtx(buf, "json"))
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -90,8 +90,8 @@ func TestConfigValidate_MissingFile(t *testing.T) {
 		t.Fatal("expected error for missing config file")
 		return
 	}
-	if !strings.Contains(buf.String(), "does not exist") {
-		t.Errorf("expected 'does not exist' in output:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "no file at") {
+		t.Errorf("expected 'no file at' message in output:\n%s", buf.String())
 	}
 }
 
@@ -101,8 +101,8 @@ func TestConfigValidate_InvalidYAML(t *testing.T) {
 		t.Fatal("expected error for invalid YAML")
 		return
 	}
-	if !strings.Contains(out, "Invalid YAML") {
-		t.Errorf("expected 'Invalid YAML' in output:\n%s", out)
+	if !strings.Contains(out, `"valid-yaml"`) || !strings.Contains(out, `"fail"`) {
+		t.Errorf("expected valid-yaml failure in output:\n%s", out)
 	}
 }
 
@@ -116,8 +116,8 @@ profiles: {}
 		t.Fatal("expected error for invalid output format")
 		return
 	}
-	if !strings.Contains(out, "Invalid default-output") {
-		t.Errorf("expected 'Invalid default-output' in output:\n%s", out)
+	if !strings.Contains(out, `"default-output"`) || !strings.Contains(out, `"fail"`) {
+		t.Errorf("expected default-output failure in output:\n%s", out)
 	}
 }
 
@@ -139,6 +139,9 @@ profiles:
 	if !strings.Contains(out, "not found in profiles") {
 		t.Errorf("expected 'not found in profiles' in output:\n%s", out)
 	}
+	if !strings.Contains(out, `"default-profile"`) {
+		t.Errorf("expected default-profile key in output:\n%s", out)
+	}
 }
 
 func TestConfigValidate_MissingURL(t *testing.T) {
@@ -154,8 +157,8 @@ profiles:
 		t.Fatal("expected error for missing URL")
 		return
 	}
-	if !strings.Contains(out, "Missing url") {
-		t.Errorf("expected 'Missing url' in output:\n%s", out)
+	if !strings.Contains(out, `"url"`) || !strings.Contains(out, `"missing"`) {
+		t.Errorf("expected missing url failure in output:\n%s", out)
 	}
 }
 
@@ -171,8 +174,8 @@ profiles:
 		t.Fatal("expected error for invalid auth method")
 		return
 	}
-	if !strings.Contains(out, "Invalid auth-method") {
-		t.Errorf("expected 'Invalid auth-method' in output:\n%s", out)
+	if !strings.Contains(out, `"auth-method"`) || !strings.Contains(out, `"invalid \"magic\""`) {
+		t.Errorf("expected invalid auth-method failure in output:\n%s", out)
 	}
 }
 
@@ -188,11 +191,14 @@ profiles:
 		t.Fatal("expected error for missing oauth2 credentials")
 		return
 	}
-	if !strings.Contains(out, "Missing client-id") {
-		t.Errorf("expected 'Missing client-id' in output:\n%s", out)
+	if !strings.Contains(out, `"client-id"`) {
+		t.Errorf("expected client-id check in output:\n%s", out)
 	}
-	if !strings.Contains(out, "Missing client-secret") {
-		t.Errorf("expected 'Missing client-secret' in output:\n%s", out)
+	if !strings.Contains(out, `"client-secret"`) {
+		t.Errorf("expected client-secret check in output:\n%s", out)
+	}
+	if strings.Count(out, `"missing"`) < 2 {
+		t.Errorf("expected both client-id and client-secret to be missing:\n%s", out)
 	}
 }
 
@@ -227,8 +233,8 @@ profiles:
 	if err != nil {
 		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "token resolvable") {
-		t.Errorf("expected 'token resolvable' in output:\n%s", out)
+	if !strings.Contains(out, `"name": "token"`) || !strings.Contains(out, `"pass"`) {
+		t.Errorf("expected token pass in output:\n%s", out)
 	}
 }
 
@@ -300,11 +306,11 @@ profiles:
 	if err != nil {
 		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "client-id resolvable") {
-		t.Errorf("expected 'client-id resolvable' in output:\n%s", out)
+	if !strings.Contains(out, `"client-id"`) || !strings.Contains(out, `"client-secret"`) {
+		t.Errorf("expected client-id and client-secret checks in output:\n%s", out)
 	}
-	if !strings.Contains(out, "client-secret resolvable") {
-		t.Errorf("expected 'client-secret resolvable' in output:\n%s", out)
+	if strings.Contains(out, `"fail"`) {
+		t.Errorf("expected no failures with keychain-backed secrets:\n%s", out)
 	}
 }
 
