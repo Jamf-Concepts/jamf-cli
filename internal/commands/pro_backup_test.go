@@ -279,8 +279,9 @@ func TestClampConcurrency(t *testing.T) {
 		{-1, backupDefaultConcurrency},
 		{1, 1},
 		{3, 3},
-		{5, backupMaxConcurrency},
-		{6, backupMaxConcurrency},
+		{5, 5},
+		{10, backupMaxConcurrency},
+		{11, backupMaxConcurrency},
 		{50, backupMaxConcurrency},
 	}
 	for _, c := range cases {

@@ -430,6 +430,9 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 		})
 	}
 
+	// Sort alphabetically by CLI command name so the generated file diff is
+	// stable across regenerations — unrelated spec changes don't shuffle the
+	// map output and noise up review diffs.
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name < entries[j].Name
 	})

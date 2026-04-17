@@ -20,10 +20,12 @@ import (
 
 // Concurrency defaults for the backup command. The API can be pushed to 429s
 // quickly on modest-sized instances when every resource type fans out to
-// per-ID GETs in parallel, so the ceiling is deliberately low.
+// per-ID GETs in parallel, so the default is conservative. The ceiling exists
+// as an escape hatch for larger instances that want to trade rate-limit risk
+// for throughput on very large exports.
 const (
 	backupDefaultConcurrency = 3
-	backupMaxConcurrency     = 5
+	backupMaxConcurrency     = 10
 )
 
 // backupFailure records a single resource fetch failure.
@@ -113,6 +115,8 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		if u, ok := data["url"].(string); ok {
 			jamfProURL = strings.TrimSuffix(u, "/")
 		}
+	} else if verbose {
+		fmt.Fprintf(os.Stderr, "WARNING: could not resolve Jamf Pro URL for _meta: %v\n", err)
 	}
 
 	// Resolve tenant ID for _meta. The package-level tenantID var only holds
@@ -345,7 +349,7 @@ func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, d
 		if id == "" && !def.ListOnly {
 			continue
 		}
-		items = append(items, resourceItem{ID: id, Name: extractName(m, def.NameField)})
+		items = append(items, resourceItem{ID: id, Name: extractName(m, def.NameField, def.IDField)})
 		aligned = append(aligned, m)
 	}
 	return items, aligned, nil
@@ -376,8 +380,12 @@ func extractIDWithField(m map[string]any, field string) string {
 
 // extractName returns the human-readable name for a list item. `field` is the
 // spec-declared name field (e.g. "displayName" for mobile device groups); an
-// empty value falls back to "name", then to the resource ID.
-func extractName(m map[string]any, field string) string {
+// empty value falls back to "name". If neither yields a name, the list item's
+// ID is returned so per-ID fetches and slug generation still have something to
+// key off. Callers pass the resource's IDField so the final fallback honours
+// overrides (e.g. "groupId" for mobile device groups, which have neither
+// "name" nor "id" in their list response).
+func extractName(m map[string]any, field, idField string) string {
 	if field != "" {
 		if n, ok := m[field].(string); ok && n != "" {
 			return n
@@ -386,7 +394,7 @@ func extractName(m map[string]any, field string) string {
 	if n, ok := m["name"].(string); ok && n != "" {
 		return n
 	}
-	return extractID(m)
+	return extractIDWithField(m, idField)
 }
 
 // unwrapClassicDetail unwraps Classic API single-object responses.
@@ -606,8 +614,11 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 			continue
 		}
 
-		// Strip server-generated fields for clean export
-		obj := map[string]any{
+		// Strip server-generated fields for clean export. JSON round-trip so
+		// any SDK types that embed json.RawMessage / []byte (now or later)
+		// serialize as native Go types instead of yaml.v3's integer-array
+		// fallback — same reason backupBlueprints normalizes.
+		raw := map[string]any{
 			"title":           bm.Title,
 			"description":     bm.Description,
 			"baselineId":      bm.BaselineID,
@@ -616,7 +627,12 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 			"rules":           bm.Rules,
 		}
 		if len(bm.Sources) > 0 {
-			obj["sources"] = bm.Sources
+			raw["sources"] = bm.Sources
+		}
+		obj, err := normalizeViaJSON(raw)
+		if err != nil {
+			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: b.ID, Error: err.Error()})
+			continue
 		}
 		obj["_meta"] = newMeta("compliance-benchmarks")
 

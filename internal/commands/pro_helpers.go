@@ -126,15 +126,18 @@ func FetchClassicListSubset(ctx context.Context, client registry.HTTPClient, pat
 		return nil, fmt.Errorf("parsing XML: %w", err)
 	}
 
-	// Unwrap the single root element (<accounts>).
-	var rootVal any
-	for _, v := range m {
-		rootVal = v
-		break
+	// Unwrap the single root element. Classic list responses always have
+	// exactly one top-level element (e.g. <accounts>) wrapping the collection.
+	if len(m) != 1 {
+		return nil, fmt.Errorf("unexpected classic list shape: got %d root elements, want 1", len(m))
 	}
-	rootMap, ok := rootVal.(map[string]any)
-	if !ok {
-		return nil, nil
+	var rootMap map[string]any
+	for _, v := range m {
+		var ok bool
+		rootMap, ok = v.(map[string]any)
+		if !ok {
+			return nil, nil
+		}
 	}
 
 	subVal, ok := rootMap[subset]

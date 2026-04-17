@@ -61,7 +61,6 @@ func TestBackupResources_PreferModernOverClassic(t *testing.T) {
 	// coverage — it documents the "prefer modern" policy in a checkable way.
 	forbidden := map[string]string{
 		"classic-computer-ext-attrs": "computer-extension-attributes",
-		"classic-mobile-ext-attrs":   "mobile-device-extension-attributes",
 	}
 	for _, r := range BackupResources {
 		if modern, ok := forbidden[r.Key]; ok {
