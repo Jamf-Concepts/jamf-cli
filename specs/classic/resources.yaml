@@ -105,7 +105,8 @@ resources:
     path: mobiledeviceconfigurationprofiles
     description: Mobile device configuration profiles
     cli_name: classic-mobile-config-profiles
-    singular: mobile_device_configuration_profile
+    # Classic API returns <configuration_profile>, not <mobile_device_configuration_profile>.
+    singular: configuration_profile
     scope: true
 
   - name: mobiledeviceprovisioningprofiles

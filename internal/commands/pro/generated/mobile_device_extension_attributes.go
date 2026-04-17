@@ -3,11 +3,18 @@
 package generated
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -20,19 +27,32 @@ func NewMobileDeviceExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.AddCommand(newMobileDeviceExtensionAttributesListCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesGetCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesCreateCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesUpdateCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesDeleteCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesHistoryCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesDataDependencyCmd(ctx))
+	cmd.AddCommand(newMobileDeviceExtensionAttributesApplyCmd(ctx))
 
 	return cmd
 }
 
 func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSelect string
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get Mobile Device Extension Attribute values placed in select paramter",
-		Long:  "Gets Mobile Device Extension Attribute values placed in select parameter.",
+		Short: "Retrieve Mobile Device Extension Attributes.",
+		Long:  "Retrieves all mobile device extension attributes configuration.",
 		Example: `  # List all mobile-device-extension-attributes
   jamf-cli mobile-device-extension-attributes list
 
@@ -42,13 +62,155 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/devices/extensionAttributes"
+			path := "/v1/mobile-device-extension-attributes"
 
 			// Build query string
 			var queryParts []string
-			if flagSelect != "" {
-				queryParts = append(queryParts, "select="+url.QueryEscape(flagSelect))
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
 			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/mobile-device-extension-attributes"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is name:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id and name.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: id, name <br/> Default filter is an empty query and returns all results from the requested page.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "get [<id>]",
+		Short: "Get specified Mobile Device Extension Attribute object.",
+		Long:  "Gets specified Mobile Device Extension Attribute object.",
+		Example: `  # Get a mobile-device-extension-attribute by ID
+  jamf-cli mobile-device-extension-attributes get 1
+
+  # Get a mobile-device-extension-attribute by name
+  jamf-cli mobile-device-extension-attributes get --name "Example"
+
+  # Get a mobile-device-extension-attribute and output as YAML
+  jamf-cli mobile-device-extension-attributes get 1 -o yaml`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -64,7 +226,700 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.
 		},
 	}
 
-	cmd.Flags().StringVar(&flagSelect, "select", "name", "Acceptable values currently include: * name ")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create Mobile Device Extension Attribute.",
+		Long:  "Create Mobile Device Extension Attribute to collect extra inventory information.",
+		Example: `  # Show the JSON template for creating a mobile-device-extension-attribute
+  jamf-cli mobile-device-extension-attributes create --scaffold
+
+  # Create a mobile-device-extension-attribute from JSON
+  echo '{"name":"Example"}' | jamf-cli mobile-device-extension-attributes create
+
+  # Get a mobile-device-extension-attribute, modify it, and create a copy
+  jamf-cli mobile-device-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-extension-attributes create`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
+		Short: "Update specified Mobile Device Extension Attribute object.",
+		Long:  "Update specified Mobile Device Extension Attribute object.",
+		Example: `  # Update a mobile-device-extension-attribute from JSON
+  echo '{"name":"Updated"}' | jamf-cli mobile-device-extension-attributes update 1
+
+  # Update by name
+  jamf-cli mobile-device-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli mobile-device-extension-attributes update --name "Example"
+
+  # Get a mobile-device-extension-attribute, modify, and update
+  jamf-cli mobile-device-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-extension-attributes update 1`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+		flagName   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "delete [<id>]",
+		Short: "Delete a Mobile Device Extension Attribute by ID.",
+		Long:  "Deletes the Mobile Device Extension Attribute identified by the provided ID.<\\br> In addition to removing the attribute itself, this operation will also delete any related dependent data, including:<\\br>   - Associated popup menu choices.<\\br>   - Fields used in saved search displays.<\\br>   - User preferences that reference the attribute.",
+		Example: `  # Delete a mobile-device-extension-attribute (with confirmation)
+  jamf-cli mobile-device-extension-attributes delete 1
+
+  # Delete by name
+  jamf-cli mobile-device-extension-attributes delete --name "Example" --yes
+
+  # Delete without confirmation prompt
+  jamf-cli mobile-device-extension-attributes delete 1 --yes`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device-extension-attribute found with name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-extension-attribute %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device-extension-attribute %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-extension-attribute %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete mobile-device-extension-attribute %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "history [<id>]",
+		Short: "Get specified Mobile Device Extension Attribute History object",
+		Long:  "Get specified Mobile Device Extension Attribute history object",
+		Example: `  # Get history for a mobile-device-extension-attribute by ID
+  jamf-cli mobile-device-extension-attributes history 1
+
+  # Get history by name
+  jamf-cli mobile-device-extension-attributes history --name "Example"`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}/history"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/mobile-device-extension-attributes/{id}/history"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add-history-note [<id>]",
+		Short: "Add specified Mobile Device Extension Attribute history object notes",
+		Long:  "Add specified Mobile Device Extension Attribute history object notes",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}/history"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "data-dependency [<id>]",
+		Short: "Get smart group dependent object for a specified mobile device extension attribute",
+		Long:  "Get smart group dependent object for a specified mobile device extension attribute",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/mobile-device-extension-attributes/{id}/data-dependency"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-extension-attribute by name")
+
+	return cmd
+}
+
+func newMobileDeviceExtensionAttributesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a mobile-device-extension-attribute by name",
+		Long: `Create or replace a mobile-device-extension-attribute. Reads JSON or YAML from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a mobile-device-extension-attribute from a JSON file
+  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json
+
+  # Apply a mobile-device-extension-attribute from a YAML file
+  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.yaml
+
+  # Apply from stdin
+  cat mobile-device-extension-attribute.json | jamf-cli mobile-device-extension-attributes apply
+
+  # Apply without replacement confirmation
+  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --yes
+
+  # Preview what would happen
+  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Mobile Device Extension Attribute",
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "name": "MobileDeviceExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ]
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-extension-attribute %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/mobile-device-extension-attributes", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created mobile-device-extension-attribute %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-extension-attribute %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("mobile-device-extension-attribute %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "mobile-device-extension-attribute %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/mobile-device-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced mobile-device-extension-attribute %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

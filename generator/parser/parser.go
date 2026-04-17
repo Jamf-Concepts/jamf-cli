@@ -68,6 +68,58 @@ func ApplyLookupFields(resources []*Resource) {
 	}
 }
 
+// resourceFileFields maps canonical resource names to file-sourced body fields
+// exposed on create/update/apply/patch. Each entry adds a dedicated flag whose
+// file contents are injected into the parsed request body pre-marshal, so callers
+// don't need to include the target property/value in their JSON input.
+var resourceFileFields = map[string][]FileField{
+	"scripts": {{
+		Flag:         "script-file",
+		Field:        "scriptContents",
+		Encoding:     "raw",
+		Desc:         "Path to a script file; contents populate scriptContents",
+		NameFallback: "keep-ext",
+	}},
+	"computer-extension-attributes": {{
+		Flag:         "script-file",
+		Field:        "scriptContents",
+		Encoding:     "raw",
+		Desc:         "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)",
+		NameFallback: "keep-ext",
+	}},
+	"vpp-locations": {{
+		Flag:  "token-file",
+		Field: "serviceToken",
+		// .vpptoken files are already a base64-encoded JSON blob; Jamf expects
+		// that string verbatim — base64-encoding again would double-wrap and
+		// get rejected with INVALID_FIELD ("not parsable as a VPP token").
+		Encoding:     "raw",
+		Desc:         "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim",
+		NameFallback: "none",
+		NameFlag:     true,
+	}},
+	"device-enrollment-instances": {{
+		Flag:              "token-file",
+		Field:             "encodedToken",
+		Encoding:          "base64",
+		Desc:              "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken",
+		CompanionField:    "tokenFileName",
+		NameFallback:      "none",
+		NameFlag:          true,
+		RenameAfterUpload: true, // /upload-token and /{id}/upload-token reject a "name" field; follow up with PUT /v1/device-enrollments/{id}
+	}},
+}
+
+// ApplyFileFields sets FileFields on resources listed in resourceFileFields.
+// Must be called after DeduplicateVersioned/ApplyNameOverrides so names are canonical.
+func ApplyFileFields(resources []*Resource) {
+	for _, r := range resources {
+		if fields, ok := resourceFileFields[r.Name]; ok {
+			r.FileFields = fields
+		}
+	}
+}
+
 // resourceNameFieldOverrides maps canonical resource names to the correct RSQL
 // filter field for name-based lookups. Used when detectNameField() returns the
 // wrong value — typically because the name lives in a nested object (e.g.
@@ -748,6 +800,33 @@ func filterToCanonicalPrefix(ops []*Operation) []*Operation {
 	return filtered
 }
 
+// hasResponseCode reports whether an openapi3 operation declares the given
+// HTTP response code. Used alongside isCollectionRootPath to distinguish a
+// mis-annotated CRUD create (201) from a legitimate collection-root action
+// (200/202/204) when x-action: true is set.
+func hasResponseCode(op *openapi3.Operation, code string) bool {
+	if op == nil || op.Responses == nil {
+		return false
+	}
+	return op.Responses.Value(code) != nil
+}
+
+// isCollectionRootPath reports whether path is a plain collection root: a
+// version prefix followed by exactly one resource segment, with no path
+// parameters (e.g. /v1/foo, /preview/bar). Used to guard against upstream
+// specs that mis-tag a collection-root CRUD op with x-action: true.
+func isCollectionRootPath(path string) bool {
+	if strings.Contains(path, "{") {
+		return false
+	}
+	stripped := stripVersionPrefix(path)
+	if stripped == path {
+		return false
+	}
+	rest := strings.TrimPrefix(stripped, "/")
+	return rest != "" && !strings.Contains(rest, "/")
+}
+
 // stripVersionPrefix removes a leading version segment (v1, v2, v3, preview,
 // etc.) from a path, leaving the leading slash intact.
 // e.g. /v1/self-service/branding → /self-service/branding
@@ -1117,6 +1196,17 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 	}
 
 	opName := inferOperationName(path, method, isAction)
+	// Correct an upstream mis-annotation: some Jamf specs tag a plain
+	// collection-root CRUD create (e.g. POST /v1/mobile-device-extension-attributes)
+	// with x-action: true, which otherwise causes the CREATE to be named after
+	// the collection segment and shadowed under the group. Detect by path shape
+	// (version prefix + single non-param segment) plus a 201 response, which is
+	// the reliable signal that this POST actually creates a new resource. True
+	// actions like /v1/slasa (204), /v1/deploy-package (200), and
+	// /v2/patch-management-accept-disclaimer (202) keep their x-action naming.
+	if isAction && strings.ToLower(method) == "post" && isCollectionRootPath(path) && hasResponseCode(op, "201") {
+		opName = "create"
+	}
 	// Allow spec authors to override the inferred operation name via x-operation-name.
 	// Useful for disambiguating endpoints that would otherwise collide
 	// (e.g. /active/pem → "active-pem" vs /{id}/pem → "pem").

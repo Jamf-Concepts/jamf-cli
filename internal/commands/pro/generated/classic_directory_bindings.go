@@ -156,7 +156,7 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 }
 
 func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a directory_binding",
 		Long:  "Create a new directory_binding. Reads XML body from stdin.",
@@ -174,6 +174,7 @@ func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/directorybindings/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -182,6 +183,7 @@ func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicDirectoryBindingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -341,12 +343,16 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "directory_binding")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "directory_binding")
 			if err != nil {
 				return err
 			}
@@ -359,7 +365,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create directory_binding %q\n", name)
 					return nil
@@ -371,6 +378,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created directory_binding %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace

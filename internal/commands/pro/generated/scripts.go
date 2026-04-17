@@ -233,7 +233,8 @@ func newScriptsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
+		flagScaffold   bool
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -284,16 +285,29 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -307,6 +321,7 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents")
 
 	return cmd
 }
@@ -315,6 +330,8 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -381,16 +398,29 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -405,6 +435,8 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up script by name")
+
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents")
 
 	return cmd
 }
@@ -719,16 +751,19 @@ func newScriptsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -824,10 +859,11 @@ func newScriptsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newScriptsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
+		fromFile       string
+		flagYes        bool
+		flagDryRun     bool
+		flagScaffold   bool
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -875,12 +911,23 @@ If not, a new resource is created.`,
 }`, ctx.Output.Format())
 			}
 
-			// Read input (JSON or YAML)
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
 			data, err := readApplyInput(fromFile)
-			if err != nil {
+			anyFileFlag := flagScriptFile != ""
+			if err != nil && !anyFileFlag {
 				return err
 			}
-			data, err = normalizeInputToJSON(data)
+			err = nil
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+			data, err = injectFileFields(data, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
 			if err != nil {
 				return err
 			}
@@ -945,6 +992,7 @@ If not, a new resource is created.`,
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents")
 
 	return cmd
 }

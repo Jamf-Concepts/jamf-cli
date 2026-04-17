@@ -162,7 +162,7 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a policy",
 		Long:  "Create a new policy. Reads XML body from stdin.",
@@ -180,6 +180,7 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/policies/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -188,6 +189,7 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -347,12 +349,16 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "policy")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "policy")
 			if err != nil {
 				return err
 			}
@@ -365,7 +371,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create policy %q\n", name)
 					return nil
@@ -377,6 +384,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created policy %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace

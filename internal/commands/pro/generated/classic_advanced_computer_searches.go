@@ -156,7 +156,7 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 }
 
 func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a advanced_computer_search",
 		Long:  "Create a new advanced_computer_search. Reads XML body from stdin.",
@@ -174,6 +174,7 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobr
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/advancedcomputersearches/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -182,6 +183,7 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobr
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -341,12 +343,16 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "advanced_computer_search")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "advanced_computer_search")
 			if err != nil {
 				return err
 			}
@@ -359,7 +365,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create advanced_computer_search %q\n", name)
 					return nil
@@ -371,6 +378,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created advanced_computer_search %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace

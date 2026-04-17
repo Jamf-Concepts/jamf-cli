@@ -234,7 +234,10 @@ func newVppLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagBodyName string
 	)
 
 	cmd := &cobra.Command{
@@ -275,16 +278,33 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = setBodyStringField(normalized, "name", flagBodyName)
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -298,6 +318,9 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
+
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the vpp-location (sets the body's name field)")
 
 	return cmd
 }
@@ -612,16 +635,19 @@ func newVppLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -646,6 +672,8 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagSet      []string
 		fromFile     string
 		flagName     string
+
+		flagTokenFile string
 	)
 
 	cmd := &cobra.Command{
@@ -745,6 +773,8 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up vpp-location by name")
+
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
 
 	return cmd
 }
@@ -864,16 +894,19 @@ func newVppLocationsReclaimCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -931,16 +964,19 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)

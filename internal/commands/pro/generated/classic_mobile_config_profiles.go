@@ -40,7 +40,7 @@ func NewClassicMobileConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "mobiledeviceconfigurationprofiles",
-		SingularKey: "mobile_device_configuration_profile",
+		SingularKey: "configuration_profile",
 	}))
 
 	return cmd
@@ -102,14 +102,14 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get a mobile_device_configuration_profile by ID",
-		Example: `  # Get a mobile_device_configuration_profile by ID
+		Short: "Get a configuration_profile by ID",
+		Example: `  # Get a configuration_profile by ID
   jamf-cli classic-mobile-config-profiles get 1
 
-  # Get a mobile_device_configuration_profile by name
+  # Get a configuration_profile by name
   jamf-cli classic-mobile-config-profiles get --name "Example"
 
-  # Get a mobile_device_configuration_profile and output as YAML
+  # Get a configuration_profile and output as YAML
   jamf-cli classic-mobile-config-profiles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -148,7 +148,7 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["mobile_device_configuration_profile"]; ok {
+				if inner, ok := wrapper["configuration_profile"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -156,30 +156,45 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_configuration_profile by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up configuration_profile by name")
 
 	return cmd
 }
 
 func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var (
+		flagMobileconfigFile string
+	)
+	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a mobile_device_configuration_profile",
-		Long:  "Create a new mobile_device_configuration_profile. Reads XML body from stdin.",
-		Example: `  # Create a mobile_device_configuration_profile from XML
-  cat mobile_device_configuration_profile.xml | jamf-cli classic-mobile-config-profiles create`,
+		Short: "Create a configuration_profile",
+		Long:  "Create a new configuration_profile. Reads XML body from stdin.",
+		Example: `  # Create a configuration_profile from XML
+  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
+			anyFileFlag := flagMobileconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+			}
+			bodyBytes, err := injectClassicFileFields(bodyBytes, "configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
+			if err != nil {
+				return err
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", body)
 			if err != nil {
 				return err
 			}
@@ -188,47 +203,71 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
+	return cmd
 }
 
 func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
+	var (
+		flagMobileconfigFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update a mobile_device_configuration_profile",
-		Long:  "Update an existing mobile_device_configuration_profile by ID. Reads XML body from stdin.",
-		Example: `  # Update a mobile_device_configuration_profile from XML
-  cat mobile_device_configuration_profile.xml | jamf-cli classic-mobile-config-profiles update 1`,
+		Short: "Update a configuration_profile",
+		Long:  "Update an existing configuration_profile by ID. Reads XML body from stdin.",
+		Example: `  # Update a configuration_profile from XML
+  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) != 0 {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
-			bodyBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("reading input: %w", err)
+
+			anyFileFlag := flagMobileconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
 			var resolvedID string
+			var existingPayload []byte
 
 			if flagName != "" {
-				var existingPayload []byte
+
 				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", flagName)
 				if resolvedID == "" {
-					return fmt.Errorf("no mobile_device_configuration_profile found with name %q", flagName)
+					return fmt.Errorf("no configuration_profile found with name %q", flagName)
 				}
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", resolvedID)
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+
+				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", resolvedID)
+
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
+
+			var injErr error
+			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
+			if injErr != nil {
+				return injErr
+			}
+
+			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -242,8 +281,9 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_configuration_profile by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up configuration_profile by name")
 
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	return cmd
 }
 
@@ -256,8 +296,8 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
-		Short: "Delete a mobile_device_configuration_profile",
-		Example: `  # Delete a mobile_device_configuration_profile (with confirmation)
+		Short: "Delete a configuration_profile",
+		Example: `  # Delete a configuration_profile (with confirmation)
   jamf-cli classic-mobile-config-profiles delete 1
 
   # Delete by name
@@ -278,7 +318,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					return err
 				}
 				if id == "" {
-					return fmt.Errorf("no mobile_device_configuration_profile found with name %q", flagName)
+					return fmt.Errorf("no configuration_profile found with name %q", flagName)
 				}
 				resolvedID = id
 			} else if len(args) > 0 {
@@ -288,14 +328,14 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device_configuration_profile %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete configuration_profile %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete mobile_device_configuration_profile %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete configuration_profile %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -326,45 +366,61 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_configuration_profile by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up configuration_profile by name")
 
 	return cmd
 }
 
 func newClassicMobileConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile             string
+		flagYes              bool
+		flagDryRun           bool
+		flagMobileconfigFile string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a mobile_device_configuration_profile by name",
-		Long: `Create or replace a mobile_device_configuration_profile. Reads XML from --from-file or stdin.
+		Short: "Create or replace a configuration_profile by name",
+		Long: `Create or replace a configuration_profile. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a mobile_device_configuration_profile from an XML file
-  jamf-cli classic-mobile-config-profiles apply --from-file mobile_device_configuration_profile.xml
+		Example: `  # Apply a configuration_profile from an XML file
+  jamf-cli classic-mobile-config-profiles apply --from-file configuration_profile.xml
 
   # Apply from stdin
-  cat mobile_device_configuration_profile.xml | jamf-cli classic-mobile-config-profiles apply
+  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-mobile-config-profiles apply --from-file mobile_device_configuration_profile.xml --yes`,
+  jamf-cli classic-mobile-config-profiles apply --from-file configuration_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
+			anyFileFlag := flagMobileconfigFile != ""
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+
+			// Inject file fields before name extraction so name-fallback (if any)
+			// can populate <general><name> for lookup.
+			data, err = injectClassicFileFields(data, "configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "mobile_device_configuration_profile")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "configuration_profile")
 			if err != nil {
 				return err
 			}
@@ -377,9 +433,10 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile_device_configuration_profile %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create configuration_profile %q\n", name)
 					return nil
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(data))
@@ -387,20 +444,21 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created mobile_device_configuration_profile %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created configuration_profile %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile_device_configuration_profile %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace configuration_profile %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("mobile_device_configuration_profile %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("configuration_profile %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "mobile_device_configuration_profile %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "configuration_profile %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -418,7 +476,7 @@ If not, a new resource is created.`,
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced mobile_device_configuration_profile %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced configuration_profile %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -426,6 +484,8 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 
 	return cmd
 }

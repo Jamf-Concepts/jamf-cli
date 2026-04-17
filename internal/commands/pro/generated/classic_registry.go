@@ -6,10 +6,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -323,4 +325,158 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 	}
 
 	return replaceClassicProfilePayload(xmlBody, modified)
+}
+
+// classicFileFieldSpec describes one Classic XML field sourced from a local file.
+type classicFileFieldSpec struct {
+	FilePath     string   // user-supplied path (empty = skip)
+	ParentPath   []string // path to the immediate parent element under the root (e.g. ["general"])
+	LeafName     string   // name of the element receiving the file contents (e.g. "payloads")
+	Encoding     string   // "xml-cdata" | "raw"
+	NameFallback string   // "none" | "keep-ext" | "strip-ext"
+}
+
+// injectClassicFileFields overlays file-sourced XML fields into body. The body
+// may be empty or missing the target path entirely; missing ancestors are
+// constructed. File contents overwrite any existing leaf value; name fallback
+// adds a name element under the parent's sibling "general" only when absent.
+func injectClassicFileFields(body []byte, rootName string, specs []classicFileFieldSpec) ([]byte, error) {
+	active := false
+	for _, s := range specs {
+		if s.FilePath != "" {
+			active = true
+			break
+		}
+	}
+	if !active {
+		return body, nil
+	}
+
+	bodyStr := string(bytes.TrimSpace(body))
+	if bodyStr == "" {
+		bodyStr = "<" + rootName + "></" + rootName + ">"
+	}
+
+	for _, s := range specs {
+		if s.FilePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(s.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		}
+		var inner string
+		if s.Encoding == "xml-cdata" {
+			inner = "<![CDATA[" + string(data) + "]]>"
+		} else {
+			inner = string(data)
+		}
+		wrapped := "<" + s.LeafName + ">" + inner + "</" + s.LeafName + ">"
+
+		// Replace an existing leaf anywhere in the body. Safe for our known
+		// XML shapes because "payloads"/"preferences" only appear inside their
+		// expected parents.
+		openTag := "<" + s.LeafName + ">"
+		closeTag := "</" + s.LeafName + ">"
+		if si := strings.Index(bodyStr, openTag); si >= 0 {
+			if ei := strings.Index(bodyStr[si:], closeTag); ei >= 0 {
+				bodyStr = bodyStr[:si] + wrapped + bodyStr[si+ei+len(closeTag):]
+			} else {
+				return nil, fmt.Errorf("malformed XML: %s opens without close", openTag)
+			}
+		} else {
+			// Insert before </parent>. If the parent is missing, build the path.
+			parentName := s.ParentPath[len(s.ParentPath)-1]
+			parentClose := "</" + parentName + ">"
+			if idx := strings.Index(bodyStr, parentClose); idx >= 0 {
+				bodyStr = bodyStr[:idx] + wrapped + bodyStr[idx:]
+			} else {
+				build := wrapped
+				for i := len(s.ParentPath) - 1; i >= 0; i-- {
+					build = "<" + s.ParentPath[i] + ">" + build + "</" + s.ParentPath[i] + ">"
+				}
+				rootClose := "</" + rootName + ">"
+				if idx := strings.LastIndex(bodyStr, rootClose); idx >= 0 {
+					bodyStr = bodyStr[:idx] + build + bodyStr[idx:]
+				} else {
+					return nil, fmt.Errorf("root </%s> not found in body", rootName)
+				}
+			}
+		}
+
+		if s.NameFallback != "" && s.NameFallback != "none" {
+			// Only fill a name if one isn't already present under <general>.
+			// Users often provide scope/category with their own <name> elements —
+			// those are distinct, so we target <general><name> specifically.
+			if !hasClassicGeneralName(bodyStr) {
+				nm := filepath.Base(s.FilePath)
+				if s.NameFallback == "strip-ext" {
+					if dot := strings.LastIndex(nm, "."); dot > 0 {
+						nm = nm[:dot]
+					}
+				}
+				nameEl := "<name>" + classicXMLEscape(nm) + "</name>"
+				if gi := strings.Index(bodyStr, "</general>"); gi >= 0 {
+					bodyStr = bodyStr[:gi] + nameEl + bodyStr[gi:]
+				} else if ri := strings.LastIndex(bodyStr, "</"+rootName+">"); ri >= 0 {
+					bodyStr = bodyStr[:ri] + "<general>" + nameEl + "</general>" + bodyStr[ri:]
+				}
+			}
+		}
+	}
+	return []byte(bodyStr), nil
+}
+
+// hasClassicGeneralName returns true if <general>…<name>…</name>…</general>
+// appears in the XML body.
+func hasClassicGeneralName(bodyStr string) bool {
+	gOpen := strings.Index(bodyStr, "<general>")
+	if gOpen < 0 {
+		return false
+	}
+	gClose := strings.Index(bodyStr[gOpen:], "</general>")
+	if gClose < 0 {
+		return false
+	}
+	inner := bodyStr[gOpen : gOpen+gClose]
+	return strings.Contains(inner, "<name>")
+}
+
+// classicXMLEscape escapes reserved characters for an XML text node.
+func classicXMLEscape(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+// fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
+// returning the bytes and its ID. Used by apply for resources that need
+// fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error
+// if the API responds with a non-2xx status so the caller doesn't PUT back an
+// HTML error page as the "existing record".
+func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, fmt.Errorf("reading GET %s: %w", path, err)
+	}
+	if resp.StatusCode >= 400 {
+		return "", nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
+	}
+	m, mapErr := xmlconv.ToMap(body)
+	if mapErr == nil {
+		for _, rootVal := range m {
+			if root, ok := rootVal.(map[string]any); ok {
+				if general, ok := root["general"].(map[string]any); ok {
+					id = extractIDString(general, "id")
+				}
+			}
+		}
+	}
+	return id, body, nil
 }

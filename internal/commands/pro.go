@@ -61,13 +61,10 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	removeSubcommand(cmd, []string{}, "remove-computer-mdm-profiles")        // → pro comp remove-mdm
 	removeSubcommand(cmd, []string{}, "remove-mobile-device-mdm-profiles")   // → pro md unmanage
 
-	// Replace broken generated upload with handwritten streaming upload
+	// Replace broken generated upload with handwritten streaming upload.
+	// The JCDS binary-upload endpoint needs special chunked-upload handling
+	// that the generated multipart template can't produce.
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
-
-	// Add upload subcommands to generated resources
-	addSubcommand(cmd, []string{"scripts"}, newScriptsUploadCmd(cliCtx))
-	addSubcommand(cmd, []string{"classic-macos-config-profiles"}, newMacOSProfileUploadCmd(cliCtx))
-	addSubcommand(cmd, []string{"classic-mobile-config-profiles"}, newMobileProfileUploadCmd(cliCtx))
 
 	// Add device action subcommands to generated resource parents
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEraseCmd(cliCtx))

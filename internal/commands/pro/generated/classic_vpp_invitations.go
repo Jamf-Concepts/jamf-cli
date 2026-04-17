@@ -134,7 +134,7 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_invitation",
 		Long:  "Create a new vpp_invitation. Reads XML body from stdin.",
@@ -152,6 +152,7 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppinvitations/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -160,6 +161,7 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicVppInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {

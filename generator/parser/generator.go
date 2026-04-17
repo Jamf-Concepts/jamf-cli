@@ -352,10 +352,168 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"needsMultipart":       needsMultipart,
 		"hasAnyBinaryResponse": hasAnyBinaryResponse,
 		"opIsMultipart":        func(op *Operation) bool { return op.RequestBody != nil && op.RequestBody.IsMultipart },
-		"opHasBinaryResponse":  opHasBinaryResponse,
-		"shouldGenerateApply":  shouldGenerateApply,
-		"hasResolvableID":      hasResolvableID,
-		"hasDeleteMultiple":    hasDeleteMultiple,
+		"opHasFileFields": func(op *Operation, r *Resource) bool {
+			if len(r.FileFields) == 0 {
+				return false
+			}
+			switch op.Name {
+			case "create", "update", "apply", "patch":
+				return true
+			}
+			// Allow attachment to specific non-CRUD operations where the body field
+			// matches (e.g. device-enrollment-instances upload-token / upload-token-by-id
+			// → encodedToken). Detect by checking if the op's request body schema has
+			// a property matching any configured file field.
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			for _, ff := range r.FileFields {
+				if _, ok := op.RequestBody.Schema.Properties[ff.Field]; ok {
+					return true
+				}
+			}
+			return false
+		},
+		"opEmitsBodyNameFlag": func(op *Operation, r *Resource) bool {
+			// --name flag that populates the body's name field on create-style
+			// ops where the schema accepts it. Skipped when lookup-name owns
+			// --name or when the body doesn't carry a name property.
+			if opHasNameLookup(op, r) {
+				return false
+			}
+			hasNameFlag := false
+			for _, ff := range r.FileFields {
+				if ff.NameFlag {
+					hasNameFlag = true
+					break
+				}
+			}
+			if !hasNameFlag {
+				return false
+			}
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			nameField := "name"
+			if r.NameField != "" {
+				nameField = r.NameField
+			}
+			if _, hasName := op.RequestBody.Schema.Properties[nameField]; !hasName {
+				return false
+			}
+			if op.Name == "create" {
+				return true
+			}
+			for _, ff := range r.FileFields {
+				if _, ok := op.RequestBody.Schema.Properties[ff.Field]; ok {
+					return true
+				}
+			}
+			return false
+		},
+		"opEmitsRenameFlag": func(op *Operation, r *Resource) bool {
+			// --rename flag that runs a follow-up GET+PUT on the standard
+			// update path to set the name, used on upload-style ops whose
+			// request body schema rejects a name field (e.g. DEP
+			// /upload-token → DeviceEnrollmentTokenDto). Works for both
+			// create-style (POST /upload-token) and update-style
+			// (PUT /{id}/upload-token) — the follow-up uses the same
+			// /v1/device-enrollments/{id} rename target.
+			hasRenameAfter := false
+			for _, ff := range r.FileFields {
+				if ff.RenameAfterUpload {
+					hasRenameAfter = true
+					break
+				}
+			}
+			if !hasRenameAfter {
+				return false
+			}
+			if op.RequestBody == nil || op.RequestBody.Schema == nil {
+				return false
+			}
+			nameField := "name"
+			if r.NameField != "" {
+				nameField = r.NameField
+			}
+			if _, hasName := op.RequestBody.Schema.Properties[nameField]; hasName {
+				return false // body injection works; no need for --rename
+			}
+			for _, ff := range r.FileFields {
+				if _, ok := op.RequestBody.Schema.Properties[ff.Field]; ok {
+					return true
+				}
+			}
+			return false
+		},
+		"resourceUpdatePath": func(r *Resource) string {
+			for _, op := range r.Operations {
+				if op.Name == "update" && op.Method == "PUT" {
+					return op.Path
+				}
+			}
+			return ""
+		},
+		"resourceUpdatePathParam": func(r *Resource) string {
+			for _, op := range r.Operations {
+				if op.Name == "update" && op.Method == "PUT" {
+					start := strings.LastIndex(op.Path, "{")
+					end := strings.LastIndex(op.Path, "}")
+					if start >= 0 && end > start {
+						return op.Path[start : end+1]
+					}
+				}
+			}
+			return "{id}"
+		},
+		"hasFileFieldNameFlag": func(r *Resource) bool {
+			for _, ff := range r.FileFields {
+				if ff.NameFlag {
+					return true
+				}
+			}
+			return false
+		},
+		"anyOpHasRenameFlag": func(r *Resource) bool {
+			hasRenameAfter := false
+			for _, ff := range r.FileFields {
+				if ff.RenameAfterUpload {
+					hasRenameAfter = true
+					break
+				}
+			}
+			if !hasRenameAfter {
+				return false
+			}
+			nameField := "name"
+			if r.NameField != "" {
+				nameField = r.NameField
+			}
+			for _, op := range r.Operations {
+				if op.RequestBody == nil || op.RequestBody.Schema == nil {
+					continue
+				}
+				if _, hasName := op.RequestBody.Schema.Properties[nameField]; hasName {
+					continue
+				}
+				for _, ff := range r.FileFields {
+					if _, ok := op.RequestBody.Schema.Properties[ff.Field]; ok {
+						return true
+					}
+				}
+			}
+			return false
+		},
+		"resourceNameField": func(r *Resource) string {
+			if r.NameField != "" {
+				return r.NameField
+			}
+			return "name"
+		},
+		"opHasBinaryResponse": opHasBinaryResponse,
+		"shouldGenerateApply": shouldGenerateApply,
+		"hasResolvableID":     hasResolvableID,
+		"hasDeleteMultiple":   hasDeleteMultiple,
 		"defaultVal": func(paramType string, val any) string {
 			switch paramType {
 			case "string":
@@ -1110,6 +1268,9 @@ import (
 {{- if needsMultipart . }}
 	"path/filepath"
 {{- end }}
+{{- if anyOpHasRenameFlag . }}
+	"strconv"
+{{- end }}
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -1178,6 +1339,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagName string
 {{ range $.LookupFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
+{{- if opHasFileFields . $ }}
+{{ range $.FileFields }}		flag{{ toCamel .Flag }} string
+{{ end }}{{- end }}
+{{- if opEmitsBodyNameFlag . $ }}
+		flagBodyName string
+{{- end }}
+{{- if opEmitsRenameFlag . $ }}
+		flagRename string
+{{- end }}
 	)
 
 	cmd := &cobra.Command{
@@ -1576,13 +1746,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				}
 			}
 {{- else }}
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
@@ -1606,6 +1777,28 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return vlErr
 				}
 {{- end }}
+			}
+{{- if opHasFileFields . $ }}
+			// File-sourced fields (--{{ (index $.FileFields 0).Flag }}, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+{{- if opEmitsBodyNameFlag . $ }}
+			normalized, fileFieldErr = setBodyStringField(normalized, "{{ resourceNameField $ }}", flagBodyName)
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+{{- end }}
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+{{- range $.FileFields }}
+				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+{{- end }}
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+{{- end }}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 {{- end }}
@@ -1623,6 +1816,42 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return nil
 			}
 {{ end }}
+{{- if opEmitsRenameFlag . $ }}
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+{{- if hasPathParam .Path }}
+				_ = resp.Body.Close()
+				renameID = {{ if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}resolvedID{{ else }}args[0]{{ end }}
+{{- else }}
+				respBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+				_ = resp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading upload response: %w", readErr)
+				}
+				var postResp map[string]any
+				if err := json.Unmarshal(respBytes, &postResp); err == nil {
+					if v, ok := postResp["id"].(string); ok {
+						renameID = v
+					} else if v, ok := postResp["id"].(float64); ok {
+						renameID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if renameID == "" {
+					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --rename")
+				}
+{{- end }}
+				renameURL := strings.Replace("{{ resourceUpdatePath $ }}", "{{ resourceUpdatePathParam $ }}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "{{ resourceNameField $ }}", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
+{{- end }}
 {{- if opHasBinaryResponse . }}
 			if flagSaveTo != "" {
 				f, err := os.Create(flagSaveTo)
@@ -1697,6 +1926,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
+{{- if opHasFileFields . $ }}
+{{ range $.FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ end }}{{- end }}
+{{- if opEmitsBodyNameFlag . $ }}
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ $.NameSingular }} (sets the body's {{ resourceNameField $ }} field)")
+{{- end }}
+{{- if opEmitsRenameFlag . $ }}
+	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body rejects a name field)")
+{{- end }}
 
 	return cmd
 }
@@ -1709,6 +1947,12 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagDryRun bool
 {{- if hasApplyScaffold .Operations }}
 		flagScaffold bool
+{{- end }}
+{{- if .FileFields }}
+{{ range .FileFields }}		flag{{ toCamel .Flag }} string
+{{ end }}{{- end }}
+{{- if hasFileFieldNameFlag . }}
+		flagBodyName string
 {{- end }}
 	)
 
@@ -1743,15 +1987,42 @@ If not, a new resource is created.` + "`" + `,
 			}
 {{- end }}
 
-			// Read input (JSON or YAML)
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
 			data, err := readApplyInput(fromFile)
+{{- if .FileFields }}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ toCamel $ff.Flag }} != ""{{ end }}
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+{{- else }}
 			if err != nil {
 				return err
 			}
-			data, err = normalizeInputToJSON(data)
+{{- end }}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+{{- if hasFileFieldNameFlag . }}
+			data, err = setBodyStringField(data, "{{ resourceNameField $ }}", flagBodyName)
 			if err != nil {
 				return err
 			}
+{{- end }}
+{{- if .FileFields }}
+			data, err = injectFileFields(data, []fileFieldSpec{
+{{- range .FileFields }}
+				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+{{- end }}
+			})
+			if err != nil {
+				return err
+			}
+{{- end }}
 
 			// Extract name from JSON input
 			name, err := extractJSONField(data, "{{ .NameField }}")
@@ -1828,6 +2099,12 @@ If not, a new resource is created.` + "`" + `,
 {{- if hasApplyScaffold .Operations }}
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 {{- end }}
+{{- if .FileFields }}
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
+{{ end }}{{- end }}
+{{- if hasFileFieldNameFlag . }}
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ .NameSingular }} (sets the body's {{ resourceNameField . }} field)")
+{{- end }}
 
 	return cmd
 }
@@ -1839,12 +2116,15 @@ const registryTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -2004,6 +2284,139 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		}
 	}
 	return filtered
+}
+
+// renameResourceByID performs a fetch-merge-put to set a single field (name)
+// on an existing resource. Used for upload-style endpoints whose request body
+// schema rejects a name — the token upload runs first, then this helper
+// applies the user's --name in a follow-up PUT against the standard update
+// path. Read-only fields from the GET response are included in the PUT body;
+// Jamf APIs that mark fields readOnly typically ignore them on update.
+func renameResourceByID(ctx context.Context, client registry.HTTPClient, updateURL, field, value string) error {
+	resp, err := client.Do(ctx, "GET", updateURL, nil)
+	if err != nil {
+		return fmt.Errorf("fetching existing record: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return fmt.Errorf("reading existing record: %w", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(body, &record); err != nil {
+		return fmt.Errorf("parsing existing record: %w", err)
+	}
+	record[field] = value
+	putBody, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshaling rename body: %w", err)
+	}
+	putResp, err := client.Do(ctx, "PUT", updateURL, bytes.NewReader(putBody))
+	if err != nil {
+		return fmt.Errorf("PUT rename: %w", err)
+	}
+	defer func() { _ = putResp.Body.Close() }()
+	if putResp.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(io.LimitReader(putResp.Body, 64<<10))
+		return fmt.Errorf("PUT %s returned %d: %s", updateURL, putResp.StatusCode, string(errBody))
+	}
+	return nil
+}
+
+// setBodyStringField sets a top-level string field on a JSON body, leaving
+// other fields untouched. Empty value is a no-op; empty body is bootstrapped
+// to {} first. Used to apply a user-supplied --name flag to the request body
+// without requiring them to hand-build JSON.
+// NOTE: Also used by classic helpers (same generated package).
+func setBodyStringField(body []byte, field, value string) ([]byte, error) {
+	if value == "" {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	m[field] = value
+	return json.Marshal(m)
+}
+
+// fileFieldSpec describes one request-body field whose value is sourced from
+// a local file. The generator emits these specs inline per operation.
+type fileFieldSpec struct {
+	FilePath       string // value of the user-facing flag (e.g. --script-file); empty = skip
+	Field          string // JSON property to populate (e.g. "scriptContents")
+	Encoding       string // "raw" | "base64"
+	CompanionField string // optional JSON property auto-filled with filepath.Base(FilePath) when absent
+	NameFallback   string // "none" | "keep-ext" | "strip-ext"
+	NameField      string // resource's name property (usually "name")
+}
+
+// injectFileFields overlays file-sourced fields into a JSON request body.
+// If body is empty and at least one file flag is active, a new object is
+// constructed. File values overwrite any value already present in the body;
+// companion and name fields are only filled when absent.
+// NOTE: Also used by classic helpers (same generated package).
+func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
+	active := false
+	for _, s := range specs {
+		if s.FilePath != "" {
+			active = true
+			break
+		}
+	}
+	if !active {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	for _, s := range specs {
+		if s.FilePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(s.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		}
+		switch s.Encoding {
+		case "base64":
+			m[s.Field] = base64.StdEncoding.EncodeToString(data)
+		default:
+			m[s.Field] = string(data)
+		}
+		if s.CompanionField != "" {
+			if _, has := m[s.CompanionField]; !has {
+				m[s.CompanionField] = filepath.Base(s.FilePath)
+			}
+		}
+		if s.NameFallback != "" && s.NameFallback != "none" && s.NameField != "" {
+			if _, has := m[s.NameField]; !has {
+				name := filepath.Base(s.FilePath)
+				if s.NameFallback == "strip-ext" {
+					if idx := strings.LastIndex(name, "."); idx > 0 {
+						name = name[:idx]
+					}
+				}
+				m[s.NameField] = name
+			}
+		}
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling body after file-field injection: %w", err)
+	}
+	return out, nil
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.

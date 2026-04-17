@@ -3,12 +3,15 @@
 package generated
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -73,7 +76,6 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewDeviceComplianceInformationsCmd(ctx))
 	root.AddCommand(NewDeviceEnrollmentInstanceSyncStatesCmd(ctx))
 	root.AddCommand(NewDeviceEnrollmentInstancesCmd(ctx))
-	root.AddCommand(NewDeviceExtensionAttributesCmd(ctx))
 	root.AddCommand(NewDigiCertSettingsCmd(ctx))
 	root.AddCommand(NewDistributionPointsCmd(ctx))
 	root.AddCommand(NewDockItemsCmd(ctx))
@@ -322,6 +324,139 @@ func filterResultsByName(results []json.RawMessage, nameField, name string) []js
 		}
 	}
 	return filtered
+}
+
+// renameResourceByID performs a fetch-merge-put to set a single field (name)
+// on an existing resource. Used for upload-style endpoints whose request body
+// schema rejects a name — the token upload runs first, then this helper
+// applies the user's --name in a follow-up PUT against the standard update
+// path. Read-only fields from the GET response are included in the PUT body;
+// Jamf APIs that mark fields readOnly typically ignore them on update.
+func renameResourceByID(ctx context.Context, client registry.HTTPClient, updateURL, field, value string) error {
+	resp, err := client.Do(ctx, "GET", updateURL, nil)
+	if err != nil {
+		return fmt.Errorf("fetching existing record: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return fmt.Errorf("reading existing record: %w", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(body, &record); err != nil {
+		return fmt.Errorf("parsing existing record: %w", err)
+	}
+	record[field] = value
+	putBody, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshaling rename body: %w", err)
+	}
+	putResp, err := client.Do(ctx, "PUT", updateURL, bytes.NewReader(putBody))
+	if err != nil {
+		return fmt.Errorf("PUT rename: %w", err)
+	}
+	defer func() { _ = putResp.Body.Close() }()
+	if putResp.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(io.LimitReader(putResp.Body, 64<<10))
+		return fmt.Errorf("PUT %s returned %d: %s", updateURL, putResp.StatusCode, string(errBody))
+	}
+	return nil
+}
+
+// setBodyStringField sets a top-level string field on a JSON body, leaving
+// other fields untouched. Empty value is a no-op; empty body is bootstrapped
+// to {} first. Used to apply a user-supplied --name flag to the request body
+// without requiring them to hand-build JSON.
+// NOTE: Also used by classic helpers (same generated package).
+func setBodyStringField(body []byte, field, value string) ([]byte, error) {
+	if value == "" {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	m[field] = value
+	return json.Marshal(m)
+}
+
+// fileFieldSpec describes one request-body field whose value is sourced from
+// a local file. The generator emits these specs inline per operation.
+type fileFieldSpec struct {
+	FilePath       string // value of the user-facing flag (e.g. --script-file); empty = skip
+	Field          string // JSON property to populate (e.g. "scriptContents")
+	Encoding       string // "raw" | "base64"
+	CompanionField string // optional JSON property auto-filled with filepath.Base(FilePath) when absent
+	NameFallback   string // "none" | "keep-ext" | "strip-ext"
+	NameField      string // resource's name property (usually "name")
+}
+
+// injectFileFields overlays file-sourced fields into a JSON request body.
+// If body is empty and at least one file flag is active, a new object is
+// constructed. File values overwrite any value already present in the body;
+// companion and name fields are only filled when absent.
+// NOTE: Also used by classic helpers (same generated package).
+func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
+	active := false
+	for _, s := range specs {
+		if s.FilePath != "" {
+			active = true
+			break
+		}
+	}
+	if !active {
+		return body, nil
+	}
+	var m map[string]any
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &m); err != nil {
+			return nil, fmt.Errorf("parsing body JSON: %w", err)
+		}
+	}
+	if m == nil {
+		m = make(map[string]any)
+	}
+	for _, s := range specs {
+		if s.FilePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(s.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		}
+		switch s.Encoding {
+		case "base64":
+			m[s.Field] = base64.StdEncoding.EncodeToString(data)
+		default:
+			m[s.Field] = string(data)
+		}
+		if s.CompanionField != "" {
+			if _, has := m[s.CompanionField]; !has {
+				m[s.CompanionField] = filepath.Base(s.FilePath)
+			}
+		}
+		if s.NameFallback != "" && s.NameFallback != "none" && s.NameField != "" {
+			if _, has := m[s.NameField]; !has {
+				name := filepath.Base(s.FilePath)
+				if s.NameFallback == "strip-ext" {
+					if idx := strings.LastIndex(name, "."); idx > 0 {
+						name = name[:idx]
+					}
+				}
+				m[s.NameField] = name
+			}
+		}
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling body after file-field injection: %w", err)
+	}
+	return out, nil
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.

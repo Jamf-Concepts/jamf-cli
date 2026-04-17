@@ -186,6 +186,38 @@ func templateFuncs() template.FuncMap {
 			}
 			return false
 		},
+		"anyClassicFileFields": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if len(r.FileFields) > 0 {
+					return true
+				}
+			}
+			return false
+		},
+		"hasFetchMergePut": func(r ClassicResource) bool {
+			for _, ff := range r.FileFields {
+				if ff.FetchMergePut {
+					return true
+				}
+			}
+			return false
+		},
+		"parentPathLiteral": func(path string) string {
+			parts := strings.Split(path, "/")
+			out := "[]string{"
+			for i, p := range parts[:len(parts)-1] {
+				if i > 0 {
+					out += ", "
+				}
+				out += "\"" + p + "\""
+			}
+			out += "}"
+			return out
+		},
+		"leafName": func(path string) string {
+			parts := strings.Split(path, "/")
+			return parts[len(parts)-1]
+		},
 	}
 }
 
@@ -394,7 +426,10 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 {{ if hasOp .Operations "create" }}
 func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+{{ if .FileFields }}	var (
+{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}	)
+{{ end }}	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
 		Long:  "Create a new {{ .Singular }}. Reads XML body from stdin.",
@@ -402,6 +437,28 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+{{ if .FileFields }}
+			var bodyBytes []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
+			}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}")
+			}
+			bodyBytes, err := injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}			})
+			if err != nil {
+				return err
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(bodyBytes))
+{{ else }}
 			var body io.Reader
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -411,6 +468,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", body)
+{{ end }}
 			if err != nil {
 				return err
 			}
@@ -419,13 +477,19 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+{{ if .FileFields }}
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ end }}{{ end }}	return cmd
 }
 {{ end }}
 {{ if hasOp .Operations "update" }}
 func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}	var flagName string
-
-{{ end }}	cmd := &cobra.Command{
+{{ end }}{{ if .FileFields }}	var (
+{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}	)
+{{ end }}
+	cmd := &cobra.Command{
 {{ if hasLookup .Lookups "name" }}		Use:   "update [<id>]",
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
@@ -436,42 +500,116 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-{{ if .IsConfigProfile }}
+{{ if or .IsConfigProfile .FileFields }}
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) != 0 {
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
+			}
+{{ if .FileFields }}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}")
+			}
+{{ else }}
+			if len(bodyBytes) == 0 {
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
-			bodyBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("reading input: %w", err)
-			}
+{{ end }}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
 			var resolvedID string
-{{ if hasLookup .Lookups "name" }}
+{{ if .IsConfigProfile }}			var existingPayload []byte
+{{ end }}{{ if hasFetchMergePut . }}			var existingBody []byte
+{{ end }}{{ if hasLookup .Lookups "name" }}
 			if flagName != "" {
-				var existingPayload []byte
+{{ if hasFetchMergePut . }}
+				id, body, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "{{ .Path }}", flagName)
+				if ferr != nil || id == "" {
+					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
+				}
+				resolvedID = id
+				existingBody = body
+{{ else }}
 				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "{{ .Path }}", flagName)
 				if resolvedID == "" {
 					return fmt.Errorf("no {{ .Singular }} found with name %q", flagName)
 				}
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+{{ end }}
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+{{ if hasFetchMergePut . }}
+				path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
+				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
+				if ferr != nil {
+					return fmt.Errorf("fetching existing {{ .Singular }}: %w", ferr)
+				}
+				var readErr error
+				existingBody, readErr = io.ReadAll(respX.Body)
+				_ = respX.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading existing {{ .Singular }}: %w", readErr)
+				}
+				if respX.StatusCode >= 400 {
+					return fmt.Errorf("fetching existing {{ .Singular }}: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
+				}
+{{ else }}
+				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
+{{ end }}
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
 {{ else }}
 			if len(args) > 0 {
 				resolvedID = args[0]
-				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+{{ if hasFetchMergePut . }}
+				path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
+				respX, ferr := ctx.Client.Do(reqCtx, "GET", path, nil)
+				if ferr != nil {
+					return fmt.Errorf("fetching existing {{ .Singular }}: %w", ferr)
+				}
+				var readErr error
+				existingBody, readErr = io.ReadAll(respX.Body)
+				_ = respX.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading existing {{ .Singular }}: %w", readErr)
+				}
+				if respX.StatusCode >= 400 {
+					return fmt.Errorf("fetching existing {{ .Singular }}: GET %s returned %d: %s", path, respX.StatusCode, string(existingBody))
+				}
+{{ else }}
+				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", resolvedID)
+{{ end }}
 			} else {
 				return fmt.Errorf("provide an <id> argument")
 			}
 {{ end }}
+
+{{ if hasFetchMergePut . }}
+			// Fetch-merge-put: start from the existing record, overlay file field.
+			if len(existingBody) == 0 {
+				return fmt.Errorf("could not fetch existing {{ .Singular }} for merge-put")
+			}
+			bodyBytes = existingBody
+{{ end }}
+
+{{ if .FileFields }}
+			var injErr error
+			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}			})
+			if injErr != nil {
+				return injErr
+			}
+{{ end }}
+{{ if .IsConfigProfile }}
+			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+{{ end }}
+
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
 {{ else }}
@@ -507,7 +645,9 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 {{ if hasLookup .Lookups "name" }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 {{ end }}
-	return cmd
+{{ if .FileFields }}
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ end }}{{ end }}	return cmd
 }
 {{ end }}
 {{ if hasOp .Operations "delete" }}
@@ -619,7 +759,9 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile   string
 		flagYes    bool
 		flagDryRun bool
-	)
+{{ if hasFetchMergePut . }}		flagName   string
+{{ end }}{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}{{ end }}	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
@@ -635,15 +777,46 @@ If not, a new resource is created.` + "`" + `,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+{{ if .FileFields }}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+{{ else }}
 			if err != nil {
 				return err
 			}
+{{ end }}
+{{ if .FileFields }}
+			// Inject file fields before name extraction so name-fallback (if any)
+			// can populate <general><name> for lookup.
+			data, err = injectClassicFileFields(data, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}			})
+			if err != nil {
+				return err
+			}
+{{ end }}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "{{ .Singular }}")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+{{ if hasFetchMergePut . }}
+			if flagName != "" {
+				name = flagName
+			} else {
+				name, err = extractClassicName(data, "{{ .Singular }}")
+				if err != nil {
+					return fmt.Errorf("--name is required when input body is empty: %w", err)
+				}
+			}
+{{ else }}
+			name, err = extractClassicName(data, "{{ .Singular }}")
 			if err != nil {
 				return err
 			}
+{{ end }}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -653,7 +826,10 @@ If not, a new resource is created.` + "`" + `,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+{{ if hasFetchMergePut . }}
+				return fmt.Errorf("no {{ .Singular }} found with name %q — this resource must already exist (apply is fetch-merge-put only)", name)
+{{ else }}
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .Singular }} %q\n", name)
 					return nil
@@ -665,6 +841,7 @@ If not, a new resource is created.` + "`" + `,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created {{ .Singular }} %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+{{ end }}
 			}
 
 			// Found — replace
@@ -684,6 +861,22 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 
+{{ if hasFetchMergePut . }}
+			// Fetch the existing full record and overlay the file field(s) — the
+			// user's input (if any) is ignored beyond name resolution; AppConfig
+			// injection preserves every other field on the record.
+			_, fullBody, ferr := fetchClassicFullXMLByName(reqCtx, ctx.Client, "{{ .Path }}", name)
+			if ferr != nil || len(fullBody) == 0 {
+				return fmt.Errorf("fetching existing {{ .Singular }} for merge-put: %w", ferr)
+			}
+			data = fullBody
+			data, err = injectClassicFileFields(data, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}			})
+			if err != nil {
+				return err
+			}
+{{ end }}
 {{ if .IsConfigProfile }}
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
@@ -703,7 +896,10 @@ If not, a new resource is created.` + "`" + `,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
+{{ if hasFetchMergePut . }}	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing {{ .Singular }} to update (required when body is empty)")
+{{ end }}{{ if .FileFields }}
+{{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ end }}{{ end }}
 	return cmd
 }
 {{ end }}
@@ -714,15 +910,17 @@ const classicRegistryTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if anyNeedsClassicNameResolve . }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) }}
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 {{- end }}
-{{- if anyIsConfigProfile . }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"bytes"
 	"net/url"
 {{- end }}
@@ -730,7 +928,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-{{- if anyNeedsClassicNameResolve . }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
 {{- if anyIsConfigProfile . }}
@@ -999,6 +1197,161 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 	}
 
 	return replaceClassicProfilePayload(xmlBody, modified)
+}
+{{ end }}
+{{ if anyClassicFileFields . }}
+// classicFileFieldSpec describes one Classic XML field sourced from a local file.
+type classicFileFieldSpec struct {
+	FilePath      string   // user-supplied path (empty = skip)
+	ParentPath    []string // path to the immediate parent element under the root (e.g. ["general"])
+	LeafName      string   // name of the element receiving the file contents (e.g. "payloads")
+	Encoding      string   // "xml-cdata" | "raw"
+	NameFallback  string   // "none" | "keep-ext" | "strip-ext"
+}
+
+// injectClassicFileFields overlays file-sourced XML fields into body. The body
+// may be empty or missing the target path entirely; missing ancestors are
+// constructed. File contents overwrite any existing leaf value; name fallback
+// adds a name element under the parent's sibling "general" only when absent.
+func injectClassicFileFields(body []byte, rootName string, specs []classicFileFieldSpec) ([]byte, error) {
+	active := false
+	for _, s := range specs {
+		if s.FilePath != "" {
+			active = true
+			break
+		}
+	}
+	if !active {
+		return body, nil
+	}
+
+	bodyStr := string(bytes.TrimSpace(body))
+	if bodyStr == "" {
+		bodyStr = "<" + rootName + "></" + rootName + ">"
+	}
+
+	for _, s := range specs {
+		if s.FilePath == "" {
+			continue
+		}
+		data, err := os.ReadFile(s.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		}
+		var inner string
+		if s.Encoding == "xml-cdata" {
+			inner = "<![CDATA[" + string(data) + "]]>"
+		} else {
+			inner = string(data)
+		}
+		wrapped := "<" + s.LeafName + ">" + inner + "</" + s.LeafName + ">"
+
+		// Replace an existing leaf anywhere in the body. Safe for our known
+		// XML shapes because "payloads"/"preferences" only appear inside their
+		// expected parents.
+		openTag := "<" + s.LeafName + ">"
+		closeTag := "</" + s.LeafName + ">"
+		if si := strings.Index(bodyStr, openTag); si >= 0 {
+			if ei := strings.Index(bodyStr[si:], closeTag); ei >= 0 {
+				bodyStr = bodyStr[:si] + wrapped + bodyStr[si+ei+len(closeTag):]
+			} else {
+				return nil, fmt.Errorf("malformed XML: %s opens without close", openTag)
+			}
+		} else {
+			// Insert before </parent>. If the parent is missing, build the path.
+			parentName := s.ParentPath[len(s.ParentPath)-1]
+			parentClose := "</" + parentName + ">"
+			if idx := strings.Index(bodyStr, parentClose); idx >= 0 {
+				bodyStr = bodyStr[:idx] + wrapped + bodyStr[idx:]
+			} else {
+				build := wrapped
+				for i := len(s.ParentPath) - 1; i >= 0; i-- {
+					build = "<" + s.ParentPath[i] + ">" + build + "</" + s.ParentPath[i] + ">"
+				}
+				rootClose := "</" + rootName + ">"
+				if idx := strings.LastIndex(bodyStr, rootClose); idx >= 0 {
+					bodyStr = bodyStr[:idx] + build + bodyStr[idx:]
+				} else {
+					return nil, fmt.Errorf("root </%s> not found in body", rootName)
+				}
+			}
+		}
+
+		if s.NameFallback != "" && s.NameFallback != "none" {
+			// Only fill a name if one isn't already present under <general>.
+			// Users often provide scope/category with their own <name> elements —
+			// those are distinct, so we target <general><name> specifically.
+			if !hasClassicGeneralName(bodyStr) {
+				nm := filepath.Base(s.FilePath)
+				if s.NameFallback == "strip-ext" {
+					if dot := strings.LastIndex(nm, "."); dot > 0 {
+						nm = nm[:dot]
+					}
+				}
+				nameEl := "<name>" + classicXMLEscape(nm) + "</name>"
+				if gi := strings.Index(bodyStr, "</general>"); gi >= 0 {
+					bodyStr = bodyStr[:gi] + nameEl + bodyStr[gi:]
+				} else if ri := strings.LastIndex(bodyStr, "</"+rootName+">"); ri >= 0 {
+					bodyStr = bodyStr[:ri] + "<general>" + nameEl + "</general>" + bodyStr[ri:]
+				}
+			}
+		}
+	}
+	return []byte(bodyStr), nil
+}
+
+// hasClassicGeneralName returns true if <general>…<name>…</name>…</general>
+// appears in the XML body.
+func hasClassicGeneralName(bodyStr string) bool {
+	gOpen := strings.Index(bodyStr, "<general>")
+	if gOpen < 0 {
+		return false
+	}
+	gClose := strings.Index(bodyStr[gOpen:], "</general>")
+	if gClose < 0 {
+		return false
+	}
+	inner := bodyStr[gOpen : gOpen+gClose]
+	return strings.Contains(inner, "<name>")
+}
+
+// classicXMLEscape escapes reserved characters for an XML text node.
+func classicXMLEscape(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+// fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
+// returning the bytes and its ID. Used by apply for resources that need
+// fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error
+// if the API responds with a non-2xx status so the caller doesn't PUT back an
+// HTML error page as the "existing record".
+func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, fmt.Errorf("reading GET %s: %w", path, err)
+	}
+	if resp.StatusCode >= 400 {
+		return "", nil, fmt.Errorf("GET %s returned %d: %s", path, resp.StatusCode, string(body))
+	}
+	m, mapErr := xmlconv.ToMap(body)
+	if mapErr == nil {
+		for _, rootVal := range m {
+			if root, ok := rootVal.(map[string]any); ok {
+				if general, ok := root["general"].(map[string]any); ok {
+					id = extractIDString(general, "id")
+				}
+			}
+		}
+	}
+	return id, body, nil
 }
 {{ end }}
 `

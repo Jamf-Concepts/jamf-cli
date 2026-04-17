@@ -30,15 +30,16 @@ func NewComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command 
 
 	cmd.AddCommand(newComputerExtensionAttributesListCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesGetCmd(ctx))
+	cmd.AddCommand(newComputerExtensionAttributesCreateCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesUpdateCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDeleteCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDeleteMultipleCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesHistoryCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesUploadCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDataDependencyCmd(ctx))
 	cmd.AddCommand(newComputerExtensionAttributesDownloadCmd(ctx))
+	cmd.AddCommand(newComputerExtensionAttributesApplyCmd(ctx))
 
 	return cmd
 }
@@ -235,10 +236,105 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
+func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold   bool
+		flagScriptFile string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create Computer Extension Attribute.",
+		Long:  "Create Computer Extension Attribute to collect extra inventory information.",
+		Example: `  # Show the JSON template for creating a computer-extension-attribute
+  jamf-cli computer-extension-attributes create --scaffold
+
+  # Create a computer-extension-attribute from JSON
+  echo '{"name":"Example"}' | jamf-cli computer-extension-attributes create
+
+  # Get a computer-extension-attribute, modify it, and create a copy
+  jamf-cli computer-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-extension-attributes create`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Computer Extension Attribute",
+  "enabled": true,
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "manageExistingData": "RETAIN",
+  "name": "ComputerExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ],
+  "scriptContents": "scriptContent"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/computer-extension-attributes"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
+
+	return cmd
+}
+
 func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagScriptFile string
 	)
 
 	cmd := &cobra.Command{
@@ -303,16 +399,29 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--script-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -327,6 +436,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
 
 	return cmd
 }
@@ -738,16 +849,19 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -762,76 +876,6 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
-
-	return cmd
-}
-
-func newComputerExtensionAttributesComputerExtensionAttributesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "computer-extension-attributes",
-		Short: "Create Computer Extension Attribute.",
-		Long:  "Create Computer Extension Attribute to collect extra inventory information.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "dataType": "",
-  "description": "Computer Extension Attribute",
-  "enabled": true,
-  "inputType": "",
-  "inventoryDisplayType": "GENERAL",
-  "ldapAttributeMapping": "ldapAttributeMapping",
-  "ldapExtensionAttributeAllowed": false,
-  "manageExistingData": "RETAIN",
-  "name": "ComputerExtensionAttribute",
-  "popupMenuChoices": [
-    "Test",
-    "Popup"
-  ],
-  "scriptContents": "scriptContent"
-}`, ctx.Output.Format())
-			}
-
-			// Build request path
-			path := "/v1/computer-extension-attributes"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err := normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
@@ -1016,6 +1060,144 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
+
+	return cmd
+}
+
+func newComputerExtensionAttributesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile       string
+		flagYes        bool
+		flagDryRun     bool
+		flagScaffold   bool
+		flagScriptFile string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a computer-extension-attribute by name",
+		Long: `Create or replace a computer-extension-attribute. Reads JSON or YAML from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a computer-extension-attribute from a JSON file
+  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json
+
+  # Apply a computer-extension-attribute from a YAML file
+  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.yaml
+
+  # Apply from stdin
+  cat computer-extension-attribute.json | jamf-cli computer-extension-attributes apply
+
+  # Apply without replacement confirmation
+  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json --yes
+
+  # Preview what would happen
+  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "dataType": "",
+  "description": "Computer Extension Attribute",
+  "enabled": true,
+  "inputType": "",
+  "inventoryDisplayType": "GENERAL",
+  "ldapAttributeMapping": "ldapAttributeMapping",
+  "ldapExtensionAttributeAllowed": false,
+  "manageExistingData": "RETAIN",
+  "name": "ComputerExtensionAttribute",
+  "popupMenuChoices": [
+    "Test",
+    "Popup"
+  ],
+  "scriptContents": "scriptContent"
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			anyFileFlag := flagScriptFile != ""
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+			data, err = injectFileFields(data, []fileFieldSpec{
+				{FilePath: flagScriptFile, Field: "scriptContents", Encoding: "raw", CompanionField: "", NameFallback: "keep-ext", NameField: "name"},
+			})
+			if err != nil {
+				return err
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-extension-attribute %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/computer-extension-attributes", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created computer-extension-attribute %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace computer-extension-attribute %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("computer-extension-attribute %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "computer-extension-attribute %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/computer-extension-attributes/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced computer-extension-attribute %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagScriptFile, "script-file", "", "Path to a script file; contents populate scriptContents (only meaningful for SCRIPT inputType)")
 
 	return cmd
 }

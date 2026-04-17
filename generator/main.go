@@ -103,6 +103,9 @@ func main() {
 	// resource names are in their final canonical form.
 	parser.ApplyLookupFields(resources)
 
+	// Attach file-sourced request-body fields (e.g. --script-file → scriptContents).
+	parser.ApplyFileFields(resources)
+
 	// Swap list operation paths to richer detail endpoints where available.
 	parser.ApplyListDetailPaths(resources)
 

@@ -162,7 +162,10 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	var (
+		flagMobileconfigFile string
+	)
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a os_x_configuration_profile",
 		Long:  "Create a new os_x_configuration_profile. Reads XML body from stdin.",
@@ -171,15 +174,27 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
+			anyFileFlag := flagMobileconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+			}
+			bodyBytes, err := injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
+			if err != nil {
+				return err
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", body)
 			if err != nil {
 				return err
 			}
@@ -188,10 +203,16 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
+	return cmd
 }
 
 func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
+	var (
+		flagMobileconfigFile string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
@@ -203,32 +224,50 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			var bodyBytes []byte
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) != 0 {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				var err error
+				bodyBytes, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading input: %w", err)
+				}
 			}
-			bodyBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("reading input: %w", err)
+
+			anyFileFlag := flagMobileconfigFile != ""
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
 			var resolvedID string
+			var existingPayload []byte
 
 			if flagName != "" {
-				var existingPayload []byte
+
 				resolvedID, existingPayload = fetchClassicProfileByName(reqCtx, ctx.Client, "osxconfigurationprofiles", flagName)
 				if resolvedID == "" {
 					return fmt.Errorf("no os_x_configuration_profile found with name %q", flagName)
 				}
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+
 			} else if len(args) > 0 {
 				resolvedID = args[0]
-				existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID)
-				bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+
+				existingPayload = fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID)
+
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
+
+			var injErr error
+			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
+			if injErr != nil {
+				return injErr
+			}
+
+			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 
 			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -244,6 +283,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up os_x_configuration_profile by name")
 
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	return cmd
 }
 
@@ -333,9 +373,10 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile             string
+		flagYes              bool
+		flagDryRun           bool
+		flagMobileconfigFile string
 	)
 
 	cmd := &cobra.Command{
@@ -359,12 +400,27 @@ If not, a new resource is created.`,
 
 			// Read input
 			data, err := readApplyInput(fromFile)
+
+			anyFileFlag := flagMobileconfigFile != ""
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+
+			// Inject file fields before name extraction so name-fallback (if any)
+			// can populate <general><name> for lookup.
+			data, err = injectClassicFileFields(data, "os_x_configuration_profile", []classicFileFieldSpec{
+				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+			})
 			if err != nil {
 				return err
 			}
 
-			// Extract name from XML input
-			name, err := extractClassicName(data, "os_x_configuration_profile")
+			// Extract name: for fetch-merge-put resources, --name is the primary
+			// input (body typically empty); fall back to XML name if flag absent.
+			var name string
+
+			name, err = extractClassicName(data, "os_x_configuration_profile")
 			if err != nil {
 				return err
 			}
@@ -377,7 +433,8 @@ If not, a new resource is created.`,
 			}
 
 			if id == "" {
-				// Not found — create
+				// Not found — create (not allowed for fetch-merge-put resources)
+
 				if flagDryRun {
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create os_x_configuration_profile %q\n", name)
 					return nil
@@ -389,6 +446,7 @@ If not, a new resource is created.`,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created os_x_configuration_profile %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+
 			}
 
 			// Found — replace
@@ -426,6 +484,8 @@ If not, a new resource is created.`,
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+
+	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 
 	return cmd
 }

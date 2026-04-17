@@ -136,7 +136,7 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a json_web_token_configuration",
 		Long:  "Create a new json_web_token_configuration. Reads XML body from stdin.",
@@ -154,6 +154,7 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/jsonwebtokenconfigurations/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -162,9 +163,11 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a json_web_token_configuration",

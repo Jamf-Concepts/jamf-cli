@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -232,6 +233,8 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagTokenFile string
 	)
 
 	cmd := &cobra.Command{
@@ -285,16 +288,29 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -309,6 +325,8 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-enrollment-instance by name")
+
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
 
 	return cmd
 }
@@ -623,16 +641,19 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -710,7 +731,10 @@ func newDeviceEnrollmentInstancesPublicKeyCmd(ctx *registry.CLIContext) *cobra.C
 
 func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagScaffold bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagRename string
 	)
 
 	cmd := &cobra.Command{
@@ -739,16 +763,29 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -757,11 +794,43 @@ func newDeviceEnrollmentInstancesUploadTokenCmd(ctx *registry.CLIContext) *cobra
 			}
 			defer resp.Body.Close()
 
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+				respBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+				_ = resp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading upload response: %w", readErr)
+				}
+				var postResp map[string]any
+				if err := json.Unmarshal(respBytes, &postResp); err == nil {
+					if v, ok := postResp["id"].(string); ok {
+						renameID = v
+					} else if v, ok := postResp["id"].(float64); ok {
+						renameID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if renameID == "" {
+					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --rename")
+				}
+				renameURL := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "name", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to /v1/device-enrollments/{id} (this endpoint's body rejects a name field)")
 
 	return cmd
 }
@@ -869,16 +938,19 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
@@ -901,6 +973,10 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagTokenFile string
+
+		flagRename string
 	)
 
 	cmd := &cobra.Command{
@@ -945,16 +1021,29 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 			// Make request
 			// Read body from stdin if available
 			var body io.Reader
+			var normalized []byte
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
 				}
-				normalized, err := normalizeInputToJSON(raw)
+				normalized, err = normalizeInputToJSON(raw)
 				if err != nil {
 					return err
 				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body; companion fields and name
+			// fallbacks only fill when absent.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "encodedToken", Encoding: "base64", CompanionField: "tokenFileName", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
@@ -963,12 +1052,31 @@ func newDeviceEnrollmentInstancesUploadTokenByIdCmd(ctx *registry.CLIContext) *c
 			}
 			defer resp.Body.Close()
 
+			if flagRename != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var renameID string
+				_ = resp.Body.Close()
+				renameID = resolvedID
+				renameURL := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(renameID), 1)
+				if err := renameResourceByID(reqCtx, ctx.Client, renameURL, "name", flagRename); err != nil {
+					return fmt.Errorf("upload succeeded (id %s) but rename failed: %w", renameID, err)
+				}
+				showResp, showErr := ctx.Client.Do(reqCtx, "GET", renameURL, nil)
+				if showErr != nil {
+					return fmt.Errorf("rename succeeded but refetch failed: %w", showErr)
+				}
+				defer showResp.Body.Close()
+				return ctx.Output.PrintResponse(showResp)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-enrollment-instance by name")
+
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a DEP server token (.p7m); contents are base64-encoded into encodedToken")
+
+	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to /v1/device-enrollments/{id} (this endpoint's body rejects a name field)")
 
 	return cmd
 }

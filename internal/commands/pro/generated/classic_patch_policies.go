@@ -136,7 +136,7 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_policy",
 		Long:  "Create a new patch_policy. Reads XML body from stdin.",
@@ -154,6 +154,7 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/patchpolicies/id/0", body)
+
 			if err != nil {
 				return err
 			}
@@ -162,9 +163,11 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+	return cmd
 }
 
 func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_policy",
