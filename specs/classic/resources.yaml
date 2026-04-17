@@ -226,10 +226,11 @@ resources:
     description: Jamf Pro account groups
     singular: account_group
     # Groups use /accounts/groupid/{id} and /accounts/groupname/{name}.
-    # No list-only-groups endpoint; use classic-accounts list to see all accounts.
-    operations: [get, create, update, delete]
+    # /accounts returns users+groups combined; list_subset extracts just groups.
+    operations: [list, get, create, update, delete]
     id_path: groupid
     lookups: [id, groupname]
+    list_subset: groups
 
   - name: account-users
     path: accounts
@@ -237,10 +238,11 @@ resources:
     description: Jamf Pro account users
     singular: account_user
     # Users use /accounts/userid/{id} and /accounts/username/{name}.
-    # No list-only-users endpoint; use classic-accounts list to see all accounts.
-    operations: [get, create, update, delete]
+    # /accounts returns users+groups combined; list_subset extracts just users.
+    operations: [list, get, create, update, delete]
     id_path: userid
     lookups: [id, username]
+    list_subset: users
 
   - name: webhooks
     path: webhooks

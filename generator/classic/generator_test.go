@@ -368,6 +368,137 @@ func TestGenerate_ExtraLookupsOnlyResource(t *testing.T) {
 
 // --- Template helper function tests ---
 
+func TestGenerate_ListSubset(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "account-users",
+		Path:        "accounts",
+		CLIName:     "classic-account-users",
+		GoName:      "ClassicAccountUsers",
+		Singular:    "account_user",
+		Description: "Account users",
+		Operations:  []string{"list", "get"},
+		Lookups:     []string{"id", "username"},
+		IDPath:      "userid",
+		ListSubset:  "users",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	// Subset branch must emit the helper call and its literal subset name.
+	mustHave := []string{
+		`extractClassicListSubset(body, "users")`,
+		`sliceClassicListSubsetXML(body, "users")`,
+		`"/JSSResource/accounts"`,
+	}
+	for _, s := range mustHave {
+		if !strings.Contains(code, s) {
+			t.Errorf("generated code missing %q", s)
+		}
+	}
+
+	// Normal list branch must NOT fire when ListSubset is set.
+	mustNotHave := []string{
+		"xmlconv.ExtractListItems(body)",
+		`wrapper["account-users"]`,
+	}
+	for _, s := range mustNotHave {
+		if strings.Contains(code, s) {
+			t.Errorf("subset list should not emit %q, but generated code contains it", s)
+		}
+	}
+}
+
+func TestGenerateRegistry_ListSubsetHelpers(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resources := []ClassicResource{
+		{
+			Name:       "account-users",
+			Path:       "accounts",
+			CLIName:    "classic-account-users",
+			GoName:     "ClassicAccountUsers",
+			Singular:   "account_user",
+			Operations: []string{"list"},
+			Lookups:    []string{"id"},
+			IDPath:     "userid",
+			ListSubset: "users",
+		},
+	}
+
+	outPath, err := gen.GenerateRegistry(resources)
+	if err != nil {
+		t.Fatalf("GenerateRegistry() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	mustHave := []string{
+		"func sliceClassicListSubsetXML(",
+		"func extractClassicListSubset(",
+	}
+	for _, s := range mustHave {
+		if !strings.Contains(code, s) {
+			t.Errorf("registry missing helper: %q", s)
+		}
+	}
+}
+
+func TestGenerateRegistry_NoListSubsetHelpers_WhenNotNeeded(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resources := []ClassicResource{
+		{
+			Name:       "policies",
+			Path:       "policies",
+			CLIName:    "classic-policies",
+			GoName:     "ClassicPolicies",
+			Singular:   "policy",
+			Operations: []string{"list", "get"},
+			Lookups:    []string{"id"},
+			IDPath:     "id",
+		},
+	}
+
+	outPath, err := gen.GenerateRegistry(resources)
+	if err != nil {
+		t.Fatalf("GenerateRegistry() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	if strings.Contains(code, "func sliceClassicListSubsetXML(") {
+		t.Error("registry should not emit sliceClassicListSubsetXML when no resource needs it")
+	}
+	if strings.Contains(code, "func extractClassicListSubset(") {
+		t.Error("registry should not emit extractClassicListSubset when no resource needs it")
+	}
+}
+
 func TestHasOp(t *testing.T) {
 	ops := []string{"list", "get", "create"}
 	if !hasOp(ops, "list") {

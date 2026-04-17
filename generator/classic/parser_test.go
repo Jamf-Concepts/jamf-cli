@@ -267,6 +267,48 @@ func TestParseManifest_IDPath(t *testing.T) {
 	}
 }
 
+func TestParseManifest_ListSubset(t *testing.T) {
+	dir := t.TempDir()
+	manifest := filepath.Join(dir, "resources.yaml")
+	data := []byte(`resources:
+  - name: account-users
+    path: accounts
+    cli_name: classic-account-users
+    description: Account users
+    singular: account_user
+    operations: [list, get]
+    id_path: userid
+    lookups: [id, username]
+    list_subset: users
+  - name: policies
+    path: policies
+    description: Policies
+    singular: policy
+    operations: [list]
+    lookups: [id]
+`)
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	resources, err := ParseManifest(manifest)
+	if err != nil {
+		t.Fatalf("ParseManifest() error = %v", err)
+	}
+
+	// sorted by CLIName: classic-account-users < classic-policies
+	users := resources[0]
+	policies := resources[1]
+
+	if users.ListSubset != "users" {
+		t.Errorf("account-users ListSubset = %q, want %q", users.ListSubset, "users")
+	}
+	if policies.ListSubset != "" {
+		t.Errorf("policies ListSubset = %q, want empty", policies.ListSubset)
+	}
+}
+
 func TestParseManifest_ExplicitEmptyOperations(t *testing.T) {
 	dir := t.TempDir()
 	manifest := filepath.Join(dir, "resources.yaml")
