@@ -36,6 +36,7 @@ func NewVppLocationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVppLocationsContentCmd(ctx))
 	cmd.AddCommand(newVppLocationsReclaimCmd(ctx))
 	cmd.AddCommand(newVppLocationsRevokeLicensesCmd(ctx))
+	cmd.AddCommand(newVppLocationsApplyCmd(ctx))
 
 	return cmd
 }
@@ -1009,6 +1010,145 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up vpp-location by name")
+
+	return cmd
+}
+
+func newVppLocationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile      string
+		flagYes       bool
+		flagDryRun    bool
+		flagScaffold  bool
+		flagTokenFile string
+
+		flagBodyName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a vpp-location by name",
+		Long: `Create or replace a vpp-location. Reads JSON or YAML from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a vpp-location from a JSON file
+  jamf-cli vpp-locations apply --from-file vpp-location.json
+
+  # Apply a vpp-location from a YAML file
+  jamf-cli vpp-locations apply --from-file vpp-location.yaml
+
+  # Apply from stdin
+  cat vpp-location.json | jamf-cli vpp-locations apply
+
+  # Apply without replacement confirmation
+  jamf-cli vpp-locations apply --from-file vpp-location.json --yes
+
+  # Preview what would happen
+  jamf-cli vpp-locations apply --from-file vpp-location.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "autoRegisterManagedUsers": false,
+  "automaticallyPopulatePurchasedContent": false,
+  "name": "Example Location",
+  "sendNotificationWhenNoLongerAssigned": false,
+  "serviceToken": "eyJleHBEYXRlIjoiMjAyMi0wMy0yOVQxNTozNjoyNiswMDAwIiwidG9rZW4iOiJWR2hwY3lCcGN5QnViM1FnWVNCMGIydGxiaTRnU0c5d1pXWjFiR3g1SUdsMElHeHZiMnR6SUd4cGEyVWdZU0IwYjJ0bGJpd2dZblYwSUdsMEozTWdibTkwTGc9PSIsIm9yZ05hbWUiOiJFeGFtcGxlIE9yZyJ9",
+  "siteId": "1"
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			anyFileFlag := flagTokenFile != ""
+			if err != nil && !anyFileFlag {
+				return err
+			}
+			err = nil
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+			data, err = setBodyStringField(data, "name", flagBodyName)
+			if err != nil {
+				return err
+			}
+			data, err = injectFileFields(data, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if err != nil {
+				return err
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/volume-purchasing-locations", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create vpp-location %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/volume-purchasing-locations", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created vpp-location %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace vpp-location %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("vpp-location %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "vpp-location %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/volume-purchasing-locations/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced vpp-location %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagTokenFile, "token-file", "", "Path to a VPP service token (.vpptoken); contents populate serviceToken verbatim")
+
+	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the vpp-location (sets the body's name field)")
 
 	return cmd
 }

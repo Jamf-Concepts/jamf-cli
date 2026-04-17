@@ -31,6 +31,7 @@ func NewMobileDeviceGroupsStaticGroupsCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.AddCommand(newMobileDeviceGroupsStaticGroupsCreateCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx))
 	cmd.AddCommand(newMobileDeviceGroupsStaticGroupsPatchCmd(ctx))
+	cmd.AddCommand(newMobileDeviceGroupsStaticGroupsApplyCmd(ctx))
 
 	return cmd
 }
@@ -527,6 +528,125 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-groups-static-groups by name")
+
+	return cmd
+}
+
+func newMobileDeviceGroupsStaticGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a mobile-device-groups-static-groups by name",
+		Long: `Create or replace a mobile-device-groups-static-groups. Reads JSON or YAML from --from-file or stdin.
+
+The groupName field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a mobile-device-groups-static-groups from a JSON file
+  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json
+
+  # Apply a mobile-device-groups-static-groups from a YAML file
+  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.yaml
+
+  # Apply from stdin
+  cat mobile-device-groups-static-groups.json | jamf-cli mobile-device-groups-static-groups apply
+
+  # Apply without replacement confirmation
+  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --yes
+
+  # Preview what would happen
+  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "assignments": [],
+  "groupDescription": "Static iPads",
+  "groupName": "Static iPads",
+  "siteId": 11
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "groupName")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "groupName", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-groups-static-groups %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/mobile-device-groups/static-groups", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created mobile-device-groups-static-groups %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile-device-groups-static-groups %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("mobile-device-groups-static-groups %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "mobile-device-groups-static-groups %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced mobile-device-groups-static-groups %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

@@ -34,6 +34,7 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationsApplyCmd(ctx))
 
 	return cmd
 }
@@ -709,6 +710,126 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
+
+	return cmd
+}
+
+func newTeamViewerRemoteAdministrationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a team-viewer-remote-administration by name",
+		Long: `Create or replace a team-viewer-remote-administration. Reads JSON or YAML from --from-file or stdin.
+
+The name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a team-viewer-remote-administration from a JSON file
+  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json
+
+  # Apply a team-viewer-remote-administration from a YAML file
+  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.yaml
+
+  # Apply from stdin
+  cat team-viewer-remote-administration.json | jamf-cli team-viewer-remote-administrations apply
+
+  # Apply without replacement confirmation
+  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --yes
+
+  # Preview what would happen
+  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "displayName": "teamViewerConfiguration",
+  "enabled": true,
+  "scriptToken": "12847340-nPAX96bsaADH4Gz6K6i2",
+  "sessionTimeout": 15,
+  "siteId": "1"
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create team-viewer-remote-administration %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/preview/remote-administration-configurations/team-viewer", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created team-viewer-remote-administration %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace team-viewer-remote-administration %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("team-viewer-remote-administration %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "team-viewer-remote-administration %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced team-viewer-remote-administration %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

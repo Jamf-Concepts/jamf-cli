@@ -229,6 +229,39 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasDelete":      hasDelete,
 		"hasDestructive": hasDestructive,
 		"hasApply":       func(ops []*Operation) bool { return hasApply(ops) },
+		"applyUpdateMethod": func(ops []*Operation) string {
+			op := applyUpdateOp(ops)
+			if op == nil {
+				return ""
+			}
+			return op.Method
+		},
+		"applyUpdatePath": func(ops []*Operation) string {
+			op := applyUpdateOp(ops)
+			if op == nil {
+				return ""
+			}
+			return op.Path
+		},
+		"applyUpdatePathParam": func(ops []*Operation) string {
+			op := applyUpdateOp(ops)
+			if op == nil {
+				return "{id}"
+			}
+			start := strings.LastIndex(op.Path, "{")
+			end := strings.LastIndex(op.Path, "}")
+			if start >= 0 && end > start {
+				return op.Path[start : end+1]
+			}
+			return "{id}"
+		},
+		"applyUpdateContentType": func(ops []*Operation) string {
+			op := applyUpdateOp(ops)
+			if op != nil && op.Method == "PATCH" {
+				return "application/merge-patch+json"
+			}
+			return ""
+		},
 		"deletePath": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "delete" && op.Method == "DELETE" {
@@ -1168,19 +1201,38 @@ func scaffoldJSON(s *Schema) string {
 	return string(data)
 }
 
-// hasApply returns true if the resource has both create and update operations.
+// hasApply returns true if the resource has a create and a mutating update-style
+// operation suitable for upsert. The update can be PUT (full replace) or PATCH
+// (JSON merge-patch) — when both exist, PUT is preferred; when only PATCH exists,
+// apply uses PATCH with application/merge-patch+json semantics.
 func hasApply(ops []*Operation) bool {
-	hasCreate := false
-	hasUpdate := false
+	return hasApplyCreate(ops) && applyUpdateOp(ops) != nil
+}
+
+// hasApplyCreate reports whether the resource has a conventional POST create.
+func hasApplyCreate(ops []*Operation) bool {
 	for _, op := range ops {
 		if op.Name == "create" && op.Method == "POST" {
-			hasCreate = true
-		}
-		if op.Name == "update" && op.Method == "PUT" {
-			hasUpdate = true
+			return true
 		}
 	}
-	return hasCreate && hasUpdate
+	return false
+}
+
+// applyUpdateOp returns the operation that apply should use for the replace branch.
+// Prefers a PUT update; falls back to a PATCH with path param and a JSON body.
+func applyUpdateOp(ops []*Operation) *Operation {
+	for _, op := range ops {
+		if op.Name == "update" && op.Method == "PUT" {
+			return op
+		}
+	}
+	for _, op := range ops {
+		if isPatchOp(op) && hasPathParam(op.Path) {
+			return op
+		}
+	}
+	return nil
 }
 
 // hasScaffold returns true if any operation has a request body with a schema.
@@ -2087,7 +2139,7 @@ If not, a new resource is created.` + "`" + `,
 				}
 			}
 
-			updatePath := strings.Replace("{{ updatePath .Operations }}", "{{ updatePathParam .Operations }}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(id), 1)
 {{- if .HasVersionLock }}
 			vlResp, vlErr := fetchVersionLock(reqCtx, ctx.Client, updatePath)
 			if vlErr != nil {
@@ -2098,7 +2150,10 @@ If not, a new resource is created.` + "`" + `,
 				return vlErr
 			}
 {{- end }}
-			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+{{- if eq (applyUpdateMethod .Operations) "PATCH" }}
+			reqCtx = registry.WithContentType(reqCtx, "{{ applyUpdateContentType .Operations }}")
+{{- end }}
+			resp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}

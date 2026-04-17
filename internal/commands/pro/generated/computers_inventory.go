@@ -39,6 +39,7 @@ func NewComputersInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputersInventoryFilevaultByIdCmd(ctx))
 	cmd.AddCommand(newComputersInventoryViewDeviceLockPinCmd(ctx))
 	cmd.AddCommand(newComputersInventoryViewRecoveryLockPasswordCmd(ctx))
+	cmd.AddCommand(newComputersInventoryApplyCmd(ctx))
 
 	return cmd
 }
@@ -1156,6 +1157,137 @@ func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	return cmd
+}
+
+func newComputersInventoryApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a computers-inventory by name",
+		Long: `Create or replace a computers-inventory. Reads JSON or YAML from --from-file or stdin.
+
+The general.name field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a computers-inventory from a JSON file
+  jamf-cli computers-inventory apply --from-file computers-inventory.json
+
+  # Apply a computers-inventory from a YAML file
+  jamf-cli computers-inventory apply --from-file computers-inventory.yaml
+
+  # Apply from stdin
+  cat computers-inventory.json | jamf-cli computers-inventory apply
+
+  # Apply without replacement confirmation
+  jamf-cli computers-inventory apply --from-file computers-inventory.json --yes
+
+  # Preview what would happen
+  jamf-cli computers-inventory apply --from-file computers-inventory.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "applications": [],
+  "certificates": [],
+  "configurationProfiles": [],
+  "general": {},
+  "hardware": {},
+  "localUserAccounts": [],
+  "operatingSystem": {},
+  "packageReceipts": {},
+  "printers": [],
+  "purchasing": {},
+  "security": {},
+  "services": [],
+  "softwareUpdates": [],
+  "storage": {},
+  "udid": "45436edf-864e-4364-982a-330b01d39e65",
+  "userAndLocation": {}
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "general.name")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "general.name", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create computers-inventory %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/computers-inventory", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created computers-inventory %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace computers-inventory %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("computers-inventory %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "computers-inventory %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v3/computers-inventory-detail/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced computers-inventory %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
