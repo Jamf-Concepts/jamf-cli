@@ -51,6 +51,7 @@ type Resource struct {
 	TableColumns      []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
 	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)
 	GetDetailPath     string        // When set, "get" uses this path by default (returns all sections). If the get op has a section param, --section overrides back to the original path.
+	UpdateTokenOp     *Operation    // Optional: auxiliary PUT endpoint for file-field payloads (e.g. PUT /{id}/upload-token). When set, update/apply route the file-field flag to this endpoint instead of the main update body, and no standalone subcommand is emitted for it.
 }
 
 // Operation represents an API operation (endpoint)

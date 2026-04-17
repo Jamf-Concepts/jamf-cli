@@ -262,6 +262,26 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return ""
 		},
+		"opHasUpdateTokenOp": func(op *Operation, r *Resource) bool {
+			return op.Name == "update" && op.Method == "PUT" && r.UpdateTokenOp != nil
+		},
+		"updateTokenPath": func(r *Resource) string {
+			if r.UpdateTokenOp == nil {
+				return ""
+			}
+			return r.UpdateTokenOp.Path
+		},
+		"updateTokenPathParam": func(r *Resource) string {
+			if r.UpdateTokenOp == nil {
+				return "{id}"
+			}
+			start := strings.LastIndex(r.UpdateTokenOp.Path, "{")
+			end := strings.LastIndex(r.UpdateTokenOp.Path, "}")
+			if start >= 0 && end > start {
+				return r.UpdateTokenOp.Path[start : end+1]
+			}
+			return "{id}"
+		},
 		"deletePath": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "delete" && op.Method == "DELETE" {
@@ -1300,7 +1320,7 @@ import (
 {{- if needsMultipart . }}
 	"mime/multipart"
 {{- end }}
-{{- if hasDelete .Operations }}
+{{- if or (hasDelete .Operations) .UpdateTokenOp }}
 	"net/http"
 {{- end }}
 {{- if needsURL . }}
@@ -1846,6 +1866,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- end }}
 			}
 {{- if opHasFileFields . $ }}
+{{- if opHasUpdateTokenOp . $ }}
+			// File fields for this resource route to {{ updateTokenPath $ }} via a
+			// separate PUT below, not this endpoint's body.
+{{- else }}
 			// File-sourced fields (--{{ (index $.FileFields 0).Flag }}, etc.) overwrite
 			// any value the caller supplied in the body; companion fields and name
 			// fallbacks only fill when absent.
@@ -1865,9 +1889,37 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return fileFieldErr
 			}
 {{- end }}
+{{- end }}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
+{{- end }}
+{{- if opHasUpdateTokenOp . $ }}
+			// Composite update: --{{ (index $.FileFields 0).Flag }} routes to {{ updateTokenPath $ }};
+			// body fields go to {{ .Path }}. At least one input is required.
+			if len(normalized) == 0{{ range $.FileFields }} && flag{{ toCamel .Flag }} == ""{{ end }} {
+				return fmt.Errorf("nothing to update: provide --from-file, stdin body, or --{{ (index $.FileFields 0).Flag }}")
+			}
+{{- range $.FileFields }}
+			if flag{{ toCamel .Flag }} != "" {
+				tokenBody, tbErr := injectFileFields(nil, []fileFieldSpec{
+					{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+				})
+				if tbErr != nil {
+					return tbErr
+				}
+				tokenPath := strings.Replace("{{ updateTokenPath $ }}", "{{ updateTokenPathParam $ }}", url.PathEscape(resolvedID), 1)
+				tokenResp, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
+				if tokenErr != nil {
+					return tokenErr
+				}
+				if len(normalized) == 0 {
+					defer tokenResp.Body.Close()
+					return ctx.Output.PrintResponse(tokenResp)
+				}
+				_ = tokenResp.Body.Close()
+			}
+{{- end }}
 {{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, body)
 {{- end }}
@@ -1904,7 +1956,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				if renameID == "" {
-					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --rename")
+					return fmt.Errorf("upload succeeded but response did not include id; cannot apply --name")
 				}
 {{- end }}
 				renameURL := strings.Replace("{{ resourceUpdatePath $ }}", "{{ resourceUpdatePathParam $ }}", url.PathEscape(renameID), 1)
@@ -2000,7 +2052,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&flagBodyName, "name", "", "Name for the {{ $.NameSingular }} (sets the body's {{ resourceNameField $ }} field)")
 {{- end }}
 {{- if opEmitsRenameFlag . $ }}
-	cmd.Flags().StringVar(&flagRename, "rename", "", "After the upload succeeds, apply this name via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body rejects a name field)")
+	cmd.Flags().StringVar(&flagRename, "name", "", "Canonical name to apply to the {{ $.NameSingular }} via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body has no name field)")
 {{- end }}
 
 	return cmd
@@ -2080,7 +2132,7 @@ If not, a new resource is created.` + "`" + `,
 				return err
 			}
 {{- end }}
-{{- if .FileFields }}
+{{- if and .FileFields (not .UpdateTokenOp) }}
 			data, err = injectFileFields(data, []fileFieldSpec{
 {{- range .FileFields }}
 				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
@@ -2089,6 +2141,24 @@ If not, a new resource is created.` + "`" + `,
 			if err != nil {
 				return err
 			}
+{{- end }}
+{{- if .UpdateTokenOp }}
+			// Composite flow: file fields route to {{ .UpdateTokenOp.Path }} (on update)
+			// or are combined with the create body (on create). Build a separate token
+			// body so the main PUT to {{ applyUpdatePath .Operations }} only carries
+			// DeviceEnrollmentInstance-schema fields.
+			var tokenBody []byte
+{{- range .FileFields }}
+			if flag{{ toCamel .Flag }} != "" {
+				tb, tbErr := injectFileFields(nil, []fileFieldSpec{
+					{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+				})
+				if tbErr != nil {
+					return tbErr
+				}
+				tokenBody = tb
+			}
+{{- end }}
 {{- end }}
 
 			// Extract name from JSON input
@@ -2110,6 +2180,41 @@ If not, a new resource is created.` + "`" + `,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .NameSingular }} %q\n", name)
 					return nil
 				}
+{{- if .UpdateTokenOp }}
+				if len(tokenBody) == 0 {
+					return fmt.Errorf("cannot create {{ .NameSingular }} %q: --{{ (index .FileFields 0).Flag }} is required", name)
+				}
+				postResp, err := ctx.Client.Do(reqCtx, "POST", "{{ createPath .Operations }}", bytes.NewReader(tokenBody))
+				if err != nil {
+					return err
+				}
+				postBytes, readErr := io.ReadAll(io.LimitReader(postResp.Body, 10<<20))
+				_ = postResp.Body.Close()
+				if readErr != nil {
+					return fmt.Errorf("reading create response: %w", readErr)
+				}
+				var postDecoded map[string]any
+				var newID string
+				if jerr := json.Unmarshal(postBytes, &postDecoded); jerr == nil {
+					if v, ok := postDecoded["id"].(string); ok {
+						newID = v
+					} else if v, ok := postDecoded["id"].(float64); ok {
+						newID = strconv.FormatFloat(v, 'f', -1, 64)
+					}
+				}
+				if newID == "" {
+					return fmt.Errorf("create succeeded but response did not include id")
+				}
+				// Follow-up: PUT main body to apply name/other DeviceEnrollmentInstance fields.
+				bodyPath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(newID), 1)
+				bodyResp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", bodyPath, bytes.NewReader(data))
+				if err != nil {
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w", newID, err)
+				}
+				defer bodyResp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q (id: %s)\n", name, newID)
+				return ctx.Output.PrintResponse(bodyResp)
+{{- else }}
 {{- if .HasVersionLock }}
 				data = setVersionLockZero(data)
 {{- end }}
@@ -2120,6 +2225,7 @@ If not, a new resource is created.` + "`" + `,
 				defer resp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q\n", name)
 				return ctx.Output.PrintResponse(resp)
+{{- end }}
 			}
 
 			// Found — replace
@@ -2148,6 +2254,26 @@ If not, a new resource is created.` + "`" + `,
 			data, vlErr = injectVersionLocks(data, vlResp)
 			if vlErr != nil {
 				return vlErr
+			}
+{{- end }}
+{{- if .UpdateTokenOp }}
+			var tokenResp *http.Response
+			if len(tokenBody) > 0 {
+				tokenPath := strings.Replace("{{ .UpdateTokenOp.Path }}", "{{ updateTokenPathParam . }}", url.PathEscape(id), 1)
+				tr, tokenErr := ctx.Client.Do(reqCtx, "PUT", tokenPath, bytes.NewReader(tokenBody))
+				if tokenErr != nil {
+					return tokenErr
+				}
+				tokenResp = tr
+			}
+			if len(data) == 0 {
+				// Only the token was replaced — return its response.
+				defer tokenResp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} token %q (id: %s)\n", name, id)
+				return ctx.Output.PrintResponse(tokenResp)
+			}
+			if tokenResp != nil {
+				_ = tokenResp.Body.Close()
 			}
 {{- end }}
 {{- if eq (applyUpdateMethod .Operations) "PATCH" }}
@@ -2487,6 +2613,35 @@ func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
 		return nil, fmt.Errorf("re-marshaling body after file-field injection: %w", err)
 	}
 	return out, nil
+}
+
+// removeJSONFields strips the named top-level keys from a JSON object body and
+// returns the re-marshaled result. When body is empty or not a JSON object, it is
+// returned unchanged. Used by composite apply/update flows that route some fields
+// (e.g. encodedToken, tokenFileName) to an auxiliary endpoint and must not
+// re-send them to the main body endpoint.
+func removeJSONFields(body []byte, fields ...string) ([]byte, error) {
+	if len(body) == 0 || len(fields) == 0 {
+		return body, nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		return body, nil // not a JSON object — pass through
+	}
+	changed := false
+	for _, f := range fields {
+		if _, ok := m[f]; ok {
+			delete(m, f)
+			changed = true
+		}
+	}
+	if !changed {
+		return body, nil
+	}
+	if len(m) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(m)
 }
 
 // readApplyInput reads input from --from-file or stdin for apply commands.

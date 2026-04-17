@@ -459,6 +459,35 @@ func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
 	return out, nil
 }
 
+// removeJSONFields strips the named top-level keys from a JSON object body and
+// returns the re-marshaled result. When body is empty or not a JSON object, it is
+// returned unchanged. Used by composite apply/update flows that route some fields
+// (e.g. encodedToken, tokenFileName) to an auxiliary endpoint and must not
+// re-send them to the main body endpoint.
+func removeJSONFields(body []byte, fields ...string) ([]byte, error) {
+	if len(body) == 0 || len(fields) == 0 {
+		return body, nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		return body, nil // not a JSON object — pass through
+	}
+	changed := false
+	for _, f := range fields {
+		if _, ok := m[f]; ok {
+			delete(m, f)
+			changed = true
+		}
+	}
+	if !changed {
+		return body, nil
+	}
+	if len(m) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(m)
+}
+
 // readApplyInput reads input from --from-file or stdin for apply commands.
 // NOTE: Also used by classic_registry.go helpers (same generated package).
 func readApplyInput(fromFile string) ([]byte, error) {

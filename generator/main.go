@@ -122,6 +122,14 @@ func main() {
 	// Attach file-sourced request-body fields (e.g. --script-file → scriptContents).
 	parser.ApplyFileFields(resources)
 
+	// Rename sub-path action POSTs to "create" for resources that lack a bare
+	// collection POST (e.g. device-enrollment-instances creates via /upload-token).
+	parser.ApplyCreateOpOverrides(resources)
+
+	// Detach auxiliary PUT /{id}/<action> endpoints so update/apply can compose
+	// them alongside the main update body instead of emitting a parallel subcommand.
+	parser.ApplyUpdateTokenOpOverrides(resources)
+
 	// Swap list operation paths to richer detail endpoints where available.
 	parser.ApplyListDetailPaths(resources)
 

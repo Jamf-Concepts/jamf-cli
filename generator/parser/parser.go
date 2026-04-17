@@ -121,6 +121,72 @@ func ApplyFileFields(resources []*Resource) {
 	}
 }
 
+// resourceCreateOpOverrides maps resources whose creation happens via a sub-path
+// action (e.g. POST /collection/<action>) rather than a bare POST on the collection
+// path. When set, the matching operation is renamed to "create" so the standard
+// create subcommand is generated (with its --scaffold / file-field / apply wiring),
+// and no parallel action subcommand is emitted.
+var resourceCreateOpOverrides = map[string]OpPathMethod{
+	// Jamf Pro has no POST /v1/device-enrollments; creation goes through the
+	// token-upload action endpoint.
+	"device-enrollment-instances": {Path: "/v1/device-enrollments/upload-token", Method: "POST"},
+}
+
+// OpPathMethod is a (path, method) pair used to identify an operation for overrides.
+type OpPathMethod struct {
+	Path   string
+	Method string
+}
+
+// ApplyCreateOpOverrides renames operations listed in resourceCreateOpOverrides to
+// "create" so the generator emits them as the resource's canonical create command.
+// Must be called after DeduplicateVersioned/ApplyNameOverrides so resource names
+// are canonical.
+func ApplyCreateOpOverrides(resources []*Resource) {
+	for _, r := range resources {
+		target, ok := resourceCreateOpOverrides[r.Name]
+		if !ok {
+			continue
+		}
+		for _, op := range r.Operations {
+			if op.Path == target.Path && op.Method == target.Method {
+				op.Name = "create"
+				break
+			}
+		}
+	}
+}
+
+// resourceUpdateTokenOpOverrides maps resources that have an auxiliary PUT endpoint
+// for file-field payloads (e.g. PUT /v1/device-enrollments/{id}/upload-token). When
+// matched, the operation is lifted off the resource's Operations slice (so it does
+// not produce its own subcommand) and attached to r.UpdateTokenOp, and the update/
+// apply templates route the resource's file-field flag to it.
+var resourceUpdateTokenOpOverrides = map[string]OpPathMethod{
+	"device-enrollment-instances": {Path: "/v1/device-enrollments/{id}/upload-token", Method: "PUT"},
+}
+
+// ApplyUpdateTokenOpOverrides detaches the configured auxiliary token-update op from
+// the resource's Operations slice and records it on r.UpdateTokenOp. The main update
+// command then composes a token PUT + a body PUT based on which flags are supplied.
+func ApplyUpdateTokenOpOverrides(resources []*Resource) {
+	for _, r := range resources {
+		target, ok := resourceUpdateTokenOpOverrides[r.Name]
+		if !ok {
+			continue
+		}
+		filtered := r.Operations[:0]
+		for _, op := range r.Operations {
+			if op.Path == target.Path && op.Method == target.Method {
+				r.UpdateTokenOp = op
+				continue
+			}
+			filtered = append(filtered, op)
+		}
+		r.Operations = filtered
+	}
+}
+
 // resourceNameFieldOverrides maps canonical resource names to the correct RSQL
 // filter field for name-based lookups. Used when detectNameField() returns the
 // wrong value — typically because the name lives in a nested object (e.g.
