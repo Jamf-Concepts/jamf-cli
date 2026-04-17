@@ -735,24 +735,43 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var body io.Reader
 			// PATCH: --set flags take priority; fall back to --from-file or stdin
 			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
 				data, err := buildMergePatchFromSet(flagSet)
 				if err != nil {
 					return err
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			case fromFile != "":
 				data, err := os.ReadFile(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading input file: %w", err)
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			default:
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					body = os.Stdin
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized = raw
 				}
+			}
+			// File-sourced fields (--token-file, etc.) overwrite
+			// any value the caller supplied in the body. When no other body input is
+			// given, injectFileFields constructs a minimal merge-patch from the file
+			// alone.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+				{FilePath: flagTokenFile, Field: "serviceToken", Encoding: "raw", CompanionField: "", NameFallback: "none", NameField: "name"},
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {
