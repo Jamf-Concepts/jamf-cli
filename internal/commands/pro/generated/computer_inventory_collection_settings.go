@@ -293,24 +293,32 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 			var body io.Reader
 			// PATCH: --set flags take priority; fall back to --from-file or stdin
 			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
 				data, err := buildMergePatchFromSet(flagSet)
 				if err != nil {
 					return err
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			case fromFile != "":
 				data, err := os.ReadFile(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading input file: %w", err)
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			default:
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					body = os.Stdin
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized = raw
 				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
 			}
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", path, body)
 			if err != nil {

@@ -1681,24 +1681,47 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if isPatchOp . }}
 			// PATCH: --set flags take priority; fall back to --from-file or stdin
 			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
 				data, err := buildMergePatchFromSet(flagSet)
 				if err != nil {
 					return err
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			case fromFile != "":
 				data, err := os.ReadFile(fromFile)
 				if err != nil {
 					return fmt.Errorf("reading input file: %w", err)
 				}
-				body = bytes.NewReader(data)
+				normalized = data
 			default:
 				stat, _ := os.Stdin.Stat()
 				if (stat.Mode() & os.ModeCharDevice) == 0 {
-					body = os.Stdin
+					raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+					if err != nil {
+						return fmt.Errorf("reading stdin: %w", err)
+					}
+					normalized = raw
 				}
+			}
+{{- if opHasFileFields . $ }}
+			// File-sourced fields (--{{ (index $.FileFields 0).Flag }}, etc.) overwrite
+			// any value the caller supplied in the body. When no other body input is
+			// given, injectFileFields constructs a minimal merge-patch from the file
+			// alone.
+			var fileFieldErr error
+			normalized, fileFieldErr = injectFileFields(normalized, []fileFieldSpec{
+{{- range $.FileFields }}
+				{FilePath: flag{{ toCamel .Flag }}, Field: "{{ .Field }}", Encoding: "{{ .Encoding }}", CompanionField: "{{ .CompanionField }}", NameFallback: "{{ .NameFallback }}", NameField: "{{ resourceNameField $ }}"},
+{{- end }}
+			})
+			if fileFieldErr != nil {
+				return fileFieldErr
+			}
+{{- end }}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
 			}
 {{- else if eq .Name "delete-multiple" }}
 			// Handle --ids flag for bulk operations
