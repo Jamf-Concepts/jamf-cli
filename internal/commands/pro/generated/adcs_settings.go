@@ -35,6 +35,7 @@ func NewAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAdcsSettingsValidateClientCertificateCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsPatchCmd(ctx))
 	cmd.AddCommand(newAdcsSettingsDependenciesCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsApplyCmd(ctx))
 
 	return cmd
 }
@@ -810,6 +811,130 @@ func newAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up adcs-setting by name")
+
+	return cmd
+}
+
+func newAdcsSettingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a adcs-setting by name",
+		Long: `Create or replace a adcs-setting. Reads JSON or YAML from --from-file or stdin.
+
+The displayName field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a adcs-setting from a JSON file
+  jamf-cli adcs-settings apply --from-file adcs-setting.json
+
+  # Apply a adcs-setting from a YAML file
+  jamf-cli adcs-settings apply --from-file adcs-setting.yaml
+
+  # Apply from stdin
+  cat adcs-setting.json | jamf-cli adcs-settings apply
+
+  # Apply without replacement confirmation
+  jamf-cli adcs-settings apply --from-file adcs-setting.json --yes
+
+  # Preview what would happen
+  jamf-cli adcs-settings apply --from-file adcs-setting.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "adcsUrl": "https://\u003chost-name\u003e.example.com",
+  "apiClientId": "A11B43D6-9ED4-4B29-B726-E2DE747D2410",
+  "caName": "EXAMPLE-SUBCA02-CA",
+  "clientCert": {},
+  "displayName": "Example Display Name",
+  "fqdn": "example-subca02.example.com",
+  "outbound": true,
+  "revocationEnabled": true,
+  "serverCert": {}
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "displayName")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/adcs-settings", "displayName", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create adcs-setting %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/pki/adcs-settings", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created adcs-setting %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace adcs-setting %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("adcs-setting %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "adcs-setting %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/pki/adcs-settings/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced adcs-setting %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

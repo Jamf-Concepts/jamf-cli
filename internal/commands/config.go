@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,26 +19,55 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func newConfigCmd() *cobra.Command {
+func newConfigCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Manage CLI configuration and profiles",
 	}
 
-	cmd.AddCommand(newConfigShowCmd())
+	cmd.AddCommand(newConfigShowCmd(cliCtx))
 	cmd.AddCommand(newConfigPathCmd())
-	cmd.AddCommand(newConfigListCmd())
+	cmd.AddCommand(newConfigListCmd(cliCtx))
 	cmd.AddCommand(newConfigAddProfileCmd())
 	cmd.AddCommand(newConfigRemoveProfileCmd())
 	cmd.AddCommand(newConfigSetDefaultCmd())
-	cmd.AddCommand(newConfigValidateCmd())
+	cmd.AddCommand(newConfigValidateCmd(cliCtx))
 
 	return cmd
 }
 
-func newConfigShowCmd() *cobra.Command {
+// configProfileRow is the per-profile row shape emitted by `show` and `list`.
+// Fields use JSON tags so the output formatter renders stable column names
+// across table/json/yaml/csv.
+type configProfileRow struct {
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	AuthMethod   string `json:"auth-method"`
+	TenantID     string `json:"tenant-id,omitempty"`
+	Default      bool   `json:"default,omitempty"`
+	Token        string `json:"token,omitempty"`
+	ClientID     string `json:"client-id,omitempty"`
+	ClientSecret string `json:"client-secret,omitempty"`
+	Status       string `json:"status,omitempty"`
+	Healthy      *bool  `json:"healthy,omitempty"`
+}
+
+// activeProfileName returns the profile currently in effect: flag > env > default.
+func activeProfileName(cfg *config.Config) string {
+	active := profile
+	if active == "" {
+		active = os.Getenv("JAMF_PROFILE")
+	}
+	if active == "" {
+		active = cfg.DefaultProfile
+	}
+	return active
+}
+
+func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Show resolved configuration with sources",
@@ -49,15 +77,35 @@ func newConfigShowCmd() *cobra.Command {
 				return err
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "# Config file: %s\n", config.ConfigPath())
+			active := activeProfileName(cfg)
+			names := sortedProfileNames(cfg)
+			profiles := make([]configProfileRow, 0, len(names))
+			for _, name := range names {
+				p := cfg.Profiles[name]
+				profiles = append(profiles, configProfileRow{
+					Name:         name,
+					URL:          p.URL,
+					AuthMethod:   p.AuthMethod,
+					TenantID:     p.TenantID,
+					Default:      name == active,
+					Token:        p.Token,
+					ClientID:     p.ClientID,
+					ClientSecret: p.ClientSecret,
+				})
+			}
 
-			data, err := yaml.Marshal(cfg)
+			out := map[string]any{
+				"config-file":     config.ConfigPath(),
+				"default-profile": cfg.DefaultProfile,
+				"default-output":  cfg.DefaultOutput,
+				"profiles":        profiles,
+			}
+
+			data, err := json.Marshal(out)
 			if err != nil {
 				return fmt.Errorf("marshalling config for display: %w", err)
 			}
-
-			_, _ = fmt.Fprint(cmd.OutOrStdout(), string(data))
-			return nil
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }
@@ -103,7 +151,7 @@ func checkHealth(baseURL string) healthResult {
 	return healthResult{checks[0], false}
 }
 
-func newConfigListCmd() *cobra.Command {
+func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var status bool
 
 	cmd := &cobra.Command{
@@ -117,24 +165,14 @@ func newConfigListCmd() *cobra.Command {
 			}
 
 			if len(cfg.Profiles) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No profiles configured. Run: jamf-cli config add-profile <name> --url <url>")
-				return nil
+				// No rows to format — emit a structured empty list and a
+				// helper hint to stderr for interactive users.
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "No profiles configured. Run: jamf-cli config add-profile <name> --url <url>")
+				return cliCtx.Output.PrintRaw([]byte("[]"))
 			}
 
-			// Determine active profile: flag > env > default
-			active := profile
-			if active == "" {
-				active = os.Getenv("JAMF_PROFILE")
-			}
-			if active == "" {
-				active = cfg.DefaultProfile
-			}
-
-			names := make([]string, 0, len(cfg.Profiles))
-			for name := range cfg.Profiles {
-				names = append(names, name)
-			}
-			sort.Strings(names)
+			active := activeProfileName(cfg)
+			names := sortedProfileNames(cfg)
 
 			// Run health checks in parallel when --status is set
 			var results map[string]healthResult
@@ -155,34 +193,30 @@ func newConfigListCmd() *cobra.Command {
 				wg.Wait()
 			}
 
-			w := cmd.OutOrStdout()
+			rows := make([]configProfileRow, 0, len(names))
 			for _, name := range names {
 				p := cfg.Profiles[name]
-				marker := " "
-				if name == active {
-					marker = "*"
+				row := configProfileRow{
+					Name:       name,
+					URL:        p.URL,
+					AuthMethod: p.AuthMethod,
+					TenantID:   p.TenantID,
+					Default:    name == active,
 				}
-
-				if !status {
-					_, _ = fmt.Fprintf(w, "  %s %-20s %-40s %s\n", marker, name, p.URL, p.AuthMethod)
-					continue
+				if status {
+					r := results[name]
+					row.Status = r.Status
+					healthy := r.Healthy
+					row.Healthy = &healthy
 				}
-
-				r := results[name]
-				var statusCol string
-				if noColor {
-					statusCol = r.Status
-				} else if r.Healthy {
-					statusCol = "\033[32m●\033[0m " + r.Status
-				} else if r.Status == "offline" || strings.HasPrefix(r.Status, "HTTP") {
-					statusCol = "\033[31m●\033[0m " + r.Status
-				} else {
-					statusCol = "\033[33m●\033[0m " + r.Status
-				}
-				_, _ = fmt.Fprintf(w, "  %s %-20s %-40s %-8s %s\n", marker, name, p.URL, p.AuthMethod, statusCol)
+				rows = append(rows, row)
 			}
 
-			return nil
+			data, err := json.Marshal(rows)
+			if err != nil {
+				return fmt.Errorf("marshalling profiles: %w", err)
+			}
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 
@@ -436,41 +470,49 @@ func newConfigSetDefaultCmd() *cobra.Command {
 	}
 }
 
-func newConfigValidateCmd() *cobra.Command {
+// validateCheck is one line of validation output.
+type validateCheck struct {
+	Scope   string `json:"scope"` // "config" or profile name
+	Name    string `json:"name"`
+	Status  string `json:"status"` // "pass" or "fail"
+	Message string `json:"message,omitempty"`
+}
+
+func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var connectivity bool
 
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate config file and profile settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			w := cmd.OutOrStdout()
 			path := config.ConfigPath()
-			hasErrors := false
-
-			pass := func(msg string) { _, _ = fmt.Fprintf(w, "  \u2713 %s\n", msg) }
-			fail := func(msg string) { _, _ = fmt.Fprintf(w, "  \u2717 %s\n", msg); hasErrors = true }
-
-			_, _ = fmt.Fprintf(w, "Config file: %s\n", path)
+			var checks []validateCheck
+			pass := func(scope, name string) {
+				checks = append(checks, validateCheck{Scope: scope, Name: name, Status: "pass"})
+			}
+			fail := func(scope, name, msg string) {
+				checks = append(checks, validateCheck{Scope: scope, Name: name, Status: "fail", Message: msg})
+			}
 
 			// 1. File exists
 			data, err := os.ReadFile(path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					fail("File does not exist")
-					return fmt.Errorf("config file not found at %s", path)
+					fail("config", "file-exists", fmt.Sprintf("no file at %s", path))
+					return emitValidateAndFail(cliCtx, checks, fmt.Errorf("config file not found at %s", path))
 				}
-				fail(fmt.Sprintf("Cannot read file: %v", err))
-				return err
+				fail("config", "file-readable", err.Error())
+				return emitValidateAndFail(cliCtx, checks, err)
 			}
-			pass("File exists")
+			pass("config", "file-exists")
 
 			// 2. Valid YAML
 			var cfg config.Config
 			if err := yaml.Unmarshal(data, &cfg); err != nil {
-				fail(fmt.Sprintf("Invalid YAML: %v", err))
-				return fmt.Errorf("config file is not valid YAML")
+				fail("config", "valid-yaml", err.Error())
+				return emitValidateAndFail(cliCtx, checks, fmt.Errorf("config file is not valid YAML"))
 			}
-			pass("Valid YAML")
+			pass("config", "valid-yaml")
 
 			if cfg.Profiles == nil {
 				cfg.Profiles = make(map[string]config.Profile)
@@ -482,39 +524,32 @@ func newConfigValidateCmd() *cobra.Command {
 					"table": true, "json": true, "csv": true, "yaml": true, "plain": true,
 				}
 				if validFormats[cfg.DefaultOutput] {
-					pass(fmt.Sprintf("Default output format: %s", cfg.DefaultOutput))
+					pass("config", "default-output")
 				} else {
-					fail(fmt.Sprintf("Invalid default-output %q (must be table, json, csv, yaml, or plain)", cfg.DefaultOutput))
+					fail("config", "default-output", fmt.Sprintf("invalid %q (must be table, json, csv, yaml, or plain)", cfg.DefaultOutput))
 				}
 			}
 
 			// 4. default-profile references existing profile
 			if cfg.DefaultProfile != "" {
 				if _, ok := cfg.Profiles[cfg.DefaultProfile]; ok {
-					pass(fmt.Sprintf("Default profile: %s", cfg.DefaultProfile))
+					pass("config", "default-profile")
 				} else {
-					fail(fmt.Sprintf("Default profile %q not found in profiles", cfg.DefaultProfile))
+					fail("config", "default-profile", fmt.Sprintf("%q not found in profiles", cfg.DefaultProfile))
 				}
 			}
 
 			// 5-7. Validate each profile
-			names := make([]string, 0, len(cfg.Profiles))
-			for name := range cfg.Profiles {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-
 			validAuthMethods := map[string]bool{"token": true, "oauth2": true, "platform": true}
 
-			for _, name := range names {
+			for _, name := range sortedProfileNames(&cfg) {
 				p := cfg.Profiles[name]
-				_, _ = fmt.Fprintf(w, "\nProfile %q:\n", name)
 
 				// URL
 				if p.URL != "" {
-					pass(fmt.Sprintf("URL: %s", p.URL))
+					pass(name, "url")
 				} else {
-					fail("Missing url")
+					fail(name, "url", "missing")
 				}
 
 				// Auth method
@@ -522,68 +557,27 @@ func newConfigValidateCmd() *cobra.Command {
 				if authMethod == "" {
 					authMethod = "token"
 				}
-				if validAuthMethods[authMethod] {
-					pass(fmt.Sprintf("Auth method: %s", authMethod))
-				} else {
-					fail(fmt.Sprintf("Invalid auth-method %q", authMethod))
+				if !validAuthMethods[authMethod] {
+					fail(name, "auth-method", fmt.Sprintf("invalid %q", authMethod))
 					continue
 				}
+				pass(name, "auth-method")
 
 				// Auth-method-specific fields
 				switch authMethod {
 				case "platform":
-					if p.ClientID == "" {
-						fail("Missing client-id")
-					} else {
-						if _, err := config.ResolveSecret(p.ClientID); err != nil {
-							fail(fmt.Sprintf("client-id not resolvable: %v", err))
-						} else {
-							pass("client-id resolvable")
-						}
-					}
-					if p.ClientSecret == "" {
-						fail("Missing client-secret")
-					} else {
-						if _, err := config.ResolveSecret(p.ClientSecret); err != nil {
-							fail(fmt.Sprintf("client-secret not resolvable: %v", err))
-						} else {
-							pass("client-secret resolvable")
-						}
-					}
+					checkSecretField(&checks, name, "client-id", p.ClientID)
+					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
 					if p.TenantID == "" {
-						fail("Missing tenant-id")
+						fail(name, "tenant-id", "missing")
 					} else {
-						pass(fmt.Sprintf("Tenant ID: %s", p.TenantID))
+						pass(name, "tenant-id")
 					}
 				case "oauth2":
-					if p.ClientID == "" {
-						fail("Missing client-id")
-					} else {
-						if _, err := config.ResolveSecret(p.ClientID); err != nil {
-							fail(fmt.Sprintf("client-id not resolvable: %v", err))
-						} else {
-							pass("client-id resolvable")
-						}
-					}
-					if p.ClientSecret == "" {
-						fail("Missing client-secret")
-					} else {
-						if _, err := config.ResolveSecret(p.ClientSecret); err != nil {
-							fail(fmt.Sprintf("client-secret not resolvable: %v", err))
-						} else {
-							pass("client-secret resolvable")
-						}
-					}
+					checkSecretField(&checks, name, "client-id", p.ClientID)
+					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
 				case "token":
-					if p.Token == "" {
-						fail("Missing token")
-					} else {
-						if _, err := config.ResolveSecret(p.Token); err != nil {
-							fail(fmt.Sprintf("token not resolvable: %v", err))
-						} else {
-							pass("token resolvable")
-						}
-					}
+					checkSecretField(&checks, name, "token", p.Token)
 				}
 
 				// Optional connectivity check
@@ -591,25 +585,32 @@ func newConfigValidateCmd() *cobra.Command {
 					httpClient := &http.Client{Timeout: 10 * time.Second}
 					req, err := http.NewRequestWithContext(cmd.Context(), "HEAD", p.URL, nil)
 					if err != nil {
-						fail(fmt.Sprintf("Connectivity: invalid URL: %v", err))
+						fail(name, "connectivity", fmt.Sprintf("invalid URL: %v", err))
 					} else {
 						resp, err := httpClient.Do(req)
 						if err != nil {
-							fail(fmt.Sprintf("Connectivity: %v", err))
+							fail(name, "connectivity", err.Error())
 						} else {
 							_ = resp.Body.Close()
-							pass(fmt.Sprintf("Connectivity: reachable (HTTP %d)", resp.StatusCode))
+							checks = append(checks, validateCheck{
+								Scope:   name,
+								Name:    "connectivity",
+								Status:  "pass",
+								Message: fmt.Sprintf("HTTP %d", resp.StatusCode),
+							})
 						}
 					}
 				}
 			}
 
-			_, _ = fmt.Fprintln(w)
-			if hasErrors {
-				_, _ = fmt.Fprintln(w, "\u2717 Validation completed with errors.")
-				return fmt.Errorf("config validation failed")
+			if err := emitValidate(cliCtx, checks); err != nil {
+				return err
 			}
-			_, _ = fmt.Fprintln(w, "\u2713 All checks passed.")
+			for _, c := range checks {
+				if c.Status == "fail" {
+					return fmt.Errorf("config validation failed")
+				}
+			}
 			return nil
 		},
 	}
@@ -617,4 +618,32 @@ func newConfigValidateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&connectivity, "connectivity", false, "test server reachability for each profile")
 
 	return cmd
+}
+
+// checkSecretField fails when the value is empty or not resolvable, otherwise passes.
+func checkSecretField(checks *[]validateCheck, profileName, field, value string) {
+	if value == "" {
+		*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "fail", Message: "missing"})
+		return
+	}
+	if _, err := config.ResolveSecret(value); err != nil {
+		*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "fail", Message: fmt.Sprintf("not resolvable: %v", err)})
+		return
+	}
+	*checks = append(*checks, validateCheck{Scope: profileName, Name: field, Status: "pass"})
+}
+
+func emitValidate(cliCtx *registry.CLIContext, checks []validateCheck) error {
+	data, err := json.Marshal(checks)
+	if err != nil {
+		return fmt.Errorf("marshalling validation results: %w", err)
+	}
+	return cliCtx.Output.PrintRaw(data)
+}
+
+func emitValidateAndFail(cliCtx *registry.CLIContext, checks []validateCheck, cause error) error {
+	if err := emitValidate(cliCtx, checks); err != nil {
+		return err
+	}
+	return cause
 }

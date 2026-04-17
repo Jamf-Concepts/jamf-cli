@@ -407,6 +407,34 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				noColor = true
 			}
 
+			// Load config up-front so the formatter honours default-output
+			// for every command, including those that skip auth.
+			cfg, err := config.Load()
+			if err != nil {
+				return fmt.Errorf("loading config: %w", err)
+			}
+
+			// Apply default output from config if flag not explicitly set
+			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
+				outputFmt = cfg.DefaultOutput
+			}
+
+			// Build output formatter (shared by all products and by skipped
+			// commands like config/completion/version).
+			if outFile != "" {
+				f, err := os.Create(outFile)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				outFileHandle = f
+				noColor = true
+			}
+			formatter := output.New(outputFmt, noColor, wide)
+			if outFileHandle != nil {
+				formatter.SetWriter(outFileHandle)
+			}
+			cliCtx.Output = &cliOutput{formatter}
+
 			// Skip auth for commands that don't need it. Most are matched
 			// anywhere in the chain (e.g. "config" covers all subcommands,
 			// "setup" covers both "pro setup" and "protect setup").
@@ -433,38 +461,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			}
 
 			// --scaffold just prints a JSON template — no auth needed.
-			// Set up a basic formatter first so commands can call ctx.Output.Format()
-			// to respect -o yaml even without a full auth round-trip.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
-				cliCtx.Output = &cliOutput{output.New(outputFmt, noColor, wide)}
 				return nil
 			}
-
-			// Load config and resolve auth
-			cfg, err := config.Load()
-			if err != nil {
-				return fmt.Errorf("loading config: %w", err)
-			}
-
-			// Apply default output from config if flag not explicitly set
-			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
-				outputFmt = cfg.DefaultOutput
-			}
-
-			// Build output formatter (shared by all products)
-			if outFile != "" {
-				f, err := os.Create(outFile)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				outFileHandle = f
-				noColor = true
-			}
-			formatter := output.New(outputFmt, noColor, wide)
-			if outFileHandle != nil {
-				formatter.SetWriter(outFileHandle)
-			}
-			cliCtx.Output = &cliOutput{formatter}
 
 			// Determine product type from command hierarchy or profile
 			product := resolveProduct(cmd, cfg)
@@ -574,7 +573,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	})
 
 	// Config command group
-	cmd.AddCommand(newConfigCmd())
+	cmd.AddCommand(newConfigCmd(cliCtx))
 
 	// Completion command
 	cmd.AddCommand(newCompletionCmd())

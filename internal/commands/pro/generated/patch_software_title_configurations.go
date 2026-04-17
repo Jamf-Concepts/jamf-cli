@@ -42,6 +42,7 @@ func NewPatchSoftwareTitleConfigurationsCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsVersionsCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsApplyCmd(ctx))
 
 	return cmd
 }
@@ -1247,6 +1248,128 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a patch-software-title-configuration by name",
+		Long: `Create or replace a patch-software-title-configuration. Reads JSON or YAML from --from-file or stdin.
+
+The displayName field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a patch-software-title-configuration from a JSON file
+  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json
+
+  # Apply a patch-software-title-configuration from a YAML file
+  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.yaml
+
+  # Apply from stdin
+  cat patch-software-title-configuration.json | jamf-cli patch-software-title-configurations apply
+
+  # Apply without replacement confirmation
+  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json --yes
+
+  # Preview what would happen
+  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "categoryId": "-1",
+  "displayName": "Google Chrome",
+  "emailNotifications": false,
+  "extensionAttributes": [],
+  "siteId": "-1",
+  "softwareTitleId": "1",
+  "uiNotifications": false
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "displayName")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create patch-software-title-configuration %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/patch-software-title-configurations", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created patch-software-title-configuration %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace patch-software-title-configuration %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("patch-software-title-configuration %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "patch-software-title-configuration %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v2/patch-software-title-configurations/{id}", "{id}", url.PathEscape(id), 1)
+			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
+			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced patch-software-title-configuration %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

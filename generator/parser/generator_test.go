@@ -1278,6 +1278,28 @@ func TestHasApply(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"create POST + patch op with path param (PATCH-only resource)",
+			[]*Operation{
+				{Name: "create", Method: "POST"},
+				{
+					Name: "patch", Method: "PATCH", Path: "/v1/things/{id}",
+					RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+				},
+			},
+			true,
+		},
+		{
+			"PATCH op without path param does not qualify",
+			[]*Operation{
+				{Name: "create", Method: "POST"},
+				{
+					Name: "patch", Method: "PATCH", Path: "/v1/things",
+					RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+				},
+			},
+			false,
+		},
 		{"empty", []*Operation{}, false},
 	}
 	for _, tt := range tests {
@@ -1287,6 +1309,36 @@ func TestHasApply(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApplyUpdateOp(t *testing.T) {
+	post := &Operation{Name: "create", Method: "POST", Path: "/v1/things"}
+	put := &Operation{Name: "update", Method: "PUT", Path: "/v1/things/{id}"}
+	patch := &Operation{
+		Name: "patch", Method: "PATCH", Path: "/v1/things/{id}",
+		RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+	}
+
+	t.Run("prefers PUT when both PUT and PATCH exist", func(t *testing.T) {
+		got := applyUpdateOp([]*Operation{post, put, patch})
+		if got != put {
+			t.Errorf("got %+v, want PUT op", got)
+		}
+	})
+
+	t.Run("falls back to PATCH when no PUT exists", func(t *testing.T) {
+		got := applyUpdateOp([]*Operation{post, patch})
+		if got != patch {
+			t.Errorf("got %+v, want PATCH op", got)
+		}
+	})
+
+	t.Run("returns nil when neither exists", func(t *testing.T) {
+		got := applyUpdateOp([]*Operation{post})
+		if got != nil {
+			t.Errorf("got %+v, want nil", got)
+		}
+	})
 }
 
 func TestGenerate_ApplyCommand(t *testing.T) {

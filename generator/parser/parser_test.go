@@ -2127,6 +2127,110 @@ func TestApplyNameFieldOverrides(t *testing.T) {
 	}
 }
 
+func TestApplyCreateOpOverrides(t *testing.T) {
+	// Resource matching the override map: sub-path POST should be renamed to "create".
+	target := resourceCreateOpOverrides["device-enrollment-instances"]
+	if target.Path == "" {
+		t.Fatal("resourceCreateOpOverrides missing device-enrollment-instances entry")
+	}
+
+	r := &Resource{
+		Name: "device-enrollment-instances",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
+			{Name: "upload-token", Method: target.Method, Path: target.Path},
+			{Name: "update", Method: "PUT", Path: "/v1/device-enrollments/{id}"},
+		},
+	}
+	// Unaffected resource: keeps its op names unchanged.
+	other := &Resource{
+		Name: "buildings",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/buildings"},
+			{Name: "create", Method: "POST", Path: "/v1/buildings"},
+		},
+	}
+	ApplyCreateOpOverrides([]*Resource{r, other})
+
+	// Target op should now be named "create".
+	var got *Operation
+	for _, op := range r.Operations {
+		if op.Path == target.Path && op.Method == target.Method {
+			got = op
+			break
+		}
+	}
+	if got == nil {
+		t.Fatal("target op not found after ApplyCreateOpOverrides")
+	}
+	if got.Name != "create" {
+		t.Errorf("op name = %q, want %q", got.Name, "create")
+	}
+	// Untouched ops keep their names.
+	for _, op := range other.Operations {
+		if op.Name != "list" && op.Name != "create" {
+			t.Errorf("buildings op renamed unexpectedly to %q", op.Name)
+		}
+	}
+}
+
+func TestApplyUpdateTokenOpOverrides(t *testing.T) {
+	target := resourceUpdateTokenOpOverrides["device-enrollment-instances"]
+	if target.Path == "" {
+		t.Fatal("resourceUpdateTokenOpOverrides missing device-enrollment-instances entry")
+	}
+
+	tokenOp := &Operation{Name: "upload-token-by-id", Method: target.Method, Path: target.Path}
+	updateOp := &Operation{Name: "update", Method: "PUT", Path: "/v1/device-enrollments/{id}"}
+	r := &Resource{
+		Name: "device-enrollment-instances",
+		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/device-enrollments"},
+			updateOp,
+			tokenOp,
+		},
+	}
+	ApplyUpdateTokenOpOverrides([]*Resource{r})
+
+	if r.UpdateTokenOp == nil {
+		t.Fatal("UpdateTokenOp not set")
+	}
+	if r.UpdateTokenOp != tokenOp {
+		t.Errorf("UpdateTokenOp = %+v, want the token op", r.UpdateTokenOp)
+	}
+	// Token op must be removed from Operations so no standalone subcommand is emitted.
+	for _, op := range r.Operations {
+		if op.Path == target.Path && op.Method == target.Method {
+			t.Errorf("token op still present in Operations: %+v", op)
+		}
+	}
+	// Other ops remain.
+	names := map[string]bool{}
+	for _, op := range r.Operations {
+		names[op.Name] = true
+	}
+	if !names["list"] || !names["update"] {
+		t.Errorf("unexpected Operations after detach: %v", names)
+	}
+}
+
+func TestApplyUpdateTokenOpOverrides_NoMatch(t *testing.T) {
+	// Resources not in the override map are untouched.
+	r := &Resource{
+		Name: "buildings",
+		Operations: []*Operation{
+			{Name: "update", Method: "PUT", Path: "/v1/buildings/{id}"},
+		},
+	}
+	ApplyUpdateTokenOpOverrides([]*Resource{r})
+	if r.UpdateTokenOp != nil {
+		t.Errorf("UpdateTokenOp set on unrelated resource: %+v", r.UpdateTokenOp)
+	}
+	if len(r.Operations) != 1 {
+		t.Errorf("unrelated resource Operations mutated: %d ops", len(r.Operations))
+	}
+}
+
 func TestParseSchema_AllOfFlattening(t *testing.T) {
 	t.Run("merges properties from allOf items", func(t *testing.T) {
 		schema := &openapi3.Schema{
