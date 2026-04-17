@@ -193,7 +193,7 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 				continue
 			}
 			row := map[string]any{"id": extractID(mm)}
-			if n := extractName(mm); n != "" {
+			if n := extractName(mm, ""); n != "" {
 				row["name"] = n
 			}
 			rows = append(rows, row)
@@ -490,7 +490,7 @@ func groupSummaryRow(g map[string]any) map[string]any {
 	}
 	return map[string]any{
 		"id":          extractID(g),
-		"name":        extractName(g),
+		"name":        extractName(g, ""),
 		"type":        groupTypeStr,
 		"memberCount": groupMemberCount(g),
 	}

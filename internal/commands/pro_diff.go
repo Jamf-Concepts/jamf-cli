@@ -252,12 +252,12 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 
 	httpCli := &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verbose))}
 
-	defs := FilterResources(BackupResources, nameFilter)
+	defs, err := ResolveBackupResources(nameFilter)
+	if err != nil {
+		return nil, err
+	}
 	if len(defs) == 0 && len(nameFilter) > 0 {
 		return nil, fmt.Errorf("no resources match filter %q", strings.Join(nameFilter, ","))
-	}
-	if len(defs) == 0 {
-		defs = BackupResources
 	}
 
 	snapshot := make(resourceSnapshot)
@@ -265,7 +265,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 	for _, def := range defs {
 		items, err := listResourceItems(ctx, httpCli, def)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: listing %s from profile %q: %v\n", def.Name, profileName, err)
+			fmt.Fprintf(os.Stderr, "WARNING: listing %s from profile %q: %v\n", def.Key, profileName, err)
 			continue
 		}
 
@@ -278,7 +278,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			path := strings.Replace(def.GetPath, "{id}", item.ID, 1)
 			data, err := fetchJSON(ctx, httpCli, path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: fetching %s id=%s from %q: %v\n", def.Name, item.ID, profileName, err)
+				fmt.Fprintf(os.Stderr, "WARNING: fetching %s id=%s from %q: %v\n", def.Key, item.ID, profileName, err)
 				continue
 			}
 			data = unwrapClassicDetail(data)
@@ -292,12 +292,13 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		}
 
 		if len(objects) > 0 {
-			// Merge into existing bucket for this resource name (multiple ResourceDefs
-			// may share the same Name but cover different subdirs, e.g., profiles).
-			if existing, ok := snapshot[def.Name]; ok {
+			// Merge into existing bucket for this filter name (multiple curated
+			// entries — e.g. macOS + iOS profiles, or accounts users + groups —
+			// share a single FilterName token).
+			if existing, ok := snapshot[def.FilterName]; ok {
 				maps.Copy(existing, objects)
 			} else {
-				snapshot[def.Name] = objects
+				snapshot[def.FilterName] = objects
 			}
 		}
 	}

@@ -28,6 +28,22 @@ type smokeEntry struct {
 	SingularKey   string
 }
 
+// backupEntry describes a resource eligible for backup: it has both a canonical
+// list endpoint and a per-ID get endpoint. Emitted to backup_registry.go so the
+// backup and diff commands can derive paths from the specs rather than maintain
+// a duplicated hand-written list of hard-coded URLs.
+type backupEntry struct {
+	Name        string // CLI command name, e.g. "classic-policies", "scripts"
+	ListPath    string // e.g. "/JSSResource/policies" or "/v1/scripts"
+	GetPath     string // with {id} placeholder, e.g. "/JSSResource/policies/id/{id}"
+	IsClassic   bool
+	WrapperKey  string // classic list wrapper element, e.g. "policies"
+	SingularKey string // classic detail wrapper element, e.g. "policy"
+	ListSubset  string // set when the list endpoint is shared (e.g. "users" for /JSSResource/accounts)
+	NameField   string // field on list items holding the human name (default "name")
+	IDField     string // field on list items holding the resource ID (default "id")
+}
+
 func main() {
 	specsDir := "./specs"
 	outputDir := "./internal/commands/pro/generated"
@@ -211,6 +227,15 @@ func main() {
 	fmt.Printf("\nGenerated: %s\n", smokeRegistryPath)
 	generatedFiles[filepath.Base(smokeRegistryPath)] = true
 
+	// ── Backup registry ──────────────────────────────────────────
+	backupRegistryPath, err := generateBackupRegistry(outputDir, resources, classicResources)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating backup registry: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Generated: %s\n", backupRegistryPath)
+	generatedFiles[filepath.Base(backupRegistryPath)] = true
+
 	// ── Clean up stale generated files ────────────────────────────
 	// Remove any .go files in the output directory that were not produced by this
 	// run. This handles cases where a versioned resource (e.g. mobile_device_prestages_v_3s.go)
@@ -329,5 +354,150 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: {{ printf "%q" .Resource }}, Operation: {{ printf "%q" .Operation }}, Method: {{ printf "%q" .Method }}, Path: {{ printf "%q" .Path }}, IsList: {{ .IsList }}, HasPathParams: {{ .HasPathParams }}, IsClassic: {{ .IsClassic }}, WrapperKey: {{ printf "%q" .WrapperKey }}, SingularKey: {{ printf "%q" .SingularKey }}},
 {{- end }}
 	}
+}
+`
+
+// generateBackupRegistry builds the canonical list+get pairs for every resource
+// that is backup-eligible (i.e. has both a list endpoint without path params and
+// a detail endpoint keyed by {id}). Singletons and sub-list endpoints (history,
+// status, action routes) are filtered out. The generated map is consumed by the
+// backup and diff commands via a curated allowlist in pro_resources.go.
+func generateBackupRegistry(outputDir string, modern []*parser.Resource, classicRes []classic.ClassicResource) (string, error) {
+	var entries []backupEntry
+
+	// Modern resources: find the canonical list + get pair. Resources with a
+	// list endpoint but no per-ID detail endpoint (e.g. sites) are included
+	// with an empty GetPath — the backup runtime treats those as list-only.
+	for _, r := range modern {
+		if r.IsSingleton {
+			continue
+		}
+		var listPath, getPath string
+		for _, op := range r.Operations {
+			if op.Method != "GET" {
+				continue
+			}
+			switch op.Name {
+			case "list":
+				if !strings.Contains(op.Path, "{") {
+					listPath = op.Path
+				}
+			case "get":
+				if strings.Contains(op.Path, "{id}") {
+					getPath = op.Path
+				}
+			}
+		}
+		if listPath == "" {
+			continue
+		}
+		nameField := r.NameField
+		if nameField == "name" {
+			nameField = "" // default; omit to keep the registry compact
+		}
+		idField := r.IDField
+		if idField == "id" {
+			idField = ""
+		}
+		entries = append(entries, backupEntry{
+			Name:      r.Name,
+			ListPath:  listPath,
+			GetPath:   getPath,
+			NameField: nameField,
+			IDField:   idField,
+		})
+	}
+
+	// Classic resources: both list and get must be declared. Subset resources
+	// (account-users, account-groups) share the parent list endpoint but are
+	// still backup-eligible — the runtime extracts the named subset.
+	for _, r := range classicRes {
+		if !r.HasOperation("list") || !r.HasOperation("get") {
+			continue
+		}
+		idPath := r.IDPath
+		if idPath == "" {
+			idPath = "id"
+		}
+		entries = append(entries, backupEntry{
+			Name:        r.CLIName,
+			ListPath:    "/JSSResource/" + r.Path,
+			GetPath:     "/JSSResource/" + r.Path + "/" + idPath + "/{id}",
+			IsClassic:   true,
+			WrapperKey:  r.Name,
+			SingularKey: r.Singular,
+			ListSubset:  r.ListSubset,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+
+	tmpl, err := template.New("backup_registry").Parse(backupRegistryTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing template: %w", err)
+	}
+
+	outPath := filepath.Join(outputDir, "backup_registry.go")
+	f, err := os.Create(outPath)
+	if err != nil {
+		return "", fmt.Errorf("creating file: %w", err)
+	}
+
+	if err := tmpl.Execute(f, entries); err != nil {
+		_ = f.Close()
+		_ = os.Remove(outPath)
+		return "", fmt.Errorf("executing template: %w", err)
+	}
+
+	_ = f.Close()
+	return outPath, nil
+}
+
+const backupRegistryTemplate = `// Copyright 2026, Jamf Software LLC
+// Code generated by jamf-cli generator. DO NOT EDIT.
+package generated
+
+// BackupEndpoint describes the list + get endpoint pair for a single
+// backup-eligible resource. The backup command iterates a curated subset of
+// these (see internal/commands/pro_resources.go) and exports each object as an
+// individual file on disk.
+type BackupEndpoint struct {
+	// ListPath is the URL that returns the collection of objects.
+	ListPath string
+	// GetPath is the URL template for fetching a single object; the "{id}"
+	// placeholder is substituted at request time.
+	GetPath string
+	// IsClassic routes list parsing through the XML pipeline instead of the
+	// paginated JSON pipeline.
+	IsClassic bool
+	// WrapperKey is the classic API list-response wrapper element (e.g.
+	// "policies" for /JSSResource/policies). Empty for modern resources.
+	WrapperKey string
+	// SingularKey is the classic API detail-response wrapper element (e.g.
+	// "policy" for a single policy). Empty for modern resources.
+	SingularKey string
+	// ListSubset is non-empty when the list endpoint is shared with a sibling
+	// resource; the runtime slices only the named sub-element (e.g. "users" or
+	// "groups" for /JSSResource/accounts). Both list and detail still share the
+	// parent endpoint; detail lookups use the standard ID-keyed path.
+	ListSubset string
+	// NameField is the list-item field that holds the human-readable name.
+	// Empty means the default "name".
+	NameField string
+	// IDField is the list-item field that holds the resource ID. Empty means
+	// the default "id". Some modern resources (e.g. mobile device groups) use
+	// a prefixed field like "groupId".
+	IDField string
+}
+
+// BackupEndpoints maps a CLI command name (e.g. "classic-policies", "scripts")
+// to its list+get endpoint pair. Populated at generation time from the OpenAPI
+// specs and Classic API manifest.
+var BackupEndpoints = map[string]BackupEndpoint{
+{{- range . }}
+	{{ printf "%q" .Name }}: {ListPath: {{ printf "%q" .ListPath }}, GetPath: {{ printf "%q" .GetPath }}, IsClassic: {{ .IsClassic }}, WrapperKey: {{ printf "%q" .WrapperKey }}, SingularKey: {{ printf "%q" .SingularKey }}, ListSubset: {{ printf "%q" .ListSubset }}, NameField: {{ printf "%q" .NameField }}, IDField: {{ printf "%q" .IDField }}},
+{{- end }}
 }
 `

@@ -2,199 +2,137 @@
 
 package commands
 
-// ResourceDef describes an API resource for backup/diff operations.
-type ResourceDef struct {
-	Name       string // CLI display name: "policies"
-	ListPath   string // API list endpoint: "/JSSResource/policies" or "/v1/scripts"
-	GetPath    string // API detail endpoint with {id} placeholder
-	WrapperKey string // Classic API JSON wrapper key (empty for modern)
-	IsClassic  bool
-	SubDir     string // backup output subdirectory
+import (
+	"fmt"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+)
+
+// BackupResource is a curated entry in the backup/diff resource set. Each entry
+// names a generated CLI command (Key) whose list+get endpoints are resolved at
+// runtime from generated.BackupEndpoints. FilterName is the user-facing token
+// accepted by --resources (e.g. "profiles" covers both macOS and iOS profiles);
+// SubDir is the output directory under the backup root.
+//
+// Rule of thumb: prefer a modern-API resource over its classic counterpart when
+// both exist (modern responses are richer and paginated). Only fall back to
+// classic when there is no modern equivalent.
+type BackupResource struct {
+	Key        string // lookup in generated.BackupEndpoints
+	FilterName string // --resources filter token
+	SubDir     string // output subdirectory under --output
+	// ListOnly bypasses the per-ID detail fetch — each list item is written
+	// directly to disk as its own file. Used for resources whose list response
+	// is already the complete record (e.g. sites: {id, name}).
+	ListOnly bool
 }
 
-// BackupResources lists all resource types that the backup command exports.
-// Ordered by logical grouping: policies/profiles first, then supporting objects.
-var BackupResources = []ResourceDef{
+// BackupResources is the curated set of resources included in `backup` and
+// `diff`. Endpoint paths live in generated/backup_registry.go; this file only
+// decides which resources are in scope and how they lay out on disk.
+//
+// Grouping follows a logical config-object order: policies/profiles first, then
+// scripts/EAs/groups, then supporting objects, then administration.
+var BackupResources = []BackupResource{
 	// Policies
-	{
-		Name:       "policies",
-		ListPath:   "/JSSResource/policies",
-		GetPath:    "/JSSResource/policies/id/{id}",
-		WrapperKey: "policies",
-		IsClassic:  true,
-		SubDir:     "policies",
-	},
-	// Configuration Profiles - macOS
-	{
-		Name:       "profiles",
-		ListPath:   "/JSSResource/osxconfigurationprofiles",
-		GetPath:    "/JSSResource/osxconfigurationprofiles/id/{id}",
-		WrapperKey: "os_x_configuration_profiles",
-		IsClassic:  true,
-		SubDir:     "profiles/macos",
-	},
-	// Configuration Profiles - iOS
-	{
-		Name:       "profiles",
-		ListPath:   "/JSSResource/mobiledeviceconfigurationprofiles",
-		GetPath:    "/JSSResource/mobiledeviceconfigurationprofiles/id/{id}",
-		WrapperKey: "configuration_profiles",
-		IsClassic:  true,
-		SubDir:     "profiles/ios",
-	},
+	{Key: "classic-policies", FilterName: "policies", SubDir: "policies"},
+
+	// Configuration profiles (no modern equivalent for CRUD)
+	{Key: "classic-macos-config-profiles", FilterName: "profiles", SubDir: "profiles/macos"},
+	{Key: "classic-mobile-config-profiles", FilterName: "profiles", SubDir: "profiles/ios"},
+
 	// Scripts
-	{
-		Name:     "scripts",
-		ListPath: "/v1/scripts",
-		GetPath:  "/v1/scripts/{id}",
-		SubDir:   "scripts",
-	},
-	// Extension Attributes - Computer
-	{
-		Name:       "extension-attributes",
-		ListPath:   "/JSSResource/computerextensionattributes",
-		GetPath:    "/JSSResource/computerextensionattributes/id/{id}",
-		WrapperKey: "computer_extension_attributes",
-		IsClassic:  true,
-		SubDir:     "extension-attributes/computer",
-	},
-	// Extension Attributes - Mobile
-	{
-		Name:       "extension-attributes",
-		ListPath:   "/JSSResource/mobiledeviceextensionattributes",
-		GetPath:    "/JSSResource/mobiledeviceextensionattributes/id/{id}",
-		WrapperKey: "mobile_device_extension_attributes",
-		IsClassic:  true,
-		SubDir:     "extension-attributes/mobile",
-	},
-	// Smart Groups - Computer
-	{
-		Name:     "smart-groups",
-		ListPath: "/v1/computer-groups",
-		GetPath:  "/v1/computer-groups/{id}",
-		SubDir:   "smart-groups/computers",
-	},
-	// Smart Groups - Mobile
-	{
-		Name:     "smart-groups",
-		ListPath: "/v1/mobile-device-groups/smart-groups",
-		GetPath:  "/v1/mobile-device-groups/{id}",
-		SubDir:   "smart-groups/mobile",
-	},
-	// Categories
-	{
-		Name:     "categories",
-		ListPath: "/v1/categories",
-		GetPath:  "/v1/categories/{id}",
-		SubDir:   "categories",
-	},
-	// Buildings
-	{
-		Name:     "buildings",
-		ListPath: "/v1/buildings",
-		GetPath:  "/v1/buildings/{id}",
-		SubDir:   "buildings",
-	},
-	// Departments
-	{
-		Name:     "departments",
-		ListPath: "/v1/departments",
-		GetPath:  "/v1/departments/{id}",
-		SubDir:   "departments",
-	},
-	// Sites
-	{
-		Name:     "sites",
-		ListPath: "/v1/sites",
-		GetPath:  "/v1/sites/{id}",
-		SubDir:   "sites",
-	},
-	// Packages
-	{
-		Name:       "packages",
-		ListPath:   "/JSSResource/packages",
-		GetPath:    "/JSSResource/packages/id/{id}",
-		WrapperKey: "packages",
-		IsClassic:  true,
-		SubDir:     "packages",
-	},
-	// Printers
-	{
-		Name:       "printers",
-		ListPath:   "/JSSResource/printers",
-		GetPath:    "/JSSResource/printers/id/{id}",
-		WrapperKey: "printers",
-		IsClassic:  true,
-		SubDir:     "printers",
-	},
-	// Dock Items
-	{
-		Name:       "dock-items",
-		ListPath:   "/JSSResource/dockitems",
-		GetPath:    "/JSSResource/dockitems/id/{id}",
-		WrapperKey: "dock_items",
-		IsClassic:  true,
-		SubDir:     "dock-items",
-	},
-	// Network Segments
-	{
-		Name:       "network-segments",
-		ListPath:   "/JSSResource/networksegments",
-		GetPath:    "/JSSResource/networksegments/id/{id}",
-		WrapperKey: "network_segments",
-		IsClassic:  true,
-		SubDir:     "network-segments",
-	},
-	// Restricted Software
-	{
-		Name:       "restricted-software",
-		ListPath:   "/JSSResource/restrictedsoftware",
-		GetPath:    "/JSSResource/restrictedsoftware/id/{id}",
-		WrapperKey: "restricted_software",
-		IsClassic:  true,
-		SubDir:     "restricted-software",
-	},
-	// Disk Encryption Configs
-	{
-		Name:       "disk-encryption",
-		ListPath:   "/JSSResource/diskencryptionconfigurations",
-		GetPath:    "/JSSResource/diskencryptionconfigurations/id/{id}",
-		WrapperKey: "disk_encryption_configurations",
-		IsClassic:  true,
-		SubDir:     "disk-encryption",
-	},
-	// Patch Software Titles
-	{
-		Name:       "patch-titles",
-		ListPath:   "/JSSResource/patchsoftwaretitles",
-		GetPath:    "/JSSResource/patchsoftwaretitles/id/{id}",
-		WrapperKey: "patch_software_titles",
-		IsClassic:  true,
-		SubDir:     "patch-titles",
-	},
-	// Static Groups - Computer
-	{
-		Name:     "static-groups",
-		ListPath: "/v1/computer-groups",
-		GetPath:  "/v1/computer-groups/{id}",
-		SubDir:   "static-groups/computers",
-	},
+	{Key: "scripts", FilterName: "scripts", SubDir: "scripts"},
+
+	// Extension attributes — modern for computer + mobile, classic only for user
+	{Key: "computer-extension-attributes", FilterName: "extension-attributes", SubDir: "extension-attributes/computer"},
+	{Key: "mobile-device-extension-attributes", FilterName: "extension-attributes", SubDir: "extension-attributes/mobile"},
+	{Key: "classic-user-ext-attrs", FilterName: "extension-attributes", SubDir: "extension-attributes/user"},
+
+	// Computer groups — modern v2 endpoints (separate smart/static avoids the
+	// deprecated /v1/computer-groups combined endpoint that triggers 403s on
+	// role configurations without the legacy umbrella privilege).
+	{Key: "smart-computer-groups", FilterName: "smart-groups", SubDir: "smart-groups/computers"},
+	{Key: "static-computer-groups", FilterName: "static-groups", SubDir: "static-groups/computers"},
+
+	// Mobile device groups
+	{Key: "mobile-device-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/mobile"},
+	{Key: "mobile-device-groups-static-groups", FilterName: "static-groups", SubDir: "static-groups/mobile"},
+
+	// Supporting objects (modern preferred)
+	{Key: "categories", FilterName: "categories", SubDir: "categories"},
+	{Key: "buildings", FilterName: "buildings", SubDir: "buildings"},
+	{Key: "departments", FilterName: "departments", SubDir: "departments"},
+	// Sites have no per-ID detail endpoint — the list response is the full
+	// record, so each site is written directly without a fan-out fetch.
+	{Key: "sites", FilterName: "sites", SubDir: "sites", ListOnly: true},
+
+	// Packages, printers, dock items — classic only
+	{Key: "classic-packages", FilterName: "packages", SubDir: "packages"},
+	{Key: "classic-printers", FilterName: "printers", SubDir: "printers"},
+	{Key: "classic-dock-items", FilterName: "dock-items", SubDir: "dock-items"},
+
+	// Network + security config — classic only
+	{Key: "classic-network-segments", FilterName: "network-segments", SubDir: "network-segments"},
+	{Key: "classic-restricted-software", FilterName: "restricted-software", SubDir: "restricted-software"},
+	{Key: "classic-disk-encryption-configs", FilterName: "disk-encryption", SubDir: "disk-encryption"},
+	{Key: "classic-patch-titles", FilterName: "patch-titles", SubDir: "patch-titles"},
+
+	// Administration — accounts (users + groups, split by classic list_subset)
+	{Key: "classic-account-users", FilterName: "accounts", SubDir: "accounts/users"},
+	{Key: "classic-account-groups", FilterName: "accounts", SubDir: "accounts/groups"},
 }
 
-// FilterResources returns only resources whose Name matches one of the given names.
-func FilterResources(resources []ResourceDef, names []string) []ResourceDef {
-	if len(names) == 0 {
-		return resources
-	}
-	nameSet := make(map[string]bool, len(names))
-	for _, n := range names {
+// ResolvedBackupResource couples a curated entry with its generated endpoint
+// metadata. Runtime code iterates the resolved form so it doesn't need to
+// cross-reference two slices at every step.
+type ResolvedBackupResource struct {
+	BackupResource
+	generated.BackupEndpoint
+}
+
+// ResolveBackupResources joins the curated BackupResources against the
+// generated endpoint registry, optionally filtering by user-supplied resource
+// names (matched against FilterName). An unknown filter name produces an empty
+// result; a filter name that matches zero curated entries is reported by the
+// caller.
+//
+// An entry whose Key is missing from generated.BackupEndpoints is a programming
+// error — a regenerated registry and a stale curation list have diverged —
+// and surfaces via an error so tests catch the drift at build time.
+func ResolveBackupResources(filter []string) ([]ResolvedBackupResource, error) {
+	nameSet := make(map[string]bool, len(filter))
+	for _, n := range filter {
 		nameSet[n] = true
 	}
-	var filtered []ResourceDef
-	for _, r := range resources {
-		if nameSet[r.Name] {
-			filtered = append(filtered, r)
+
+	var out []ResolvedBackupResource
+	for _, r := range BackupResources {
+		if len(nameSet) > 0 && !nameSet[r.FilterName] {
+			continue
+		}
+		ep, ok := generated.BackupEndpoints[r.Key]
+		if !ok {
+			return nil, fmt.Errorf("backup resource %q references unknown endpoint key %q — regenerate the registry", r.FilterName, r.Key)
+		}
+		out = append(out, ResolvedBackupResource{
+			BackupResource: r,
+			BackupEndpoint: ep,
+		})
+	}
+	return out, nil
+}
+
+// BackupFilterNames returns the unique set of FilterName values (sorted) — used
+// for CLI help text and completion hints.
+func BackupFilterNames() []string {
+	seen := make(map[string]bool, len(BackupResources))
+	var names []string
+	for _, r := range BackupResources {
+		if !seen[r.FilterName] {
+			seen[r.FilterName] = true
+			names = append(names, r.FilterName)
 		}
 	}
-	return filtered
+	return names
 }

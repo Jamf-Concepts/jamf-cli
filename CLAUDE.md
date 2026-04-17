@@ -42,6 +42,7 @@ After modifying a template: `make generate && make test`
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
 | Add/modify DDM component scaffolds | `generator/blueprintcomponents/generator.go` (generator) or `internal/blueprintcomponents/scaffolds.go` (generated output) |
 | Add a new legacy-to-DDM payload converter | `internal/profileconvert/ddm_<name>.go` (new converter + register in `ddm_converter.go` init) |
+| Add/remove a resource in the `backup`/`diff` commands | `internal/commands/pro_resources.go` (curated allowlist; endpoints come from generated `backup_registry.go`) |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API command (blueprints, etc.) | `internal/commands/pro_blueprints.go`, `pro_compliance_benchmarks.go`, etc. (wire in `pro.go`) |
 | Change Platform name-to-ID resolution | `internal/platform/resolve.go` |
@@ -154,7 +155,14 @@ specs/blueprint-               generator/blueprint-   internal/blueprintcomponen
   components/*.json ──────────► components/         ──► (Scaffolds map, ShortNames map,
                                Generate()               Identifiers func)
 
-Entrypoint: generator/main.go (runs all three generators)
+All resources (modern + classic) ──► internal/commands/pro/generated/smoke_registry.go
+                                      (every GET endpoint, used by smoke tests)
+                                  ──► internal/commands/pro/generated/backup_registry.go
+                                      (canonical list+get pairs, keyed by CLI command name;
+                                      consumed by backup/diff via the curated allowlist
+                                      in internal/commands/pro_resources.go)
+
+Entrypoint: generator/main.go (runs all three generators plus both registries)
 ```
 
 Key types available in templates:

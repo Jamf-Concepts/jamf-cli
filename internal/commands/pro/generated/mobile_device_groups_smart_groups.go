@@ -191,7 +191,7 @@ func newMobileDeviceGroupsSmartGroupsGetCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}
@@ -338,7 +338,7 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "displayName", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}
@@ -421,12 +421,12 @@ func newMobileDeviceGroupsSmartGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "groupName", "groupId", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no mobile-device-groups-smart-groups found with displayName %q", flagName)
+					return fmt.Errorf("no mobile-device-groups-smart-groups found with groupName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -519,7 +519,7 @@ func newMobileDeviceGroupsSmartGroupsApplyCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Create or replace a mobile-device-groups-smart-groups by name",
 		Long: `Create or replace a mobile-device-groups-smart-groups. Reads JSON or YAML from --from-file or stdin.
 
-The displayName field in the input is used to check if the resource
+The groupName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile-device-groups-smart-groups from a JSON file
@@ -561,14 +561,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "displayName")
+			name, err := extractJSONField(data, "groupName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
+				return fmt.Errorf("input must include a %q field: %w", "groupName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "displayName", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/smart-groups", "groupName", "groupId", name, noInput)
 			if err != nil {
 				return err
 			}
