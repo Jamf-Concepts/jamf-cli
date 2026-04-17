@@ -415,7 +415,15 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 				}
 			}
 			// File fields for this resource route to /v1/device-enrollments/{id}/upload-token via a
-			// separate PUT below, not this endpoint's body.
+			// separate PUT below, not this endpoint's body. Strip them from stdin
+			// input so the main PUT never carries token payload keys.
+			if len(normalized) > 0 {
+				var stripErr error
+				normalized, stripErr = removeJSONFields(normalized, "encodedToken", "tokenFileName")
+				if stripErr != nil {
+					return stripErr
+				}
+			}
 			if len(normalized) > 0 {
 				body = bytes.NewReader(normalized)
 			}
@@ -1072,6 +1080,12 @@ If not, a new resource is created.`,
 			if err != nil {
 				return fmt.Errorf("input must include a %q field: %w", "name", err)
 			}
+			// Strip file-field keys from the main body so the follow-up PUT never
+			// re-sends token payload (which belongs to /v1/device-enrollments/{id}/upload-token).
+			data, err = removeJSONFields(data, "encodedToken", "tokenFileName")
+			if err != nil {
+				return err
+			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -1114,7 +1128,7 @@ If not, a new resource is created.`,
 				bodyPath := strings.Replace("/v1/device-enrollments/{id}", "{id}", url.PathEscape(newID), 1)
 				bodyResp, err := ctx.Client.Do(reqCtx, "PUT", bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w", newID, err)
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe device-enrollment-instance exists but is unnamed; to recover run: jamf-cli device-enrollment-instances update %s --from-file <body.json>", newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created device-enrollment-instance %q (id: %s)\n", name, newID)
@@ -1148,7 +1162,7 @@ If not, a new resource is created.`,
 				}
 				tokenResp = tr
 			}
-			if len(data) == 0 {
+			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Replaced device-enrollment-instance token %q (id: %s)\n", name, id)

@@ -248,12 +248,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if op == nil {
 				return "{id}"
 			}
-			start := strings.LastIndex(op.Path, "{")
-			end := strings.LastIndex(op.Path, "}")
-			if start >= 0 && end > start {
-				return op.Path[start : end+1]
-			}
-			return "{id}"
+			return pathParam(op.Path)
 		},
 		"applyUpdateContentType": func(ops []*Operation) string {
 			op := applyUpdateOp(ops)
@@ -275,12 +270,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if r.UpdateTokenOp == nil {
 				return "{id}"
 			}
-			start := strings.LastIndex(r.UpdateTokenOp.Path, "{")
-			end := strings.LastIndex(r.UpdateTokenOp.Path, "}")
-			if start >= 0 && end > start {
-				return r.UpdateTokenOp.Path[start : end+1]
-			}
-			return "{id}"
+			return pathParam(r.UpdateTokenOp.Path)
 		},
 		"deletePath": func(ops []*Operation) string {
 			for _, op := range ops {
@@ -293,11 +283,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"deletePathParam": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "delete" && op.Method == "DELETE" {
-					start := strings.LastIndex(op.Path, "{")
-					end := strings.LastIndex(op.Path, "}")
-					if start != -1 && end > start {
-						return op.Path[start : end+1]
-					}
+					return pathParam(op.Path)
 				}
 			}
 			return "{id}"
@@ -324,11 +310,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"updatePathParam": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "update" && op.Method == "PUT" {
-					start := strings.LastIndex(op.Path, "{")
-					end := strings.LastIndex(op.Path, "}")
-					if start != -1 && end > start {
-						return op.Path[start : end+1]
-					}
+					return pathParam(op.Path)
 				}
 			}
 			return "{id}"
@@ -511,11 +493,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"resourceUpdatePathParam": func(r *Resource) string {
 			for _, op := range r.Operations {
 				if op.Name == "update" && op.Method == "PUT" {
-					start := strings.LastIndex(op.Path, "{")
-					end := strings.LastIndex(op.Path, "}")
-					if start >= 0 && end > start {
-						return op.Path[start : end+1]
-					}
+					return pathParam(op.Path)
 				}
 			}
 			return "{id}"
@@ -603,12 +581,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			// Extract the path parameter name from the URL path itself,
 			// so it works even when the param is defined at the path level
 			// in the OpenAPI spec rather than on the individual operation.
-			start := strings.LastIndex(op.Path, "{")
-			end := strings.LastIndex(op.Path, "}")
-			if start != -1 && end > start {
-				return op.Path[start : end+1]
-			}
-			return "{id}"
+			return pathParam(op.Path)
 		},
 	}).Parse(resourceTemplate)
 	if err != nil {
@@ -665,6 +638,17 @@ func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
 // Template helper functions
 func hasPathParam(path string) bool {
 	return strings.Contains(path, "{")
+}
+
+// pathParam returns the last {name} token in a URL path (e.g. "{id}"). Falls
+// back to "{id}" when the path has no brace-delimited segment.
+func pathParam(path string) string {
+	start := strings.LastIndex(path, "{")
+	end := strings.LastIndex(path, "}")
+	if start >= 0 && end > start {
+		return path[start : end+1]
+	}
+	return "{id}"
 }
 
 func pathParams(params []*Parameter) []*Parameter {
@@ -1105,11 +1089,7 @@ func patchPath(ops []*Operation) string {
 func patchPathParam(ops []*Operation) string {
 	for _, op := range ops {
 		if isPatchOp(op) {
-			start := strings.LastIndex(op.Path, "{")
-			end := strings.LastIndex(op.Path, "}")
-			if start != -1 && end > start {
-				return op.Path[start : end+1]
-			}
+			return pathParam(op.Path)
 		}
 	}
 	return "{id}"
@@ -1868,7 +1848,15 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opHasFileFields . $ }}
 {{- if opHasUpdateTokenOp . $ }}
 			// File fields for this resource route to {{ updateTokenPath $ }} via a
-			// separate PUT below, not this endpoint's body.
+			// separate PUT below, not this endpoint's body. Strip them from stdin
+			// input so the main PUT never carries token payload keys.
+			if len(normalized) > 0 {
+				var stripErr error
+				normalized, stripErr = removeJSONFields(normalized{{ range $.FileFields }}, "{{ .Field }}"{{ if .CompanionField }}, "{{ .CompanionField }}"{{ end }}{{ end }})
+				if stripErr != nil {
+					return stripErr
+				}
+			}
 {{- else }}
 			// File-sourced fields (--{{ (index $.FileFields 0).Flag }}, etc.) overwrite
 			// any value the caller supplied in the body; companion fields and name
@@ -2166,6 +2154,14 @@ If not, a new resource is created.` + "`" + `,
 			if err != nil {
 				return fmt.Errorf("input must include a %q field: %w", "{{ .NameField }}", err)
 			}
+{{- if .UpdateTokenOp }}
+			// Strip file-field keys from the main body so the follow-up PUT never
+			// re-sends token payload (which belongs to {{ .UpdateTokenOp.Path }}).
+			data, err = removeJSONFields(data{{ range .FileFields }}, "{{ .Field }}"{{ if .CompanionField }}, "{{ .CompanionField }}"{{ end }}{{ end }})
+			if err != nil {
+				return err
+			}
+{{- end }}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -2209,7 +2205,7 @@ If not, a new resource is created.` + "`" + `,
 				bodyPath := strings.Replace("{{ applyUpdatePath .Operations }}", "{{ applyUpdatePathParam .Operations }}", url.PathEscape(newID), 1)
 				bodyResp, err := ctx.Client.Do(reqCtx, "{{ applyUpdateMethod .Operations }}", bodyPath, bytes.NewReader(data))
 				if err != nil {
-					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w", newID, err)
+					return fmt.Errorf("create succeeded (id %s) but applying body fields failed: %w\nthe {{ .NameSingular }} exists but is unnamed; to recover run: jamf-cli {{ .Name }} update %s --from-file <body.json>", newID, err, newID)
 				}
 				defer bodyResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Created {{ .NameSingular }} %q (id: %s)\n", name, newID)
@@ -2266,7 +2262,7 @@ If not, a new resource is created.` + "`" + `,
 				}
 				tokenResp = tr
 			}
-			if len(data) == 0 {
+			if len(data) == 0 && tokenResp != nil {
 				// Only the token was replaced — return its response.
 				defer tokenResp.Body.Close()
 				fmt.Fprintf(os.Stderr, "Replaced {{ .NameSingular }} token %q (id: %s)\n", name, id)
