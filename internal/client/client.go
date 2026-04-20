@@ -15,6 +15,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -58,8 +59,10 @@ func WithCookieJar(jar http.CookieJar) Option {
 func New(baseURL string, authProvider auth.Provider, opts ...Option) *Client {
 	c := &Client{
 		baseURL: baseURL,
+		// No Client.Timeout — bound by ctx; per-phase timeouts live on
+		// the tuned Transport. See NewTunedTransport for rationale.
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Transport: httptransport.New(),
 		},
 		auth: authProvider,
 	}
@@ -162,8 +165,13 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 }
 
 // Upload executes a streaming HTTP request with a caller-specified Content-Type
-// and Content-Length. Unlike Do, it does not buffer the body (supporting multi-GB
-// files) and does not retry (the body stream cannot be replayed).
+// and Content-Length. The body is never buffered, so multi-GB files stream
+// straight through.
+//
+// 429 retry: when body implements io.Seeker (e.g. *os.File, *bytes.Reader, or
+// the seekable multipart body from NewMultipartFileUpload), Upload retries up
+// to 3 times on HTTP 429, honoring Retry-After. Non-seekable bodies surface
+// 429 to the caller immediately — retrying would corrupt the upload.
 func (c *Client) Upload(ctx context.Context, path string, body io.Reader, contentType string, contentLength int64) (*http.Response, error) {
 	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
 		path = "/api" + path
@@ -172,48 +180,95 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		path = rewritePathForGateway(path, c.tenantID)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, body)
-	if err != nil {
-		return nil, fmt.Errorf("creating upload request: %w", err)
+	seeker, _ := body.(io.Seeker)
+	maxAttempts := 1
+	if seeker != nil {
+		maxAttempts = 3
 	}
 
-	token, err := c.auth.GetToken(ctx)
-	if err != nil {
-		return nil, exitcode.Wrap(exitcode.Authentication, fmt.Errorf("getting auth token: %w", err))
+	// Dedicated client: the shared tuned Transport plus session-affinity
+	// cookie jar. No Client.Timeout — ctx bounds the whole upload.
+	uploadClient := &http.Client{Transport: httptransport.New(), Jar: c.httpClient.Jar}
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+				return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("rewinding upload body for retry: %w", err))
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, body)
+		if err != nil {
+			return nil, fmt.Errorf("creating upload request: %w", err)
+		}
+
+		token, err := c.auth.GetToken(ctx)
+		if err != nil {
+			return nil, exitcode.Wrap(exitcode.Authentication, fmt.Errorf("getting auth token: %w", err))
+		}
+
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Accept", "application/json")
+		req.ContentLength = contentLength
+
+		if c.verbose {
+			if maxAttempts > 1 {
+				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes, attempt %d/%d)\n", req.URL, contentLength, attempt+1, maxAttempts)
+			} else {
+				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", req.URL, contentLength)
+			}
+		}
+
+		resp, err := uploadClient.Do(req)
+		if err != nil {
+			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
+		}
+
+		// Rate limited and rewindable — sleep, rewind on next iteration, retry.
+		if resp.StatusCode == http.StatusTooManyRequests && seeker != nil && attempt+1 < maxAttempts {
+			delay := parseRetryAfter(resp.Header.Get("Retry-After"), time.Second*time.Duration(1<<attempt))
+			_ = resp.Body.Close()
+			if c.verbose {
+				fmt.Fprintf(os.Stderr, "<-- 429 Too Many Requests, retrying in %v\n", delay)
+			}
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		if c.verbose {
+			fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+		}
+
+		if resp.StatusCode >= 400 {
+			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusTooManyRequests {
+				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, string(respBody)))
+			}
+			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, string(respBody)))
+		}
+
+		return resp, nil
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("Accept", "application/json")
-	req.ContentLength = contentLength
+	return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited: server returned HTTP 429 on all %d attempts", maxAttempts))
+}
 
-	if c.verbose {
-		fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", req.URL, contentLength)
+// parseRetryAfter returns the delay from a Retry-After header value.
+// Supports the delta-seconds form only (Jamf uses integers). Falls back to
+// the caller-supplied default when the header is missing or malformed.
+func parseRetryAfter(header string, fallback time.Duration) time.Duration {
+	if header == "" {
+		return fallback
 	}
-
-	// Use a dedicated client with no timeout for uploads. The standard client's
-	// 30-second timeout covers the entire request lifecycle including body transfer,
-	// which is too short for multi-GB packages. Context cancellation provides the
-	// safety net instead. Share the main client's cookie jar so session-affinity
-	// cookies (e.g. APBALANCEID on Jamf Cloud) are included in upload requests.
-	uploadClient := &http.Client{Timeout: 0, Jar: c.httpClient.Jar}
-	resp, err := uploadClient.Do(req)
-	if err != nil {
-		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
+	if secs, err := strconv.Atoi(strings.TrimSpace(header)); err == nil && secs >= 0 {
+		return time.Duration(secs) * time.Second
 	}
-
-	if c.verbose {
-		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
-	}
-
-	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		_ = resp.Body.Close()
-		return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, string(respBody)))
-	}
-
-	return resp, nil
+	return fallback
 }
 
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request, bodyData []byte) (*http.Response, error) {

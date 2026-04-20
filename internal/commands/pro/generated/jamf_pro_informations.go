@@ -5,9 +5,8 @@ package generated
 import (
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewJamfProInformationsCmd creates the jamf-pro-informations command group

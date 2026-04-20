@@ -10,9 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewRemoveMobileDeviceMdmProfilesCmd creates the remove-mobile-device-mdm-profiles command group

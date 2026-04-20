@@ -7,17 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewMobileDevicePrestagesCmd creates the mobile-device-prestages command group
@@ -1058,17 +1056,14 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
-			var buf bytes.Buffer
-			mw := multipart.NewWriter(&buf)
-			fw, err := mw.CreateFormFile("file", filepath.Base(flagFile))
+			// Stream the file through a seekable multipart body so Upload can
+			// precompute Content-Length and retry on HTTP 429 without
+			// re-buffering the file.
+			body, contentType, contentLength, err := client.NewMultipartFileUpload("file", f)
 			if err != nil {
-				return fmt.Errorf("creating form file: %w", err)
+				return fmt.Errorf("building multipart body: %w", err)
 			}
-			if _, err := io.Copy(fw, f); err != nil {
-				return fmt.Errorf("writing file: %w", err)
-			}
-			mw.Close()
-			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
+			resp, err := ctx.Uploader.Upload(reqCtx, path, body, contentType, contentLength)
 			if err != nil {
 				return err
 			}

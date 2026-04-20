@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 )
 
 // Provider defines the interface for authentication providers
@@ -303,8 +305,8 @@ func NewOAuth2Provider(baseURL, clientID, clientSecret string) *OAuth2Provider {
 		clientSecret: clientSecret,
 		jar:          jar,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-			Jar:     jar,
+			Transport: httptransport.New(),
+			Jar:       jar,
 		},
 		refreshBuffer: 10 * time.Second,
 	}
@@ -453,8 +455,8 @@ func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, tenantID string)
 		tenantID:     tenantID,
 		jar:          jar,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-			Jar:     jar,
+			Transport: httptransport.New(),
+			Jar:       jar,
 		},
 		refreshBuffer: 10 * time.Second,
 	}
