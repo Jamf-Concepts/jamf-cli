@@ -4,6 +4,7 @@ package client
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -127,6 +128,25 @@ func TestSeekableMultipartBody_RewindForRetry(t *testing.T) {
 
 	if !bytes.Equal(first, second) {
 		t.Errorf("rewind produced different bytes:\nfirst:  %q\nsecond: %q", first, second)
+	}
+}
+
+func TestSeekableMultipartBody_ShortFileErrors(t *testing.T) {
+	// Fake the mismatch between declared fileSize and what the reader actually
+	// yields: stat said 100, reader delivers 5. Content-Length has already
+	// been committed, so Read must surface io.ErrUnexpectedEOF instead of
+	// silently sending a short body.
+	body := &seekableMultipartBody{
+		header:   []byte("--b\r\n\r\n"),
+		file:     strings.NewReader("short"), // only 5 bytes
+		footer:   []byte("\r\n--b--\r\n"),
+		fileSize: 100, // lie about the size
+	}
+
+	buf := make([]byte, 200)
+	_, err := io.ReadFull(body, buf)
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("expected io.ErrUnexpectedEOF, got %v", err)
 	}
 }
 

@@ -186,10 +186,6 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		maxAttempts = 3
 	}
 
-	// Dedicated client: the shared tuned Transport plus session-affinity
-	// cookie jar. No Client.Timeout — ctx bounds the whole upload.
-	uploadClient := &http.Client{Transport: httptransport.New(), Jar: c.httpClient.Jar}
-
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
 			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
@@ -221,7 +217,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			}
 		}
 
-		resp, err := uploadClient.Do(req)
+		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload request failed: %w", err))
 		}

@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -698,6 +699,39 @@ func TestUpload_Seekable_RewindsBetweenAttempts(t *testing.T) {
 	}
 	if string(bodies[1]) != payload {
 		t.Errorf("second body = %q, want %q (rewind produced different bytes)", bodies[1], payload)
+	}
+}
+
+func TestUpload_Seekable_MaxRetriesExhausted(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		atomic.AddInt32(&attempts, 1)
+		// Retry-After "0" keeps the test fast; value is validated by
+		// TestParseRetryAfter.
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("still rate limited"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	body := strings.NewReader("retry-me") // io.ReadSeeker
+	_, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len()))
+	if err == nil {
+		t.Fatal("expected error after all retries exhausted")
+	}
+
+	var ec *exitcode.Error
+	if !errors.As(err, &ec) {
+		t.Fatalf("expected *exitcode.Error, got %T: %v", err, err)
+	}
+	if ec.Code != exitcode.RateLimited {
+		t.Errorf("exit code = %v, want %v", ec.Code, exitcode.RateLimited)
+	}
+	if got := atomic.LoadInt32(&attempts); got != 3 {
+		t.Errorf("attempts = %d, want 3 (all retries should fire)", got)
 	}
 }
 
