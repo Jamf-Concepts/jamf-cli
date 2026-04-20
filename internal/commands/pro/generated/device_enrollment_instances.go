@@ -13,10 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewDeviceEnrollmentInstancesCmd creates the device-enrollment-instances command group

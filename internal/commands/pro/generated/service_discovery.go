@@ -9,9 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewServiceDiscoveryCmd creates the service-discovery command group

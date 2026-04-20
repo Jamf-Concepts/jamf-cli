@@ -9,9 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewAppInstallerTitlesCmd creates the app-installer-titles command group

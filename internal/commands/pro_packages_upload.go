@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -124,7 +125,7 @@ them to the package metadata after upload.`,
 
 			// 5. Upload the binary
 			fmt.Fprintf(os.Stderr, "Uploading %s...\n", fileName)
-			if err := uploadPackageFile(ctx, uploader, pkgID, filePath, fileName, fileSize); err != nil {
+			if err := uploadPackageFile(ctx, uploader, pkgID, filePath); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Upload complete\n")
@@ -273,46 +274,23 @@ func createPackage(ctx context.Context, client registry.HTTPClient, name, fileNa
 }
 
 // uploadPackageFile streams a local file to the Jamf Pro upload endpoint
-// as multipart/form-data.
-func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgID, filePath, fileName string, fileSize int64) error {
-	boundary := "jamf-cli-upload-boundary"
+// as multipart/form-data. The body is a seekable composite of header +
+// *os.File + footer — enabling Upload to retry on HTTP 429 without
+// re-reading the file into memory.
+func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgID, filePath string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("opening upload file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
 
-	header := fmt.Sprintf("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n",
-		boundary, fileName)
-	footer := fmt.Sprintf("\r\n--%s--\r\n", boundary)
-	contentLength := int64(len(header)) + fileSize + int64(len(footer))
-
-	pr, pw := io.Pipe()
-	go func() {
-		defer func() { _ = pw.Close() }()
-
-		if _, err := pw.Write([]byte(header)); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-
-		f, err := os.Open(filePath)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-		defer func() { _ = f.Close() }()
-
-		if _, err := io.Copy(pw, f); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-
-		if _, err := pw.Write([]byte(footer)); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-	}()
+	body, contentType, contentLength, err := client.NewMultipartFileUpload("file", f)
+	if err != nil {
+		return fmt.Errorf("building multipart body: %w", err)
+	}
 
 	path := fmt.Sprintf("/v1/packages/%s/upload", url.PathEscape(pkgID))
-	contentType := "multipart/form-data; boundary=" + boundary
-
-	resp, err := uploader.Upload(ctx, path, pr, contentType, contentLength)
+	resp, err := uploader.Upload(ctx, path, body, contentType, contentLength)
 	if err != nil {
 		return fmt.Errorf("uploading package: %w", err)
 	}

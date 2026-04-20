@@ -225,10 +225,11 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return ""
 			}
 		},
-		"hasPostOrPut":   hasPostOrPut,
-		"hasDelete":      hasDelete,
-		"hasDestructive": hasDestructive,
-		"hasApply":       func(ops []*Operation) bool { return hasApply(ops) },
+		"hasPostOrPut":             hasPostOrPut,
+		"hasNonMultipartPostOrPut": hasNonMultipartPostOrPut,
+		"hasDelete":                hasDelete,
+		"hasDestructive":           hasDestructive,
+		"hasApply":                 func(ops []*Operation) bool { return hasApply(ops) },
 		"applyUpdateMethod": func(ops []*Operation) string {
 			op := applyUpdateOp(ops)
 			if op == nil {
@@ -828,6 +829,23 @@ func hasPostOrPut(ops []*Operation) bool {
 	return false
 }
 
+// hasNonMultipartPostOrPut is hasPostOrPut minus multipart ops. Used to gate
+// imports of "bytes" and "io" in the generated template: multipart upload now
+// streams through client.NewMultipartFileUpload and no longer pulls either
+// package into the emitted command body.
+func hasNonMultipartPostOrPut(ops []*Operation) bool {
+	for _, op := range ops {
+		if op.Method != "POST" && op.Method != "PUT" && op.Method != "PATCH" {
+			continue
+		}
+		if op.RequestBody != nil && op.RequestBody.IsMultipart {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func hasDelete(ops []*Operation) bool {
 	for _, op := range ops {
 		if op.Method == "DELETE" {
@@ -1285,7 +1303,7 @@ const resourceTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (shouldGenerateApply .) (needsMultipart .) (hasPatchOp .Operations) (hasPostOrPut .Operations) }}
+{{- if or (shouldGenerateApply .) (hasPatchOp .Operations) (hasNonMultipartPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
 {{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
@@ -1294,11 +1312,8 @@ import (
 {{- if or (needsFmt .) (hasList .Operations) (hasPostOrPut .Operations) }}
 	"fmt"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
+{{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
 	"io"
-{{- end }}
-{{- if needsMultipart . }}
-	"mime/multipart"
 {{- end }}
 {{- if or (hasDelete .Operations) .UpdateTokenOp }}
 	"net/http"
@@ -1306,11 +1321,8 @@ import (
 {{- if needsURL . }}
 	"net/url"
 {{- end }}
-{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) (hasAnyBinaryResponse .) }}
+{{- if or (hasPostOrPut .Operations) (hasDestructive .Operations) (hasDelete .Operations) (shouldGenerateApply .) (hasAnyBinaryResponse .) (needsMultipart .) }}
 	"os"
-{{- end }}
-{{- if needsMultipart . }}
-	"path/filepath"
 {{- end }}
 {{- if anyOpHasRenameFlag . }}
 	"strconv"
@@ -1319,6 +1331,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+{{- if needsMultipart . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
+{{- end }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 {{- if hasDestructive .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
@@ -1714,17 +1729,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return fmt.Errorf("opening %s: %w", flagFile, err)
 			}
 			defer f.Close()
-			var buf bytes.Buffer
-			mw := multipart.NewWriter(&buf)
-			fw, err := mw.CreateFormFile("{{ .RequestBody.FileField }}", filepath.Base(flagFile))
+			// Stream the file through a seekable multipart body so Upload can
+			// precompute Content-Length and retry on HTTP 429 without
+			// re-buffering the file.
+			body, contentType, contentLength, err := client.NewMultipartFileUpload("{{ .RequestBody.FileField }}", f)
 			if err != nil {
-				return fmt.Errorf("creating form file: %w", err)
+				return fmt.Errorf("building multipart body: %w", err)
 			}
-			if _, err := io.Copy(fw, f); err != nil {
-				return fmt.Errorf("writing file: %w", err)
-			}
-			mw.Close()
-			resp, err := ctx.Uploader.Upload(reqCtx, path, &buf, mw.FormDataContentType(), int64(buf.Len()))
+			resp, err := ctx.Uploader.Upload(reqCtx, path, body, contentType, contentLength)
 {{- else if eq .Method "GET" "DELETE" }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, nil)
 {{- else }}

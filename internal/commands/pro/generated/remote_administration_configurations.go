@@ -8,9 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewRemoteAdministrationConfigurationsCmd creates the remote-administration-configurations command group

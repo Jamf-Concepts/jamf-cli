@@ -10,10 +10,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/spf13/cobra"
 )
 
 // NewSsoSettingsCertCmd creates the sso-settings-cert command group

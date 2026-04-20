@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -606,5 +607,118 @@ func TestWithTenantID_SetsField(t *testing.T) {
 	c = New("https://example.com", auth.NewTokenProvider("tok"), WithTenantID("my-tenant"))
 	if c.tenantID != "my-tenant" {
 		t.Errorf("tenantID = %q, want %q", c.tenantID, "my-tenant")
+	}
+}
+
+// --- Upload tests ---
+
+func TestUpload_NonSeekable_NoRetry(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.Header().Set("Retry-After", "1")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("slow down"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	// A strings.Reader is a Seeker, so wrap it to hide that interface.
+	body := io.NopCloser(strings.NewReader("some-content"))
+	_, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", 12)
+	if err == nil {
+		t.Fatal("expected error on 429")
+	}
+	if got := atomic.LoadInt32(&attempts); got != 1 {
+		t.Errorf("attempts = %d, want 1 (non-seekable should not retry)", got)
+	}
+}
+
+func TestUpload_Seekable_RetriesOn429(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Drain body so upload reader is exhausted each attempt.
+		_, _ = io.Copy(io.Discard, r.Body)
+		n := atomic.AddInt32(&attempts, 1)
+		if n < 2 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte("slow down"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	body := strings.NewReader("retry-me-please") // io.ReadSeeker
+	resp, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len()))
+	if err != nil {
+		t.Fatalf("Upload() error = %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if got := atomic.LoadInt32(&attempts); got != 2 {
+		t.Errorf("attempts = %d, want 2 (should retry seekable body)", got)
+	}
+}
+
+func TestUpload_Seekable_RewindsBetweenAttempts(t *testing.T) {
+	var bodies [][]byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, b)
+		if len(bodies) < 2 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+
+	payload := "the-quick-brown-fox"
+	body := strings.NewReader(payload)
+	resp, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len()))
+	if err != nil {
+		t.Fatalf("Upload() error = %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 request bodies, got %d", len(bodies))
+	}
+	if string(bodies[0]) != payload {
+		t.Errorf("first body = %q, want %q", bodies[0], payload)
+	}
+	if string(bodies[1]) != payload {
+		t.Errorf("second body = %q, want %q (rewind produced different bytes)", bodies[1], payload)
+	}
+}
+
+func TestParseRetryAfter(t *testing.T) {
+	tests := []struct {
+		name     string
+		header   string
+		fallback time.Duration
+		want     time.Duration
+	}{
+		{"numeric seconds", "5", time.Second, 5 * time.Second},
+		{"numeric with whitespace", "  3 ", time.Second, 3 * time.Second},
+		{"empty uses fallback", "", 2 * time.Second, 2 * time.Second},
+		{"malformed uses fallback", "Wed, 21 Oct 2025 07:28:00 GMT", 2 * time.Second, 2 * time.Second},
+		{"zero is valid", "0", time.Second, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseRetryAfter(tt.header, tt.fallback); got != tt.want {
+				t.Errorf("parseRetryAfter(%q, %v) = %v, want %v", tt.header, tt.fallback, got, tt.want)
+			}
+		})
 	}
 }
