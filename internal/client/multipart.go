@@ -123,9 +123,11 @@ func (s *seekableMultipartBody) Read(p []byte) (int, error) {
 				return n, err
 			}
 			if m == 0 {
-				// Defensive: the file ended early compared to Stat().Size().
-				// Skip to the footer so we don't loop.
-				s.pos = fileEnd
+				// File ended earlier than Stat().Size() indicated (e.g.
+				// truncated mid-upload). Content-Length has already been
+				// committed to the wire, so we cannot paper over this —
+				// surface the mismatch instead of sending a short body.
+				return n, io.ErrUnexpectedEOF
 			}
 		default: // footer
 			offset := s.pos - fileEnd
