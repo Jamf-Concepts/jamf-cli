@@ -29,6 +29,7 @@ func newPackagesUploadCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		filePath    string
 		packageName string
 		categoryID  string
+		priority    int
 		flagYes     bool
 	)
 
@@ -49,7 +50,10 @@ them to the package metadata after upload.`,
   jamf-cli pro packages upload --file ./Firefox-134.0.pkg --name "Firefox"
 
   # Upload and assign to a category by ID
-  jamf-cli pro packages upload --file ./Firefox-134.0.pkg --category-id 5`,
+  jamf-cli pro packages upload --file ./Firefox-134.0.pkg --category-id 5
+
+  # Upload and set installation priority
+  jamf-cli pro packages upload --file ./Firefox-134.0.pkg --priority 10`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			client := cliCtx.Client
@@ -116,7 +120,7 @@ them to the package metadata after upload.`,
 			} else {
 				// 4. Create package metadata
 				fmt.Fprintf(os.Stderr, "Creating package record...\n")
-				pkgID, err = createPackage(ctx, client, packageName, fileName, categoryID)
+				pkgID, err = createPackage(ctx, client, packageName, fileName, categoryID, priority)
 				if err != nil {
 					return fmt.Errorf("creating package: %w", err)
 				}
@@ -168,6 +172,7 @@ them to the package metadata after upload.`,
 	_ = cmd.MarkFlagRequired("file")
 	cmd.Flags().StringVar(&packageName, "name", "", "display name for the package (defaults to filename)")
 	cmd.Flags().StringVar(&categoryID, "category-id", "-1", "category ID for the package")
+	cmd.Flags().IntVar(&priority, "priority", 10, "installation priority for the package (1-20)")
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "skip confirmation when replacing an existing package")
 
 	return cmd
@@ -231,12 +236,12 @@ func findPackageByFileName(ctx context.Context, client registry.HTTPClient, file
 }
 
 // createPackage creates a new package record and returns its ID.
-func createPackage(ctx context.Context, client registry.HTTPClient, name, fileName, categoryID string) (string, error) {
+func createPackage(ctx context.Context, client registry.HTTPClient, name, fileName, categoryID string, priority int) (string, error) {
 	payload := map[string]any{
 		"packageName":          name,
 		"fileName":             fileName,
 		"categoryId":           categoryID,
-		"priority":             3,
+		"priority":             priority,
 		"fillUserTemplate":     false,
 		"suppressEula":         false,
 		"suppressUpdates":      false,
