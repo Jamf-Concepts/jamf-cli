@@ -45,10 +45,10 @@ func newClassicPatchTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all patchsoftwaretitles",
 		Example: `  # List all patchsoftwaretitles
-  jamf-cli classic-patch-titles list
+  jamf-cli pro classic-patch-titles list
 
   # List patchsoftwaretitles and extract IDs
-  jamf-cli classic-patch-titles list --field id`,
+  jamf-cli pro classic-patch-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchsoftwaretitles", nil)
@@ -98,13 +98,13 @@ func newClassicPatchTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a patch_software_title by ID",
 		Example: `  # Get a patch_software_title by ID
-  jamf-cli classic-patch-titles get 1
+  jamf-cli pro classic-patch-titles get 1
 
   # Get a patch_software_title by name
-  jamf-cli classic-patch-titles get --name "Example"
+  jamf-cli pro classic-patch-titles get --name "Example"
 
   # Get a patch_software_title and output as YAML
-  jamf-cli classic-patch-titles get 1 -o yaml`,
+  jamf-cli pro classic-patch-titles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a patch_software_title",
 		Long:  "Create a new patch_software_title. Reads XML body from stdin.",
 		Example: `  # Create a patch_software_title from XML
-  cat patch_software_title.xml | jamf-cli classic-patch-titles create`,
+  cat patch_software_title.xml | jamf-cli pro classic-patch-titles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a patch_software_title",
 		Long:  "Update an existing patch_software_title by ID. Reads XML body from stdin.",
 		Example: `  # Update a patch_software_title from XML
-  cat patch_software_title.xml | jamf-cli classic-patch-titles update 1`,
+  cat patch_software_title.xml | jamf-cli pro classic-patch-titles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a patch_software_title",
 		Example: `  # Delete a patch_software_title (with confirmation)
-  jamf-cli classic-patch-titles delete 1
+  jamf-cli pro classic-patch-titles delete 1
 
   # Delete by name
-  jamf-cli classic-patch-titles delete --name "Example" --yes
+  jamf-cli pro classic-patch-titles delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-patch-titles delete 1 --yes`,
+  jamf-cli pro classic-patch-titles delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a patch_software_title from an XML file
-  jamf-cli classic-patch-titles apply --from-file patch_software_title.xml
+  jamf-cli pro classic-patch-titles apply --from-file patch_software_title.xml
 
   # Apply from stdin
-  cat patch_software_title.xml | jamf-cli classic-patch-titles apply
+  cat patch_software_title.xml | jamf-cli pro classic-patch-titles apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-patch-titles apply --from-file patch_software_title.xml --yes`,
+  jamf-cli pro classic-patch-titles apply --from-file patch_software_title.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

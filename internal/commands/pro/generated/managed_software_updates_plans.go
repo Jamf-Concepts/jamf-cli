@@ -53,10 +53,10 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Retrieve Managed Software Update Plans",
 		Long:  "Retrieve Managed Software Update Plans",
 		Example: `  # List all managed-software-updates-plans
-  jamf-cli managed-software-updates-plans list
+  jamf-cli pro managed-software-updates-plans list
 
   # List managed-software-updates-plans and extract IDs
-  jamf-cli managed-software-updates-plans list --field id`,
+  jamf-cli pro managed-software-updates-plans list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,13 +179,13 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Retrieve a Managed Software Update Plan",
 		Long:  "Retrieves a Managed Software Update Plan",
 		Example: `  # Get a managed-software-updates-plan by ID
-  jamf-cli managed-software-updates-plans get 1
+  jamf-cli pro managed-software-updates-plans get 1
 
   # Get a managed-software-updates-plan by name
-  jamf-cli managed-software-updates-plans get --name "Example"
+  jamf-cli pro managed-software-updates-plans get --name "Example"
 
   # Get a managed-software-updates-plan and output as YAML
-  jamf-cli managed-software-updates-plans get 1 -o yaml`,
+  jamf-cli pro managed-software-updates-plans get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -240,13 +240,13 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Create a Managed Software Update Plan",
 		Long:  "Creates a Managed Software Update Plan.",
 		Example: `  # Show the JSON template for creating a managed-software-updates-plan
-  jamf-cli managed-software-updates-plans create --scaffold
+  jamf-cli pro managed-software-updates-plans create --scaffold
 
   # Create a managed-software-updates-plan from JSON
-  echo '{"name":"Example"}' | jamf-cli managed-software-updates-plans create
+  echo '{"name":"Example"}' | jamf-cli pro managed-software-updates-plans create
 
   # Get a managed-software-updates-plan, modify it, and create a copy
-  jamf-cli managed-software-updates-plans get 1 -o json | jq '.name = "Copy"' | jamf-cli managed-software-updates-plans create`,
+  jamf-cli pro managed-software-updates-plans get 1 -o json | jq '.name = "Copy"' | jamf-cli pro managed-software-updates-plans create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -309,10 +309,10 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Updates Feature Toggle Value",
 		Long:  "Updates the value of the Feature Toggle - This endpoint is asynchronous, the provided value will not be immediately updated. Please use the following endpoint to track the status of your toggle request. /v1/managed-software-updates/plans/feature-toggle/status:",
 		Example: `  # Update managed-software-updates-plans
-  jamf-cli managed-software-updates-plans get -o json | jq '.field = "value"' | jamf-cli managed-software-updates-plans update
+  jamf-cli pro managed-software-updates-plans get -o json | jq '.field = "value"' | jamf-cli pro managed-software-updates-plans update
 
   # Update from a file
-  jamf-cli managed-software-updates-plans update --from-file managed-software-updates-plans.json`,
+  jamf-cli pro managed-software-updates-plans update --from-file managed-software-updates-plans.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -603,19 +603,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a managed-software-updates-plan from a JSON file
-  jamf-cli managed-software-updates-plans apply --from-file managed-software-updates-plan.json
+  jamf-cli pro managed-software-updates-plans apply --from-file managed-software-updates-plan.json
 
   # Apply a managed-software-updates-plan from a YAML file
-  jamf-cli managed-software-updates-plans apply --from-file managed-software-updates-plan.yaml
+  jamf-cli pro managed-software-updates-plans apply --from-file managed-software-updates-plan.yaml
 
   # Apply from stdin
-  cat managed-software-updates-plan.json | jamf-cli managed-software-updates-plans apply
+  cat managed-software-updates-plan.json | jamf-cli pro managed-software-updates-plans apply
 
   # Apply without replacement confirmation
-  jamf-cli managed-software-updates-plans apply --from-file managed-software-updates-plan.json --yes
+  jamf-cli pro managed-software-updates-plans apply --from-file managed-software-updates-plan.json --yes
 
   # Preview what would happen
-  jamf-cli managed-software-updates-plans apply --from-file managed-software-updates-plan.json --dry-run`,
+  jamf-cli pro managed-software-updates-plans apply --from-file managed-software-updates-plan.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

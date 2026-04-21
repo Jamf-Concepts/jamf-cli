@@ -35,10 +35,10 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a smtp_server by ID",
 		Example: `  # Get a smtp_server by ID
-  jamf-cli classic-smtp-server get 1
+  jamf-cli pro classic-smtp-server get 1
 
   # Get a smtp_server and output as YAML
-  jamf-cli classic-smtp-server get 1 -o yaml`,
+  jamf-cli pro classic-smtp-server get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -85,7 +85,7 @@ func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a smtp_server",
 		Long:  "Update an existing smtp_server by ID. Reads XML body from stdin.",
 		Example: `  # Update a smtp_server from XML
-  cat smtp_server.xml | jamf-cli classic-smtp-server update 1`,
+  cat smtp_server.xml | jamf-cli pro classic-smtp-server update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

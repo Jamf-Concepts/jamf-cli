@@ -49,10 +49,10 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns group information for all Mobile Device and Computer groups",
 		Long:  "Returns group information for all Mobile Device and Computer groups. The type of groups returned will be dependent upon the corresponding group type READ privileges. Results can be sorted by name, description, group type, or isSmart. Default sorting is by group name in ascending order.",
 		Example: `  # List all groups
-  jamf-cli groups list
+  jamf-cli pro groups list
 
   # List groups and extract IDs
-  jamf-cli groups list --field id`,
+  jamf-cli pro groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -175,13 +175,13 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns group information for the given platform UUID",
 		Long:  "Returns group information for the given platform UUID. Dependent upon the returned group type the corresponding READ privilege for that group type will be needed.",
 		Example: `  # Get a group by ID
-  jamf-cli groups get 1
+  jamf-cli pro groups get 1
 
   # Get a group by name
-  jamf-cli groups get --name "Example"
+  jamf-cli pro groups get --name "Example"
 
   # Get a group and output as YAML
-  jamf-cli groups get 1 -o yaml`,
+  jamf-cli pro groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -238,13 +238,13 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a group by platform UUID",
 		Long:  "Deletes a group by its platform UUID. Returns a 400 error if the group is being used as a dependency. Requires appropriate DELETE privileges.",
 		Example: `  # Delete a group (with confirmation)
-  jamf-cli groups delete 1
+  jamf-cli pro groups delete 1
 
   # Delete by name
-  jamf-cli groups delete --name "Example" --yes
+  jamf-cli pro groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli groups delete 1 --yes`,
+  jamf-cli pro groups delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -352,16 +352,16 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a group by platform UUID",
 		Long:  "Updates a group by its platform UUID. For both smart and static groups, groupName and groupDescription can be updated. For smart groups, criteria can also be updated. For static groups, assignments can also be updated. Requires appropriate UPDATE privileges.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli groups patch 1 --set general.managed=true
+  jamf-cli pro groups patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli groups patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro groups patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli groups patch --name "Example" --set general.managed=true
+  jamf-cli pro groups patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli groups patch 1 --from-file changes.json`,
+  jamf-cli pro groups patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

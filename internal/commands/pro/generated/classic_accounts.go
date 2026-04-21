@@ -29,10 +29,10 @@ func newClassicAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all accounts",
 		Example: `  # List all accounts
-  jamf-cli classic-accounts list
+  jamf-cli pro classic-accounts list
 
   # List accounts and extract IDs
-  jamf-cli classic-accounts list --field id`,
+  jamf-cli pro classic-accounts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)

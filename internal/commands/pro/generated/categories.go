@@ -54,10 +54,10 @@ func newCategoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Category objects",
 		Long:  "Gets 'Category' objects.",
 		Example: `  # List all categories
-  jamf-cli categories list
+  jamf-cli pro categories list
 
   # List categories and extract IDs
-  jamf-cli categories list --field id`,
+  jamf-cli pro categories list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -180,13 +180,13 @@ func newCategoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Category object",
 		Long:  "Gets specified Category object",
 		Example: `  # Get a category by ID
-  jamf-cli categories get 1
+  jamf-cli pro categories get 1
 
   # Get a category by name
-  jamf-cli categories get --name "Example"
+  jamf-cli pro categories get --name "Example"
 
   # Get a category and output as YAML
-  jamf-cli categories get 1 -o yaml`,
+  jamf-cli pro categories get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -241,13 +241,13 @@ func newCategoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Category record",
 		Long:  "Create category record",
 		Example: `  # Show the JSON template for creating a category
-  jamf-cli categories create --scaffold
+  jamf-cli pro categories create --scaffold
 
   # Create a category from JSON
-  echo '{"name":"Example"}' | jamf-cli categories create
+  echo '{"name":"Example"}' | jamf-cli pro categories create
 
   # Get a category, modify it, and create a copy
-  jamf-cli categories get 1 -o json | jq '.name = "Copy"' | jamf-cli categories create`,
+  jamf-cli pro categories get 1 -o json | jq '.name = "Copy"' | jamf-cli pro categories create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -311,13 +311,13 @@ func newCategoriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified Category object",
 		Long:  "Update specified category object",
 		Example: `  # Update a category from JSON
-  echo '{"name":"Updated"}' | jamf-cli categories update 1
+  echo '{"name":"Updated"}' | jamf-cli pro categories update 1
 
   # Update by name
-  jamf-cli categories get --name "Example" -o json | jq '.field = "value"' | jamf-cli categories update --name "Example"
+  jamf-cli pro categories get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro categories update --name "Example"
 
   # Get a category, modify, and update
-  jamf-cli categories get 1 -o json | jq '.name = "New Name"' | jamf-cli categories update 1`,
+  jamf-cli pro categories get 1 -o json | jq '.name = "New Name"' | jamf-cli pro categories update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -399,13 +399,13 @@ func newCategoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Category record",
 		Long:  "Removes specified category record",
 		Example: `  # Delete a category (with confirmation)
-  jamf-cli categories delete 1
+  jamf-cli pro categories delete 1
 
   # Delete by name
-  jamf-cli categories delete --name "Example" --yes
+  jamf-cli pro categories delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli categories delete 1 --yes`,
+  jamf-cli pro categories delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -513,7 +513,7 @@ func newCategoriesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete multiple Categories by their IDs",
 		Long:  "Delete multiple Categories by their IDs",
 		Example: `  # Delete multiple categories by IDs
-  jamf-cli categories delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro categories delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -613,10 +613,10 @@ func newCategoriesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Category history object",
 		Long:  "Gets specified Category history object",
 		Example: `  # Get history for a category by ID
-  jamf-cli categories history 1
+  jamf-cli pro categories history 1
 
   # Get history by name
-  jamf-cli categories history --name "Example"`,
+  jamf-cli pro categories history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -842,19 +842,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a category from a JSON file
-  jamf-cli categories apply --from-file category.json
+  jamf-cli pro categories apply --from-file category.json
 
   # Apply a category from a YAML file
-  jamf-cli categories apply --from-file category.yaml
+  jamf-cli pro categories apply --from-file category.yaml
 
   # Apply from stdin
-  cat category.json | jamf-cli categories apply
+  cat category.json | jamf-cli pro categories apply
 
   # Apply without replacement confirmation
-  jamf-cli categories apply --from-file category.json --yes
+  jamf-cli pro categories apply --from-file category.json --yes
 
   # Preview what would happen
-  jamf-cli categories apply --from-file category.json --dry-run`,
+  jamf-cli pro categories apply --from-file category.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

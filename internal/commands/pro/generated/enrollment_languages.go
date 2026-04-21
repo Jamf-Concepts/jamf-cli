@@ -51,10 +51,10 @@ func newEnrollmentLanguagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get an array of the language codes that have Enrollment messaging",
 		Long:  "Returns an array of the language codes that have enrollment messaging currently configured.",
 		Example: `  # List all enrollment-languages
-  jamf-cli enrollment-languages list
+  jamf-cli pro enrollment-languages list
 
   # List enrollment-languages and extract IDs
-  jamf-cli enrollment-languages list --field id`,
+  jamf-cli pro enrollment-languages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,13 +173,13 @@ func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the Enrollment messaging for a language",
 		Long:  "Retrieves the enrollment messaging for a language.",
 		Example: `  # Get a enrollment-language by ID
-  jamf-cli enrollment-languages get 1
+  jamf-cli pro enrollment-languages get 1
 
   # Get a enrollment-language by name
-  jamf-cli enrollment-languages get --name "Example"
+  jamf-cli pro enrollment-languages get --name "Example"
 
   # Get a enrollment-language and output as YAML
-  jamf-cli enrollment-languages get 1 -o yaml`,
+  jamf-cli pro enrollment-languages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -235,13 +235,13 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Edit Enrollment messaging for a language",
 		Long:  "Edit enrollment messaging for a language.",
 		Example: `  # Update a enrollment-language from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-languages update 1
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-languages update 1
 
   # Update by name
-  jamf-cli enrollment-languages get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-languages update --name "Example"
+  jamf-cli pro enrollment-languages get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro enrollment-languages update --name "Example"
 
   # Get a enrollment-language, modify, and update
-  jamf-cli enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-languages update 1`,
+  jamf-cli pro enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-languages update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -361,13 +361,13 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete the Enrollment messaging for a language",
 		Long:  "Delete the enrollment messaging for a language.",
 		Example: `  # Delete a enrollment-language (with confirmation)
-  jamf-cli enrollment-languages delete 1
+  jamf-cli pro enrollment-languages delete 1
 
   # Delete by name
-  jamf-cli enrollment-languages delete --name "Example" --yes
+  jamf-cli pro enrollment-languages delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-languages delete 1 --yes`,
+  jamf-cli pro enrollment-languages delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -475,7 +475,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Delete multiple configured languages from User-Initiated Enrollment settings",
 		Long:  "Delete multiple configured languages from User-Initiated Enrollment settings",
 		Example: `  # Delete multiple enrollment-languages by IDs
-  jamf-cli enrollment-languages delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro enrollment-languages delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

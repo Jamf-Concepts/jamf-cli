@@ -42,13 +42,13 @@ func newMdmRenewalsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get device common details for a client management ID",
 		Long:  "Retrieves device common details associated with a specific client management ID",
 		Example: `  # Get a mdm-renewal by ID
-  jamf-cli mdm-renewals get 1
+  jamf-cli pro mdm-renewals get 1
 
   # Get a mdm-renewal by name
-  jamf-cli mdm-renewals get --name "Example"
+  jamf-cli pro mdm-renewals get --name "Example"
 
   # Get a mdm-renewal and output as YAML
-  jamf-cli mdm-renewals get 1 -o yaml`,
+  jamf-cli pro mdm-renewals get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -105,13 +105,13 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete MDM renewal strategies for a client management ID",
 		Long:  "Deletes all MDM renewal strategies and errors associated with the specified client management ID",
 		Example: `  # Delete a mdm-renewal (with confirmation)
-  jamf-cli mdm-renewals delete 1
+  jamf-cli pro mdm-renewals delete 1
 
   # Delete by name
-  jamf-cli mdm-renewals delete --name "Example" --yes
+  jamf-cli pro mdm-renewals delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli mdm-renewals delete 1 --yes`,
+  jamf-cli pro mdm-renewals delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -218,10 +218,10 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update device common details (partial update)",
 		Long:  "Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientManagementId                           string\n  mdmCheckinUrl                                string\n  mdmProfileNeedsRenewalDueToCaRenewed         boolean\n  mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring boolean\n  mdmServerUrl                                 string\n  renewMdmProfileStartDate                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
-  jamf-cli mdm-renewals patch --set field=value
+  jamf-cli pro mdm-renewals patch --set field=value
 
   # Update using JSON
-  jamf-cli mdm-renewals get -o json | jq '.field = "value"' | jamf-cli mdm-renewals patch`,
+  jamf-cli pro mdm-renewals get -o json | jq '.field = "value"' | jamf-cli pro mdm-renewals patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

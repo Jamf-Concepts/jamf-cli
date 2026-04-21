@@ -45,10 +45,10 @@ func newClassicComputerExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "list",
 		Short: "List all computerextensionattributes",
 		Example: `  # List all computerextensionattributes
-  jamf-cli classic-computer-ext-attrs list
+  jamf-cli pro classic-computer-ext-attrs list
 
   # List computerextensionattributes and extract IDs
-  jamf-cli classic-computer-ext-attrs list --field id`,
+  jamf-cli pro classic-computer-ext-attrs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerextensionattributes", nil)
@@ -98,13 +98,13 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a computer_extension_attribute by ID",
 		Example: `  # Get a computer_extension_attribute by ID
-  jamf-cli classic-computer-ext-attrs get 1
+  jamf-cli pro classic-computer-ext-attrs get 1
 
   # Get a computer_extension_attribute by name
-  jamf-cli classic-computer-ext-attrs get --name "Example"
+  jamf-cli pro classic-computer-ext-attrs get --name "Example"
 
   # Get a computer_extension_attribute and output as YAML
-  jamf-cli classic-computer-ext-attrs get 1 -o yaml`,
+  jamf-cli pro classic-computer-ext-attrs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Create a computer_extension_attribute",
 		Long:  "Create a new computer_extension_attribute. Reads XML body from stdin.",
 		Example: `  # Create a computer_extension_attribute from XML
-  cat computer_extension_attribute.xml | jamf-cli classic-computer-ext-attrs create`,
+  cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Update a computer_extension_attribute",
 		Long:  "Update an existing computer_extension_attribute by ID. Reads XML body from stdin.",
 		Example: `  # Update a computer_extension_attribute from XML
-  cat computer_extension_attribute.xml | jamf-cli classic-computer-ext-attrs update 1`,
+  cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "delete [<id>]",
 		Short: "Delete a computer_extension_attribute",
 		Example: `  # Delete a computer_extension_attribute (with confirmation)
-  jamf-cli classic-computer-ext-attrs delete 1
+  jamf-cli pro classic-computer-ext-attrs delete 1
 
   # Delete by name
-  jamf-cli classic-computer-ext-attrs delete --name "Example" --yes
+  jamf-cli pro classic-computer-ext-attrs delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-computer-ext-attrs delete 1 --yes`,
+  jamf-cli pro classic-computer-ext-attrs delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computer_extension_attribute from an XML file
-  jamf-cli classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml
+  jamf-cli pro classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml
 
   # Apply from stdin
-  cat computer_extension_attribute.xml | jamf-cli classic-computer-ext-attrs apply
+  cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml --yes`,
+  jamf-cli pro classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

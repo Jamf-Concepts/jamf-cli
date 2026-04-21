@@ -46,10 +46,10 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get information about mdm commands made by Jamf Pro.",
 		Long:  "Get information about mdm commands made by Jamf Pro.",
 		Example: `  # List all mdm-commands
-  jamf-cli mdm-commands list
+  jamf-cli pro mdm-commands list
 
   # List mdm-commands and extract IDs
-  jamf-cli mdm-commands list --field id`,
+  jamf-cli pro mdm-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

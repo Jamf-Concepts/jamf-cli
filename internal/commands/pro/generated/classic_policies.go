@@ -51,10 +51,10 @@ func newClassicPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all policies",
 		Example: `  # List all policies
-  jamf-cli classic-policies list
+  jamf-cli pro classic-policies list
 
   # List policies and extract IDs
-  jamf-cli classic-policies list --field id`,
+  jamf-cli pro classic-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/policies", nil)
@@ -104,13 +104,13 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a policy by ID",
 		Example: `  # Get a policy by ID
-  jamf-cli classic-policies get 1
+  jamf-cli pro classic-policies get 1
 
   # Get a policy by name
-  jamf-cli classic-policies get --name "Example"
+  jamf-cli pro classic-policies get --name "Example"
 
   # Get a policy and output as YAML
-  jamf-cli classic-policies get 1 -o yaml`,
+  jamf-cli pro classic-policies get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -167,7 +167,7 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a policy",
 		Long:  "Create a new policy. Reads XML body from stdin.",
 		Example: `  # Create a policy from XML
-  cat policy.xml | jamf-cli classic-policies create`,
+  cat policy.xml | jamf-cli pro classic-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -200,7 +200,7 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a policy",
 		Long:  "Update an existing policy by ID. Reads XML body from stdin.",
 		Example: `  # Update a policy from XML
-  cat policy.xml | jamf-cli classic-policies update 1`,
+  cat policy.xml | jamf-cli pro classic-policies update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -248,13 +248,13 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a policy",
 		Example: `  # Delete a policy (with confirmation)
-  jamf-cli classic-policies delete 1
+  jamf-cli pro classic-policies delete 1
 
   # Delete by name
-  jamf-cli classic-policies delete --name "Example" --yes
+  jamf-cli pro classic-policies delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-policies delete 1 --yes`,
+  jamf-cli pro classic-policies delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -337,13 +337,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a policy from an XML file
-  jamf-cli classic-policies apply --from-file policy.xml
+  jamf-cli pro classic-policies apply --from-file policy.xml
 
   # Apply from stdin
-  cat policy.xml | jamf-cli classic-policies apply
+  cat policy.xml | jamf-cli pro classic-policies apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-policies apply --from-file policy.xml --yes`,
+  jamf-cli pro classic-policies apply --from-file policy.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

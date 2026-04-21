@@ -34,10 +34,10 @@ func newStaticUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return a list of all Static User Groups",
 		Long:  "Returns a list of all static user groups.",
 		Example: `  # List all static-user-groups
-  jamf-cli static-user-groups list
+  jamf-cli pro static-user-groups list
 
   # List static-user-groups and extract IDs
-  jamf-cli static-user-groups list --field id`,
+  jamf-cli pro static-user-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,13 +74,13 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return a specific Static User Group by id",
 		Long:  "Returns a specific static user group by id.",
 		Example: `  # Get a static-user-group by ID
-  jamf-cli static-user-groups get 1
+  jamf-cli pro static-user-groups get 1
 
   # Get a static-user-group by name
-  jamf-cli static-user-groups get --name "Example"
+  jamf-cli pro static-user-groups get --name "Example"
 
   # Get a static-user-group and output as YAML
-  jamf-cli static-user-groups get 1 -o yaml`,
+  jamf-cli pro static-user-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

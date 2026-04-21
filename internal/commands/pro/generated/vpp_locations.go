@@ -56,10 +56,10 @@ func newVppLocationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve Volume Purchasing Locations",
 		Long:  "Retrieves Volume Purchasing Locations",
 		Example: `  # List all vpp-locations
-  jamf-cli vpp-locations list
+  jamf-cli pro vpp-locations list
 
   # List vpp-locations and extract IDs
-  jamf-cli vpp-locations list --field id`,
+  jamf-cli pro vpp-locations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,13 +182,13 @@ func newVppLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Volume Purchasing Location with the supplied id",
 		Long:  "Retrieves a Volume Purchasing Location with the supplied id",
 		Example: `  # Get a vpp-location by ID
-  jamf-cli vpp-locations get 1
+  jamf-cli pro vpp-locations get 1
 
   # Get a vpp-location by name
-  jamf-cli vpp-locations get --name "Example"
+  jamf-cli pro vpp-locations get --name "Example"
 
   # Get a vpp-location and output as YAML
-  jamf-cli vpp-locations get 1 -o yaml`,
+  jamf-cli pro vpp-locations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -246,13 +246,13 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a Volume Purchasing Location",
 		Long:  "Creates a Volume Purchasing Location using an sToken",
 		Example: `  # Show the JSON template for creating a vpp-location
-  jamf-cli vpp-locations create --scaffold
+  jamf-cli pro vpp-locations create --scaffold
 
   # Create a vpp-location from JSON
-  echo '{"name":"Example"}' | jamf-cli vpp-locations create
+  echo '{"name":"Example"}' | jamf-cli pro vpp-locations create
 
   # Get a vpp-location, modify it, and create a copy
-  jamf-cli vpp-locations get 1 -o json | jq '.name = "Copy"' | jamf-cli vpp-locations create`,
+  jamf-cli pro vpp-locations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro vpp-locations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -338,13 +338,13 @@ func newVppLocationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a Volume Purchasing Location with the supplied id",
 		Long:  "Deletes a Volume Purchasing Location with the supplied id",
 		Example: `  # Delete a vpp-location (with confirmation)
-  jamf-cli vpp-locations delete 1
+  jamf-cli pro vpp-locations delete 1
 
   # Delete by name
-  jamf-cli vpp-locations delete --name "Example" --yes
+  jamf-cli pro vpp-locations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli vpp-locations delete 1 --yes`,
+  jamf-cli pro vpp-locations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -455,10 +455,10 @@ func newVppLocationsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Volume Purchasing Location history object",
 		Long:  "Gets specified Volume Purchasing Location history object",
 		Example: `  # Get history for a vpp-location by ID
-  jamf-cli vpp-locations history 1
+  jamf-cli pro vpp-locations history 1
 
   # Get history by name
-  jamf-cli vpp-locations history --name "Example"`,
+  jamf-cli pro vpp-locations history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -682,16 +682,16 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Volume Purchasing Location",
 		Long:  "Updates a Volume Purchasing Location\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  autoRegisterManagedUsers                     boolean\n  automaticallyPopulatePurchasedContent        boolean\n  name                                         string\n  sendNotificationWhenNoLongerAssigned         boolean\n  serviceToken                                 string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli vpp-locations patch 1 --set general.managed=true
+  jamf-cli pro vpp-locations patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli vpp-locations patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro vpp-locations patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli vpp-locations patch --name "Example" --set general.managed=true
+  jamf-cli pro vpp-locations patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli vpp-locations patch 1 --from-file changes.json`,
+  jamf-cli pro vpp-locations patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1034,19 +1034,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a vpp-location from a JSON file
-  jamf-cli vpp-locations apply --from-file vpp-location.json
+  jamf-cli pro vpp-locations apply --from-file vpp-location.json
 
   # Apply a vpp-location from a YAML file
-  jamf-cli vpp-locations apply --from-file vpp-location.yaml
+  jamf-cli pro vpp-locations apply --from-file vpp-location.yaml
 
   # Apply from stdin
-  cat vpp-location.json | jamf-cli vpp-locations apply
+  cat vpp-location.json | jamf-cli pro vpp-locations apply
 
   # Apply without replacement confirmation
-  jamf-cli vpp-locations apply --from-file vpp-location.json --yes
+  jamf-cli pro vpp-locations apply --from-file vpp-location.json --yes
 
   # Preview what would happen
-  jamf-cli vpp-locations apply --from-file vpp-location.json --dry-run`,
+  jamf-cli pro vpp-locations apply --from-file vpp-location.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

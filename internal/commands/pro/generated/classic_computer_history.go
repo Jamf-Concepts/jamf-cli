@@ -38,13 +38,13 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a computer_history by ID",
 		Example: `  # Get a computer_history by ID
-  jamf-cli classic-computer-history get 1
+  jamf-cli pro classic-computer-history get 1
 
   # Get a computer_history by name
-  jamf-cli classic-computer-history get --name "Example"
+  jamf-cli pro classic-computer-history get --name "Example"
 
   # Get a computer_history and output as YAML
-  jamf-cli classic-computer-history get 1 -o yaml`,
+  jamf-cli pro classic-computer-history get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

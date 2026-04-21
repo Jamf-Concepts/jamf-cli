@@ -45,10 +45,10 @@ func newClassicNetworkSegmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all networksegments",
 		Example: `  # List all networksegments
-  jamf-cli classic-network-segments list
+  jamf-cli pro classic-network-segments list
 
   # List networksegments and extract IDs
-  jamf-cli classic-network-segments list --field id`,
+  jamf-cli pro classic-network-segments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/networksegments", nil)
@@ -98,13 +98,13 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a network_segment by ID",
 		Example: `  # Get a network_segment by ID
-  jamf-cli classic-network-segments get 1
+  jamf-cli pro classic-network-segments get 1
 
   # Get a network_segment by name
-  jamf-cli classic-network-segments get --name "Example"
+  jamf-cli pro classic-network-segments get --name "Example"
 
   # Get a network_segment and output as YAML
-  jamf-cli classic-network-segments get 1 -o yaml`,
+  jamf-cli pro classic-network-segments get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Create a network_segment",
 		Long:  "Create a new network_segment. Reads XML body from stdin.",
 		Example: `  # Create a network_segment from XML
-  cat network_segment.xml | jamf-cli classic-network-segments create`,
+  cat network_segment.xml | jamf-cli pro classic-network-segments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Update a network_segment",
 		Long:  "Update an existing network_segment by ID. Reads XML body from stdin.",
 		Example: `  # Update a network_segment from XML
-  cat network_segment.xml | jamf-cli classic-network-segments update 1`,
+  cat network_segment.xml | jamf-cli pro classic-network-segments update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "delete [<id>]",
 		Short: "Delete a network_segment",
 		Example: `  # Delete a network_segment (with confirmation)
-  jamf-cli classic-network-segments delete 1
+  jamf-cli pro classic-network-segments delete 1
 
   # Delete by name
-  jamf-cli classic-network-segments delete --name "Example" --yes
+  jamf-cli pro classic-network-segments delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-network-segments delete 1 --yes`,
+  jamf-cli pro classic-network-segments delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a network_segment from an XML file
-  jamf-cli classic-network-segments apply --from-file network_segment.xml
+  jamf-cli pro classic-network-segments apply --from-file network_segment.xml
 
   # Apply from stdin
-  cat network_segment.xml | jamf-cli classic-network-segments apply
+  cat network_segment.xml | jamf-cli pro classic-network-segments apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-network-segments apply --from-file network_segment.xml --yes`,
+  jamf-cli pro classic-network-segments apply --from-file network_segment.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

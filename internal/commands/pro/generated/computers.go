@@ -43,10 +43,10 @@ func newComputersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return a list of Computers",
 		Long:  "Returns a list of computers.",
 		Example: `  # List all computers
-  jamf-cli computers list
+  jamf-cli pro computers list
 
   # List computers and extract IDs
-  jamf-cli computers list --field id`,
+  jamf-cli pro computers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

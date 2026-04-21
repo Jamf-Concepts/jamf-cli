@@ -59,10 +59,10 @@ func newPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve Packages",
 		Long:  "Retrieves packages",
 		Example: `  # List all packages
-  jamf-cli packages list
+  jamf-cli pro packages list
 
   # List packages and extract IDs
-  jamf-cli packages list --field id`,
+  jamf-cli pro packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -185,13 +185,13 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Package object",
 		Long:  "Gets specified Package object",
 		Example: `  # Get a package by ID
-  jamf-cli packages get 1
+  jamf-cli pro packages get 1
 
   # Get a package by name
-  jamf-cli packages get --name "Example"
+  jamf-cli pro packages get --name "Example"
 
   # Get a package and output as YAML
-  jamf-cli packages get 1 -o yaml`,
+  jamf-cli pro packages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -246,13 +246,13 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create package",
 		Long:  "Create package",
 		Example: `  # Show the JSON template for creating a package
-  jamf-cli packages create --scaffold
+  jamf-cli pro packages create --scaffold
 
   # Create a package from JSON
-  echo '{"name":"Example"}' | jamf-cli packages create
+  echo '{"name":"Example"}' | jamf-cli pro packages create
 
   # Get a package, modify it, and create a copy
-  jamf-cli packages get 1 -o json | jq '.name = "Copy"' | jamf-cli packages create`,
+  jamf-cli pro packages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro packages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -346,13 +346,13 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified package object",
 		Long:  "Update specified package object",
 		Example: `  # Update a package from JSON
-  echo '{"name":"Updated"}' | jamf-cli packages update 1
+  echo '{"name":"Updated"}' | jamf-cli pro packages update 1
 
   # Update by name
-  jamf-cli packages get --name "Example" -o json | jq '.field = "value"' | jamf-cli packages update --name "Example"
+  jamf-cli pro packages get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro packages update --name "Example"
 
   # Get a package, modify, and update
-  jamf-cli packages get 1 -o json | jq '.name = "New Name"' | jamf-cli packages update 1`,
+  jamf-cli pro packages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro packages update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -464,13 +464,13 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified package",
 		Long:  "Removes specified package",
 		Example: `  # Delete a package (with confirmation)
-  jamf-cli packages delete 1
+  jamf-cli pro packages delete 1
 
   # Delete by name
-  jamf-cli packages delete --name "Example" --yes
+  jamf-cli pro packages delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli packages delete 1 --yes`,
+  jamf-cli pro packages delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -578,7 +578,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete multiple packages at once",
 		Long:  "IDs of the packages to be deleted",
 		Example: `  # Delete multiple packages by IDs
-  jamf-cli packages delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro packages delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -678,10 +678,10 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Package History object",
 		Long:  "Gets specified Package history object",
 		Example: `  # Get history for a package by ID
-  jamf-cli packages history 1
+  jamf-cli pro packages history 1
 
   # Get history by name
-  jamf-cli packages history --name "Example"`,
+  jamf-cli pro packages history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -907,7 +907,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Export Packages collection",
 		Long:  "Export Packages collection",
 		Example: `  # Export packages to CSV
-  jamf-cli packages export --out-file packages.csv`,
+  jamf-cli pro packages export --out-file packages.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1244,19 +1244,19 @@ The packageName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a package from a JSON file
-  jamf-cli packages apply --from-file package.json
+  jamf-cli pro packages apply --from-file package.json
 
   # Apply a package from a YAML file
-  jamf-cli packages apply --from-file package.yaml
+  jamf-cli pro packages apply --from-file package.yaml
 
   # Apply from stdin
-  cat package.json | jamf-cli packages apply
+  cat package.json | jamf-cli pro packages apply
 
   # Apply without replacement confirmation
-  jamf-cli packages apply --from-file package.json --yes
+  jamf-cli pro packages apply --from-file package.json --yes
 
   # Preview what would happen
-  jamf-cli packages apply --from-file package.json --dry-run`,
+  jamf-cli pro packages apply --from-file package.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

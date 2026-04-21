@@ -40,10 +40,10 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "list",
 		Short: "List all computerinvitations",
 		Example: `  # List all computerinvitations
-  jamf-cli classic-computer-invitations list
+  jamf-cli pro classic-computer-invitations list
 
   # List computerinvitations and extract IDs
-  jamf-cli classic-computer-invitations list --field id`,
+  jamf-cli pro classic-computer-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerinvitations", nil)
@@ -94,13 +94,13 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "get [<id>]",
 		Short: "Get a computer_invitation by ID",
 		Example: `  # Get a computer_invitation by ID
-  jamf-cli classic-computer-invitations get 1
+  jamf-cli pro classic-computer-invitations get 1
 
   # Get a computer_invitation by name
-  jamf-cli classic-computer-invitations get --name "Example"
+  jamf-cli pro classic-computer-invitations get --name "Example"
 
   # Get a computer_invitation and output as YAML
-  jamf-cli classic-computer-invitations get 1 -o yaml`,
+  jamf-cli pro classic-computer-invitations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -160,7 +160,7 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Create a computer_invitation",
 		Long:  "Create a new computer_invitation. Reads XML body from stdin.",
 		Example: `  # Create a computer_invitation from XML
-  cat computer_invitation.xml | jamf-cli classic-computer-invitations create`,
+  cat computer_invitation.xml | jamf-cli pro classic-computer-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -196,13 +196,13 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "delete [<id>]",
 		Short: "Delete a computer_invitation",
 		Example: `  # Delete a computer_invitation (with confirmation)
-  jamf-cli classic-computer-invitations delete 1
+  jamf-cli pro classic-computer-invitations delete 1
 
   # Delete by name
-  jamf-cli classic-computer-invitations delete --name "Example" --yes
+  jamf-cli pro classic-computer-invitations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-computer-invitations delete 1 --yes`,
+  jamf-cli pro classic-computer-invitations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

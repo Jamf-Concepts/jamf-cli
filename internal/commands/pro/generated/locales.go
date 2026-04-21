@@ -31,10 +31,10 @@ func newLocalesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return locales that can be used in other features",
 		Long:  "Returns locales that can be used in other features.",
 		Example: `  # List all locales
-  jamf-cli locales list
+  jamf-cli pro locales list
 
   # List locales and extract IDs
-  jamf-cli locales list --field id`,
+  jamf-cli pro locales list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

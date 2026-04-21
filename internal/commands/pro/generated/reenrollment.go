@@ -41,10 +41,10 @@ func newReenrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Re-enrollment object",
 		Long:  "Gets Re-enrollment object",
 		Example: `  # Get reenrollment
-  jamf-cli reenrollment get
+  jamf-cli pro reenrollment get
 
   # Get reenrollment and output as YAML
-  jamf-cli reenrollment get -o yaml`,
+  jamf-cli pro reenrollment get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,10 +81,10 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the Re-enrollment object",
 		Long:  "Update the Re-enrollment object",
 		Example: `  # Update reenrollment
-  jamf-cli reenrollment get -o json | jq '.field = "value"' | jamf-cli reenrollment update
+  jamf-cli pro reenrollment get -o json | jq '.field = "value"' | jamf-cli pro reenrollment update
 
   # Update from a file
-  jamf-cli reenrollment update --from-file reenrollment.json`,
+  jamf-cli pro reenrollment update --from-file reenrollment.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,7 +157,7 @@ func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Re-enrollment history object",
 		Long:  "Gets Re-enrollment history object",
 		Example: `  # Get history for a reenrollment
-  jamf-cli reenrollment history 1`,
+  jamf-cli pro reenrollment history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

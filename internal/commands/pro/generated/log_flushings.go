@@ -42,10 +42,10 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get log flushing tasks",
 		Long:  "Get a list of all log flushing tasks and their statuses",
 		Example: `  # List all log-flushings
-  jamf-cli log-flushings list
+  jamf-cli pro log-flushings list
 
   # List log-flushings and extract IDs
-  jamf-cli log-flushings list --field id`,
+  jamf-cli pro log-flushings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,13 +82,13 @@ func newLogFlushingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get log flushing task",
 		Long:  "Get the log flushing task by the specified ID",
 		Example: `  # Get a log-flushing by ID
-  jamf-cli log-flushings get 1
+  jamf-cli pro log-flushings get 1
 
   # Get a log-flushing by name
-  jamf-cli log-flushings get --name "Example"
+  jamf-cli pro log-flushings get --name "Example"
 
   # Get a log-flushing and output as YAML
-  jamf-cli log-flushings get 1 -o yaml`,
+  jamf-cli pro log-flushings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -145,13 +145,13 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Cancels a log flushing task",
 		Long:  "Cancels a log flushing task by ID",
 		Example: `  # Delete a log-flushing (with confirmation)
-  jamf-cli log-flushings delete 1
+  jamf-cli pro log-flushings delete 1
 
   # Delete by name
-  jamf-cli log-flushings delete --name "Example" --yes
+  jamf-cli pro log-flushings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli log-flushings delete 1 --yes`,
+  jamf-cli pro log-flushings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

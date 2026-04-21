@@ -44,13 +44,13 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Cloud Identity Provider configuration with given id.",
 		Long:  "Get Cloud Identity Provider configuration with given id.",
 		Example: `  # Get a cloud-ldap by ID
-  jamf-cli cloud-ldaps get 1
+  jamf-cli pro cloud-ldaps get 1
 
   # Get a cloud-ldap by name
-  jamf-cli cloud-ldaps get --name "Example"
+  jamf-cli pro cloud-ldaps get --name "Example"
 
   # Get a cloud-ldap and output as YAML
-  jamf-cli cloud-ldaps get 1 -o yaml`,
+  jamf-cli pro cloud-ldaps get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -105,13 +105,13 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Cloud Identity Provider configuration",
 		Long:  "Create new Cloud Identity Provider configuration with unique display name. If mappings not provided, then defaults will be generated instead.",
 		Example: `  # Show the JSON template for creating a cloud-ldap
-  jamf-cli cloud-ldaps create --scaffold
+  jamf-cli pro cloud-ldaps create --scaffold
 
   # Create a cloud-ldap from JSON
-  echo '{"name":"Example"}' | jamf-cli cloud-ldaps create
+  echo '{"name":"Example"}' | jamf-cli pro cloud-ldaps create
 
   # Get a cloud-ldap, modify it, and create a copy
-  jamf-cli cloud-ldaps get 1 -o json | jq '.name = "Copy"' | jamf-cli cloud-ldaps create`,
+  jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-ldaps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -176,13 +176,13 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Cloud Identity Provider configuration",
 		Long:  "Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.",
 		Example: `  # Update a cloud-ldap from JSON
-  echo '{"name":"Updated"}' | jamf-cli cloud-ldaps update 1
+  echo '{"name":"Updated"}' | jamf-cli pro cloud-ldaps update 1
 
   # Update by name
-  jamf-cli cloud-ldaps get --name "Example" -o json | jq '.field = "value"' | jamf-cli cloud-ldaps update --name "Example"
+  jamf-cli pro cloud-ldaps get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro cloud-ldaps update --name "Example"
 
   # Get a cloud-ldap, modify, and update
-  jamf-cli cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli cloud-ldaps update 1`,
+  jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-ldaps update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -265,13 +265,13 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Cloud Identity Provider configuration.",
 		Long:  "Delete Cloud Identity Provider configuration.",
 		Example: `  # Delete a cloud-ldap (with confirmation)
-  jamf-cli cloud-ldaps delete 1
+  jamf-cli pro cloud-ldaps delete 1
 
   # Delete by name
-  jamf-cli cloud-ldaps delete --name "Example" --yes
+  jamf-cli pro cloud-ldaps delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli cloud-ldaps delete 1 --yes`,
+  jamf-cli pro cloud-ldaps delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -383,19 +383,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a cloud-ldap from a JSON file
-  jamf-cli cloud-ldaps apply --from-file cloud-ldap.json
+  jamf-cli pro cloud-ldaps apply --from-file cloud-ldap.json
 
   # Apply a cloud-ldap from a YAML file
-  jamf-cli cloud-ldaps apply --from-file cloud-ldap.yaml
+  jamf-cli pro cloud-ldaps apply --from-file cloud-ldap.yaml
 
   # Apply from stdin
-  cat cloud-ldap.json | jamf-cli cloud-ldaps apply
+  cat cloud-ldap.json | jamf-cli pro cloud-ldaps apply
 
   # Apply without replacement confirmation
-  jamf-cli cloud-ldaps apply --from-file cloud-ldap.json --yes
+  jamf-cli pro cloud-ldaps apply --from-file cloud-ldap.json --yes
 
   # Preview what would happen
-  jamf-cli cloud-ldaps apply --from-file cloud-ldap.json --dry-run`,
+  jamf-cli pro cloud-ldaps apply --from-file cloud-ldap.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

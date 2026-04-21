@@ -32,10 +32,10 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "get <id>",
 		Short: "Get a patch_available_title by ID",
 		Example: `  # Get a patch_available_title by ID
-  jamf-cli classic-patch-available-titles get 1
+  jamf-cli pro classic-patch-available-titles get 1
 
   # Get a patch_available_title and output as YAML
-  jamf-cli classic-patch-available-titles get 1 -o yaml`,
+  jamf-cli pro classic-patch-available-titles get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

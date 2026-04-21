@@ -40,10 +40,10 @@ func newClassicMobileInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "list",
 		Short: "List all mobiledeviceinvitations",
 		Example: `  # List all mobiledeviceinvitations
-  jamf-cli classic-mobile-invitations list
+  jamf-cli pro classic-mobile-invitations list
 
   # List mobiledeviceinvitations and extract IDs
-  jamf-cli classic-mobile-invitations list --field id`,
+  jamf-cli pro classic-mobile-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceinvitations", nil)
@@ -93,10 +93,10 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "get [<id>]",
 		Short: "Get a mobile_device_invitation by ID",
 		Example: `  # Get a mobile_device_invitation by ID
-  jamf-cli classic-mobile-invitations get 1
+  jamf-cli pro classic-mobile-invitations get 1
 
   # Get a mobile_device_invitation and output as YAML
-  jamf-cli classic-mobile-invitations get 1 -o yaml`,
+  jamf-cli pro classic-mobile-invitations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -153,7 +153,7 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Create a mobile_device_invitation",
 		Long:  "Create a new mobile_device_invitation. Reads XML body from stdin.",
 		Example: `  # Create a mobile_device_invitation from XML
-  cat mobile_device_invitation.xml | jamf-cli classic-mobile-invitations create`,
+  cat mobile_device_invitation.xml | jamf-cli pro classic-mobile-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,10 +188,10 @@ func newClassicMobileInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "delete <id>",
 		Short: "Delete a mobile_device_invitation",
 		Example: `  # Delete a mobile_device_invitation (with confirmation)
-  jamf-cli classic-mobile-invitations delete 1
+  jamf-cli pro classic-mobile-invitations delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-mobile-invitations delete 1 --yes`,
+  jamf-cli pro classic-mobile-invitations delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

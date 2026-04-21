@@ -45,10 +45,10 @@ func newClassicPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all packages",
 		Example: `  # List all packages
-  jamf-cli classic-packages list
+  jamf-cli pro classic-packages list
 
   # List packages and extract IDs
-  jamf-cli classic-packages list --field id`,
+  jamf-cli pro classic-packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/packages", nil)
@@ -98,13 +98,13 @@ func newClassicPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a package by ID",
 		Example: `  # Get a package by ID
-  jamf-cli classic-packages get 1
+  jamf-cli pro classic-packages get 1
 
   # Get a package by name
-  jamf-cli classic-packages get --name "Example"
+  jamf-cli pro classic-packages get --name "Example"
 
   # Get a package and output as YAML
-  jamf-cli classic-packages get 1 -o yaml`,
+  jamf-cli pro classic-packages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a package",
 		Long:  "Create a new package. Reads XML body from stdin.",
 		Example: `  # Create a package from XML
-  cat package.xml | jamf-cli classic-packages create`,
+  cat package.xml | jamf-cli pro classic-packages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a package",
 		Long:  "Update an existing package by ID. Reads XML body from stdin.",
 		Example: `  # Update a package from XML
-  cat package.xml | jamf-cli classic-packages update 1`,
+  cat package.xml | jamf-cli pro classic-packages update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a package",
 		Example: `  # Delete a package (with confirmation)
-  jamf-cli classic-packages delete 1
+  jamf-cli pro classic-packages delete 1
 
   # Delete by name
-  jamf-cli classic-packages delete --name "Example" --yes
+  jamf-cli pro classic-packages delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-packages delete 1 --yes`,
+  jamf-cli pro classic-packages delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a package from an XML file
-  jamf-cli classic-packages apply --from-file package.xml
+  jamf-cli pro classic-packages apply --from-file package.xml
 
   # Apply from stdin
-  cat package.xml | jamf-cli classic-packages apply
+  cat package.xml | jamf-cli pro classic-packages apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-packages apply --from-file package.xml --yes`,
+  jamf-cli pro classic-packages apply --from-file package.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

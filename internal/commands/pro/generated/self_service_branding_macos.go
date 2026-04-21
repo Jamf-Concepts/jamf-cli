@@ -50,10 +50,10 @@ func newSelfServiceBrandingMacosListCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Search for sorted and paged macOS branding configurations",
 		Long:  "Search for sorted and paged macOS branding configurations",
 		Example: `  # List all self-service-branding-macos
-  jamf-cli self-service-branding-macos list
+  jamf-cli pro self-service-branding-macos list
 
   # List self-service-branding-macos and extract IDs
-  jamf-cli self-service-branding-macos list --field id`,
+  jamf-cli pro self-service-branding-macos list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -172,13 +172,13 @@ func newSelfServiceBrandingMacosGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Read a single Self Service macOS branding configuration indicated by the provided id",
 		Long:  "Read a single Self Service macOS branding configuration indicated by the provided id.",
 		Example: `  # Get a self-service-branding-macos by ID
-  jamf-cli self-service-branding-macos get 1
+  jamf-cli pro self-service-branding-macos get 1
 
   # Get a self-service-branding-macos by name
-  jamf-cli self-service-branding-macos get --name "Example"
+  jamf-cli pro self-service-branding-macos get --name "Example"
 
   # Get a self-service-branding-macos and output as YAML
-  jamf-cli self-service-branding-macos get 1 -o yaml`,
+  jamf-cli pro self-service-branding-macos get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -233,13 +233,13 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Create a Self Service macOS branding configuration with the supplied",
 		Long:  "Create a Self Service macOS branding configuration with the supplied details",
 		Example: `  # Show the JSON template for creating a self-service-branding-macos
-  jamf-cli self-service-branding-macos create --scaffold
+  jamf-cli pro self-service-branding-macos create --scaffold
 
   # Create a self-service-branding-macos from JSON
-  echo '{"name":"Example"}' | jamf-cli self-service-branding-macos create
+  echo '{"name":"Example"}' | jamf-cli pro self-service-branding-macos create
 
   # Get a self-service-branding-macos, modify it, and create a copy
-  jamf-cli self-service-branding-macos get 1 -o json | jq '.name = "Copy"' | jamf-cli self-service-branding-macos create`,
+  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-macos create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -308,13 +308,13 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Update a Self Service macOS branding configuration with the supplied details",
 		Long:  "Update a Self Service macOS branding configuration with the supplied details",
 		Example: `  # Update a self-service-branding-macos from JSON
-  echo '{"name":"Updated"}' | jamf-cli self-service-branding-macos update 1
+  echo '{"name":"Updated"}' | jamf-cli pro self-service-branding-macos update 1
 
   # Update by name
-  jamf-cli self-service-branding-macos get --name "Example" -o json | jq '.field = "value"' | jamf-cli self-service-branding-macos update --name "Example"
+  jamf-cli pro self-service-branding-macos get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro self-service-branding-macos update --name "Example"
 
   # Get a self-service-branding-macos, modify, and update
-  jamf-cli self-service-branding-macos get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-branding-macos update 1`,
+  jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-macos update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -401,13 +401,13 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Delete the Self Service macOS branding configuration indicated by the provided id",
 		Long:  "Delete the Self Service macOS branding configuration indicated by the provided id.",
 		Example: `  # Delete a self-service-branding-macos (with confirmation)
-  jamf-cli self-service-branding-macos delete 1
+  jamf-cli pro self-service-branding-macos delete 1
 
   # Delete by name
-  jamf-cli self-service-branding-macos delete --name "Example" --yes
+  jamf-cli pro self-service-branding-macos delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli self-service-branding-macos delete 1 --yes`,
+  jamf-cli pro self-service-branding-macos delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -519,19 +519,19 @@ The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a self-service-branding-macos from a JSON file
-  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json
 
   # Apply a self-service-branding-macos from a YAML file
-  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.yaml
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.yaml
 
   # Apply from stdin
-  cat self-service-branding-macos.json | jamf-cli self-service-branding-macos apply
+  cat self-service-branding-macos.json | jamf-cli pro self-service-branding-macos apply
 
   # Apply without replacement confirmation
-  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json --yes
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json --yes
 
   # Preview what would happen
-  jamf-cli self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
+  jamf-cli pro self-service-branding-macos apply --from-file self-service-branding-macos.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

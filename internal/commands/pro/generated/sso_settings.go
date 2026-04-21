@@ -45,10 +45,10 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Updates the current Single Sign On configuration settings",
 		Long:  "Updates the current Single Sign On configuration settings",
 		Example: `  # Update sso-settings
-  jamf-cli sso-settings get -o json | jq '.field = "value"' | jamf-cli sso-settings update
+  jamf-cli pro sso-settings get -o json | jq '.field = "value"' | jamf-cli pro sso-settings update
 
   # Update from a file
-  jamf-cli sso-settings update --from-file sso-settings.json`,
+  jamf-cli pro sso-settings update --from-file sso-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -125,7 +125,7 @@ func newSsoSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get SSO history object",
 		Long:  "Gets SSO history object",
 		Example: `  # Get history for a sso-settings
-  jamf-cli sso-settings history 1`,
+  jamf-cli pro sso-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

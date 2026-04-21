@@ -51,10 +51,10 @@ func newClassicMacAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all macapplications",
 		Example: `  # List all macapplications
-  jamf-cli classic-mac-apps list
+  jamf-cli pro classic-mac-apps list
 
   # List macapplications and extract IDs
-  jamf-cli classic-mac-apps list --field id`,
+  jamf-cli pro classic-mac-apps list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/macapplications", nil)
@@ -104,13 +104,13 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a mac_application by ID",
 		Example: `  # Get a mac_application by ID
-  jamf-cli classic-mac-apps get 1
+  jamf-cli pro classic-mac-apps get 1
 
   # Get a mac_application by name
-  jamf-cli classic-mac-apps get --name "Example"
+  jamf-cli pro classic-mac-apps get --name "Example"
 
   # Get a mac_application and output as YAML
-  jamf-cli classic-mac-apps get 1 -o yaml`,
+  jamf-cli pro classic-mac-apps get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -170,7 +170,7 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a mac_application",
 		Long:  "Create a new mac_application. Reads XML body from stdin.",
 		Example: `  # Create a mac_application from XML
-  cat mac_application.xml | jamf-cli classic-mac-apps create`,
+  cat mac_application.xml | jamf-cli pro classic-mac-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -219,7 +219,7 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a mac_application",
 		Long:  "Update an existing mac_application by ID. Reads XML body from stdin.",
 		Example: `  # Update a mac_application from XML
-  cat mac_application.xml | jamf-cli classic-mac-apps update 1`,
+  cat mac_application.xml | jamf-cli pro classic-mac-apps update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -317,13 +317,13 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a mac_application",
 		Example: `  # Delete a mac_application (with confirmation)
-  jamf-cli classic-mac-apps delete 1
+  jamf-cli pro classic-mac-apps delete 1
 
   # Delete by name
-  jamf-cli classic-mac-apps delete --name "Example" --yes
+  jamf-cli pro classic-mac-apps delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-mac-apps delete 1 --yes`,
+  jamf-cli pro classic-mac-apps delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -408,13 +408,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mac_application from an XML file
-  jamf-cli classic-mac-apps apply --from-file mac_application.xml
+  jamf-cli pro classic-mac-apps apply --from-file mac_application.xml
 
   # Apply from stdin
-  cat mac_application.xml | jamf-cli classic-mac-apps apply
+  cat mac_application.xml | jamf-cli pro classic-mac-apps apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-mac-apps apply --from-file mac_application.xml --yes`,
+  jamf-cli pro classic-mac-apps apply --from-file mac_application.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

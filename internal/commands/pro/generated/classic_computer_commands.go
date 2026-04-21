@@ -29,10 +29,10 @@ func newClassicComputerCommandsListCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "list",
 		Short: "List all computercommands",
 		Example: `  # List all computercommands
-  jamf-cli classic-computer-commands list
+  jamf-cli pro classic-computer-commands list
 
   # List computercommands and extract IDs
-  jamf-cli classic-computer-commands list --field id`,
+  jamf-cli pro classic-computer-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computercommands", nil)

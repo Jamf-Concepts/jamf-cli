@@ -51,10 +51,10 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get Static Groups",
 		Long:  "Get Static Groups",
 		Example: `  # List all mobile-device-groups-static-groups
-  jamf-cli mobile-device-groups-static-groups list
+  jamf-cli pro mobile-device-groups-static-groups list
 
   # List mobile-device-groups-static-groups and extract IDs
-  jamf-cli mobile-device-groups-static-groups list --field id`,
+  jamf-cli pro mobile-device-groups-static-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Get Static Group by Id",
 		Long:  "Get Static Group by Id",
 		Example: `  # Get a mobile-device-groups-static-groups by ID
-  jamf-cli mobile-device-groups-static-groups get 1
+  jamf-cli pro mobile-device-groups-static-groups get 1
 
   # Get a mobile-device-groups-static-groups by name
-  jamf-cli mobile-device-groups-static-groups get --name "Example"
+  jamf-cli pro mobile-device-groups-static-groups get --name "Example"
 
   # Get a mobile-device-groups-static-groups and output as YAML
-  jamf-cli mobile-device-groups-static-groups get 1 -o yaml`,
+  jamf-cli pro mobile-device-groups-static-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -239,13 +239,13 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 		Short: "Create membership of a static group",
 		Long:  "Create membership of a static group",
 		Example: `  # Show the JSON template for creating a mobile-device-groups-static-groups
-  jamf-cli mobile-device-groups-static-groups create --scaffold
+  jamf-cli pro mobile-device-groups-static-groups create --scaffold
 
   # Create a mobile-device-groups-static-groups from JSON
-  echo '{"name":"Example"}' | jamf-cli mobile-device-groups-static-groups create
+  echo '{"name":"Example"}' | jamf-cli pro mobile-device-groups-static-groups create
 
   # Get a mobile-device-groups-static-groups, modify it, and create a copy
-  jamf-cli mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-groups-static-groups create`,
+  jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -316,13 +316,13 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 		Short: "Remove Static Group by Id",
 		Long:  "Remove Static Group by Id",
 		Example: `  # Delete a mobile-device-groups-static-groups (with confirmation)
-  jamf-cli mobile-device-groups-static-groups delete 1
+  jamf-cli pro mobile-device-groups-static-groups delete 1
 
   # Delete by name
-  jamf-cli mobile-device-groups-static-groups delete --name "Example" --yes
+  jamf-cli pro mobile-device-groups-static-groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-groups-static-groups delete 1 --yes`,
+  jamf-cli pro mobile-device-groups-static-groups delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -430,16 +430,16 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update membership of a static group",
 		Long:  "Update membership of a static group\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli mobile-device-groups-static-groups patch 1 --set general.managed=true
+  jamf-cli pro mobile-device-groups-static-groups patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli mobile-device-groups-static-groups patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro mobile-device-groups-static-groups patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli mobile-device-groups-static-groups patch --name "Example" --set general.managed=true
+  jamf-cli pro mobile-device-groups-static-groups patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli mobile-device-groups-static-groups patch 1 --from-file changes.json`,
+  jamf-cli pro mobile-device-groups-static-groups patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -549,19 +549,19 @@ The groupName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile-device-groups-static-groups from a JSON file
-  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json
 
   # Apply a mobile-device-groups-static-groups from a YAML file
-  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.yaml
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.yaml
 
   # Apply from stdin
-  cat mobile-device-groups-static-groups.json | jamf-cli mobile-device-groups-static-groups apply
+  cat mobile-device-groups-static-groups.json | jamf-cli pro mobile-device-groups-static-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --yes
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --yes
 
   # Preview what would happen
-  jamf-cli mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --dry-run`,
+  jamf-cli pro mobile-device-groups-static-groups apply --from-file mobile-device-groups-static-groups.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

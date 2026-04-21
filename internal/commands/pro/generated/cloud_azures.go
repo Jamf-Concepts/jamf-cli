@@ -44,13 +44,13 @@ func newCloudAzuresGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Azure Cloud Identity Provider configuration with given ID.",
 		Long:  "Get Azure Cloud Identity Provider configuration with given ID.",
 		Example: `  # Get a cloud-azure by ID
-  jamf-cli cloud-azures get 1
+  jamf-cli pro cloud-azures get 1
 
   # Get a cloud-azure by name
-  jamf-cli cloud-azures get --name "Example"
+  jamf-cli pro cloud-azures get --name "Example"
 
   # Get a cloud-azure and output as YAML
-  jamf-cli cloud-azures get 1 -o yaml`,
+  jamf-cli pro cloud-azures get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -105,13 +105,13 @@ func newCloudAzuresCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Azure Cloud Identity Provider configuration",
 		Long:  "Create new Azure Cloud Identity Provider configuration with unique display name.",
 		Example: `  # Show the JSON template for creating a cloud-azure
-  jamf-cli cloud-azures create --scaffold
+  jamf-cli pro cloud-azures create --scaffold
 
   # Create a cloud-azure from JSON
-  echo '{"name":"Example"}' | jamf-cli cloud-azures create
+  echo '{"name":"Example"}' | jamf-cli pro cloud-azures create
 
   # Get a cloud-azure, modify it, and create a copy
-  jamf-cli cloud-azures get 1 -o json | jq '.name = "Copy"' | jamf-cli cloud-azures create`,
+  jamf-cli pro cloud-azures get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-azures create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -175,13 +175,13 @@ func newCloudAzuresUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Azure Cloud Identity Provider configuration",
 		Long:  "Update Azure Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.",
 		Example: `  # Update a cloud-azure from JSON
-  echo '{"name":"Updated"}' | jamf-cli cloud-azures update 1
+  echo '{"name":"Updated"}' | jamf-cli pro cloud-azures update 1
 
   # Update by name
-  jamf-cli cloud-azures get --name "Example" -o json | jq '.field = "value"' | jamf-cli cloud-azures update --name "Example"
+  jamf-cli pro cloud-azures get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro cloud-azures update --name "Example"
 
   # Get a cloud-azure, modify, and update
-  jamf-cli cloud-azures get 1 -o json | jq '.name = "New Name"' | jamf-cli cloud-azures update 1`,
+  jamf-cli pro cloud-azures get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-azures update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -263,13 +263,13 @@ func newCloudAzuresDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Cloud Identity Provider configuration.",
 		Long:  "Delete Cloud Identity Provider configuration.",
 		Example: `  # Delete a cloud-azure (with confirmation)
-  jamf-cli cloud-azures delete 1
+  jamf-cli pro cloud-azures delete 1
 
   # Delete by name
-  jamf-cli cloud-azures delete --name "Example" --yes
+  jamf-cli pro cloud-azures delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli cloud-azures delete 1 --yes`,
+  jamf-cli pro cloud-azures delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -381,19 +381,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a cloud-azure from a JSON file
-  jamf-cli cloud-azures apply --from-file cloud-azure.json
+  jamf-cli pro cloud-azures apply --from-file cloud-azure.json
 
   # Apply a cloud-azure from a YAML file
-  jamf-cli cloud-azures apply --from-file cloud-azure.yaml
+  jamf-cli pro cloud-azures apply --from-file cloud-azure.yaml
 
   # Apply from stdin
-  cat cloud-azure.json | jamf-cli cloud-azures apply
+  cat cloud-azure.json | jamf-cli pro cloud-azures apply
 
   # Apply without replacement confirmation
-  jamf-cli cloud-azures apply --from-file cloud-azure.json --yes
+  jamf-cli pro cloud-azures apply --from-file cloud-azure.json --yes
 
   # Preview what would happen
-  jamf-cli cloud-azures apply --from-file cloud-azure.json --dry-run`,
+  jamf-cli pro cloud-azures apply --from-file cloud-azure.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

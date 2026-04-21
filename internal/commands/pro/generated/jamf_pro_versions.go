@@ -31,10 +31,10 @@ func newJamfProVersionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return information about the Jamf Pro including the current version",
 		Long:  "Returns information about the Jamf Pro including the current version.",
 		Example: `  # List all jamf-pro-versions
-  jamf-cli jamf-pro-versions list
+  jamf-cli pro jamf-pro-versions list
 
   # List jamf-pro-versions and extract IDs
-  jamf-cli jamf-pro-versions list --field id`,
+  jamf-cli pro jamf-pro-versions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

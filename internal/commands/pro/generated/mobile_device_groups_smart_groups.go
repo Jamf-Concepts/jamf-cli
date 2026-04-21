@@ -51,10 +51,10 @@ func newMobileDeviceGroupsSmartGroupsListCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Get Smart Groups",
 		Long:  "Get Smart Groups",
 		Example: `  # List all mobile-device-groups-smart-groups
-  jamf-cli mobile-device-groups-smart-groups list
+  jamf-cli pro mobile-device-groups-smart-groups list
 
   # List mobile-device-groups-smart-groups and extract IDs
-  jamf-cli mobile-device-groups-smart-groups list --field id`,
+  jamf-cli pro mobile-device-groups-smart-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newMobileDeviceGroupsSmartGroupsGetCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Get Smart Group by Id",
 		Long:  "Get Smart Group by Id",
 		Example: `  # Get a mobile-device-groups-smart-groups by ID
-  jamf-cli mobile-device-groups-smart-groups get 1
+  jamf-cli pro mobile-device-groups-smart-groups get 1
 
   # Get a mobile-device-groups-smart-groups by name
-  jamf-cli mobile-device-groups-smart-groups get --name "Example"
+  jamf-cli pro mobile-device-groups-smart-groups get --name "Example"
 
   # Get a mobile-device-groups-smart-groups and output as YAML
-  jamf-cli mobile-device-groups-smart-groups get 1 -o yaml`,
+  jamf-cli pro mobile-device-groups-smart-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -239,13 +239,13 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Create a smart group",
 		Long:  "Create a smart group",
 		Example: `  # Show the JSON template for creating a mobile-device-groups-smart-groups
-  jamf-cli mobile-device-groups-smart-groups create --scaffold
+  jamf-cli pro mobile-device-groups-smart-groups create --scaffold
 
   # Create a mobile-device-groups-smart-groups from JSON
-  echo '{"name":"Example"}' | jamf-cli mobile-device-groups-smart-groups create
+  echo '{"name":"Example"}' | jamf-cli pro mobile-device-groups-smart-groups create
 
   # Get a mobile-device-groups-smart-groups, modify it, and create a copy
-  jamf-cli mobile-device-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-groups-smart-groups create`,
+  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-smart-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -315,13 +315,13 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update a smart group",
 		Long:  "Update a smart group",
 		Example: `  # Update a mobile-device-groups-smart-groups from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-groups-smart-groups update 1
+  echo '{"name":"Updated"}' | jamf-cli pro mobile-device-groups-smart-groups update 1
 
   # Update by name
-  jamf-cli mobile-device-groups-smart-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli mobile-device-groups-smart-groups update --name "Example"
+  jamf-cli pro mobile-device-groups-smart-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro mobile-device-groups-smart-groups update --name "Example"
 
   # Get a mobile-device-groups-smart-groups, modify, and update
-  jamf-cli mobile-device-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-groups-smart-groups update 1`,
+  jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-groups-smart-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -405,13 +405,13 @@ func newMobileDeviceGroupsSmartGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Remove Smart Group by Id",
 		Long:  "Remove Smart Group by Id",
 		Example: `  # Delete a mobile-device-groups-smart-groups (with confirmation)
-  jamf-cli mobile-device-groups-smart-groups delete 1
+  jamf-cli pro mobile-device-groups-smart-groups delete 1
 
   # Delete by name
-  jamf-cli mobile-device-groups-smart-groups delete --name "Example" --yes
+  jamf-cli pro mobile-device-groups-smart-groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-groups-smart-groups delete 1 --yes`,
+  jamf-cli pro mobile-device-groups-smart-groups delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -523,19 +523,19 @@ The groupName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile-device-groups-smart-groups from a JSON file
-  jamf-cli mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json
+  jamf-cli pro mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json
 
   # Apply a mobile-device-groups-smart-groups from a YAML file
-  jamf-cli mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.yaml
+  jamf-cli pro mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.yaml
 
   # Apply from stdin
-  cat mobile-device-groups-smart-groups.json | jamf-cli mobile-device-groups-smart-groups apply
+  cat mobile-device-groups-smart-groups.json | jamf-cli pro mobile-device-groups-smart-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json --yes
+  jamf-cli pro mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json --yes
 
   # Preview what would happen
-  jamf-cli mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json --dry-run`,
+  jamf-cli pro mobile-device-groups-smart-groups apply --from-file mobile-device-groups-smart-groups.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

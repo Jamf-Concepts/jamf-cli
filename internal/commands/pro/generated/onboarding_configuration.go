@@ -36,10 +36,10 @@ func newOnboardingConfigurationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the current onboarding settings configuration.",
 		Long:  "Get the current onboarding settings configuration.",
 		Example: `  # Get onboarding-configuration
-  jamf-cli onboarding-configuration get
+  jamf-cli pro onboarding-configuration get
 
   # Get onboarding-configuration and output as YAML
-  jamf-cli onboarding-configuration get -o yaml`,
+  jamf-cli pro onboarding-configuration get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -76,10 +76,10 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Update the onboarding configuration.",
 		Long:  "Update the onboarding configuration.",
 		Example: `  # Update onboarding-configuration
-  jamf-cli onboarding-configuration get -o json | jq '.field = "value"' | jamf-cli onboarding-configuration update
+  jamf-cli pro onboarding-configuration get -o json | jq '.field = "value"' | jamf-cli pro onboarding-configuration update
 
   # Update from a file
-  jamf-cli onboarding-configuration update --from-file onboarding-configuration.json`,
+  jamf-cli pro onboarding-configuration update --from-file onboarding-configuration.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

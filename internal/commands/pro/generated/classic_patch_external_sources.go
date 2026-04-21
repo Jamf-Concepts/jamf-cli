@@ -45,10 +45,10 @@ func newClassicPatchExternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "list",
 		Short: "List all patchexternalsources",
 		Example: `  # List all patchexternalsources
-  jamf-cli classic-patch-external-sources list
+  jamf-cli pro classic-patch-external-sources list
 
   # List patchexternalsources and extract IDs
-  jamf-cli classic-patch-external-sources list --field id`,
+  jamf-cli pro classic-patch-external-sources list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchexternalsources", nil)
@@ -98,13 +98,13 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "get [<id>]",
 		Short: "Get a patch_external_source by ID",
 		Example: `  # Get a patch_external_source by ID
-  jamf-cli classic-patch-external-sources get 1
+  jamf-cli pro classic-patch-external-sources get 1
 
   # Get a patch_external_source by name
-  jamf-cli classic-patch-external-sources get --name "Example"
+  jamf-cli pro classic-patch-external-sources get --name "Example"
 
   # Get a patch_external_source and output as YAML
-  jamf-cli classic-patch-external-sources get 1 -o yaml`,
+  jamf-cli pro classic-patch-external-sources get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Create a patch_external_source",
 		Long:  "Create a new patch_external_source. Reads XML body from stdin.",
 		Example: `  # Create a patch_external_source from XML
-  cat patch_external_source.xml | jamf-cli classic-patch-external-sources create`,
+  cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Update a patch_external_source",
 		Long:  "Update an existing patch_external_source by ID. Reads XML body from stdin.",
 		Example: `  # Update a patch_external_source from XML
-  cat patch_external_source.xml | jamf-cli classic-patch-external-sources update 1`,
+  cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "delete [<id>]",
 		Short: "Delete a patch_external_source",
 		Example: `  # Delete a patch_external_source (with confirmation)
-  jamf-cli classic-patch-external-sources delete 1
+  jamf-cli pro classic-patch-external-sources delete 1
 
   # Delete by name
-  jamf-cli classic-patch-external-sources delete --name "Example" --yes
+  jamf-cli pro classic-patch-external-sources delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-patch-external-sources delete 1 --yes`,
+  jamf-cli pro classic-patch-external-sources delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a patch_external_source from an XML file
-  jamf-cli classic-patch-external-sources apply --from-file patch_external_source.xml
+  jamf-cli pro classic-patch-external-sources apply --from-file patch_external_source.xml
 
   # Apply from stdin
-  cat patch_external_source.xml | jamf-cli classic-patch-external-sources apply
+  cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-patch-external-sources apply --from-file patch_external_source.xml --yes`,
+  jamf-cli pro classic-patch-external-sources apply --from-file patch_external_source.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

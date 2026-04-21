@@ -56,10 +56,10 @@ func newEnrollmentSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the configured LDAP groups configured for User-Initiated Enrollment.",
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
 		Example: `  # List all enrollment-settings
-  jamf-cli enrollment-settings list
+  jamf-cli pro enrollment-settings list
 
   # List enrollment-settings and extract IDs
-  jamf-cli enrollment-settings list --field id`,
+  jamf-cli pro enrollment-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,13 +182,13 @@ func newEnrollmentSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the configured LDAP groups configured for User-Initiated Enrollment",
 		Long:  "Retrieves the configured LDAP groups configured for User-Initiated Enrollment.",
 		Example: `  # Get a enrollment-setting by ID
-  jamf-cli enrollment-settings get 1
+  jamf-cli pro enrollment-settings get 1
 
   # Get a enrollment-setting by name
-  jamf-cli enrollment-settings get --name "Example"
+  jamf-cli pro enrollment-settings get --name "Example"
 
   # Get a enrollment-setting and output as YAML
-  jamf-cli enrollment-settings get 1 -o yaml`,
+  jamf-cli pro enrollment-settings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -243,13 +243,13 @@ func newEnrollmentSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Add the configured LDAP group for User-Initiated Enrollment.",
 		Long:  "Add the configured LDAP group for User-Initiated Enrollment.",
 		Example: `  # Show the JSON template for creating a enrollment-setting
-  jamf-cli enrollment-settings create --scaffold
+  jamf-cli pro enrollment-settings create --scaffold
 
   # Create a enrollment-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli enrollment-settings create
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-settings create
 
   # Get a enrollment-setting, modify it, and create a copy
-  jamf-cli enrollment-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli enrollment-settings create`,
+  jamf-cli pro enrollment-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -319,13 +319,13 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
 		Long:  "Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.",
 		Example: `  # Update a enrollment-setting from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-settings update 1
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-settings update 1
 
   # Update by name
-  jamf-cli enrollment-settings get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-settings update --name "Example"
+  jamf-cli pro enrollment-settings get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro enrollment-settings update --name "Example"
 
   # Get a enrollment-setting, modify, and update
-  jamf-cli enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-settings update 1`,
+  jamf-cli pro enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-settings update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -413,13 +413,13 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete an LDAP group's access to user initiated Enrollment.",
 		Long:  "Deletes an LDAP group's access to user initiated enrollment. The group \"All LDAP Users\" cannot be deleted, but it can be modified to disallow User-Initiated Enrollment.",
 		Example: `  # Delete a enrollment-setting (with confirmation)
-  jamf-cli enrollment-settings delete 1
+  jamf-cli pro enrollment-settings delete 1
 
   # Delete by name
-  jamf-cli enrollment-settings delete --name "Example" --yes
+  jamf-cli pro enrollment-settings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-settings delete 1 --yes`,
+  jamf-cli pro enrollment-settings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -528,7 +528,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get sorted and paged Enrollment history object",
 		Long:  "Gets sorted and paged Enrollment history object",
 		Example: `  # Get history for a enrollment-setting
-  jamf-cli enrollment-settings history 1`,
+  jamf-cli pro enrollment-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -959,19 +959,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a enrollment-setting from a JSON file
-  jamf-cli enrollment-settings apply --from-file enrollment-setting.json
+  jamf-cli pro enrollment-settings apply --from-file enrollment-setting.json
 
   # Apply a enrollment-setting from a YAML file
-  jamf-cli enrollment-settings apply --from-file enrollment-setting.yaml
+  jamf-cli pro enrollment-settings apply --from-file enrollment-setting.yaml
 
   # Apply from stdin
-  cat enrollment-setting.json | jamf-cli enrollment-settings apply
+  cat enrollment-setting.json | jamf-cli pro enrollment-settings apply
 
   # Apply without replacement confirmation
-  jamf-cli enrollment-settings apply --from-file enrollment-setting.json --yes
+  jamf-cli pro enrollment-settings apply --from-file enrollment-setting.json --yes
 
   # Preview what would happen
-  jamf-cli enrollment-settings apply --from-file enrollment-setting.json --dry-run`,
+  jamf-cli pro enrollment-settings apply --from-file enrollment-setting.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

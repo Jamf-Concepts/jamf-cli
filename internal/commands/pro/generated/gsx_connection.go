@@ -42,10 +42,10 @@ func newGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Finds the Jamf Pro GSX Connection information",
 		Long:  "Finds the Jamf Pro GSX Connection information",
 		Example: `  # Get gsx-connection
-  jamf-cli gsx-connection get
+  jamf-cli pro gsx-connection get
 
   # Get gsx-connection and output as YAML
-  jamf-cli gsx-connection get -o yaml`,
+  jamf-cli pro gsx-connection get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,10 +82,10 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Updates Jamf Pro GSX Connection information",
 		Long:  "Updates Jamf Pro GSX Connection information",
 		Example: `  # Update gsx-connection
-  jamf-cli gsx-connection get -o json | jq '.field = "value"' | jamf-cli gsx-connection update
+  jamf-cli pro gsx-connection get -o json | jq '.field = "value"' | jamf-cli pro gsx-connection update
 
   # Update from a file
-  jamf-cli gsx-connection update --from-file gsx-connection.json`,
+  jamf-cli pro gsx-connection update --from-file gsx-connection.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,7 +157,7 @@ func newGsxConnectionHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified GSX Connection History object",
 		Long:  "Gets specified GSX Connection history object",
 		Example: `  # Get history for a gsx-connection
-  jamf-cli gsx-connection history 1`,
+  jamf-cli pro gsx-connection history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -342,10 +342,10 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Updates Jamf Pro GSX Connection information",
 		Long:  "Updates Jamf Pro GSX Connection information\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  enabled                                      boolean\n  gsxKeystore.keystoreBytes                    string\n  gsxKeystore.keystorePassword                 string\n  gsxKeystore.name                             string\n  serviceAccountNo                             string\n  shipToNo                                     string\n  token                                        string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
-  jamf-cli gsx-connection patch --set field=value
+  jamf-cli pro gsx-connection patch --set field=value
 
   # Update using JSON
-  jamf-cli gsx-connection get -o json | jq '.field = "value"' | jamf-cli gsx-connection patch`,
+  jamf-cli pro gsx-connection get -o json | jq '.field = "value"' | jamf-cli pro gsx-connection patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

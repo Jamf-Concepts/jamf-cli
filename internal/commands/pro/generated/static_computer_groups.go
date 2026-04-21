@@ -51,10 +51,10 @@ func newStaticComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for Static Computer Groups",
 		Long:  "Search for Static Computer Groups",
 		Example: `  # List all static-computer-groups
-  jamf-cli static-computer-groups list
+  jamf-cli pro static-computer-groups list
 
   # List static-computer-groups and extract IDs
-  jamf-cli static-computer-groups list --field id`,
+  jamf-cli pro static-computer-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Static Computer Group by Id",
 		Long:  "Get Static Computer Group by Id",
 		Example: `  # Get a static-computer-group by ID
-  jamf-cli static-computer-groups get 1
+  jamf-cli pro static-computer-groups get 1
 
   # Get a static-computer-group by name
-  jamf-cli static-computer-groups get --name "Example"
+  jamf-cli pro static-computer-groups get --name "Example"
 
   # Get a static-computer-group and output as YAML
-  jamf-cli static-computer-groups get 1 -o yaml`,
+  jamf-cli pro static-computer-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -239,13 +239,13 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create membership of a static computer group.",
 		Long:  "Create membership of a static computer group.",
 		Example: `  # Show the JSON template for creating a static-computer-group
-  jamf-cli static-computer-groups create --scaffold
+  jamf-cli pro static-computer-groups create --scaffold
 
   # Create a static-computer-group from JSON
-  echo '{"name":"Example"}' | jamf-cli static-computer-groups create
+  echo '{"name":"Example"}' | jamf-cli pro static-computer-groups create
 
   # Get a static-computer-group, modify it, and create a copy
-  jamf-cli static-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli static-computer-groups create`,
+  jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro static-computer-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -315,13 +315,13 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update membership of a static computer group.",
 		Long:  "Update membership of a static computer group.",
 		Example: `  # Update a static-computer-group from JSON
-  echo '{"name":"Updated"}' | jamf-cli static-computer-groups update 1
+  echo '{"name":"Updated"}' | jamf-cli pro static-computer-groups update 1
 
   # Update by name
-  jamf-cli static-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli static-computer-groups update --name "Example"
+  jamf-cli pro static-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro static-computer-groups update --name "Example"
 
   # Get a static-computer-group, modify, and update
-  jamf-cli static-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli static-computer-groups update 1`,
+  jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro static-computer-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -405,13 +405,13 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove Static Computer Group by Id",
 		Long:  "Remove Static Computer Group by Id",
 		Example: `  # Delete a static-computer-group (with confirmation)
-  jamf-cli static-computer-groups delete 1
+  jamf-cli pro static-computer-groups delete 1
 
   # Delete by name
-  jamf-cli static-computer-groups delete --name "Example" --yes
+  jamf-cli pro static-computer-groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli static-computer-groups delete 1 --yes`,
+  jamf-cli pro static-computer-groups delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -523,19 +523,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a static-computer-group from a JSON file
-  jamf-cli static-computer-groups apply --from-file static-computer-group.json
+  jamf-cli pro static-computer-groups apply --from-file static-computer-group.json
 
   # Apply a static-computer-group from a YAML file
-  jamf-cli static-computer-groups apply --from-file static-computer-group.yaml
+  jamf-cli pro static-computer-groups apply --from-file static-computer-group.yaml
 
   # Apply from stdin
-  cat static-computer-group.json | jamf-cli static-computer-groups apply
+  cat static-computer-group.json | jamf-cli pro static-computer-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli static-computer-groups apply --from-file static-computer-group.json --yes
+  jamf-cli pro static-computer-groups apply --from-file static-computer-group.json --yes
 
   # Preview what would happen
-  jamf-cli static-computer-groups apply --from-file static-computer-group.json --dry-run`,
+  jamf-cli pro static-computer-groups apply --from-file static-computer-group.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

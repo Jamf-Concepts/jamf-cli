@@ -45,7 +45,7 @@ func newCloudIdPHistoriesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Cloud Identity Provider history",
 		Long:  "Gets specified Cloud Identity Provider object history",
 		Example: `  # Get history for a cloud-id-p-history
-  jamf-cli cloud-id-p-histories history 1`,
+  jamf-cli pro cloud-id-p-histories history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

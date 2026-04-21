@@ -54,10 +54,10 @@ func newSupervisionIdentitiesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for sorted and paged Supervision Identities",
 		Long:  "Search for sorted and paged supervision identities",
 		Example: `  # List all supervision-identities
-  jamf-cli supervision-identities list
+  jamf-cli pro supervision-identities list
 
   # List supervision-identities and extract IDs
-  jamf-cli supervision-identities list --field id`,
+  jamf-cli pro supervision-identities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,13 +182,13 @@ func newSupervisionIdentitiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Supervision Identity with the supplied id",
 		Long:  "Retrieves a Supervision Identity with the supplied id",
 		Example: `  # Get a supervision-identity by ID
-  jamf-cli supervision-identities get 1
+  jamf-cli pro supervision-identities get 1
 
   # Get a supervision-identity by name
-  jamf-cli supervision-identities get --name "Example"
+  jamf-cli pro supervision-identities get --name "Example"
 
   # Get a supervision-identity and output as YAML
-  jamf-cli supervision-identities get 1 -o yaml`,
+  jamf-cli pro supervision-identities get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -243,13 +243,13 @@ func newSupervisionIdentitiesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Create a Supervision Identity for the supplied information",
 		Long:  "Creates a Supervision Identity for the supplied information",
 		Example: `  # Show the JSON template for creating a supervision-identity
-  jamf-cli supervision-identities create --scaffold
+  jamf-cli pro supervision-identities create --scaffold
 
   # Create a supervision-identity from JSON
-  echo '{"name":"Example"}' | jamf-cli supervision-identities create
+  echo '{"name":"Example"}' | jamf-cli pro supervision-identities create
 
   # Get a supervision-identity, modify it, and create a copy
-  jamf-cli supervision-identities get 1 -o json | jq '.name = "Copy"' | jamf-cli supervision-identities create`,
+  jamf-cli pro supervision-identities get 1 -o json | jq '.name = "Copy"' | jamf-cli pro supervision-identities create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -313,13 +313,13 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Update a Supervision Identity with the supplied information",
 		Long:  "Updates a Supervision Identity with the supplied information",
 		Example: `  # Update a supervision-identity from JSON
-  echo '{"name":"Updated"}' | jamf-cli supervision-identities update 1
+  echo '{"name":"Updated"}' | jamf-cli pro supervision-identities update 1
 
   # Update by name
-  jamf-cli supervision-identities get --name "Example" -o json | jq '.field = "value"' | jamf-cli supervision-identities update --name "Example"
+  jamf-cli pro supervision-identities get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro supervision-identities update --name "Example"
 
   # Get a supervision-identity, modify, and update
-  jamf-cli supervision-identities get 1 -o json | jq '.name = "New Name"' | jamf-cli supervision-identities update 1`,
+  jamf-cli pro supervision-identities get 1 -o json | jq '.name = "New Name"' | jamf-cli pro supervision-identities update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -400,13 +400,13 @@ func newSupervisionIdentitiesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Delete a Supervision Identity with the supplied id",
 		Long:  "Deletes a Supervision Identity with the supplied id",
 		Example: `  # Delete a supervision-identity (with confirmation)
-  jamf-cli supervision-identities delete 1
+  jamf-cli pro supervision-identities delete 1
 
   # Delete by name
-  jamf-cli supervision-identities delete --name "Example" --yes
+  jamf-cli pro supervision-identities delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli supervision-identities delete 1 --yes`,
+  jamf-cli pro supervision-identities delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -655,19 +655,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a supervision-identity from a JSON file
-  jamf-cli supervision-identities apply --from-file supervision-identity.json
+  jamf-cli pro supervision-identities apply --from-file supervision-identity.json
 
   # Apply a supervision-identity from a YAML file
-  jamf-cli supervision-identities apply --from-file supervision-identity.yaml
+  jamf-cli pro supervision-identities apply --from-file supervision-identity.yaml
 
   # Apply from stdin
-  cat supervision-identity.json | jamf-cli supervision-identities apply
+  cat supervision-identity.json | jamf-cli pro supervision-identities apply
 
   # Apply without replacement confirmation
-  jamf-cli supervision-identities apply --from-file supervision-identity.json --yes
+  jamf-cli pro supervision-identities apply --from-file supervision-identity.json --yes
 
   # Preview what would happen
-  jamf-cli supervision-identities apply --from-file supervision-identity.json --dry-run`,
+  jamf-cli pro supervision-identities apply --from-file supervision-identity.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

@@ -51,10 +51,10 @@ func newClassicMobileAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all mobiledeviceapplications",
 		Example: `  # List all mobiledeviceapplications
-  jamf-cli classic-mobile-apps list
+  jamf-cli pro classic-mobile-apps list
 
   # List mobiledeviceapplications and extract IDs
-  jamf-cli classic-mobile-apps list --field id`,
+  jamf-cli pro classic-mobile-apps list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceapplications", nil)
@@ -104,13 +104,13 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a mobile_device_application by ID",
 		Example: `  # Get a mobile_device_application by ID
-  jamf-cli classic-mobile-apps get 1
+  jamf-cli pro classic-mobile-apps get 1
 
   # Get a mobile_device_application by name
-  jamf-cli classic-mobile-apps get --name "Example"
+  jamf-cli pro classic-mobile-apps get --name "Example"
 
   # Get a mobile_device_application and output as YAML
-  jamf-cli classic-mobile-apps get 1 -o yaml`,
+  jamf-cli pro classic-mobile-apps get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -170,7 +170,7 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a mobile_device_application",
 		Long:  "Create a new mobile_device_application. Reads XML body from stdin.",
 		Example: `  # Create a mobile_device_application from XML
-  cat mobile_device_application.xml | jamf-cli classic-mobile-apps create`,
+  cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -219,7 +219,7 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a mobile_device_application",
 		Long:  "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
 		Example: `  # Update a mobile_device_application from XML
-  cat mobile_device_application.xml | jamf-cli classic-mobile-apps update 1`,
+  cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -317,13 +317,13 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a mobile_device_application",
 		Example: `  # Delete a mobile_device_application (with confirmation)
-  jamf-cli classic-mobile-apps delete 1
+  jamf-cli pro classic-mobile-apps delete 1
 
   # Delete by name
-  jamf-cli classic-mobile-apps delete --name "Example" --yes
+  jamf-cli pro classic-mobile-apps delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-mobile-apps delete 1 --yes`,
+  jamf-cli pro classic-mobile-apps delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -408,13 +408,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile_device_application from an XML file
-  jamf-cli classic-mobile-apps apply --from-file mobile_device_application.xml
+  jamf-cli pro classic-mobile-apps apply --from-file mobile_device_application.xml
 
   # Apply from stdin
-  cat mobile_device_application.xml | jamf-cli classic-mobile-apps apply
+  cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-mobile-apps apply --from-file mobile_device_application.xml --yes`,
+  jamf-cli pro classic-mobile-apps apply --from-file mobile_device_application.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

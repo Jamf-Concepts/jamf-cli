@@ -34,10 +34,10 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *registry.CLIContext) *cob
 		Short: "Get all instance sync states for all Device Enrollment Instances",
 		Long:  "Get all instance sync states for all instances",
 		Example: `  # List all device-enrollment-instance-sync-states
-  jamf-cli device-enrollment-instance-sync-states list
+  jamf-cli pro device-enrollment-instance-sync-states list
 
   # List device-enrollment-instance-sync-states and extract IDs
-  jamf-cli device-enrollment-instance-sync-states list --field id`,
+  jamf-cli pro device-enrollment-instance-sync-states list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

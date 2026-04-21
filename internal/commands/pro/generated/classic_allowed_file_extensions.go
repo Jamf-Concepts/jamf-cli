@@ -40,10 +40,10 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "list",
 		Short: "List all allowedfileextensions",
 		Example: `  # List all allowedfileextensions
-  jamf-cli classic-allowed-file-extensions list
+  jamf-cli pro classic-allowed-file-extensions list
 
   # List allowedfileextensions and extract IDs
-  jamf-cli classic-allowed-file-extensions list --field id`,
+  jamf-cli pro classic-allowed-file-extensions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/allowedfileextensions", nil)
@@ -93,10 +93,10 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "get [<id>]",
 		Short: "Get a allowed_file_extension by ID",
 		Example: `  # Get a allowed_file_extension by ID
-  jamf-cli classic-allowed-file-extensions get 1
+  jamf-cli pro classic-allowed-file-extensions get 1
 
   # Get a allowed_file_extension and output as YAML
-  jamf-cli classic-allowed-file-extensions get 1 -o yaml`,
+  jamf-cli pro classic-allowed-file-extensions get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -153,7 +153,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Create a allowed_file_extension",
 		Long:  "Create a new allowed_file_extension. Reads XML body from stdin.",
 		Example: `  # Create a allowed_file_extension from XML
-  cat allowed_file_extension.xml | jamf-cli classic-allowed-file-extensions create`,
+  cat allowed_file_extension.xml | jamf-cli pro classic-allowed-file-extensions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,10 +188,10 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "delete <id>",
 		Short: "Delete a allowed_file_extension",
 		Example: `  # Delete a allowed_file_extension (with confirmation)
-  jamf-cli classic-allowed-file-extensions delete 1
+  jamf-cli pro classic-allowed-file-extensions delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-allowed-file-extensions delete 1 --yes`,
+  jamf-cli pro classic-allowed-file-extensions delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
