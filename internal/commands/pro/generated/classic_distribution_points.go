@@ -45,10 +45,10 @@ func newClassicDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "list",
 		Short: "List all distributionpoints",
 		Example: `  # List all distributionpoints
-  jamf-cli classic-distribution-points list
+  jamf-cli pro classic-distribution-points list
 
   # List distributionpoints and extract IDs
-  jamf-cli classic-distribution-points list --field id`,
+  jamf-cli pro classic-distribution-points list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/distributionpoints", nil)
@@ -98,13 +98,13 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "get [<id>]",
 		Short: "Get a distribution_point by ID",
 		Example: `  # Get a distribution_point by ID
-  jamf-cli classic-distribution-points get 1
+  jamf-cli pro classic-distribution-points get 1
 
   # Get a distribution_point by name
-  jamf-cli classic-distribution-points get --name "Example"
+  jamf-cli pro classic-distribution-points get --name "Example"
 
   # Get a distribution_point and output as YAML
-  jamf-cli classic-distribution-points get 1 -o yaml`,
+  jamf-cli pro classic-distribution-points get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Create a distribution_point",
 		Long:  "Create a new distribution_point. Reads XML body from stdin.",
 		Example: `  # Create a distribution_point from XML
-  cat distribution_point.xml | jamf-cli classic-distribution-points create`,
+  cat distribution_point.xml | jamf-cli pro classic-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Update a distribution_point",
 		Long:  "Update an existing distribution_point by ID. Reads XML body from stdin.",
 		Example: `  # Update a distribution_point from XML
-  cat distribution_point.xml | jamf-cli classic-distribution-points update 1`,
+  cat distribution_point.xml | jamf-cli pro classic-distribution-points update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "delete [<id>]",
 		Short: "Delete a distribution_point",
 		Example: `  # Delete a distribution_point (with confirmation)
-  jamf-cli classic-distribution-points delete 1
+  jamf-cli pro classic-distribution-points delete 1
 
   # Delete by name
-  jamf-cli classic-distribution-points delete --name "Example" --yes
+  jamf-cli pro classic-distribution-points delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-distribution-points delete 1 --yes`,
+  jamf-cli pro classic-distribution-points delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a distribution_point from an XML file
-  jamf-cli classic-distribution-points apply --from-file distribution_point.xml
+  jamf-cli pro classic-distribution-points apply --from-file distribution_point.xml
 
   # Apply from stdin
-  cat distribution_point.xml | jamf-cli classic-distribution-points apply
+  cat distribution_point.xml | jamf-cli pro classic-distribution-points apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-distribution-points apply --from-file distribution_point.xml --yes`,
+  jamf-cli pro classic-distribution-points apply --from-file distribution_point.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

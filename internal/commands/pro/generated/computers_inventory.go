@@ -58,10 +58,10 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return paginated Computer Inventory records",
 		Long:  "Return paginated Computer Inventory records",
 		Example: `  # List all computers-inventory
-  jamf-cli computers-inventory list
+  jamf-cli pro computers-inventory list
 
   # List computers-inventory and extract IDs
-  jamf-cli computers-inventory list --field id`,
+  jamf-cli pro computers-inventory list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -205,13 +205,13 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return General section of a Computer",
 		Long:  "Return General section of a Computer",
 		Example: `  # Get a computers-inventory by ID
-  jamf-cli computers-inventory get 1
+  jamf-cli pro computers-inventory get 1
 
   # Get a computers-inventory by name
-  jamf-cli computers-inventory get --name "Example"
+  jamf-cli pro computers-inventory get --name "Example"
 
   # Get a computers-inventory and output as YAML
-  jamf-cli computers-inventory get 1 -o yaml`,
+  jamf-cli pro computers-inventory get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -290,13 +290,13 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Computer Inventory record",
 		Long:  "Creates Computer Inventory record",
 		Example: `  # Show the JSON template for creating a computers-inventory
-  jamf-cli computers-inventory create --scaffold
+  jamf-cli pro computers-inventory create --scaffold
 
   # Create a computers-inventory from JSON
-  echo '{"name":"Example"}' | jamf-cli computers-inventory create
+  echo '{"name":"Example"}' | jamf-cli pro computers-inventory create
 
   # Get a computers-inventory, modify it, and create a copy
-  jamf-cli computers-inventory get 1 -o json | jq '.name = "Copy"' | jamf-cli computers-inventory create`,
+  jamf-cli pro computers-inventory get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computers-inventory create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -377,13 +377,13 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Computer record",
 		Long:  "Remove specified Computer record",
 		Example: `  # Delete a computers-inventory (with confirmation)
-  jamf-cli computers-inventory delete 1
+  jamf-cli pro computers-inventory delete 1
 
   # Delete by name
-  jamf-cli computers-inventory delete --name "Example" --yes
+  jamf-cli pro computers-inventory delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli computers-inventory delete 1 --yes`,
+  jamf-cli pro computers-inventory delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -518,22 +518,22 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specific fields on a computer",
 		Long:  "Update specific fields on a computer, then return the updated computer object.\n\nIdentify the resource by ID (positional arg), --name, --serial, --udid. Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  general.assetTag                             string\n  general.barcode1                             string\n  general.barcode2                             string\n  general.lastIpAddress                        string\n  general.managed                              boolean\n  general.name                                 string\n  general.siteId                               string\n  hardware.altMacAddress                       string\n  hardware.altNetworkAdapterType               string\n  hardware.macAddress                          string\n  hardware.networkAdapterType                  string\n  purchasing.appleCareId                       string\n  purchasing.leaseDate                         string\n  purchasing.leased                            boolean\n  purchasing.lifeExpectancy                    integer\n  purchasing.poDate                            string\n  purchasing.poNumber                          string\n  purchasing.purchasePrice                     string\n  purchasing.purchased                         boolean\n  purchasing.purchasingAccount                 string\n  purchasing.purchasingContact                 string\n  purchasing.vendor                            string\n  purchasing.warrantyDate                      string\n  udid                                         string\n  userAndLocation.buildingId                   string\n  userAndLocation.departmentId                 string\n  userAndLocation.email                        string\n  userAndLocation.phone                        string\n  userAndLocation.position                     string\n  userAndLocation.realname                     string\n  userAndLocation.room                         string\n  userAndLocation.username                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli computers-inventory patch 1 --set general.managed=true
+  jamf-cli pro computers-inventory patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli computers-inventory patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro computers-inventory patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli computers-inventory patch --name "Example" --set general.managed=true
+  jamf-cli pro computers-inventory patch --name "Example" --set general.managed=true
 
   # Update by serial
-  jamf-cli computers-inventory patch --serial <value> --set general.managed=true
+  jamf-cli pro computers-inventory patch --serial <value> --set general.managed=true
 
   # Update by udid
-  jamf-cli computers-inventory patch --udid <value> --set general.managed=true
+  jamf-cli pro computers-inventory patch --udid <value> --set general.managed=true
 
   # Patch from a file
-  jamf-cli computers-inventory patch 1 --from-file changes.json`,
+  jamf-cli pro computers-inventory patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1173,19 +1173,19 @@ The general.name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computers-inventory from a JSON file
-  jamf-cli computers-inventory apply --from-file computers-inventory.json
+  jamf-cli pro computers-inventory apply --from-file computers-inventory.json
 
   # Apply a computers-inventory from a YAML file
-  jamf-cli computers-inventory apply --from-file computers-inventory.yaml
+  jamf-cli pro computers-inventory apply --from-file computers-inventory.yaml
 
   # Apply from stdin
-  cat computers-inventory.json | jamf-cli computers-inventory apply
+  cat computers-inventory.json | jamf-cli pro computers-inventory apply
 
   # Apply without replacement confirmation
-  jamf-cli computers-inventory apply --from-file computers-inventory.json --yes
+  jamf-cli pro computers-inventory apply --from-file computers-inventory.json --yes
 
   # Preview what would happen
-  jamf-cli computers-inventory apply --from-file computers-inventory.json --dry-run`,
+  jamf-cli pro computers-inventory apply --from-file computers-inventory.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

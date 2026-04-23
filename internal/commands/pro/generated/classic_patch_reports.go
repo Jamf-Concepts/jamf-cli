@@ -32,10 +32,10 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a patch_report by ID",
 		Example: `  # Get a patch_report by ID
-  jamf-cli classic-patch-reports get 1
+  jamf-cli pro classic-patch-reports get 1
 
   # Get a patch_report and output as YAML
-  jamf-cli classic-patch-reports get 1 -o yaml`,
+  jamf-cli pro classic-patch-reports get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

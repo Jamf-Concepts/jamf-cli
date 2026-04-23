@@ -30,10 +30,10 @@ func newOauthTokenSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the access token and user information for the current session.",
 		Long:  "Retrieve the access token and user information for the current session.",
 		Example: `  # List all oauth-token-sessions
-  jamf-cli oauth-token-sessions list
+  jamf-cli pro oauth-token-sessions list
 
   # List oauth-token-sessions and extract IDs
-  jamf-cli oauth-token-sessions list --field id`,
+  jamf-cli pro oauth-token-sessions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

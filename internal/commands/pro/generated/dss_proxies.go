@@ -31,10 +31,10 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve an existing declaration",
 		Long:  "Retrieves a stored declaration based on the provided declaration id",
 		Example: `  # Get a dss-proxy by ID
-  jamf-cli dss-proxies get 1
+  jamf-cli pro dss-proxies get 1
 
   # Get a dss-proxy and output as YAML
-  jamf-cli dss-proxies get 1 -o yaml`,
+  jamf-cli pro dss-proxies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

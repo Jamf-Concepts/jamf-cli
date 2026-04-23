@@ -48,10 +48,10 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update settings for LAPS.",
 		Long:  "Update settings for LAPS.",
 		Example: `  # Update local-admin-passwords
-  jamf-cli local-admin-passwords get -o json | jq '.field = "value"' | jamf-cli local-admin-passwords update
+  jamf-cli pro local-admin-passwords get -o json | jq '.field = "value"' | jamf-cli pro local-admin-passwords update
 
   # Update from a file
-  jamf-cli local-admin-passwords update --from-file local-admin-passwords.json`,
+  jamf-cli pro local-admin-passwords update --from-file local-admin-passwords.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -114,7 +114,7 @@ func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get LAPS password viewed history, and rotation history.",
 		Long:  "Get the full history of all local admin passwords for all accounts for a specific management ID. History will include password, who viewed the password and when it was viewed. This will include rotation history as well.",
 		Example: `  # Get history for a local-admin-password
-  jamf-cli local-admin-passwords history 1`,
+  jamf-cli pro local-admin-passwords history 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

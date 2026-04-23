@@ -45,10 +45,10 @@ func newClassicDirectoryBindingsListCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "list",
 		Short: "List all directorybindings",
 		Example: `  # List all directorybindings
-  jamf-cli classic-directory-bindings list
+  jamf-cli pro classic-directory-bindings list
 
   # List directorybindings and extract IDs
-  jamf-cli classic-directory-bindings list --field id`,
+  jamf-cli pro classic-directory-bindings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/directorybindings", nil)
@@ -98,13 +98,13 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "get [<id>]",
 		Short: "Get a directory_binding by ID",
 		Example: `  # Get a directory_binding by ID
-  jamf-cli classic-directory-bindings get 1
+  jamf-cli pro classic-directory-bindings get 1
 
   # Get a directory_binding by name
-  jamf-cli classic-directory-bindings get --name "Example"
+  jamf-cli pro classic-directory-bindings get --name "Example"
 
   # Get a directory_binding and output as YAML
-  jamf-cli classic-directory-bindings get 1 -o yaml`,
+  jamf-cli pro classic-directory-bindings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Create a directory_binding",
 		Long:  "Create a new directory_binding. Reads XML body from stdin.",
 		Example: `  # Create a directory_binding from XML
-  cat directory_binding.xml | jamf-cli classic-directory-bindings create`,
+  cat directory_binding.xml | jamf-cli pro classic-directory-bindings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Update a directory_binding",
 		Long:  "Update an existing directory_binding by ID. Reads XML body from stdin.",
 		Example: `  # Update a directory_binding from XML
-  cat directory_binding.xml | jamf-cli classic-directory-bindings update 1`,
+  cat directory_binding.xml | jamf-cli pro classic-directory-bindings update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "delete [<id>]",
 		Short: "Delete a directory_binding",
 		Example: `  # Delete a directory_binding (with confirmation)
-  jamf-cli classic-directory-bindings delete 1
+  jamf-cli pro classic-directory-bindings delete 1
 
   # Delete by name
-  jamf-cli classic-directory-bindings delete --name "Example" --yes
+  jamf-cli pro classic-directory-bindings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-directory-bindings delete 1 --yes`,
+  jamf-cli pro classic-directory-bindings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a directory_binding from an XML file
-  jamf-cli classic-directory-bindings apply --from-file directory_binding.xml
+  jamf-cli pro classic-directory-bindings apply --from-file directory_binding.xml
 
   # Apply from stdin
-  cat directory_binding.xml | jamf-cli classic-directory-bindings apply
+  cat directory_binding.xml | jamf-cli pro classic-directory-bindings apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-directory-bindings apply --from-file directory_binding.xml --yes`,
+  jamf-cli pro classic-directory-bindings apply --from-file directory_binding.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

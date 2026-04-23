@@ -42,10 +42,10 @@ func newAdvancedUserContentSearchesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Get All Advanced User Content Search objects",
 		Long:  "Get All Advanced User Content Search Objects",
 		Example: `  # List all advanced-user-content-searches
-  jamf-cli advanced-user-content-searches list
+  jamf-cli pro advanced-user-content-searches list
 
   # List advanced-user-content-searches and extract IDs
-  jamf-cli advanced-user-content-searches list --field id`,
+  jamf-cli pro advanced-user-content-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,13 +82,13 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
 		Example: `  # Get a advanced-user-content-searche by ID
-  jamf-cli advanced-user-content-searches get 1
+  jamf-cli pro advanced-user-content-searches get 1
 
   # Get a advanced-user-content-searche by name
-  jamf-cli advanced-user-content-searches get --name "Example"
+  jamf-cli pro advanced-user-content-searches get --name "Example"
 
   # Get a advanced-user-content-searche and output as YAML
-  jamf-cli advanced-user-content-searches get 1 -o yaml`,
+  jamf-cli pro advanced-user-content-searches get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -143,13 +143,13 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Create Advanced User Content Search object",
 		Long:  "Creates Advanced User Content Search Object",
 		Example: `  # Show the JSON template for creating a advanced-user-content-searche
-  jamf-cli advanced-user-content-searches create --scaffold
+  jamf-cli pro advanced-user-content-searches create --scaffold
 
   # Create a advanced-user-content-searche from JSON
-  echo '{"name":"Example"}' | jamf-cli advanced-user-content-searches create
+  echo '{"name":"Example"}' | jamf-cli pro advanced-user-content-searches create
 
   # Get a advanced-user-content-searche, modify it, and create a copy
-  jamf-cli advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli advanced-user-content-searches create`,
+  jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli pro advanced-user-content-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -218,13 +218,13 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Get Specified Advanced User Content Search object",
 		Long:  "Gets Specified Advanced User Content Search Object",
 		Example: `  # Update a advanced-user-content-searche from JSON
-  echo '{"name":"Updated"}' | jamf-cli advanced-user-content-searches update 1
+  echo '{"name":"Updated"}' | jamf-cli pro advanced-user-content-searches update 1
 
   # Update by name
-  jamf-cli advanced-user-content-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli advanced-user-content-searches update --name "Example"
+  jamf-cli pro advanced-user-content-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro advanced-user-content-searches update --name "Example"
 
   # Get a advanced-user-content-searche, modify, and update
-  jamf-cli advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli advanced-user-content-searches update 1`,
+  jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli pro advanced-user-content-searches update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -311,13 +311,13 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Remove specified Advanced User Content Search object",
 		Long:  "Removes specified Advanced User Content Search Object",
 		Example: `  # Delete a advanced-user-content-searche (with confirmation)
-  jamf-cli advanced-user-content-searches delete 1
+  jamf-cli pro advanced-user-content-searches delete 1
 
   # Delete by name
-  jamf-cli advanced-user-content-searches delete --name "Example" --yes
+  jamf-cli pro advanced-user-content-searches delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli advanced-user-content-searches delete 1 --yes`,
+  jamf-cli pro advanced-user-content-searches delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -429,19 +429,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a advanced-user-content-searche from a JSON file
-  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json
+  jamf-cli pro advanced-user-content-searches apply --from-file advanced-user-content-searche.json
 
   # Apply a advanced-user-content-searche from a YAML file
-  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.yaml
+  jamf-cli pro advanced-user-content-searches apply --from-file advanced-user-content-searche.yaml
 
   # Apply from stdin
-  cat advanced-user-content-searche.json | jamf-cli advanced-user-content-searches apply
+  cat advanced-user-content-searche.json | jamf-cli pro advanced-user-content-searches apply
 
   # Apply without replacement confirmation
-  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json --yes
+  jamf-cli pro advanced-user-content-searches apply --from-file advanced-user-content-searche.json --yes
 
   # Preview what would happen
-  jamf-cli advanced-user-content-searches apply --from-file advanced-user-content-searche.json --dry-run`,
+  jamf-cli pro advanced-user-content-searches apply --from-file advanced-user-content-searche.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

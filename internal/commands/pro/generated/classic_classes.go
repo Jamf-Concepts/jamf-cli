@@ -45,10 +45,10 @@ func newClassicClassesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all classes",
 		Example: `  # List all classes
-  jamf-cli classic-classes list
+  jamf-cli pro classic-classes list
 
   # List classes and extract IDs
-  jamf-cli classic-classes list --field id`,
+  jamf-cli pro classic-classes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/classes", nil)
@@ -98,13 +98,13 @@ func newClassicClassesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a class by ID",
 		Example: `  # Get a class by ID
-  jamf-cli classic-classes get 1
+  jamf-cli pro classic-classes get 1
 
   # Get a class by name
-  jamf-cli classic-classes get --name "Example"
+  jamf-cli pro classic-classes get --name "Example"
 
   # Get a class and output as YAML
-  jamf-cli classic-classes get 1 -o yaml`,
+  jamf-cli pro classic-classes get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a class",
 		Long:  "Create a new class. Reads XML body from stdin.",
 		Example: `  # Create a class from XML
-  cat class.xml | jamf-cli classic-classes create`,
+  cat class.xml | jamf-cli pro classic-classes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a class",
 		Long:  "Update an existing class by ID. Reads XML body from stdin.",
 		Example: `  # Update a class from XML
-  cat class.xml | jamf-cli classic-classes update 1`,
+  cat class.xml | jamf-cli pro classic-classes update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicClassesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a class",
 		Example: `  # Delete a class (with confirmation)
-  jamf-cli classic-classes delete 1
+  jamf-cli pro classic-classes delete 1
 
   # Delete by name
-  jamf-cli classic-classes delete --name "Example" --yes
+  jamf-cli pro classic-classes delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-classes delete 1 --yes`,
+  jamf-cli pro classic-classes delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a class from an XML file
-  jamf-cli classic-classes apply --from-file class.xml
+  jamf-cli pro classic-classes apply --from-file class.xml
 
   # Apply from stdin
-  cat class.xml | jamf-cli classic-classes apply
+  cat class.xml | jamf-cli pro classic-classes apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-classes apply --from-file class.xml --yes`,
+  jamf-cli pro classic-classes apply --from-file class.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

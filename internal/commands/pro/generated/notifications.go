@@ -36,10 +36,10 @@ func newNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Notifications for user and site",
 		Long:  "Gets notifications for user and site",
 		Example: `  # List all notifications
-  jamf-cli notifications list
+  jamf-cli pro notifications list
 
   # List notifications and extract IDs
-  jamf-cli notifications list --field id`,
+  jamf-cli pro notifications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -78,10 +78,10 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
 		Example: `  # Delete a notification (with confirmation)
-  jamf-cli notifications delete 1 2
+  jamf-cli pro notifications delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli notifications delete 1 2 --yes`,
+  jamf-cli pro notifications delete 1 2 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

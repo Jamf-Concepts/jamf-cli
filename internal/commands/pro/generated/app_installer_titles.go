@@ -40,10 +40,10 @@ func newAppInstallerTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get all available App Installer titles",
 		Long:  "Retrieves all available App Installer titles from the Jamf App Catalog with pagination support",
 		Example: `  # List all app-installer-titles
-  jamf-cli app-installer-titles list
+  jamf-cli pro app-installer-titles list
 
   # List app-installer-titles and extract IDs
-  jamf-cli app-installer-titles list --field id`,
+  jamf-cli pro app-installer-titles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -156,13 +156,13 @@ func newAppInstallerTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get an App Installer title by ID",
 		Long:  "Retrieves a specific App Installer title from the catalog",
 		Example: `  # Get a app-installer-title by ID
-  jamf-cli app-installer-titles get 1
+  jamf-cli pro app-installer-titles get 1
 
   # Get a app-installer-title by name
-  jamf-cli app-installer-titles get --name "Example"
+  jamf-cli pro app-installer-titles get --name "Example"
 
   # Get a app-installer-title and output as YAML
-  jamf-cli app-installer-titles get 1 -o yaml`,
+  jamf-cli pro app-installer-titles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

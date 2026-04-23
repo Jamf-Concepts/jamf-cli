@@ -53,10 +53,10 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Retrieve Mobile Device Extension Attributes.",
 		Long:  "Retrieves all mobile device extension attributes configuration.",
 		Example: `  # List all mobile-device-extension-attributes
-  jamf-cli mobile-device-extension-attributes list
+  jamf-cli pro mobile-device-extension-attributes list
 
   # List mobile-device-extension-attributes and extract IDs
-  jamf-cli mobile-device-extension-attributes list --field id`,
+  jamf-cli pro mobile-device-extension-attributes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,13 +179,13 @@ func newMobileDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get specified Mobile Device Extension Attribute object.",
 		Long:  "Gets specified Mobile Device Extension Attribute object.",
 		Example: `  # Get a mobile-device-extension-attribute by ID
-  jamf-cli mobile-device-extension-attributes get 1
+  jamf-cli pro mobile-device-extension-attributes get 1
 
   # Get a mobile-device-extension-attribute by name
-  jamf-cli mobile-device-extension-attributes get --name "Example"
+  jamf-cli pro mobile-device-extension-attributes get --name "Example"
 
   # Get a mobile-device-extension-attribute and output as YAML
-  jamf-cli mobile-device-extension-attributes get 1 -o yaml`,
+  jamf-cli pro mobile-device-extension-attributes get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -240,13 +240,13 @@ func newMobileDeviceExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Create Mobile Device Extension Attribute.",
 		Long:  "Create Mobile Device Extension Attribute to collect extra inventory information.",
 		Example: `  # Show the JSON template for creating a mobile-device-extension-attribute
-  jamf-cli mobile-device-extension-attributes create --scaffold
+  jamf-cli pro mobile-device-extension-attributes create --scaffold
 
   # Create a mobile-device-extension-attribute from JSON
-  echo '{"name":"Example"}' | jamf-cli mobile-device-extension-attributes create
+  echo '{"name":"Example"}' | jamf-cli pro mobile-device-extension-attributes create
 
   # Get a mobile-device-extension-attribute, modify it, and create a copy
-  jamf-cli mobile-device-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-extension-attributes create`,
+  jamf-cli pro mobile-device-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-extension-attributes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -319,13 +319,13 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Update specified Mobile Device Extension Attribute object.",
 		Long:  "Update specified Mobile Device Extension Attribute object.",
 		Example: `  # Update a mobile-device-extension-attribute from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-extension-attributes update 1
+  echo '{"name":"Updated"}' | jamf-cli pro mobile-device-extension-attributes update 1
 
   # Update by name
-  jamf-cli mobile-device-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli mobile-device-extension-attributes update --name "Example"
+  jamf-cli pro mobile-device-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro mobile-device-extension-attributes update --name "Example"
 
   # Get a mobile-device-extension-attribute, modify, and update
-  jamf-cli mobile-device-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-extension-attributes update 1`,
+  jamf-cli pro mobile-device-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-extension-attributes update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -416,13 +416,13 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 		Short: "Delete a Mobile Device Extension Attribute by ID.",
 		Long:  "Deletes the Mobile Device Extension Attribute identified by the provided ID.<\\br> In addition to removing the attribute itself, this operation will also delete any related dependent data, including:<\\br>   - Associated popup menu choices.<\\br>   - Fields used in saved search displays.<\\br>   - User preferences that reference the attribute.",
 		Example: `  # Delete a mobile-device-extension-attribute (with confirmation)
-  jamf-cli mobile-device-extension-attributes delete 1
+  jamf-cli pro mobile-device-extension-attributes delete 1
 
   # Delete by name
-  jamf-cli mobile-device-extension-attributes delete --name "Example" --yes
+  jamf-cli pro mobile-device-extension-attributes delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-extension-attributes delete 1 --yes`,
+  jamf-cli pro mobile-device-extension-attributes delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -533,10 +533,10 @@ func newMobileDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cob
 		Short: "Get specified Mobile Device Extension Attribute History object",
 		Long:  "Get specified Mobile Device Extension Attribute history object",
 		Example: `  # Get history for a mobile-device-extension-attribute by ID
-  jamf-cli mobile-device-extension-attributes history 1
+  jamf-cli pro mobile-device-extension-attributes history 1
 
   # Get history by name
-  jamf-cli mobile-device-extension-attributes history --name "Example"`,
+  jamf-cli pro mobile-device-extension-attributes history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -815,19 +815,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile-device-extension-attribute from a JSON file
-  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json
+  jamf-cli pro mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json
 
   # Apply a mobile-device-extension-attribute from a YAML file
-  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.yaml
+  jamf-cli pro mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.yaml
 
   # Apply from stdin
-  cat mobile-device-extension-attribute.json | jamf-cli mobile-device-extension-attributes apply
+  cat mobile-device-extension-attribute.json | jamf-cli pro mobile-device-extension-attributes apply
 
   # Apply without replacement confirmation
-  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --yes
+  jamf-cli pro mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --yes
 
   # Preview what would happen
-  jamf-cli mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --dry-run`,
+  jamf-cli pro mobile-device-extension-attributes apply --from-file mobile-device-extension-attribute.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

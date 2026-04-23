@@ -49,10 +49,10 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve Patch Policies",
 		Long:  "Retrieves a list of patch policies.",
 		Example: `  # List all patch-policies
-  jamf-cli patch-policies list
+  jamf-cli pro patch-policies list
 
   # List patch-policies and extract IDs
-  jamf-cli patch-policies list --field id`,
+  jamf-cli pro patch-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove a patch policy from the dashboard",
 		Long:  "Removes a patch policy from the dashboard.",
 		Example: `  # Delete a patch-policy (with confirmation)
-  jamf-cli patch-policies delete 1
+  jamf-cli pro patch-policies delete 1
 
   # Delete by name
-  jamf-cli patch-policies delete --name "Example" --yes
+  jamf-cli pro patch-policies delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli patch-policies delete 1 --yes`,
+  jamf-cli pro patch-policies delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

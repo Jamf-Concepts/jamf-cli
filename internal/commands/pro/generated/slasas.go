@@ -35,10 +35,10 @@ func newSlasasListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the status of SLASA",
 		Long:  "Get if SLASA has been accepted or not",
 		Example: `  # List all slasas
-  jamf-cli slasas list
+  jamf-cli pro slasas list
 
   # List slasas and extract IDs
-  jamf-cli slasas list --field id`,
+  jamf-cli pro slasas list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

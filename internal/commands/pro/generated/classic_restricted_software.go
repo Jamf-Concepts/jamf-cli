@@ -51,10 +51,10 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "list",
 		Short: "List all restrictedsoftware",
 		Example: `  # List all restrictedsoftware
-  jamf-cli classic-restricted-software list
+  jamf-cli pro classic-restricted-software list
 
   # List restrictedsoftware and extract IDs
-  jamf-cli classic-restricted-software list --field id`,
+  jamf-cli pro classic-restricted-software list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/restrictedsoftware", nil)
@@ -104,13 +104,13 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "get [<id>]",
 		Short: "Get a restricted_software by ID",
 		Example: `  # Get a restricted_software by ID
-  jamf-cli classic-restricted-software get 1
+  jamf-cli pro classic-restricted-software get 1
 
   # Get a restricted_software by name
-  jamf-cli classic-restricted-software get --name "Example"
+  jamf-cli pro classic-restricted-software get --name "Example"
 
   # Get a restricted_software and output as YAML
-  jamf-cli classic-restricted-software get 1 -o yaml`,
+  jamf-cli pro classic-restricted-software get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -167,7 +167,7 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Create a restricted_software",
 		Long:  "Create a new restricted_software. Reads XML body from stdin.",
 		Example: `  # Create a restricted_software from XML
-  cat restricted_software.xml | jamf-cli classic-restricted-software create`,
+  cat restricted_software.xml | jamf-cli pro classic-restricted-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -200,7 +200,7 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Update a restricted_software",
 		Long:  "Update an existing restricted_software by ID. Reads XML body from stdin.",
 		Example: `  # Update a restricted_software from XML
-  cat restricted_software.xml | jamf-cli classic-restricted-software update 1`,
+  cat restricted_software.xml | jamf-cli pro classic-restricted-software update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -248,13 +248,13 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "delete [<id>]",
 		Short: "Delete a restricted_software",
 		Example: `  # Delete a restricted_software (with confirmation)
-  jamf-cli classic-restricted-software delete 1
+  jamf-cli pro classic-restricted-software delete 1
 
   # Delete by name
-  jamf-cli classic-restricted-software delete --name "Example" --yes
+  jamf-cli pro classic-restricted-software delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-restricted-software delete 1 --yes`,
+  jamf-cli pro classic-restricted-software delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -337,13 +337,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a restricted_software from an XML file
-  jamf-cli classic-restricted-software apply --from-file restricted_software.xml
+  jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml
 
   # Apply from stdin
-  cat restricted_software.xml | jamf-cli classic-restricted-software apply
+  cat restricted_software.xml | jamf-cli pro classic-restricted-software apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-restricted-software apply --from-file restricted_software.xml --yes`,
+  jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

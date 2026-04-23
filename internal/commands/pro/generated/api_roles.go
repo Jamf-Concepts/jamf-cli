@@ -50,10 +50,10 @@ func newApiRolesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the current Jamf API Roles",
 		Long:  "Get roles with Search Criteria",
 		Example: `  # List all api-roles
-  jamf-cli api-roles list
+  jamf-cli pro api-roles list
 
   # List api-roles and extract IDs
-  jamf-cli api-roles list --field id`,
+  jamf-cli pro api-roles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -176,13 +176,13 @@ func newApiRolesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the specific Jamf API Role",
 		Long:  "Get specific Role",
 		Example: `  # Get a api-role by ID
-  jamf-cli api-roles get 1
+  jamf-cli pro api-roles get 1
 
   # Get a api-role by name
-  jamf-cli api-roles get --name "Example"
+  jamf-cli pro api-roles get --name "Example"
 
   # Get a api-role and output as YAML
-  jamf-cli api-roles get 1 -o yaml`,
+  jamf-cli pro api-roles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -237,13 +237,13 @@ func newApiRolesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a new API role",
 		Long:  "Post to create new Role",
 		Example: `  # Show the JSON template for creating a api-role
-  jamf-cli api-roles create --scaffold
+  jamf-cli pro api-roles create --scaffold
 
   # Create a api-role from JSON
-  echo '{"name":"Example"}' | jamf-cli api-roles create
+  echo '{"name":"Example"}' | jamf-cli pro api-roles create
 
   # Get a api-role, modify it, and create a copy
-  jamf-cli api-roles get 1 -o json | jq '.name = "Copy"' | jamf-cli api-roles create`,
+  jamf-cli pro api-roles get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-roles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -307,13 +307,13 @@ func newApiRolesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update API Integrations Role",
 		Long:  "Update specific Role",
 		Example: `  # Update a api-role from JSON
-  echo '{"name":"Updated"}' | jamf-cli api-roles update 1
+  echo '{"name":"Updated"}' | jamf-cli pro api-roles update 1
 
   # Update by name
-  jamf-cli api-roles get --name "Example" -o json | jq '.field = "value"' | jamf-cli api-roles update --name "Example"
+  jamf-cli pro api-roles get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro api-roles update --name "Example"
 
   # Get a api-role, modify, and update
-  jamf-cli api-roles get 1 -o json | jq '.name = "New Name"' | jamf-cli api-roles update 1`,
+  jamf-cli pro api-roles get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-roles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -395,13 +395,13 @@ func newApiRolesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete API Integrations Role",
 		Long:  "Delete specific Role",
 		Example: `  # Delete a api-role (with confirmation)
-  jamf-cli api-roles delete 1
+  jamf-cli pro api-roles delete 1
 
   # Delete by name
-  jamf-cli api-roles delete --name "Example" --yes
+  jamf-cli pro api-roles delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli api-roles delete 1 --yes`,
+  jamf-cli pro api-roles delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -513,19 +513,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a api-role from a JSON file
-  jamf-cli api-roles apply --from-file api-role.json
+  jamf-cli pro api-roles apply --from-file api-role.json
 
   # Apply a api-role from a YAML file
-  jamf-cli api-roles apply --from-file api-role.yaml
+  jamf-cli pro api-roles apply --from-file api-role.yaml
 
   # Apply from stdin
-  cat api-role.json | jamf-cli api-roles apply
+  cat api-role.json | jamf-cli pro api-roles apply
 
   # Apply without replacement confirmation
-  jamf-cli api-roles apply --from-file api-role.json --yes
+  jamf-cli pro api-roles apply --from-file api-role.json --yes
 
   # Preview what would happen
-  jamf-cli api-roles apply --from-file api-role.json --dry-run`,
+  jamf-cli pro api-roles apply --from-file api-role.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

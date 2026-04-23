@@ -48,10 +48,10 @@ func newUserAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get user accounts",
 		Long:  "Get all user accounts with pagination, sorting, and filtering support.",
 		Example: `  # List all user-accounts
-  jamf-cli user-accounts list
+  jamf-cli pro user-accounts list
 
   # List user-accounts and extract IDs
-  jamf-cli user-accounts list --field id`,
+  jamf-cli pro user-accounts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -174,13 +174,13 @@ func newUserAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Gets the user account.",
 		Long:  "Gets the user account for the given id.",
 		Example: `  # Get a user-account by ID
-  jamf-cli user-accounts get 1
+  jamf-cli pro user-accounts get 1
 
   # Get a user-account by name
-  jamf-cli user-accounts get --name "Example"
+  jamf-cli pro user-accounts get --name "Example"
 
   # Get a user-account and output as YAML
-  jamf-cli user-accounts get 1 -o yaml`,
+  jamf-cli pro user-accounts get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -235,13 +235,13 @@ func newUserAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Adds new account.",
 		Long:  "Adds the user account provided.",
 		Example: `  # Show the JSON template for creating a user-account
-  jamf-cli user-accounts create --scaffold
+  jamf-cli pro user-accounts create --scaffold
 
   # Create a user-account from JSON
-  echo '{"name":"Example"}' | jamf-cli user-accounts create
+  echo '{"name":"Example"}' | jamf-cli pro user-accounts create
 
   # Get a user-account, modify it, and create a copy
-  jamf-cli user-accounts get 1 -o json | jq '.name = "Copy"' | jamf-cli user-accounts create`,
+  jamf-cli pro user-accounts get 1 -o json | jq '.name = "Copy"' | jamf-cli pro user-accounts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -317,13 +317,13 @@ func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Deletes the user account.",
 		Long:  "Deletes the user account for the given id.",
 		Example: `  # Delete a user-account (with confirmation)
-  jamf-cli user-accounts delete 1
+  jamf-cli pro user-accounts delete 1
 
   # Delete by name
-  jamf-cli user-accounts delete --name "Example" --yes
+  jamf-cli pro user-accounts delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli user-accounts delete 1 --yes`,
+  jamf-cli pro user-accounts delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -45,10 +45,10 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "list",
 		Short: "List all diskencryptionconfigurations",
 		Example: `  # List all diskencryptionconfigurations
-  jamf-cli classic-disk-encryption-configs list
+  jamf-cli pro classic-disk-encryption-configs list
 
   # List diskencryptionconfigurations and extract IDs
-  jamf-cli classic-disk-encryption-configs list --field id`,
+  jamf-cli pro classic-disk-encryption-configs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/diskencryptionconfigurations", nil)
@@ -98,13 +98,13 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "get [<id>]",
 		Short: "Get a disk_encryption_configuration by ID",
 		Example: `  # Get a disk_encryption_configuration by ID
-  jamf-cli classic-disk-encryption-configs get 1
+  jamf-cli pro classic-disk-encryption-configs get 1
 
   # Get a disk_encryption_configuration by name
-  jamf-cli classic-disk-encryption-configs get --name "Example"
+  jamf-cli pro classic-disk-encryption-configs get --name "Example"
 
   # Get a disk_encryption_configuration and output as YAML
-  jamf-cli classic-disk-encryption-configs get 1 -o yaml`,
+  jamf-cli pro classic-disk-encryption-configs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Create a disk_encryption_configuration",
 		Long:  "Create a new disk_encryption_configuration. Reads XML body from stdin.",
 		Example: `  # Create a disk_encryption_configuration from XML
-  cat disk_encryption_configuration.xml | jamf-cli classic-disk-encryption-configs create`,
+  cat disk_encryption_configuration.xml | jamf-cli pro classic-disk-encryption-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Update a disk_encryption_configuration",
 		Long:  "Update an existing disk_encryption_configuration by ID. Reads XML body from stdin.",
 		Example: `  # Update a disk_encryption_configuration from XML
-  cat disk_encryption_configuration.xml | jamf-cli classic-disk-encryption-configs update 1`,
+  cat disk_encryption_configuration.xml | jamf-cli pro classic-disk-encryption-configs update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "delete [<id>]",
 		Short: "Delete a disk_encryption_configuration",
 		Example: `  # Delete a disk_encryption_configuration (with confirmation)
-  jamf-cli classic-disk-encryption-configs delete 1
+  jamf-cli pro classic-disk-encryption-configs delete 1
 
   # Delete by name
-  jamf-cli classic-disk-encryption-configs delete --name "Example" --yes
+  jamf-cli pro classic-disk-encryption-configs delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-disk-encryption-configs delete 1 --yes`,
+  jamf-cli pro classic-disk-encryption-configs delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a disk_encryption_configuration from an XML file
-  jamf-cli classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml
+  jamf-cli pro classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml
 
   # Apply from stdin
-  cat disk_encryption_configuration.xml | jamf-cli classic-disk-encryption-configs apply
+  cat disk_encryption_configuration.xml | jamf-cli pro classic-disk-encryption-configs apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml --yes`,
+  jamf-cli pro classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

@@ -33,10 +33,10 @@ func newClassicPatchInternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "list",
 		Short: "List all patchinternalsources",
 		Example: `  # List all patchinternalsources
-  jamf-cli classic-patch-internal-sources list
+  jamf-cli pro classic-patch-internal-sources list
 
   # List patchinternalsources and extract IDs
-  jamf-cli classic-patch-internal-sources list --field id`,
+  jamf-cli pro classic-patch-internal-sources list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchinternalsources", nil)
@@ -86,13 +86,13 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "get [<id>]",
 		Short: "Get a patch_internal_source by ID",
 		Example: `  # Get a patch_internal_source by ID
-  jamf-cli classic-patch-internal-sources get 1
+  jamf-cli pro classic-patch-internal-sources get 1
 
   # Get a patch_internal_source by name
-  jamf-cli classic-patch-internal-sources get --name "Example"
+  jamf-cli pro classic-patch-internal-sources get --name "Example"
 
   # Get a patch_internal_source and output as YAML
-  jamf-cli classic-patch-internal-sources get 1 -o yaml`,
+  jamf-cli pro classic-patch-internal-sources get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -33,10 +33,10 @@ func newJamfPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the packages for a given Jamf application",
 		Long:  "Get the packages for a given Jamf application.",
 		Example: `  # List all jamf-packages
-  jamf-cli jamf-packages list
+  jamf-cli pro jamf-packages list
 
   # List jamf-packages and extract IDs
-  jamf-cli jamf-packages list --field id`,
+  jamf-cli pro jamf-packages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

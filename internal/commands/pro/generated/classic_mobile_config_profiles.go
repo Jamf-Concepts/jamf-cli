@@ -51,10 +51,10 @@ func newClassicMobileConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "list",
 		Short: "List all mobiledeviceconfigurationprofiles",
 		Example: `  # List all mobiledeviceconfigurationprofiles
-  jamf-cli classic-mobile-config-profiles list
+  jamf-cli pro classic-mobile-config-profiles list
 
   # List mobiledeviceconfigurationprofiles and extract IDs
-  jamf-cli classic-mobile-config-profiles list --field id`,
+  jamf-cli pro classic-mobile-config-profiles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceconfigurationprofiles", nil)
@@ -104,13 +104,13 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "get [<id>]",
 		Short: "Get a configuration_profile by ID",
 		Example: `  # Get a configuration_profile by ID
-  jamf-cli classic-mobile-config-profiles get 1
+  jamf-cli pro classic-mobile-config-profiles get 1
 
   # Get a configuration_profile by name
-  jamf-cli classic-mobile-config-profiles get --name "Example"
+  jamf-cli pro classic-mobile-config-profiles get --name "Example"
 
   # Get a configuration_profile and output as YAML
-  jamf-cli classic-mobile-config-profiles get 1 -o yaml`,
+  jamf-cli pro classic-mobile-config-profiles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -170,7 +170,7 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Create a configuration_profile",
 		Long:  "Create a new configuration_profile. Reads XML body from stdin.",
 		Example: `  # Create a configuration_profile from XML
-  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles create`,
+  cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -219,7 +219,7 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Update a configuration_profile",
 		Long:  "Update an existing configuration_profile by ID. Reads XML body from stdin.",
 		Example: `  # Update a configuration_profile from XML
-  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles update 1`,
+  cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -298,13 +298,13 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "delete [<id>]",
 		Short: "Delete a configuration_profile",
 		Example: `  # Delete a configuration_profile (with confirmation)
-  jamf-cli classic-mobile-config-profiles delete 1
+  jamf-cli pro classic-mobile-config-profiles delete 1
 
   # Delete by name
-  jamf-cli classic-mobile-config-profiles delete --name "Example" --yes
+  jamf-cli pro classic-mobile-config-profiles delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-mobile-config-profiles delete 1 --yes`,
+  jamf-cli pro classic-mobile-config-profiles delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -388,13 +388,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a configuration_profile from an XML file
-  jamf-cli classic-mobile-config-profiles apply --from-file configuration_profile.xml
+  jamf-cli pro classic-mobile-config-profiles apply --from-file configuration_profile.xml
 
   # Apply from stdin
-  cat configuration_profile.xml | jamf-cli classic-mobile-config-profiles apply
+  cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-mobile-config-profiles apply --from-file configuration_profile.xml --yes`,
+  jamf-cli pro classic-mobile-config-profiles apply --from-file configuration_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

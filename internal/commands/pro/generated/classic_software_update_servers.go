@@ -45,10 +45,10 @@ func newClassicSoftwareUpdateServersListCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "list",
 		Short: "List all softwareupdateservers",
 		Example: `  # List all softwareupdateservers
-  jamf-cli classic-software-update-servers list
+  jamf-cli pro classic-software-update-servers list
 
   # List softwareupdateservers and extract IDs
-  jamf-cli classic-software-update-servers list --field id`,
+  jamf-cli pro classic-software-update-servers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/softwareupdateservers", nil)
@@ -98,13 +98,13 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "get [<id>]",
 		Short: "Get a software_update_server by ID",
 		Example: `  # Get a software_update_server by ID
-  jamf-cli classic-software-update-servers get 1
+  jamf-cli pro classic-software-update-servers get 1
 
   # Get a software_update_server by name
-  jamf-cli classic-software-update-servers get --name "Example"
+  jamf-cli pro classic-software-update-servers get --name "Example"
 
   # Get a software_update_server and output as YAML
-  jamf-cli classic-software-update-servers get 1 -o yaml`,
+  jamf-cli pro classic-software-update-servers get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Create a software_update_server",
 		Long:  "Create a new software_update_server. Reads XML body from stdin.",
 		Example: `  # Create a software_update_server from XML
-  cat software_update_server.xml | jamf-cli classic-software-update-servers create`,
+  cat software_update_server.xml | jamf-cli pro classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Update a software_update_server",
 		Long:  "Update an existing software_update_server by ID. Reads XML body from stdin.",
 		Example: `  # Update a software_update_server from XML
-  cat software_update_server.xml | jamf-cli classic-software-update-servers update 1`,
+  cat software_update_server.xml | jamf-cli pro classic-software-update-servers update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "delete [<id>]",
 		Short: "Delete a software_update_server",
 		Example: `  # Delete a software_update_server (with confirmation)
-  jamf-cli classic-software-update-servers delete 1
+  jamf-cli pro classic-software-update-servers delete 1
 
   # Delete by name
-  jamf-cli classic-software-update-servers delete --name "Example" --yes
+  jamf-cli pro classic-software-update-servers delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-software-update-servers delete 1 --yes`,
+  jamf-cli pro classic-software-update-servers delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a software_update_server from an XML file
-  jamf-cli classic-software-update-servers apply --from-file software_update_server.xml
+  jamf-cli pro classic-software-update-servers apply --from-file software_update_server.xml
 
   # Apply from stdin
-  cat software_update_server.xml | jamf-cli classic-software-update-servers apply
+  cat software_update_server.xml | jamf-cli pro classic-software-update-servers apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-software-update-servers apply --from-file software_update_server.xml --yes`,
+  jamf-cli pro classic-software-update-servers apply --from-file software_update_server.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

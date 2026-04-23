@@ -50,13 +50,13 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Create cloud distribution point",
 		Long:  "Creates cloud distribution point. This operation is triggered when the content delivery network (CDN) settings change, specifically when the network type is updated from \"None\" to any other supported type. Upon successful creation,the API returns the updated details of the cloud distribution point.",
 		Example: `  # Show the JSON template for creating a cloud-distribution-point
-  jamf-cli cloud-distribution-points create --scaffold
+  jamf-cli pro cloud-distribution-points create --scaffold
 
   # Create a cloud-distribution-point from JSON
-  echo '{"name":"Example"}' | jamf-cli cloud-distribution-points create
+  echo '{"name":"Example"}' | jamf-cli pro cloud-distribution-points create
 
   # Get a cloud-distribution-point, modify it, and create a copy
-  jamf-cli cloud-distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli cloud-distribution-points create`,
+  jamf-cli pro cloud-distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -132,10 +132,10 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Delete cloud distribution point.",
 		Long:  "The cloud distribution point and inventory details to be deleted.",
 		Example: `  # Delete a cloud-distribution-point (with confirmation)
-  jamf-cli cloud-distribution-points delete 1
+  jamf-cli pro cloud-distribution-points delete 1
 
   # Delete without confirmation prompt
-  jamf-cli cloud-distribution-points delete 1 --yes`,
+  jamf-cli pro cloud-distribution-points delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -214,7 +214,7 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Get cloud distribution point history details",
 		Long:  "Get cloud distribution point history details",
 		Example: `  # Get history for a cloud-distribution-point
-  jamf-cli cloud-distribution-points history 1`,
+  jamf-cli pro cloud-distribution-points history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -432,10 +432,10 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Update specific fields on a cloud distribution point",
 		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
-  jamf-cli cloud-distribution-points patch --set field=value
+  jamf-cli pro cloud-distribution-points patch --set field=value
 
   # Update using JSON
-  jamf-cli cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli cloud-distribution-points patch`,
+  jamf-cli pro cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli pro cloud-distribution-points patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -38,10 +38,10 @@ func newAuthenticationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get all the Authorization details associated with the current api",
 		Long:  "Get all the authorization details associated with the current api token",
 		Example: `  # List all authentications
-  jamf-cli authentications list
+  jamf-cli pro authentications list
 
   # List authentications and extract IDs
-  jamf-cli authentications list --field id`,
+  jamf-cli pro authentications list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

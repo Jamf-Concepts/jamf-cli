@@ -42,10 +42,10 @@ func newEbooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Ebook object",
 		Long:  "Gets ebook object",
 		Example: `  # List all ebooks
-  jamf-cli ebooks list
+  jamf-cli pro ebooks list
 
   # List ebooks and extract IDs
-  jamf-cli ebooks list --field id`,
+  jamf-cli pro ebooks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,13 +164,13 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Ebook object",
 		Long:  "Gets specified Ebook object",
 		Example: `  # Get a ebook by ID
-  jamf-cli ebooks get 1
+  jamf-cli pro ebooks get 1
 
   # Get a ebook by name
-  jamf-cli ebooks get --name "Example"
+  jamf-cli pro ebooks get --name "Example"
 
   # Get a ebook and output as YAML
-  jamf-cli ebooks get 1 -o yaml`,
+  jamf-cli pro ebooks get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

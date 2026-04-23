@@ -44,10 +44,10 @@ func newAppRequestsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for Form Input Fields",
 		Long:  "Search for form input fields",
 		Example: `  # List all app-requests
-  jamf-cli app-requests list
+  jamf-cli pro app-requests list
 
   # List app-requests and extract IDs
-  jamf-cli app-requests list --field id`,
+  jamf-cli pro app-requests list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,13 +84,13 @@ func newAppRequestsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Form Input Field object",
 		Long:  "Gets specified form input field object",
 		Example: `  # Get a app-request by ID
-  jamf-cli app-requests get 1
+  jamf-cli pro app-requests get 1
 
   # Get a app-request by name
-  jamf-cli app-requests get --name "Example"
+  jamf-cli pro app-requests get --name "Example"
 
   # Get a app-request and output as YAML
-  jamf-cli app-requests get 1 -o yaml`,
+  jamf-cli pro app-requests get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -145,13 +145,13 @@ func newAppRequestsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Form Input Field record",
 		Long:  "Create form input field record",
 		Example: `  # Show the JSON template for creating a app-request
-  jamf-cli app-requests create --scaffold
+  jamf-cli pro app-requests create --scaffold
 
   # Create a app-request from JSON
-  echo '{"name":"Example"}' | jamf-cli app-requests create
+  echo '{"name":"Example"}' | jamf-cli pro app-requests create
 
   # Get a app-request, modify it, and create a copy
-  jamf-cli app-requests get 1 -o json | jq '.name = "Copy"' | jamf-cli app-requests create`,
+  jamf-cli pro app-requests get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-requests create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -213,10 +213,10 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Replace all Form Input Fields",
 		Long:  "Replace all form input fields. Will delete, update, and create all input fields accordingly.",
 		Example: `  # Update app-requests
-  jamf-cli app-requests get -o json | jq '.field = "value"' | jamf-cli app-requests update
+  jamf-cli pro app-requests get -o json | jq '.field = "value"' | jamf-cli pro app-requests update
 
   # Update from a file
-  jamf-cli app-requests update --from-file app-requests.json`,
+  jamf-cli pro app-requests update --from-file app-requests.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -272,13 +272,13 @@ func newAppRequestsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Form Input Field record",
 		Long:  "Removes specified form input field record",
 		Example: `  # Delete a app-request (with confirmation)
-  jamf-cli app-requests delete 1
+  jamf-cli pro app-requests delete 1
 
   # Delete by name
-  jamf-cli app-requests delete --name "Example" --yes
+  jamf-cli pro app-requests delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli app-requests delete 1 --yes`,
+  jamf-cli pro app-requests delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -486,19 +486,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a app-request from a JSON file
-  jamf-cli app-requests apply --from-file app-request.json
+  jamf-cli pro app-requests apply --from-file app-request.json
 
   # Apply a app-request from a YAML file
-  jamf-cli app-requests apply --from-file app-request.yaml
+  jamf-cli pro app-requests apply --from-file app-request.yaml
 
   # Apply from stdin
-  cat app-request.json | jamf-cli app-requests apply
+  cat app-request.json | jamf-cli pro app-requests apply
 
   # Apply without replacement confirmation
-  jamf-cli app-requests apply --from-file app-request.json --yes
+  jamf-cli pro app-requests apply --from-file app-request.json --yes
 
   # Preview what would happen
-  jamf-cli app-requests apply --from-file app-request.json --dry-run`,
+  jamf-cli pro app-requests apply --from-file app-request.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

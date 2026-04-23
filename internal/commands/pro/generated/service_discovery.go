@@ -35,10 +35,10 @@ func newServiceDiscoveryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get service discovery well-known settings for all organizations",
 		Long:  "Returns current settings for all AxM organizations.",
 		Example: `  # Get service-discovery
-  jamf-cli service-discovery get
+  jamf-cli pro service-discovery get
 
   # Get service-discovery and output as YAML
-  jamf-cli service-discovery get -o yaml`,
+  jamf-cli pro service-discovery get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,10 +75,10 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update service discovery well-known settings",
 		Long:  "Accepts JSON payload to update enrollment types for AxM organizations. Requires \"Update User-Initiated Enrollment\" privilege.",
 		Example: `  # Update service-discovery
-  jamf-cli service-discovery get -o json | jq '.field = "value"' | jamf-cli service-discovery update
+  jamf-cli pro service-discovery get -o json | jq '.field = "value"' | jamf-cli pro service-discovery update
 
   # Update from a file
-  jamf-cli service-discovery update --from-file service-discovery.json`,
+  jamf-cli pro service-discovery update --from-file service-discovery.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -45,10 +45,10 @@ func newClassicPrintersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all printers",
 		Example: `  # List all printers
-  jamf-cli classic-printers list
+  jamf-cli pro classic-printers list
 
   # List printers and extract IDs
-  jamf-cli classic-printers list --field id`,
+  jamf-cli pro classic-printers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/printers", nil)
@@ -98,13 +98,13 @@ func newClassicPrintersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a printer by ID",
 		Example: `  # Get a printer by ID
-  jamf-cli classic-printers get 1
+  jamf-cli pro classic-printers get 1
 
   # Get a printer by name
-  jamf-cli classic-printers get --name "Example"
+  jamf-cli pro classic-printers get --name "Example"
 
   # Get a printer and output as YAML
-  jamf-cli classic-printers get 1 -o yaml`,
+  jamf-cli pro classic-printers get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicPrintersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a printer",
 		Long:  "Create a new printer. Reads XML body from stdin.",
 		Example: `  # Create a printer from XML
-  cat printer.xml | jamf-cli classic-printers create`,
+  cat printer.xml | jamf-cli pro classic-printers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicPrintersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a printer",
 		Long:  "Update an existing printer by ID. Reads XML body from stdin.",
 		Example: `  # Update a printer from XML
-  cat printer.xml | jamf-cli classic-printers update 1`,
+  cat printer.xml | jamf-cli pro classic-printers update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a printer",
 		Example: `  # Delete a printer (with confirmation)
-  jamf-cli classic-printers delete 1
+  jamf-cli pro classic-printers delete 1
 
   # Delete by name
-  jamf-cli classic-printers delete --name "Example" --yes
+  jamf-cli pro classic-printers delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-printers delete 1 --yes`,
+  jamf-cli pro classic-printers delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a printer from an XML file
-  jamf-cli classic-printers apply --from-file printer.xml
+  jamf-cli pro classic-printers apply --from-file printer.xml
 
   # Apply from stdin
-  cat printer.xml | jamf-cli classic-printers apply
+  cat printer.xml | jamf-cli pro classic-printers apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-printers apply --from-file printer.xml --yes`,
+  jamf-cli pro classic-printers apply --from-file printer.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

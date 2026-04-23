@@ -41,10 +41,10 @@ func newSsoSettingsCertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the certificate currently configured for use with SSO",
 		Long:  "Retrieves the certificate currently configured for use with SSO.",
 		Example: `  # Get sso-settings-cert
-  jamf-cli sso-settings-cert get
+  jamf-cli pro sso-settings-cert get
 
   # Get sso-settings-cert and output as YAML
-  jamf-cli sso-settings-cert get -o yaml`,
+  jamf-cli pro sso-settings-cert get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,10 +81,10 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider",
 		Long:  "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.",
 		Example: `  # Update sso-settings-cert
-  jamf-cli sso-settings-cert get -o json | jq '.field = "value"' | jamf-cli sso-settings-cert update
+  jamf-cli pro sso-settings-cert get -o json | jq '.field = "value"' | jamf-cli pro sso-settings-cert update
 
   # Update from a file
-  jamf-cli sso-settings-cert update --from-file sso-settings-cert.json`,
+  jamf-cli pro sso-settings-cert update --from-file sso-settings-cert.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -154,10 +154,10 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete the currently configured certificate used by SSO",
 		Long:  "Deletes the currently configured certificate used by SSO.",
 		Example: `  # Delete a sso-settings-cert (with confirmation)
-  jamf-cli sso-settings-cert delete 1
+  jamf-cli pro sso-settings-cert delete 1
 
   # Delete without confirmation prompt
-  jamf-cli sso-settings-cert delete 1 --yes`,
+  jamf-cli pro sso-settings-cert delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

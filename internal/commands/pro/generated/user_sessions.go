@@ -35,10 +35,10 @@ func newUserSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return all Jamf Pro user acounts",
 		Long:  "Return all Jamf Pro user acounts.",
 		Example: `  # List all user-sessions
-  jamf-cli user-sessions list
+  jamf-cli pro user-sessions list
 
   # List user-sessions and extract IDs
-  jamf-cli user-sessions list --field id`,
+  jamf-cli pro user-sessions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,13 +75,13 @@ func newUserSessionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update values in the User's current session",
 		Long:  "Updates values in the user's current session.",
 		Example: `  # Show the JSON template for creating a user-session
-  jamf-cli user-sessions create --scaffold
+  jamf-cli pro user-sessions create --scaffold
 
   # Create a user-session from JSON
-  echo '{"name":"Example"}' | jamf-cli user-sessions create
+  echo '{"name":"Example"}' | jamf-cli pro user-sessions create
 
   # Get a user-session, modify it, and create a copy
-  jamf-cli user-sessions get 1 -o json | jq '.name = "Copy"' | jamf-cli user-sessions create`,
+  jamf-cli pro user-sessions get 1 -o json | jq '.name = "Copy"' | jamf-cli pro user-sessions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

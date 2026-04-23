@@ -39,10 +39,10 @@ func newCertificateAuthoritiesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns X.509 details of the active Certificate Authority (CA)",
 		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
 		Example: `  # List all certificate-authorities
-  jamf-cli certificate-authorities list
+  jamf-cli pro certificate-authorities list
 
   # List certificate-authorities and extract IDs
-  jamf-cli certificate-authorities list --field id`,
+  jamf-cli pro certificate-authorities list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,13 +79,13 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Example: `  # Get a certificate-authority by ID
-  jamf-cli certificate-authorities get 1
+  jamf-cli pro certificate-authorities get 1
 
   # Get a certificate-authority by name
-  jamf-cli certificate-authorities get --name "Example"
+  jamf-cli pro certificate-authorities get --name "Example"
 
   # Get a certificate-authority and output as YAML
-  jamf-cli certificate-authorities get 1 -o yaml`,
+  jamf-cli pro certificate-authorities get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

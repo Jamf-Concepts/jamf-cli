@@ -35,10 +35,10 @@ func newImpactAlertNotificationSettingsGetCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get Impact Alert Notification Settings",
 		Long:  "Get Impact Alert Notification Settings",
 		Example: `  # Get impact-alert-notification-settings
-  jamf-cli impact-alert-notification-settings get
+  jamf-cli pro impact-alert-notification-settings get
 
   # Get impact-alert-notification-settings and output as YAML
-  jamf-cli impact-alert-notification-settings get -o yaml`,
+  jamf-cli pro impact-alert-notification-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,10 +75,10 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Update Impact Alert Notification Settings",
 		Long:  "Update Impact Alert Notification Settings",
 		Example: `  # Update impact-alert-notification-settings
-  jamf-cli impact-alert-notification-settings get -o json | jq '.field = "value"' | jamf-cli impact-alert-notification-settings update
+  jamf-cli pro impact-alert-notification-settings get -o json | jq '.field = "value"' | jamf-cli pro impact-alert-notification-settings update
 
   # Update from a file
-  jamf-cli impact-alert-notification-settings update --from-file impact-alert-notification-settings.json`,
+  jamf-cli pro impact-alert-notification-settings update --from-file impact-alert-notification-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

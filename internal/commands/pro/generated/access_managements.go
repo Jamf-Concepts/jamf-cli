@@ -35,10 +35,10 @@ func newAccessManagementsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Access Management settings",
 		Long:  "Get Access Management settings",
 		Example: `  # List all access-managements
-  jamf-cli access-managements list
+  jamf-cli pro access-managements list
 
   # List access-managements and extract IDs
-  jamf-cli access-managements list --field id`,
+  jamf-cli pro access-managements list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

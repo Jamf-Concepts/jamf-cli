@@ -39,10 +39,10 @@ func newDeviceCommunicationSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Retrieves all settings for device communication",
 		Long:  "Retrieves all device communication settings, including automatic renewal of the MDM profile.",
 		Example: `  # Get device-communication-settings
-  jamf-cli device-communication-settings get
+  jamf-cli pro device-communication-settings get
 
   # Get device-communication-settings and output as YAML
-  jamf-cli device-communication-settings get -o yaml`,
+  jamf-cli pro device-communication-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,10 +79,10 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Update device communication settings",
 		Long:  "Update device communication settings",
 		Example: `  # Update device-communication-settings
-  jamf-cli device-communication-settings get -o json | jq '.field = "value"' | jamf-cli device-communication-settings update
+  jamf-cli pro device-communication-settings get -o json | jq '.field = "value"' | jamf-cli pro device-communication-settings update
 
   # Update from a file
-  jamf-cli device-communication-settings update --from-file device-communication-settings.json`,
+  jamf-cli pro device-communication-settings update --from-file device-communication-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -154,7 +154,7 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get Device Communication settings history",
 		Long:  "Gets Device Communication settings history",
 		Example: `  # Get history for a device-communication-settings
-  jamf-cli device-communication-settings history 1`,
+  jamf-cli pro device-communication-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

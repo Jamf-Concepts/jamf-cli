@@ -39,10 +39,10 @@ func newTeacherSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the Jamf Teacher settings that you have access to see",
 		Long:  "Get the Jamf Teacher settings that you have access to see.",
 		Example: `  # Get teacher-settings
-  jamf-cli teacher-settings get
+  jamf-cli pro teacher-settings get
 
   # Get teacher-settings and output as YAML
-  jamf-cli teacher-settings get -o yaml`,
+  jamf-cli pro teacher-settings get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,10 +79,10 @@ func newTeacherSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Jamf Teacher settings object",
 		Long:  "Update a Jamf Teacher settings object.",
 		Example: `  # Update teacher-settings
-  jamf-cli teacher-settings get -o json | jq '.field = "value"' | jamf-cli teacher-settings update
+  jamf-cli pro teacher-settings get -o json | jq '.field = "value"' | jamf-cli pro teacher-settings update
 
   # Update from a file
-  jamf-cli teacher-settings update --from-file teacher-settings.json`,
+  jamf-cli pro teacher-settings update --from-file teacher-settings.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -153,7 +153,7 @@ func newTeacherSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Teacher app settings history",
 		Long:  "Gets Jamf Teacher app settings history",
 		Example: `  # Get history for a teacher-settings
-  jamf-cli teacher-settings history 1`,
+  jamf-cli pro teacher-settings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

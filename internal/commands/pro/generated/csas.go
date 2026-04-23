@@ -39,10 +39,10 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services",
 		Long:  "Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services",
 		Example: `  # Delete a csa (with confirmation)
-  jamf-cli csas delete 1
+  jamf-cli pro csas delete 1
 
   # Delete without confirmation prompt
-  jamf-cli csas delete 1 --yes`,
+  jamf-cli pro csas delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

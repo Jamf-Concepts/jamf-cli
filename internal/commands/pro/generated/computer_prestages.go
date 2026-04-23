@@ -49,10 +49,10 @@ func newComputerPrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get sorted and paged Computer Prestages",
 		Long:  "Gets sorted and paged computer prestages",
 		Example: `  # List all computer-prestages
-  jamf-cli computer-prestages list
+  jamf-cli pro computer-prestages list
 
   # List computer-prestages and extract IDs
-  jamf-cli computer-prestages list --field id`,
+  jamf-cli pro computer-prestages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -171,13 +171,13 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Computer Prestage with the supplied id",
 		Long:  "Retrieves a Computer Prestage with the supplied id",
 		Example: `  # Get a computer-prestage by ID
-  jamf-cli computer-prestages get 1
+  jamf-cli pro computer-prestages get 1
 
   # Get a computer-prestage by name
-  jamf-cli computer-prestages get --name "Example"
+  jamf-cli pro computer-prestages get --name "Example"
 
   # Get a computer-prestage and output as YAML
-  jamf-cli computer-prestages get 1 -o yaml`,
+  jamf-cli pro computer-prestages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -232,13 +232,13 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a Computer Prestage",
 		Long:  "Create a computer prestage",
 		Example: `  # Show the JSON template for creating a computer-prestage
-  jamf-cli computer-prestages create --scaffold
+  jamf-cli pro computer-prestages create --scaffold
 
   # Create a computer-prestage from JSON
-  echo '{"name":"Example"}' | jamf-cli computer-prestages create
+  echo '{"name":"Example"}' | jamf-cli pro computer-prestages create
 
   # Get a computer-prestage, modify it, and create a copy
-  jamf-cli computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-prestages create`,
+  jamf-cli pro computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-prestages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -343,13 +343,13 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Computer Prestage",
 		Long:  "Updates a Computer Prestage",
 		Example: `  # Update a computer-prestage from JSON
-  echo '{"name":"Updated"}' | jamf-cli computer-prestages update 1
+  echo '{"name":"Updated"}' | jamf-cli pro computer-prestages update 1
 
   # Update by name
-  jamf-cli computer-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli computer-prestages update --name "Example"
+  jamf-cli pro computer-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro computer-prestages update --name "Example"
 
   # Get a computer-prestage, modify, and update
-  jamf-cli computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-prestages update 1`,
+  jamf-cli pro computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-prestages update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -483,13 +483,13 @@ func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a Computer Prestage with the supplied id",
 		Long:  "Deletes a Computer Prestage with the supplied id",
 		Example: `  # Delete a computer-prestage (with confirmation)
-  jamf-cli computer-prestages delete 1
+  jamf-cli pro computer-prestages delete 1
 
   # Delete by name
-  jamf-cli computer-prestages delete --name "Example" --yes
+  jamf-cli pro computer-prestages delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli computer-prestages delete 1 --yes`,
+  jamf-cli pro computer-prestages delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -601,19 +601,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computer-prestage from a JSON file
-  jamf-cli computer-prestages apply --from-file computer-prestage.json
+  jamf-cli pro computer-prestages apply --from-file computer-prestage.json
 
   # Apply a computer-prestage from a YAML file
-  jamf-cli computer-prestages apply --from-file computer-prestage.yaml
+  jamf-cli pro computer-prestages apply --from-file computer-prestage.yaml
 
   # Apply from stdin
-  cat computer-prestage.json | jamf-cli computer-prestages apply
+  cat computer-prestage.json | jamf-cli pro computer-prestages apply
 
   # Apply without replacement confirmation
-  jamf-cli computer-prestages apply --from-file computer-prestage.json --yes
+  jamf-cli pro computer-prestages apply --from-file computer-prestage.json --yes
 
   # Preview what would happen
-  jamf-cli computer-prestages apply --from-file computer-prestage.json --dry-run`,
+  jamf-cli pro computer-prestages apply --from-file computer-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

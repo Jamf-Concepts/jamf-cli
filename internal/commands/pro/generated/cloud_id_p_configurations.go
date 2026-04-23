@@ -44,10 +44,10 @@ func newCloudIdPConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get information about all Cloud Identity Providers configurations.",
 		Long:  "Returns basic informations about all configured Cloud Identity Provider.",
 		Example: `  # List all cloud-id-p-configurations
-  jamf-cli cloud-id-p-configurations list
+  jamf-cli pro cloud-id-p-configurations list
 
   # List cloud-id-p-configurations and extract IDs
-  jamf-cli cloud-id-p-configurations list --field id`,
+  jamf-cli pro cloud-id-p-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -166,13 +166,13 @@ func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Cloud Identity Provider configuration with given ID.",
 		Long:  "Get Cloud Identity Provider configuration with given ID.",
 		Example: `  # Get a cloud-id-p-configuration by ID
-  jamf-cli cloud-id-p-configurations get 1
+  jamf-cli pro cloud-id-p-configurations get 1
 
   # Get a cloud-id-p-configuration by name
-  jamf-cli cloud-id-p-configurations get --name "Example"
+  jamf-cli pro cloud-id-p-configurations get --name "Example"
 
   # Get a cloud-id-p-configuration and output as YAML
-  jamf-cli cloud-id-p-configurations get 1 -o yaml`,
+  jamf-cli pro cloud-id-p-configurations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -234,7 +234,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Export Cloud Identity Providers collection",
 		Long:  "Export Cloud Identity Providers collection",
 		Example: `  # Export cloud-id-p-configurations to CSV
-  jamf-cli cloud-id-p-configurations export --out-file cloud-id-p-configurations.csv`,
+  jamf-cli pro cloud-id-p-configurations export --out-file cloud-id-p-configurations.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

@@ -43,13 +43,13 @@ func newDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a full dockItem object",
 		Long:  "Retrieves a full dockItem object",
 		Example: `  # Get a dock-item by ID
-  jamf-cli dock-items get 1
+  jamf-cli pro dock-items get 1
 
   # Get a dock-item by name
-  jamf-cli dock-items get --name "Example"
+  jamf-cli pro dock-items get --name "Example"
 
   # Get a dock-item and output as YAML
-  jamf-cli dock-items get 1 -o yaml`,
+  jamf-cli pro dock-items get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -104,13 +104,13 @@ func newDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a DockItem",
 		Long:  "Creates a DockItem",
 		Example: `  # Show the JSON template for creating a dock-item
-  jamf-cli dock-items create --scaffold
+  jamf-cli pro dock-items create --scaffold
 
   # Create a dock-item from JSON
-  echo '{"name":"Example"}' | jamf-cli dock-items create
+  echo '{"name":"Example"}' | jamf-cli pro dock-items create
 
   # Get a dock-item, modify it, and create a copy
-  jamf-cli dock-items get 1 -o json | jq '.name = "Copy"' | jamf-cli dock-items create`,
+  jamf-cli pro dock-items get 1 -o json | jq '.name = "Copy"' | jamf-cli pro dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -175,13 +175,13 @@ func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Replace the dockItem at the id with the supplied information",
 		Long:  "Replaces the dockItem at the id with the supplied information",
 		Example: `  # Update a dock-item from JSON
-  echo '{"name":"Updated"}' | jamf-cli dock-items update 1
+  echo '{"name":"Updated"}' | jamf-cli pro dock-items update 1
 
   # Update by name
-  jamf-cli dock-items get --name "Example" -o json | jq '.field = "value"' | jamf-cli dock-items update --name "Example"
+  jamf-cli pro dock-items get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro dock-items update --name "Example"
 
   # Get a dock-item, modify, and update
-  jamf-cli dock-items get 1 -o json | jq '.name = "New Name"' | jamf-cli dock-items update 1`,
+  jamf-cli pro dock-items get 1 -o json | jq '.name = "New Name"' | jamf-cli pro dock-items update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -264,13 +264,13 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a DockItem at the specified id",
 		Long:  "Deletes a dockItem at the specified id",
 		Example: `  # Delete a dock-item (with confirmation)
-  jamf-cli dock-items delete 1
+  jamf-cli pro dock-items delete 1
 
   # Delete by name
-  jamf-cli dock-items delete --name "Example" --yes
+  jamf-cli pro dock-items delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli dock-items delete 1 --yes`,
+  jamf-cli pro dock-items delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -382,19 +382,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a dock-item from a JSON file
-  jamf-cli dock-items apply --from-file dock-item.json
+  jamf-cli pro dock-items apply --from-file dock-item.json
 
   # Apply a dock-item from a YAML file
-  jamf-cli dock-items apply --from-file dock-item.yaml
+  jamf-cli pro dock-items apply --from-file dock-item.yaml
 
   # Apply from stdin
-  cat dock-item.json | jamf-cli dock-items apply
+  cat dock-item.json | jamf-cli pro dock-items apply
 
   # Apply without replacement confirmation
-  jamf-cli dock-items apply --from-file dock-item.json --yes
+  jamf-cli pro dock-items apply --from-file dock-item.json --yes
 
   # Preview what would happen
-  jamf-cli dock-items apply --from-file dock-item.json --dry-run`,
+  jamf-cli pro dock-items apply --from-file dock-item.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

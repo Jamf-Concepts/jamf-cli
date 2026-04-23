@@ -45,10 +45,10 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 		Short: "Gets session history items.",
 		Long:  "Returns tenants sessions history.",
 		Example: `  # List all jamf-remote-assist-session-histories
-  jamf-cli jamf-remote-assist-session-histories list
+  jamf-cli pro jamf-remote-assist-session-histories list
 
   # List jamf-remote-assist-session-histories and extract IDs
-  jamf-cli jamf-remote-assist-session-histories list --field id`,
+  jamf-cli pro jamf-remote-assist-session-histories list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -171,13 +171,13 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Gets single session history item.",
 		Long:  "Returns tenants session history for specific session.",
 		Example: `  # Get a jamf-remote-assist-session-history by ID
-  jamf-cli jamf-remote-assist-session-histories get 1
+  jamf-cli pro jamf-remote-assist-session-histories get 1
 
   # Get a jamf-remote-assist-session-history by name
-  jamf-cli jamf-remote-assist-session-histories get --name "Example"
+  jamf-cli pro jamf-remote-assist-session-histories get --name "Example"
 
   # Get a jamf-remote-assist-session-history and output as YAML
-  jamf-cli jamf-remote-assist-session-histories get 1 -o yaml`,
+  jamf-cli pro jamf-remote-assist-session-histories get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -233,7 +233,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 		Short: "Export Jamf Remote Assist sessions history",
 		Long:  "Export Jamf Remote Assist sessions history",
 		Example: `  # Export jamf-remote-assist-session-histories to CSV
-  jamf-cli jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
+  jamf-cli pro jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

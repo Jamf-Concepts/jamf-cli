@@ -30,10 +30,10 @@ func newCountryCodesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return a list of Countries and the associated Codes",
 		Long:  "Returns a list of countries and the associated codes that can be use for the App Store locale",
 		Example: `  # List all country-codes
-  jamf-cli country-codes list
+  jamf-cli pro country-codes list
 
   # List country-codes and extract IDs
-  jamf-cli country-codes list --field id`,
+  jamf-cli pro country-codes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

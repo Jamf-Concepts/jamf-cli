@@ -51,10 +51,10 @@ func newApiIntegrationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the current API Integrations",
 		Long:  "Get Jamf|Pro API Integrations with Search Criteria",
 		Example: `  # List all api-integrations
-  jamf-cli api-integrations list
+  jamf-cli pro api-integrations list
 
   # List api-integrations and extract IDs
-  jamf-cli api-integrations list --field id`,
+  jamf-cli pro api-integrations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newApiIntegrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified API integration object",
 		Long:  "Gets specified API integration object",
 		Example: `  # Get a api-integration by ID
-  jamf-cli api-integrations get 1
+  jamf-cli pro api-integrations get 1
 
   # Get a api-integration by name
-  jamf-cli api-integrations get --name "Example"
+  jamf-cli pro api-integrations get --name "Example"
 
   # Get a api-integration and output as YAML
-  jamf-cli api-integrations get 1 -o yaml`,
+  jamf-cli pro api-integrations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -238,13 +238,13 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create API integration object",
 		Long:  "Create API integration object",
 		Example: `  # Show the JSON template for creating a api-integration
-  jamf-cli api-integrations create --scaffold
+  jamf-cli pro api-integrations create --scaffold
 
   # Create a api-integration from JSON
-  echo '{"name":"Example"}' | jamf-cli api-integrations create
+  echo '{"name":"Example"}' | jamf-cli pro api-integrations create
 
   # Get a api-integration, modify it, and create a copy
-  jamf-cli api-integrations get 1 -o json | jq '.name = "Copy"' | jamf-cli api-integrations create`,
+  jamf-cli pro api-integrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-integrations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -313,13 +313,13 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified API integration object",
 		Long:  "Update specified API integration object",
 		Example: `  # Update a api-integration from JSON
-  echo '{"name":"Updated"}' | jamf-cli api-integrations update 1
+  echo '{"name":"Updated"}' | jamf-cli pro api-integrations update 1
 
   # Update by name
-  jamf-cli api-integrations get --name "Example" -o json | jq '.field = "value"' | jamf-cli api-integrations update --name "Example"
+  jamf-cli pro api-integrations get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro api-integrations update --name "Example"
 
   # Get a api-integration, modify, and update
-  jamf-cli api-integrations get 1 -o json | jq '.name = "New Name"' | jamf-cli api-integrations update 1`,
+  jamf-cli pro api-integrations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-integrations update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -406,13 +406,13 @@ func newApiIntegrationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified API integration",
 		Long:  "Removes specified API integration",
 		Example: `  # Delete a api-integration (with confirmation)
-  jamf-cli api-integrations delete 1
+  jamf-cli pro api-integrations delete 1
 
   # Delete by name
-  jamf-cli api-integrations delete --name "Example" --yes
+  jamf-cli pro api-integrations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli api-integrations delete 1 --yes`,
+  jamf-cli pro api-integrations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -594,19 +594,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a api-integration from a JSON file
-  jamf-cli api-integrations apply --from-file api-integration.json
+  jamf-cli pro api-integrations apply --from-file api-integration.json
 
   # Apply a api-integration from a YAML file
-  jamf-cli api-integrations apply --from-file api-integration.yaml
+  jamf-cli pro api-integrations apply --from-file api-integration.yaml
 
   # Apply from stdin
-  cat api-integration.json | jamf-cli api-integrations apply
+  cat api-integration.json | jamf-cli pro api-integrations apply
 
   # Apply without replacement confirmation
-  jamf-cli api-integrations apply --from-file api-integration.json --yes
+  jamf-cli pro api-integrations apply --from-file api-integration.json --yes
 
   # Preview what would happen
-  jamf-cli api-integrations apply --from-file api-integration.json --dry-run`,
+  jamf-cli pro api-integrations apply --from-file api-integration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

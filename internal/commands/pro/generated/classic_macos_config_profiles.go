@@ -51,10 +51,10 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "list",
 		Short: "List all osxconfigurationprofiles",
 		Example: `  # List all osxconfigurationprofiles
-  jamf-cli classic-macos-config-profiles list
+  jamf-cli pro classic-macos-config-profiles list
 
   # List osxconfigurationprofiles and extract IDs
-  jamf-cli classic-macos-config-profiles list --field id`,
+  jamf-cli pro classic-macos-config-profiles list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
@@ -104,13 +104,13 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "get [<id>]",
 		Short: "Get a os_x_configuration_profile by ID",
 		Example: `  # Get a os_x_configuration_profile by ID
-  jamf-cli classic-macos-config-profiles get 1
+  jamf-cli pro classic-macos-config-profiles get 1
 
   # Get a os_x_configuration_profile by name
-  jamf-cli classic-macos-config-profiles get --name "Example"
+  jamf-cli pro classic-macos-config-profiles get --name "Example"
 
   # Get a os_x_configuration_profile and output as YAML
-  jamf-cli classic-macos-config-profiles get 1 -o yaml`,
+  jamf-cli pro classic-macos-config-profiles get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -170,7 +170,7 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Create a os_x_configuration_profile",
 		Long:  "Create a new os_x_configuration_profile. Reads XML body from stdin.",
 		Example: `  # Create a os_x_configuration_profile from XML
-  cat os_x_configuration_profile.xml | jamf-cli classic-macos-config-profiles create`,
+  cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -219,7 +219,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Update a os_x_configuration_profile",
 		Long:  "Update an existing os_x_configuration_profile by ID. Reads XML body from stdin.",
 		Example: `  # Update a os_x_configuration_profile from XML
-  cat os_x_configuration_profile.xml | jamf-cli classic-macos-config-profiles update 1`,
+  cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -298,13 +298,13 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "delete [<id>]",
 		Short: "Delete a os_x_configuration_profile",
 		Example: `  # Delete a os_x_configuration_profile (with confirmation)
-  jamf-cli classic-macos-config-profiles delete 1
+  jamf-cli pro classic-macos-config-profiles delete 1
 
   # Delete by name
-  jamf-cli classic-macos-config-profiles delete --name "Example" --yes
+  jamf-cli pro classic-macos-config-profiles delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-macos-config-profiles delete 1 --yes`,
+  jamf-cli pro classic-macos-config-profiles delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -388,13 +388,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a os_x_configuration_profile from an XML file
-  jamf-cli classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml
+  jamf-cli pro classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml
 
   # Apply from stdin
-  cat os_x_configuration_profile.xml | jamf-cli classic-macos-config-profiles apply
+  cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml --yes`,
+  jamf-cli pro classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

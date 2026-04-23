@@ -35,10 +35,10 @@ func newMacOsManagedSoftwareUpdatesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Retrieve available MacOs Managed Software Updates",
 		Long:  "Retrieves available MacOs Managed Software Updates",
 		Example: `  # List all mac-os-managed-software-updates
-  jamf-cli mac-os-managed-software-updates list
+  jamf-cli pro mac-os-managed-software-updates list
 
   # List mac-os-managed-software-updates and extract IDs
-  jamf-cli mac-os-managed-software-updates list --field id`,
+  jamf-cli pro mac-os-managed-software-updates list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

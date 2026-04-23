@@ -55,10 +55,10 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Retrieve sorted and paged Enrollment Customizations",
 		Long:  "Retrieves sorted and paged Enrollment Customizations",
 		Example: `  # List all enrollment-customizations
-  jamf-cli enrollment-customizations list
+  jamf-cli pro enrollment-customizations list
 
   # List enrollment-customizations and extract IDs
-  jamf-cli enrollment-customizations list --field id`,
+  jamf-cli pro enrollment-customizations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Retrieve an Enrollment Customization with the supplied id",
 		Long:  "Retrieves an Enrollment Customization with the supplied id",
 		Example: `  # Get a enrollment-customization by ID
-  jamf-cli enrollment-customizations get 1
+  jamf-cli pro enrollment-customizations get 1
 
   # Get a enrollment-customization by name
-  jamf-cli enrollment-customizations get --name "Example"
+  jamf-cli pro enrollment-customizations get --name "Example"
 
   # Get a enrollment-customization and output as YAML
-  jamf-cli enrollment-customizations get 1 -o yaml`,
+  jamf-cli pro enrollment-customizations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -238,13 +238,13 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Create an Enrollment Customization",
 		Long:  "Create an enrollment customization",
 		Example: `  # Show the JSON template for creating a enrollment-customization
-  jamf-cli enrollment-customizations create --scaffold
+  jamf-cli pro enrollment-customizations create --scaffold
 
   # Create a enrollment-customization from JSON
-  echo '{"name":"Example"}' | jamf-cli enrollment-customizations create
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customizations create
 
   # Get a enrollment-customization, modify it, and create a copy
-  jamf-cli enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli enrollment-customizations create`,
+  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customizations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -310,13 +310,13 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Update an Enrollment Customization",
 		Long:  "Updates an Enrollment Customization",
 		Example: `  # Update a enrollment-customization from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-customizations update 1
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customizations update 1
 
   # Update by name
-  jamf-cli enrollment-customizations get --name "Example" -o json | jq '.field = "value"' | jamf-cli enrollment-customizations update --name "Example"
+  jamf-cli pro enrollment-customizations get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro enrollment-customizations update --name "Example"
 
   # Get a enrollment-customization, modify, and update
-  jamf-cli enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customizations update 1`,
+  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customizations update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -400,13 +400,13 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Delete an Enrollment Customization with the supplied id",
 		Long:  "Deletes an Enrollment Customization with the supplied id",
 		Example: `  # Delete a enrollment-customization (with confirmation)
-  jamf-cli enrollment-customizations delete 1
+  jamf-cli pro enrollment-customizations delete 1
 
   # Delete by name
-  jamf-cli enrollment-customizations delete --name "Example" --yes
+  jamf-cli pro enrollment-customizations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-customizations delete 1 --yes`,
+  jamf-cli pro enrollment-customizations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -516,10 +516,10 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Get sorted and paged Enrollment Customization history objects",
 		Long:  "Gets sorted and paged enrollment customization history objects",
 		Example: `  # Get history for a enrollment-customization by ID
-  jamf-cli enrollment-customizations history 1
+  jamf-cli pro enrollment-customizations history 1
 
   # Get history by name
-  jamf-cli enrollment-customizations history --name "Example"`,
+  jamf-cli pro enrollment-customizations history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -922,19 +922,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a enrollment-customization from a JSON file
-  jamf-cli enrollment-customizations apply --from-file enrollment-customization.json
+  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json
 
   # Apply a enrollment-customization from a YAML file
-  jamf-cli enrollment-customizations apply --from-file enrollment-customization.yaml
+  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.yaml
 
   # Apply from stdin
-  cat enrollment-customization.json | jamf-cli enrollment-customizations apply
+  cat enrollment-customization.json | jamf-cli pro enrollment-customizations apply
 
   # Apply without replacement confirmation
-  jamf-cli enrollment-customizations apply --from-file enrollment-customization.json --yes
+  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json --yes
 
   # Preview what would happen
-  jamf-cli enrollment-customizations apply --from-file enrollment-customization.json --dry-run`,
+  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

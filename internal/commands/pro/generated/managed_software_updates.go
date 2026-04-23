@@ -36,13 +36,13 @@ func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve Managed Software Update Statuses for Computer Groups",
 		Long:  "Retrieve Managed Software Update Statuses for Computer Groups",
 		Example: `  # Get a managed-software-update by ID
-  jamf-cli managed-software-updates get 1
+  jamf-cli pro managed-software-updates get 1
 
   # Get a managed-software-update by name
-  jamf-cli managed-software-updates get --name "Example"
+  jamf-cli pro managed-software-updates get --name "Example"
 
   # Get a managed-software-update and output as YAML
-  jamf-cli managed-software-updates get 1 -o yaml`,
+  jamf-cli pro managed-software-updates get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

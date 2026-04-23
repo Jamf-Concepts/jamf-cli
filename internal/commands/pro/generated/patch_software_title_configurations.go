@@ -54,10 +54,10 @@ func newPatchSoftwareTitleConfigurationsListCmd(ctx *registry.CLIContext) *cobra
 		Short: "Retrieve Patch Software Title Configurations",
 		Long:  "Retrieves patch software title configurations",
 		Example: `  # List all patch-software-title-configurations
-  jamf-cli patch-software-title-configurations list
+  jamf-cli pro patch-software-title-configurations list
 
   # List patch-software-title-configurations and extract IDs
-  jamf-cli patch-software-title-configurations list --field id`,
+  jamf-cli pro patch-software-title-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -94,13 +94,13 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Retrieve Patch Software Title Configurations with the supplied id",
 		Long:  "Retrieves Patch Software Title Configurations with the supplied id",
 		Example: `  # Get a patch-software-title-configuration by ID
-  jamf-cli patch-software-title-configurations get 1
+  jamf-cli pro patch-software-title-configurations get 1
 
   # Get a patch-software-title-configuration by name
-  jamf-cli patch-software-title-configurations get --name "Example"
+  jamf-cli pro patch-software-title-configurations get --name "Example"
 
   # Get a patch-software-title-configuration and output as YAML
-  jamf-cli patch-software-title-configurations get 1 -o yaml`,
+  jamf-cli pro patch-software-title-configurations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -155,13 +155,13 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 		Short: "Create Patch Software Title Configurations",
 		Long:  "Creates Patch Software Title Configurations using sToken",
 		Example: `  # Show the JSON template for creating a patch-software-title-configuration
-  jamf-cli patch-software-title-configurations create --scaffold
+  jamf-cli pro patch-software-title-configurations create --scaffold
 
   # Create a patch-software-title-configuration from JSON
-  echo '{"name":"Example"}' | jamf-cli patch-software-title-configurations create
+  echo '{"name":"Example"}' | jamf-cli pro patch-software-title-configurations create
 
   # Get a patch-software-title-configuration, modify it, and create a copy
-  jamf-cli patch-software-title-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli patch-software-title-configurations create`,
+  jamf-cli pro patch-software-title-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro patch-software-title-configurations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -231,13 +231,13 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 		Short: "Delete Patch Software Title Configurations with the supplied id",
 		Long:  "Deletes Patch Software Title Configurations with the supplied id",
 		Example: `  # Delete a patch-software-title-configuration (with confirmation)
-  jamf-cli patch-software-title-configurations delete 1
+  jamf-cli pro patch-software-title-configurations delete 1
 
   # Delete by name
-  jamf-cli patch-software-title-configurations delete --name "Example" --yes
+  jamf-cli pro patch-software-title-configurations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli patch-software-title-configurations delete 1 --yes`,
+  jamf-cli pro patch-software-title-configurations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -348,10 +348,10 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 		Short: "Get specified Patch Software Title Configuration history object",
 		Long:  "Gets specified Patch Software Title Configuration history object",
 		Example: `  # Get history for a patch-software-title-configuration by ID
-  jamf-cli patch-software-title-configurations history 1
+  jamf-cli pro patch-software-title-configurations history 1
 
   # Get history by name
-  jamf-cli patch-software-title-configurations history --name "Example"`,
+  jamf-cli pro patch-software-title-configurations history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -573,16 +573,16 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 		Short: "Update Patch Software Title Configurations",
 		Long:  "Updates Patch Software Title Configurations\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  categoryId                                   string\n  displayName                                  string\n  emailNotifications                           boolean\n  siteId                                       string\n  softwareTitleId                              string\n  uiNotifications                              boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli patch-software-title-configurations patch 1 --set general.managed=true
+  jamf-cli pro patch-software-title-configurations patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli patch-software-title-configurations patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro patch-software-title-configurations patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli patch-software-title-configurations patch --name "Example" --set general.managed=true
+  jamf-cli pro patch-software-title-configurations patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli patch-software-title-configurations patch 1 --from-file changes.json`,
+  jamf-cli pro patch-software-title-configurations patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1268,19 +1268,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a patch-software-title-configuration from a JSON file
-  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json
+  jamf-cli pro patch-software-title-configurations apply --from-file patch-software-title-configuration.json
 
   # Apply a patch-software-title-configuration from a YAML file
-  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.yaml
+  jamf-cli pro patch-software-title-configurations apply --from-file patch-software-title-configuration.yaml
 
   # Apply from stdin
-  cat patch-software-title-configuration.json | jamf-cli patch-software-title-configurations apply
+  cat patch-software-title-configuration.json | jamf-cli pro patch-software-title-configurations apply
 
   # Apply without replacement confirmation
-  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json --yes
+  jamf-cli pro patch-software-title-configurations apply --from-file patch-software-title-configuration.json --yes
 
   # Preview what would happen
-  jamf-cli patch-software-title-configurations apply --from-file patch-software-title-configuration.json --dry-run`,
+  jamf-cli pro patch-software-title-configurations apply --from-file patch-software-title-configuration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

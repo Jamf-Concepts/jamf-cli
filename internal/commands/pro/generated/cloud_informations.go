@@ -30,10 +30,10 @@ func newCloudInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve information related to cloud setup.",
 		Long:  "Retrieve information related to cloud setup. Retrieves information related to cloud setup. Provides details about cloud instance configuration.",
 		Example: `  # List all cloud-informations
-  jamf-cli cloud-informations list
+  jamf-cli pro cloud-informations list
 
   # List cloud-informations and extract IDs
-  jamf-cli cloud-informations list --field id`,
+  jamf-cli pro cloud-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -35,10 +35,10 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a gsx_connection by ID",
 		Example: `  # Get a gsx_connection by ID
-  jamf-cli classic-gsx-connection get 1
+  jamf-cli pro classic-gsx-connection get 1
 
   # Get a gsx_connection and output as YAML
-  jamf-cli classic-gsx-connection get 1 -o yaml`,
+  jamf-cli pro classic-gsx-connection get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -85,7 +85,7 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a gsx_connection",
 		Long:  "Update an existing gsx_connection by ID. Reads XML body from stdin.",
 		Example: `  # Update a gsx_connection from XML
-  cat gsx_connection.xml | jamf-cli classic-gsx-connection update 1`,
+  cat gsx_connection.xml | jamf-cli pro classic-gsx-connection update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

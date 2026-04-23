@@ -39,10 +39,10 @@ func newClientCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Client Check-In settings",
 		Long:  "Gets 'Client Check-In' object.",
 		Example: `  # Get client-check-in
-  jamf-cli client-check-in get
+  jamf-cli pro client-check-in get
 
   # Get client-check-in and output as YAML
-  jamf-cli client-check-in get -o yaml`,
+  jamf-cli pro client-check-in get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,10 +79,10 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Client Check-In object",
 		Long:  "Update Client Check-In object",
 		Example: `  # Update client-check-in
-  jamf-cli client-check-in get -o json | jq '.field = "value"' | jamf-cli client-check-in update
+  jamf-cli pro client-check-in get -o json | jq '.field = "value"' | jamf-cli pro client-check-in update
 
   # Update from a file
-  jamf-cli client-check-in update --from-file client-check-in.json`,
+  jamf-cli pro client-check-in update --from-file client-check-in.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,7 +157,7 @@ func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Client Check-In history object",
 		Long:  "Gets Client Check-In history object",
 		Example: `  # Get history for a client-check-in
-  jamf-cli client-check-in history 1`,
+  jamf-cli pro client-check-in history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

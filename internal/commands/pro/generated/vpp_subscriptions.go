@@ -51,10 +51,10 @@ func newVppSubscriptionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve Volume Purchasing Subscriptions",
 		Long:  "Retrieves Volume Purchasing Subscriptions",
 		Example: `  # List all vpp-subscriptions
-  jamf-cli vpp-subscriptions list
+  jamf-cli pro vpp-subscriptions list
 
   # List vpp-subscriptions and extract IDs
-  jamf-cli vpp-subscriptions list --field id`,
+  jamf-cli pro vpp-subscriptions list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,13 +173,13 @@ func newVppSubscriptionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Volume Purchasing Subscription with the supplied id",
 		Long:  "Retrieves a Volume Purchasing Subscription with the supplied id",
 		Example: `  # Get a vpp-subscription by ID
-  jamf-cli vpp-subscriptions get 1
+  jamf-cli pro vpp-subscriptions get 1
 
   # Get a vpp-subscription by name
-  jamf-cli vpp-subscriptions get --name "Example"
+  jamf-cli pro vpp-subscriptions get --name "Example"
 
   # Get a vpp-subscription and output as YAML
-  jamf-cli vpp-subscriptions get 1 -o yaml`,
+  jamf-cli pro vpp-subscriptions get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -234,13 +234,13 @@ func newVppSubscriptionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a Volume Purchasing Subscription",
 		Long:  "Creates a Volume Purchasing Subscription",
 		Example: `  # Show the JSON template for creating a vpp-subscription
-  jamf-cli vpp-subscriptions create --scaffold
+  jamf-cli pro vpp-subscriptions create --scaffold
 
   # Create a vpp-subscription from JSON
-  echo '{"name":"Example"}' | jamf-cli vpp-subscriptions create
+  echo '{"name":"Example"}' | jamf-cli pro vpp-subscriptions create
 
   # Get a vpp-subscription, modify it, and create a copy
-  jamf-cli vpp-subscriptions get 1 -o json | jq '.name = "Copy"' | jamf-cli vpp-subscriptions create`,
+  jamf-cli pro vpp-subscriptions get 1 -o json | jq '.name = "Copy"' | jamf-cli pro vpp-subscriptions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -309,13 +309,13 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Volume Purchasing Subscription",
 		Long:  "Updates a Volume Purchasing Subscription",
 		Example: `  # Update a vpp-subscription from JSON
-  echo '{"name":"Updated"}' | jamf-cli vpp-subscriptions update 1
+  echo '{"name":"Updated"}' | jamf-cli pro vpp-subscriptions update 1
 
   # Update by name
-  jamf-cli vpp-subscriptions get --name "Example" -o json | jq '.field = "value"' | jamf-cli vpp-subscriptions update --name "Example"
+  jamf-cli pro vpp-subscriptions get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro vpp-subscriptions update --name "Example"
 
   # Get a vpp-subscription, modify, and update
-  jamf-cli vpp-subscriptions get 1 -o json | jq '.name = "New Name"' | jamf-cli vpp-subscriptions update 1`,
+  jamf-cli pro vpp-subscriptions get 1 -o json | jq '.name = "New Name"' | jamf-cli pro vpp-subscriptions update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -402,13 +402,13 @@ func newVppSubscriptionsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a Volume Purchasing Subscription with the supplied id",
 		Long:  "Deletes a Volume Purchasing Subscription with the supplied id",
 		Example: `  # Delete a vpp-subscription (with confirmation)
-  jamf-cli vpp-subscriptions delete 1
+  jamf-cli pro vpp-subscriptions delete 1
 
   # Delete by name
-  jamf-cli vpp-subscriptions delete --name "Example" --yes
+  jamf-cli pro vpp-subscriptions delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli vpp-subscriptions delete 1 --yes`,
+  jamf-cli pro vpp-subscriptions delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -519,10 +519,10 @@ func newVppSubscriptionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Volume Purchasing Subscription history object",
 		Long:  "Gets specified Volume Purchasing Subscription history object",
 		Example: `  # Get history for a vpp-subscription by ID
-  jamf-cli vpp-subscriptions history 1
+  jamf-cli pro vpp-subscriptions history 1
 
   # Get history by name
-  jamf-cli vpp-subscriptions history --name "Example"`,
+  jamf-cli pro vpp-subscriptions history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -748,19 +748,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a vpp-subscription from a JSON file
-  jamf-cli vpp-subscriptions apply --from-file vpp-subscription.json
+  jamf-cli pro vpp-subscriptions apply --from-file vpp-subscription.json
 
   # Apply a vpp-subscription from a YAML file
-  jamf-cli vpp-subscriptions apply --from-file vpp-subscription.yaml
+  jamf-cli pro vpp-subscriptions apply --from-file vpp-subscription.yaml
 
   # Apply from stdin
-  cat vpp-subscription.json | jamf-cli vpp-subscriptions apply
+  cat vpp-subscription.json | jamf-cli pro vpp-subscriptions apply
 
   # Apply without replacement confirmation
-  jamf-cli vpp-subscriptions apply --from-file vpp-subscription.json --yes
+  jamf-cli pro vpp-subscriptions apply --from-file vpp-subscription.json --yes
 
   # Preview what would happen
-  jamf-cli vpp-subscriptions apply --from-file vpp-subscription.json --dry-run`,
+  jamf-cli pro vpp-subscriptions apply --from-file vpp-subscription.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

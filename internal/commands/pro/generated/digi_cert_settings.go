@@ -46,13 +46,13 @@ func newDigiCertSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Retrieve the current configuration of the DigiCert Trust Lifecycle Manager.",
 		Example: `  # Get a digi-cert-setting by ID
-  jamf-cli digi-cert-settings get 1
+  jamf-cli pro digi-cert-settings get 1
 
   # Get a digi-cert-setting by name
-  jamf-cli digi-cert-settings get --name "Example"
+  jamf-cli pro digi-cert-settings get --name "Example"
 
   # Get a digi-cert-setting and output as YAML
-  jamf-cli digi-cert-settings get 1 -o yaml`,
+  jamf-cli pro digi-cert-settings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -107,13 +107,13 @@ func newDigiCertSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create DigiCert Trust Lifecycle Manager configuration with client authentication via client certificate.",
 		Long:  "Create DigiCert Trust Lifecycle Manager configuration and initialize renewal monitor.",
 		Example: `  # Show the JSON template for creating a digi-cert-setting
-  jamf-cli digi-cert-settings create --scaffold
+  jamf-cli pro digi-cert-settings create --scaffold
 
   # Create a digi-cert-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli digi-cert-settings create
+  echo '{"name":"Example"}' | jamf-cli pro digi-cert-settings create
 
   # Get a digi-cert-setting, modify it, and create a copy
-  jamf-cli digi-cert-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli digi-cert-settings create`,
+  jamf-cli pro digi-cert-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro digi-cert-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -180,13 +180,13 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Delete the current configuration of the DigiCert Trust Lifecycle Manager.",
 		Example: `  # Delete a digi-cert-setting (with confirmation)
-  jamf-cli digi-cert-settings delete 1
+  jamf-cli pro digi-cert-settings delete 1
 
   # Delete by name
-  jamf-cli digi-cert-settings delete --name "Example" --yes
+  jamf-cli pro digi-cert-settings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli digi-cert-settings delete 1 --yes`,
+  jamf-cli pro digi-cert-settings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -356,16 +356,16 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli digi-cert-settings patch 1 --set general.managed=true
+  jamf-cli pro digi-cert-settings patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli digi-cert-settings patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro digi-cert-settings patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli digi-cert-settings patch --name "Example" --set general.managed=true
+  jamf-cli pro digi-cert-settings patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli digi-cert-settings patch 1 --from-file changes.json`,
+  jamf-cli pro digi-cert-settings patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -581,19 +581,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a digi-cert-setting from a JSON file
-  jamf-cli digi-cert-settings apply --from-file digi-cert-setting.json
+  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json
 
   # Apply a digi-cert-setting from a YAML file
-  jamf-cli digi-cert-settings apply --from-file digi-cert-setting.yaml
+  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.yaml
 
   # Apply from stdin
-  cat digi-cert-setting.json | jamf-cli digi-cert-settings apply
+  cat digi-cert-setting.json | jamf-cli pro digi-cert-settings apply
 
   # Apply without replacement confirmation
-  jamf-cli digi-cert-settings apply --from-file digi-cert-setting.json --yes
+  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json --yes
 
   # Preview what would happen
-  jamf-cli digi-cert-settings apply --from-file digi-cert-setting.json --dry-run`,
+  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

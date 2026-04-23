@@ -35,10 +35,10 @@ func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Pro account preferences",
 		Long:  "Get Jamf Pro account preferences",
 		Example: `  # List all account-preferences
-  jamf-cli account-preferences list
+  jamf-cli pro account-preferences list
 
   # List account-preferences and extract IDs
-  jamf-cli account-preferences list --field id`,
+  jamf-cli pro account-preferences list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -77,10 +77,10 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Jamf Pro account preferences",
 		Long:  "Update Jamf Pro account preferences\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  computerApplicationSearchMethod              string\n  computerApplicationUsageSearchMethod         string\n  computerLocalUserAccountSearchMethod         string\n  computerPackageReceiptSearchMethod           string\n  computerPeripheralSearchMethod               string\n  computerPrinterSearchMethod                  string\n  computerSearchMethod                         string\n  computerServiceSearchMethod                  string\n  computerSoftwareUpdateSearchMethod           string\n  configProfilesSortingMethod                  string\n  dateFormat                                   string\n  disablePageLeaveCheck                        boolean\n  disableRelativeDates                         boolean\n  disableShortcutsTooltips                     boolean\n  disableTablePagination                       boolean\n  language                                     string\n  mobileDeviceAppSearchMethod                  string\n  mobileDeviceSearchMethod                     string\n  resultsPerPage                               integer\n  timezone                                     string\n  userAllContentSearchMethod                   string\n  userEbookSearchMethod                        string\n  userInterfaceDisplayTheme                    string\n  userMacAppStoreAppSearchMethod               string\n  userMobileDeviceAppSearchMethod              string\n  userSearchMethod                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
-  jamf-cli account-preferences patch --set field=value
+  jamf-cli pro account-preferences patch --set field=value
 
   # Update using JSON
-  jamf-cli account-preferences get -o json | jq '.field = "value"' | jamf-cli account-preferences patch`,
+  jamf-cli pro account-preferences get -o json | jq '.field = "value"' | jamf-cli pro account-preferences patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

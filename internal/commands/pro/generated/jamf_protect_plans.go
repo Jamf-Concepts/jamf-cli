@@ -44,10 +44,10 @@ func newJamfProtectPlansListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
 		Long:  "Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile",
 		Example: `  # List all jamf-protect-plans
-  jamf-cli jamf-protect-plans list
+  jamf-cli pro jamf-protect-plans list
 
   # List jamf-protect-plans and extract IDs
-  jamf-cli jamf-protect-plans list --field id`,
+  jamf-cli pro jamf-protect-plans list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

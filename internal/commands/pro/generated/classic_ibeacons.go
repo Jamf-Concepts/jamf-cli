@@ -45,10 +45,10 @@ func newClassicIbeaconsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all ibeacons",
 		Example: `  # List all ibeacons
-  jamf-cli classic-ibeacons list
+  jamf-cli pro classic-ibeacons list
 
   # List ibeacons and extract IDs
-  jamf-cli classic-ibeacons list --field id`,
+  jamf-cli pro classic-ibeacons list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ibeacons", nil)
@@ -98,13 +98,13 @@ func newClassicIbeaconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a ibeacon by ID",
 		Example: `  # Get a ibeacon by ID
-  jamf-cli classic-ibeacons get 1
+  jamf-cli pro classic-ibeacons get 1
 
   # Get a ibeacon by name
-  jamf-cli classic-ibeacons get --name "Example"
+  jamf-cli pro classic-ibeacons get --name "Example"
 
   # Get a ibeacon and output as YAML
-  jamf-cli classic-ibeacons get 1 -o yaml`,
+  jamf-cli pro classic-ibeacons get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicIbeaconsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a ibeacon",
 		Long:  "Create a new ibeacon. Reads XML body from stdin.",
 		Example: `  # Create a ibeacon from XML
-  cat ibeacon.xml | jamf-cli classic-ibeacons create`,
+  cat ibeacon.xml | jamf-cli pro classic-ibeacons create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicIbeaconsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a ibeacon",
 		Long:  "Update an existing ibeacon by ID. Reads XML body from stdin.",
 		Example: `  # Update a ibeacon from XML
-  cat ibeacon.xml | jamf-cli classic-ibeacons update 1`,
+  cat ibeacon.xml | jamf-cli pro classic-ibeacons update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a ibeacon",
 		Example: `  # Delete a ibeacon (with confirmation)
-  jamf-cli classic-ibeacons delete 1
+  jamf-cli pro classic-ibeacons delete 1
 
   # Delete by name
-  jamf-cli classic-ibeacons delete --name "Example" --yes
+  jamf-cli pro classic-ibeacons delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-ibeacons delete 1 --yes`,
+  jamf-cli pro classic-ibeacons delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a ibeacon from an XML file
-  jamf-cli classic-ibeacons apply --from-file ibeacon.xml
+  jamf-cli pro classic-ibeacons apply --from-file ibeacon.xml
 
   # Apply from stdin
-  cat ibeacon.xml | jamf-cli classic-ibeacons apply
+  cat ibeacon.xml | jamf-cli pro classic-ibeacons apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-ibeacons apply --from-file ibeacon.xml --yes`,
+  jamf-cli pro classic-ibeacons apply --from-file ibeacon.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

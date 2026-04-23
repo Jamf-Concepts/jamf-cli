@@ -53,10 +53,10 @@ func newDepartmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for Departments",
 		Long:  "Search for Departments",
 		Example: `  # List all departments
-  jamf-cli departments list
+  jamf-cli pro departments list
 
   # List departments and extract IDs
-  jamf-cli departments list --field id`,
+  jamf-cli pro departments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,13 +179,13 @@ func newDepartmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Department object",
 		Long:  "Gets specified Department object",
 		Example: `  # Get a department by ID
-  jamf-cli departments get 1
+  jamf-cli pro departments get 1
 
   # Get a department by name
-  jamf-cli departments get --name "Example"
+  jamf-cli pro departments get --name "Example"
 
   # Get a department and output as YAML
-  jamf-cli departments get 1 -o yaml`,
+  jamf-cli pro departments get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -240,13 +240,13 @@ func newDepartmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create department record",
 		Long:  "Create department record",
 		Example: `  # Show the JSON template for creating a department
-  jamf-cli departments create --scaffold
+  jamf-cli pro departments create --scaffold
 
   # Create a department from JSON
-  echo '{"name":"Example"}' | jamf-cli departments create
+  echo '{"name":"Example"}' | jamf-cli pro departments create
 
   # Get a department, modify it, and create a copy
-  jamf-cli departments get 1 -o json | jq '.name = "Copy"' | jamf-cli departments create`,
+  jamf-cli pro departments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro departments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -309,13 +309,13 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified department object",
 		Long:  "Update specified department object",
 		Example: `  # Update a department from JSON
-  echo '{"name":"Updated"}' | jamf-cli departments update 1
+  echo '{"name":"Updated"}' | jamf-cli pro departments update 1
 
   # Update by name
-  jamf-cli departments get --name "Example" -o json | jq '.field = "value"' | jamf-cli departments update --name "Example"
+  jamf-cli pro departments get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro departments update --name "Example"
 
   # Get a department, modify, and update
-  jamf-cli departments get 1 -o json | jq '.name = "New Name"' | jamf-cli departments update 1`,
+  jamf-cli pro departments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro departments update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -396,13 +396,13 @@ func newDepartmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified department record",
 		Long:  "Removes specified department record",
 		Example: `  # Delete a department (with confirmation)
-  jamf-cli departments delete 1
+  jamf-cli pro departments delete 1
 
   # Delete by name
-  jamf-cli departments delete --name "Example" --yes
+  jamf-cli pro departments delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli departments delete 1 --yes`,
+  jamf-cli pro departments delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -510,7 +510,7 @@ func newDepartmentsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Deletes all departments by ids passed in body",
 		Long:  "Deletes all departments by ids passed in body",
 		Example: `  # Delete multiple departments by IDs
-  jamf-cli departments delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro departments delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -610,10 +610,10 @@ func newDepartmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Department history object",
 		Long:  "Gets specified Department history object",
 		Example: `  # Get history for a department by ID
-  jamf-cli departments history 1
+  jamf-cli pro departments history 1
 
   # Get history by name
-  jamf-cli departments history --name "Example"`,
+  jamf-cli pro departments history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -839,19 +839,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a department from a JSON file
-  jamf-cli departments apply --from-file department.json
+  jamf-cli pro departments apply --from-file department.json
 
   # Apply a department from a YAML file
-  jamf-cli departments apply --from-file department.yaml
+  jamf-cli pro departments apply --from-file department.yaml
 
   # Apply from stdin
-  cat department.json | jamf-cli departments apply
+  cat department.json | jamf-cli pro departments apply
 
   # Apply without replacement confirmation
-  jamf-cli departments apply --from-file department.json --yes
+  jamf-cli pro departments apply --from-file department.json --yes
 
   # Preview what would happen
-  jamf-cli departments apply --from-file department.json --dry-run`,
+  jamf-cli pro departments apply --from-file department.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

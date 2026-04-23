@@ -30,10 +30,10 @@ func newStartupStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve information about application startup",
 		Long:  "Retrieves information about application startup. Current startup operation taking place (if any) and overall startup completion percentage.",
 		Example: `  # List all startup-status
-  jamf-cli startup-status list
+  jamf-cli pro startup-status list
 
   # List startup-status and extract IDs
-  jamf-cli startup-status list --field id`,
+  jamf-cli pro startup-status list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

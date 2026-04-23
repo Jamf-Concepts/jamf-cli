@@ -35,10 +35,10 @@ func newSsoFailoversListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve the current failover settings",
 		Long:  "Retrieve the current failover settings",
 		Example: `  # List all sso-failovers
-  jamf-cli sso-failovers list
+  jamf-cli pro sso-failovers list
 
   # List sso-failovers and extract IDs
-  jamf-cli sso-failovers list --field id`,
+  jamf-cli pro sso-failovers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

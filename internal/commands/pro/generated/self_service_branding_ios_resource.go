@@ -49,10 +49,10 @@ func newSelfServiceBrandingIosListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for sorted and paged iOS branding configurations",
 		Long:  "Search for sorted and paged iOS branding configurations",
 		Example: `  # List all self-service-branding-ios
-  jamf-cli self-service-branding-ios list
+  jamf-cli pro self-service-branding-ios list
 
   # List self-service-branding-ios and extract IDs
-  jamf-cli self-service-branding-ios list --field id`,
+  jamf-cli pro self-service-branding-ios list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -171,13 +171,13 @@ func newSelfServiceBrandingIosGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Read a single Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Read a single Self Service iOS branding configuration indicated by the provided id.",
 		Example: `  # Get a self-service-branding-ios by ID
-  jamf-cli self-service-branding-ios get 1
+  jamf-cli pro self-service-branding-ios get 1
 
   # Get a self-service-branding-ios by name
-  jamf-cli self-service-branding-ios get --name "Example"
+  jamf-cli pro self-service-branding-ios get --name "Example"
 
   # Get a self-service-branding-ios and output as YAML
-  jamf-cli self-service-branding-ios get 1 -o yaml`,
+  jamf-cli pro self-service-branding-ios get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -232,13 +232,13 @@ func newSelfServiceBrandingIosCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Create a Self Service iOS branding configuration with the supplied",
 		Long:  "Create a Self Service iOS branding configuration with the supplied details",
 		Example: `  # Show the JSON template for creating a self-service-branding-ios
-  jamf-cli self-service-branding-ios create --scaffold
+  jamf-cli pro self-service-branding-ios create --scaffold
 
   # Create a self-service-branding-ios from JSON
-  echo '{"name":"Example"}' | jamf-cli self-service-branding-ios create
+  echo '{"name":"Example"}' | jamf-cli pro self-service-branding-ios create
 
   # Get a self-service-branding-ios, modify it, and create a copy
-  jamf-cli self-service-branding-ios get 1 -o json | jq '.name = "Copy"' | jamf-cli self-service-branding-ios create`,
+  jamf-cli pro self-service-branding-ios get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-ios create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -306,13 +306,13 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Update a Self Service iOS branding configuration with the supplied details",
 		Long:  "Update a Self Service iOS branding configuration with the supplied details",
 		Example: `  # Update a self-service-branding-ios from JSON
-  echo '{"name":"Updated"}' | jamf-cli self-service-branding-ios update 1
+  echo '{"name":"Updated"}' | jamf-cli pro self-service-branding-ios update 1
 
   # Update by name
-  jamf-cli self-service-branding-ios get --name "Example" -o json | jq '.field = "value"' | jamf-cli self-service-branding-ios update --name "Example"
+  jamf-cli pro self-service-branding-ios get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro self-service-branding-ios update --name "Example"
 
   # Get a self-service-branding-ios, modify, and update
-  jamf-cli self-service-branding-ios get 1 -o json | jq '.name = "New Name"' | jamf-cli self-service-branding-ios update 1`,
+  jamf-cli pro self-service-branding-ios get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-ios update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -398,13 +398,13 @@ func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Delete the Self Service iOS branding configuration indicated by the provided id",
 		Long:  "Delete the Self Service iOS branding configuration indicated by the provided id.",
 		Example: `  # Delete a self-service-branding-ios (with confirmation)
-  jamf-cli self-service-branding-ios delete 1
+  jamf-cli pro self-service-branding-ios delete 1
 
   # Delete by name
-  jamf-cli self-service-branding-ios delete --name "Example" --yes
+  jamf-cli pro self-service-branding-ios delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli self-service-branding-ios delete 1 --yes`,
+  jamf-cli pro self-service-branding-ios delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -516,19 +516,19 @@ The brandingName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a self-service-branding-ios from a JSON file
-  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json
+  jamf-cli pro self-service-branding-ios apply --from-file self-service-branding-ios.json
 
   # Apply a self-service-branding-ios from a YAML file
-  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.yaml
+  jamf-cli pro self-service-branding-ios apply --from-file self-service-branding-ios.yaml
 
   # Apply from stdin
-  cat self-service-branding-ios.json | jamf-cli self-service-branding-ios apply
+  cat self-service-branding-ios.json | jamf-cli pro self-service-branding-ios apply
 
   # Apply without replacement confirmation
-  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json --yes
+  jamf-cli pro self-service-branding-ios apply --from-file self-service-branding-ios.json --yes
 
   # Preview what would happen
-  jamf-cli self-service-branding-ios apply --from-file self-service-branding-ios.json --dry-run`,
+  jamf-cli pro self-service-branding-ios apply --from-file self-service-branding-ios.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

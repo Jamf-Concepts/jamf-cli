@@ -38,13 +38,13 @@ func newJamfConnectDeploymentTasksCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Request a retry of Connect install tasks",
 		Long:  "Request a retry of Connect install tasks",
 		Example: `  # Show the JSON template for creating a jamf-connect-deployment-task
-  jamf-cli jamf-connect-deployment-tasks create --scaffold
+  jamf-cli pro jamf-connect-deployment-tasks create --scaffold
 
   # Create a jamf-connect-deployment-task from JSON
-  echo '{"name":"Example"}' | jamf-cli jamf-connect-deployment-tasks create
+  echo '{"name":"Example"}' | jamf-cli pro jamf-connect-deployment-tasks create
 
   # Get a jamf-connect-deployment-task, modify it, and create a copy
-  jamf-cli jamf-connect-deployment-tasks get 1 -o json | jq '.name = "Copy"' | jamf-cli jamf-connect-deployment-tasks create`,
+  jamf-cli pro jamf-connect-deployment-tasks get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-connect-deployment-tasks create`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

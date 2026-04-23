@@ -35,10 +35,10 @@ func newDashboardsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get all the dashboard setup information",
 		Long:  "Get all the dashboard information for widgets and setup tasks",
 		Example: `  # List all dashboards
-  jamf-cli dashboards list
+  jamf-cli pro dashboards list
 
   # List dashboards and extract IDs
-  jamf-cli dashboards list --field id`,
+  jamf-cli pro dashboards list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

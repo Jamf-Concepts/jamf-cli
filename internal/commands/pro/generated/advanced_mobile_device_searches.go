@@ -45,10 +45,10 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Get Advanced Search objects",
 		Long:  "Gets Advanced Search Objects",
 		Example: `  # List all advanced-mobile-device-searches
-  jamf-cli advanced-mobile-device-searches list
+  jamf-cli pro advanced-mobile-device-searches list
 
   # List advanced-mobile-device-searches and extract IDs
-  jamf-cli advanced-mobile-device-searches list --field id`,
+  jamf-cli pro advanced-mobile-device-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,13 +85,13 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
 		Example: `  # Get a advanced-mobile-device-searche by ID
-  jamf-cli advanced-mobile-device-searches get 1
+  jamf-cli pro advanced-mobile-device-searches get 1
 
   # Get a advanced-mobile-device-searche by name
-  jamf-cli advanced-mobile-device-searches get --name "Example"
+  jamf-cli pro advanced-mobile-device-searches get --name "Example"
 
   # Get a advanced-mobile-device-searche and output as YAML
-  jamf-cli advanced-mobile-device-searches get 1 -o yaml`,
+  jamf-cli pro advanced-mobile-device-searches get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -146,13 +146,13 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Create Advanced Search object",
 		Long:  "Creates Advanced Search Object",
 		Example: `  # Show the JSON template for creating a advanced-mobile-device-searche
-  jamf-cli advanced-mobile-device-searches create --scaffold
+  jamf-cli pro advanced-mobile-device-searches create --scaffold
 
   # Create a advanced-mobile-device-searche from JSON
-  echo '{"name":"Example"}' | jamf-cli advanced-mobile-device-searches create
+  echo '{"name":"Example"}' | jamf-cli pro advanced-mobile-device-searches create
 
   # Get a advanced-mobile-device-searche, modify it, and create a copy
-  jamf-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli advanced-mobile-device-searches create`,
+  jamf-cli pro advanced-mobile-device-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli pro advanced-mobile-device-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -221,13 +221,13 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get specified Advanced Search object",
 		Long:  "Gets Specified Advanced Search Object",
 		Example: `  # Update a advanced-mobile-device-searche from JSON
-  echo '{"name":"Updated"}' | jamf-cli advanced-mobile-device-searches update 1
+  echo '{"name":"Updated"}' | jamf-cli pro advanced-mobile-device-searches update 1
 
   # Update by name
-  jamf-cli advanced-mobile-device-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli advanced-mobile-device-searches update --name "Example"
+  jamf-cli pro advanced-mobile-device-searches get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro advanced-mobile-device-searches update --name "Example"
 
   # Get a advanced-mobile-device-searche, modify, and update
-  jamf-cli advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli advanced-mobile-device-searches update 1`,
+  jamf-cli pro advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli pro advanced-mobile-device-searches update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -314,13 +314,13 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Remove specified Advanced Search object",
 		Long:  "Removes specified Advanced Search Object",
 		Example: `  # Delete a advanced-mobile-device-searche (with confirmation)
-  jamf-cli advanced-mobile-device-searches delete 1
+  jamf-cli pro advanced-mobile-device-searches delete 1
 
   # Delete by name
-  jamf-cli advanced-mobile-device-searches delete --name "Example" --yes
+  jamf-cli pro advanced-mobile-device-searches delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli advanced-mobile-device-searches delete 1 --yes`,
+  jamf-cli pro advanced-mobile-device-searches delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,7 +428,7 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 		Short: "Remove specified Advanced Search objects",
 		Long:  "Removes specified Advanced Search Objects",
 		Example: `  # Delete multiple advanced-mobile-device-searches by IDs
-  jamf-cli advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -579,19 +579,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a advanced-mobile-device-searche from a JSON file
-  jamf-cli advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json
+  jamf-cli pro advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json
 
   # Apply a advanced-mobile-device-searche from a YAML file
-  jamf-cli advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.yaml
+  jamf-cli pro advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.yaml
 
   # Apply from stdin
-  cat advanced-mobile-device-searche.json | jamf-cli advanced-mobile-device-searches apply
+  cat advanced-mobile-device-searche.json | jamf-cli pro advanced-mobile-device-searches apply
 
   # Apply without replacement confirmation
-  jamf-cli advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json --yes
+  jamf-cli pro advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json --yes
 
   # Preview what would happen
-  jamf-cli advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json --dry-run`,
+  jamf-cli pro advanced-mobile-device-searches apply --from-file advanced-mobile-device-searche.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

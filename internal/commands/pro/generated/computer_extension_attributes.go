@@ -57,10 +57,10 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Retrieve Computer Extension Attributes.",
 		Long:  "Retrieves All Computer Extension Attributes Configuration.",
 		Example: `  # List all computer-extension-attributes
-  jamf-cli computer-extension-attributes list
+  jamf-cli pro computer-extension-attributes list
 
   # List computer-extension-attributes and extract IDs
-  jamf-cli computer-extension-attributes list --field id`,
+  jamf-cli pro computer-extension-attributes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -183,13 +183,13 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Get specified Computer Extension Attribute object.",
 		Long:  "Gets specified Computer Extension Attribute object.",
 		Example: `  # Get a computer-extension-attribute by ID
-  jamf-cli computer-extension-attributes get 1
+  jamf-cli pro computer-extension-attributes get 1
 
   # Get a computer-extension-attribute by name
-  jamf-cli computer-extension-attributes get --name "Example"
+  jamf-cli pro computer-extension-attributes get --name "Example"
 
   # Get a computer-extension-attribute and output as YAML
-  jamf-cli computer-extension-attributes get 1 -o yaml`,
+  jamf-cli pro computer-extension-attributes get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -245,13 +245,13 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Create Computer Extension Attribute.",
 		Long:  "Create Computer Extension Attribute to collect extra inventory information.",
 		Example: `  # Show the JSON template for creating a computer-extension-attribute
-  jamf-cli computer-extension-attributes create --scaffold
+  jamf-cli pro computer-extension-attributes create --scaffold
 
   # Create a computer-extension-attribute from JSON
-  echo '{"name":"Example"}' | jamf-cli computer-extension-attributes create
+  echo '{"name":"Example"}' | jamf-cli pro computer-extension-attributes create
 
   # Get a computer-extension-attribute, modify it, and create a copy
-  jamf-cli computer-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-extension-attributes create`,
+  jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-extension-attributes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -340,13 +340,13 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Update specified Computer Extension Attribute object.",
 		Long:  "Update specified Computer Extension Attribute object.",
 		Example: `  # Update a computer-extension-attribute from JSON
-  echo '{"name":"Updated"}' | jamf-cli computer-extension-attributes update 1
+  echo '{"name":"Updated"}' | jamf-cli pro computer-extension-attributes update 1
 
   # Update by name
-  jamf-cli computer-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli computer-extension-attributes update --name "Example"
+  jamf-cli pro computer-extension-attributes get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro computer-extension-attributes update --name "Example"
 
   # Get a computer-extension-attribute, modify, and update
-  jamf-cli computer-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli computer-extension-attributes update 1`,
+  jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-extension-attributes update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -452,13 +452,13 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Remove specified Computer Extension Attribute.",
 		Long:  "ID of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete a computer-extension-attribute (with confirmation)
-  jamf-cli computer-extension-attributes delete 1
+  jamf-cli pro computer-extension-attributes delete 1
 
   # Delete by name
-  jamf-cli computer-extension-attributes delete --name "Example" --yes
+  jamf-cli pro computer-extension-attributes delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli computer-extension-attributes delete 1 --yes`,
+  jamf-cli pro computer-extension-attributes delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -566,7 +566,7 @@ func newComputerExtensionAttributesDeleteMultipleCmd(ctx *registry.CLIContext) *
 		Short: "Delete multiple Computer Extension Attribute at once.",
 		Long:  "IDs of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete multiple computer-extension-attributes by IDs
-  jamf-cli computer-extension-attributes delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro computer-extension-attributes delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -666,10 +666,10 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get specified Computer Extension Attribute History object",
 		Long:  "Get specified Computer Extension Attribute history object",
 		Example: `  # Get history for a computer-extension-attribute by ID
-  jamf-cli computer-extension-attributes history 1
+  jamf-cli pro computer-extension-attributes history 1
 
   # Get history by name
-  jamf-cli computer-extension-attributes history --name "Example"`,
+  jamf-cli pro computer-extension-attributes history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1077,19 +1077,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computer-extension-attribute from a JSON file
-  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json
+  jamf-cli pro computer-extension-attributes apply --from-file computer-extension-attribute.json
 
   # Apply a computer-extension-attribute from a YAML file
-  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.yaml
+  jamf-cli pro computer-extension-attributes apply --from-file computer-extension-attribute.yaml
 
   # Apply from stdin
-  cat computer-extension-attribute.json | jamf-cli computer-extension-attributes apply
+  cat computer-extension-attribute.json | jamf-cli pro computer-extension-attributes apply
 
   # Apply without replacement confirmation
-  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json --yes
+  jamf-cli pro computer-extension-attributes apply --from-file computer-extension-attribute.json --yes
 
   # Preview what would happen
-  jamf-cli computer-extension-attributes apply --from-file computer-extension-attribute.json --dry-run`,
+  jamf-cli pro computer-extension-attributes apply --from-file computer-extension-attribute.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

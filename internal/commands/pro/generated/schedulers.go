@@ -34,10 +34,10 @@ func newSchedulersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve all Jamf Pro Scheduler jobs",
 		Long:  "Retrieves the names of all Jamf Pro Scheduler jobs",
 		Example: `  # List all schedulers
-  jamf-cli schedulers list
+  jamf-cli pro schedulers list
 
   # List schedulers and extract IDs
-  jamf-cli schedulers list --field id`,
+  jamf-cli pro schedulers list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

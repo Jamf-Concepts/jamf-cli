@@ -49,13 +49,13 @@ func newAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get AD CS Settings configuration for the ID value",
 		Long:  "Get AD CS Settings configuration for the ID value including public key information, but not including any password information.",
 		Example: `  # Get a adcs-setting by ID
-  jamf-cli adcs-settings get 1
+  jamf-cli pro adcs-settings get 1
 
   # Get a adcs-setting by name
-  jamf-cli adcs-settings get --name "Example"
+  jamf-cli pro adcs-settings get --name "Example"
 
   # Get a adcs-setting and output as YAML
-  jamf-cli adcs-settings get 1 -o yaml`,
+  jamf-cli pro adcs-settings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -110,13 +110,13 @@ func newAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create AD CS Settings configuration for either inbound or outbound mode",
 		Long:  "Create AD CS Settings configuration and initialize renewal monitor. Once set, the configuration cannot change between inbound and outbound modes.",
 		Example: `  # Show the JSON template for creating a adcs-setting
-  jamf-cli adcs-settings create --scaffold
+  jamf-cli pro adcs-settings create --scaffold
 
   # Create a adcs-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli adcs-settings create
+  echo '{"name":"Example"}' | jamf-cli pro adcs-settings create
 
   # Get a adcs-setting, modify it, and create a copy
-  jamf-cli adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli adcs-settings create`,
+  jamf-cli pro adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro adcs-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,13 +188,13 @@ func newAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete AD CS Settings configuration by ID",
 		Long:  "Delete AD CS Settings configuration, only if reassignment of Certificate Authority succeeds and no config profiles are using the configuration.",
 		Example: `  # Delete a adcs-setting (with confirmation)
-  jamf-cli adcs-settings delete 1
+  jamf-cli pro adcs-settings delete 1
 
   # Delete by name
-  jamf-cli adcs-settings delete --name "Example" --yes
+  jamf-cli pro adcs-settings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli adcs-settings delete 1 --yes`,
+  jamf-cli pro adcs-settings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -305,10 +305,10 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified AD CS Settings history object",
 		Long:  "Get specified AD CS Settings history object.",
 		Example: `  # Get history for a adcs-setting by ID
-  jamf-cli adcs-settings history 1
+  jamf-cli pro adcs-settings history 1
 
   # Get history by name
-  jamf-cli adcs-settings history --name "Example"`,
+  jamf-cli pro adcs-settings history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -654,16 +654,16 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update AD CS Settings configuration",
 		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  adcsUrl                                      string\n  apiClientId                                  string\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  displayName                                  string\n  fqdn                                         string\n  outbound                                     boolean\n  revocationEnabled                            boolean\n  serverCert.filename                          string\n  serverCert.password                          string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli adcs-settings patch 1 --set general.managed=true
+  jamf-cli pro adcs-settings patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli adcs-settings patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro adcs-settings patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli adcs-settings patch --name "Example" --set general.managed=true
+  jamf-cli pro adcs-settings patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli adcs-settings patch 1 --from-file changes.json`,
+  jamf-cli pro adcs-settings patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -831,19 +831,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a adcs-setting from a JSON file
-  jamf-cli adcs-settings apply --from-file adcs-setting.json
+  jamf-cli pro adcs-settings apply --from-file adcs-setting.json
 
   # Apply a adcs-setting from a YAML file
-  jamf-cli adcs-settings apply --from-file adcs-setting.yaml
+  jamf-cli pro adcs-settings apply --from-file adcs-setting.yaml
 
   # Apply from stdin
-  cat adcs-setting.json | jamf-cli adcs-settings apply
+  cat adcs-setting.json | jamf-cli pro adcs-settings apply
 
   # Apply without replacement confirmation
-  jamf-cli adcs-settings apply --from-file adcs-setting.json --yes
+  jamf-cli pro adcs-settings apply --from-file adcs-setting.json --yes
 
   # Preview what would happen
-  jamf-cli adcs-settings apply --from-file adcs-setting.json --dry-run`,
+  jamf-cli pro adcs-settings apply --from-file adcs-setting.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

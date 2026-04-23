@@ -45,10 +45,10 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *registry.CLIContext) *cobra.
 		Use:   "list",
 		Short: "List all advancedcomputersearches",
 		Example: `  # List all advancedcomputersearches
-  jamf-cli classic-advanced-computer-searches list
+  jamf-cli pro classic-advanced-computer-searches list
 
   # List advancedcomputersearches and extract IDs
-  jamf-cli classic-advanced-computer-searches list --field id`,
+  jamf-cli pro classic-advanced-computer-searches list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/advancedcomputersearches", nil)
@@ -98,13 +98,13 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "get [<id>]",
 		Short: "Get a advanced_computer_search by ID",
 		Example: `  # Get a advanced_computer_search by ID
-  jamf-cli classic-advanced-computer-searches get 1
+  jamf-cli pro classic-advanced-computer-searches get 1
 
   # Get a advanced_computer_search by name
-  jamf-cli classic-advanced-computer-searches get --name "Example"
+  jamf-cli pro classic-advanced-computer-searches get --name "Example"
 
   # Get a advanced_computer_search and output as YAML
-  jamf-cli classic-advanced-computer-searches get 1 -o yaml`,
+  jamf-cli pro classic-advanced-computer-searches get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Create a advanced_computer_search",
 		Long:  "Create a new advanced_computer_search. Reads XML body from stdin.",
 		Example: `  # Create a advanced_computer_search from XML
-  cat advanced_computer_search.xml | jamf-cli classic-advanced-computer-searches create`,
+  cat advanced_computer_search.xml | jamf-cli pro classic-advanced-computer-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Update a advanced_computer_search",
 		Long:  "Update an existing advanced_computer_search by ID. Reads XML body from stdin.",
 		Example: `  # Update a advanced_computer_search from XML
-  cat advanced_computer_search.xml | jamf-cli classic-advanced-computer-searches update 1`,
+  cat advanced_computer_search.xml | jamf-cli pro classic-advanced-computer-searches update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 		Use:   "delete [<id>]",
 		Short: "Delete a advanced_computer_search",
 		Example: `  # Delete a advanced_computer_search (with confirmation)
-  jamf-cli classic-advanced-computer-searches delete 1
+  jamf-cli pro classic-advanced-computer-searches delete 1
 
   # Delete by name
-  jamf-cli classic-advanced-computer-searches delete --name "Example" --yes
+  jamf-cli pro classic-advanced-computer-searches delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-advanced-computer-searches delete 1 --yes`,
+  jamf-cli pro classic-advanced-computer-searches delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a advanced_computer_search from an XML file
-  jamf-cli classic-advanced-computer-searches apply --from-file advanced_computer_search.xml
+  jamf-cli pro classic-advanced-computer-searches apply --from-file advanced_computer_search.xml
 
   # Apply from stdin
-  cat advanced_computer_search.xml | jamf-cli classic-advanced-computer-searches apply
+  cat advanced_computer_search.xml | jamf-cli pro classic-advanced-computer-searches apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-advanced-computer-searches apply --from-file advanced_computer_search.xml --yes`,
+  jamf-cli pro classic-advanced-computer-searches apply --from-file advanced_computer_search.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

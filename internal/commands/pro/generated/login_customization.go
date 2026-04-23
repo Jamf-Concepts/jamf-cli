@@ -35,10 +35,10 @@ func newLoginCustomizationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get current login disclaimer settings",
 		Long:  "Returns knob whether disclaimer is enabled and if saved, its contents.",
 		Example: `  # Get login-customization
-  jamf-cli login-customization get
+  jamf-cli pro login-customization get
 
   # Get login-customization and output as YAML
-  jamf-cli login-customization get -o yaml`,
+  jamf-cli pro login-customization get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,10 +75,10 @@ func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update current login disclaimer settings.",
 		Long:  "Update current login disclaimer settings.",
 		Example: `  # Update login-customization
-  jamf-cli login-customization get -o json | jq '.field = "value"' | jamf-cli login-customization update
+  jamf-cli pro login-customization get -o json | jq '.field = "value"' | jamf-cli pro login-customization update
 
   # Update from a file
-  jamf-cli login-customization update --from-file login-customization.json`,
+  jamf-cli pro login-customization update --from-file login-customization.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

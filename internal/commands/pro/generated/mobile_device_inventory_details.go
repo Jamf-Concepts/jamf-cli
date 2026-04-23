@@ -43,10 +43,10 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Return paginated Mobile Device Inventory records",
 		Long:  "Return paginated Mobile Device Inventory records",
 		Example: `  # List all mobile-device-inventory-details
-  jamf-cli mobile-device-inventory-details list
+  jamf-cli pro mobile-device-inventory-details list
 
   # List mobile-device-inventory-details and extract IDs
-  jamf-cli mobile-device-inventory-details list --field id`,
+  jamf-cli pro mobile-device-inventory-details list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

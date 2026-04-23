@@ -55,10 +55,10 @@ func newDeviceEnrollmentInstancesListCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Read all sorted and paged Device Enrollment instances",
 		Long:  "Search for sorted and paged device enrollment instances",
 		Example: `  # List all device-enrollment-instances
-  jamf-cli device-enrollment-instances list
+  jamf-cli pro device-enrollment-instances list
 
   # List device-enrollment-instances and extract IDs
-  jamf-cli device-enrollment-instances list --field id`,
+  jamf-cli pro device-enrollment-instances list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Retrieve a Device Enrollment Instance with the supplied id",
 		Long:  "Retrieves a Device Enrollment Instance with the supplied id",
 		Example: `  # Get a device-enrollment-instance by ID
-  jamf-cli device-enrollment-instances get 1
+  jamf-cli pro device-enrollment-instances get 1
 
   # Get a device-enrollment-instance by name
-  jamf-cli device-enrollment-instances get --name "Example"
+  jamf-cli pro device-enrollment-instances get --name "Example"
 
   # Get a device-enrollment-instance and output as YAML
-  jamf-cli device-enrollment-instances get 1 -o yaml`,
+  jamf-cli pro device-enrollment-instances get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -241,13 +241,13 @@ func newDeviceEnrollmentInstancesCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Create a Device Enrollment Instance with the supplied Token",
 		Long:  "Creates a device enrollment instance with the supplied token.",
 		Example: `  # Show the JSON template for creating a device-enrollment-instance
-  jamf-cli device-enrollment-instances create --scaffold
+  jamf-cli pro device-enrollment-instances create --scaffold
 
   # Create a device-enrollment-instance from JSON
-  echo '{"name":"Example"}' | jamf-cli device-enrollment-instances create
+  echo '{"name":"Example"}' | jamf-cli pro device-enrollment-instances create
 
   # Get a device-enrollment-instance, modify it, and create a copy
-  jamf-cli device-enrollment-instances get 1 -o json | jq '.name = "Copy"' | jamf-cli device-enrollment-instances create`,
+  jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "Copy"' | jamf-cli pro device-enrollment-instances create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -355,13 +355,13 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Update a Device Enrollment Instance with the supplied id",
 		Long:  "Updates a Device Enrollment Instance with the supplied id",
 		Example: `  # Update a device-enrollment-instance from JSON
-  echo '{"name":"Updated"}' | jamf-cli device-enrollment-instances update 1
+  echo '{"name":"Updated"}' | jamf-cli pro device-enrollment-instances update 1
 
   # Update by name
-  jamf-cli device-enrollment-instances get --name "Example" -o json | jq '.field = "value"' | jamf-cli device-enrollment-instances update --name "Example"
+  jamf-cli pro device-enrollment-instances get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro device-enrollment-instances update --name "Example"
 
   # Get a device-enrollment-instance, modify, and update
-  jamf-cli device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamf-cli device-enrollment-instances update 1`,
+  jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamf-cli pro device-enrollment-instances update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -479,13 +479,13 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Delete a Device Enrollment Instance with the supplied id",
 		Long:  "Deletes a Device Enrollment Instance with the supplied id",
 		Example: `  # Delete a device-enrollment-instance (with confirmation)
-  jamf-cli device-enrollment-instances delete 1
+  jamf-cli pro device-enrollment-instances delete 1
 
   # Delete by name
-  jamf-cli device-enrollment-instances delete --name "Example" --yes
+  jamf-cli pro device-enrollment-instances delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli device-enrollment-instances delete 1 --yes`,
+  jamf-cli pro device-enrollment-instances delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -596,10 +596,10 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Get sorted and paged Device Enrollment history objects",
 		Long:  "Gets sorted and paged device enrollment history objects",
 		Example: `  # Get history for a device-enrollment-instance by ID
-  jamf-cli device-enrollment-instances history 1
+  jamf-cli pro device-enrollment-instances history 1
 
   # Get history by name
-  jamf-cli device-enrollment-instances history --name "Example"`,
+  jamf-cli pro device-enrollment-instances history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1019,19 +1019,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a device-enrollment-instance from a JSON file
-  jamf-cli device-enrollment-instances apply --from-file device-enrollment-instance.json
+  jamf-cli pro device-enrollment-instances apply --from-file device-enrollment-instance.json
 
   # Apply a device-enrollment-instance from a YAML file
-  jamf-cli device-enrollment-instances apply --from-file device-enrollment-instance.yaml
+  jamf-cli pro device-enrollment-instances apply --from-file device-enrollment-instance.yaml
 
   # Apply from stdin
-  cat device-enrollment-instance.json | jamf-cli device-enrollment-instances apply
+  cat device-enrollment-instance.json | jamf-cli pro device-enrollment-instances apply
 
   # Apply without replacement confirmation
-  jamf-cli device-enrollment-instances apply --from-file device-enrollment-instance.json --yes
+  jamf-cli pro device-enrollment-instances apply --from-file device-enrollment-instance.json --yes
 
   # Preview what would happen
-  jamf-cli device-enrollment-instances apply --from-file device-enrollment-instance.json --dry-run`,
+  jamf-cli pro device-enrollment-instances apply --from-file device-enrollment-instance.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

@@ -39,10 +39,10 @@ func newParentAppGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the current Jamf Parent app settings",
 		Long:  "Get the current Jamf Parent app settings",
 		Example: `  # Get parent-app
-  jamf-cli parent-app get
+  jamf-cli pro parent-app get
 
   # Get parent-app and output as YAML
-  jamf-cli parent-app get -o yaml`,
+  jamf-cli pro parent-app get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,10 +79,10 @@ func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Jamf Parent app settings",
 		Long:  "Update Jamf Parent app settings",
 		Example: `  # Update parent-app
-  jamf-cli parent-app get -o json | jq '.field = "value"' | jamf-cli parent-app update
+  jamf-cli pro parent-app get -o json | jq '.field = "value"' | jamf-cli pro parent-app update
 
   # Update from a file
-  jamf-cli parent-app update --from-file parent-app.json`,
+  jamf-cli pro parent-app update --from-file parent-app.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -161,7 +161,7 @@ func newParentAppHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Parent app settings history",
 		Long:  "Gets Jamf Parent app settings history",
 		Example: `  # Get history for a parent-app
-  jamf-cli parent-app history 1`,
+  jamf-cli pro parent-app history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

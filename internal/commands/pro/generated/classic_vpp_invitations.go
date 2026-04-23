@@ -40,10 +40,10 @@ func newClassicVppInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all vppinvitations",
 		Example: `  # List all vppinvitations
-  jamf-cli classic-vpp-invitations list
+  jamf-cli pro classic-vpp-invitations list
 
   # List vppinvitations and extract IDs
-  jamf-cli classic-vpp-invitations list --field id`,
+  jamf-cli pro classic-vpp-invitations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppinvitations", nil)
@@ -90,10 +90,10 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a vpp_invitation by ID",
 		Example: `  # Get a vpp_invitation by ID
-  jamf-cli classic-vpp-invitations get 1
+  jamf-cli pro classic-vpp-invitations get 1
 
   # Get a vpp_invitation and output as YAML
-  jamf-cli classic-vpp-invitations get 1 -o yaml`,
+  jamf-cli pro classic-vpp-invitations get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -139,7 +139,7 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Create a vpp_invitation",
 		Long:  "Create a new vpp_invitation. Reads XML body from stdin.",
 		Example: `  # Create a vpp_invitation from XML
-  cat vpp_invitation.xml | jamf-cli classic-vpp-invitations create`,
+  cat vpp_invitation.xml | jamf-cli pro classic-vpp-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -174,10 +174,10 @@ func newClassicVppInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "delete <id>",
 		Short: "Delete a vpp_invitation",
 		Example: `  # Delete a vpp_invitation (with confirmation)
-  jamf-cli classic-vpp-invitations delete 1
+  jamf-cli pro classic-vpp-invitations delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-vpp-invitations delete 1 --yes`,
+  jamf-cli pro classic-vpp-invitations delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
