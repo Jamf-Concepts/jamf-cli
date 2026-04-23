@@ -110,7 +110,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			return false
 		},
 		"exampleText": func(r *Resource, op *Operation) string {
-			bin := "jamf-cli"
+			bin := "jamf-cli pro"
 			resourceName := r.Name
 			nameSingular := r.NameSingular
 			switch op.Name {
@@ -141,7 +141,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName)
 			case "create":
 				if op.RequestBody != nil && op.RequestBody.IsMultipart {
-					return fmt.Sprintf("  # Upload a file\n  %s pro %s create --file /path/to/file",
+					return fmt.Sprintf("  # Upload a file\n  %s %s create --file /path/to/file",
 						bin, resourceName)
 				}
 				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
@@ -218,7 +218,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						idArg = " <id>"
 					}
 					return fmt.Sprintf(
-						"  # Save to file\n  %s pro %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s pro %s %s%s > output.bin",
+						"  # Save to file\n  %s %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s %s %s%s > output.bin",
 						bin, resourceName, op.Name, idArg,
 						bin, resourceName, op.Name, idArg)
 				}
@@ -1054,7 +1054,7 @@ func opHasNameLookup(op *Operation, r *Resource) bool {
 
 // patchExampleText builds the Example string for a unified patch command.
 func patchExampleText(r *Resource, op *Operation) string {
-	bin := "jamf-cli"
+	bin := "jamf-cli pro"
 	if !hasPathParam(op.Path) {
 		// Singleton PATCH — no ID
 		return fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
@@ -2072,19 +2072,19 @@ The {{ .NameField }} field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.` + "`" + `,
 		Example: ` + "`" + `  # Apply a {{ .NameSingular }} from a JSON file
-  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json
+  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json
 
   # Apply a {{ .NameSingular }} from a YAML file
-  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
+  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.yaml
 
   # Apply from stdin
-  cat {{ .NameSingular }}.json | jamf-cli {{ .Name }} apply
+  cat {{ .NameSingular }}.json | jamf-cli pro {{ .Name }} apply
 
   # Apply without replacement confirmation
-  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json --yes
+  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json --yes
 
   # Preview what would happen
-  jamf-cli {{ .Name }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
+  jamf-cli pro {{ .Name }} apply --from-file {{ .NameSingular }}.json --dry-run` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

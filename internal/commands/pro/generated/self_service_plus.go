@@ -39,10 +39,10 @@ func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Save Self Service Plus settings.",
 		Long:  "Save Self Service Plus settings.",
 		Example: `  # Update self-service-plus
-  jamf-cli self-service-plus get -o json | jq '.field = "value"' | jamf-cli self-service-plus update
+  jamf-cli pro self-service-plus get -o json | jq '.field = "value"' | jamf-cli pro self-service-plus update
 
   # Update from a file
-  jamf-cli self-service-plus update --from-file self-service-plus.json`,
+  jamf-cli pro self-service-plus update --from-file self-service-plus.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

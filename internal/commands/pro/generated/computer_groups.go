@@ -31,10 +31,10 @@ func newComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns the list of all computer groups",
 		Long:  "Use it to get the list of all computer groups.",
 		Example: `  # List all computer-groups
-  jamf-cli computer-groups list
+  jamf-cli pro computer-groups list
 
   # List computer-groups and extract IDs
-  jamf-cli computer-groups list --field id`,
+  jamf-cli pro computer-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

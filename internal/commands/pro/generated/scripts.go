@@ -54,10 +54,10 @@ func newScriptsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for sorted and paged Scripts",
 		Long:  "Search for sorted and paged scripts",
 		Example: `  # List all scripts
-  jamf-cli scripts list
+  jamf-cli pro scripts list
 
   # List scripts and extract IDs
-  jamf-cli scripts list --field id`,
+  jamf-cli pro scripts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -180,13 +180,13 @@ func newScriptsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a full script object",
 		Long:  "Retrieves a full script object",
 		Example: `  # Get a script by ID
-  jamf-cli scripts get 1
+  jamf-cli pro scripts get 1
 
   # Get a script by name
-  jamf-cli scripts get --name "Example"
+  jamf-cli pro scripts get --name "Example"
 
   # Get a script and output as YAML
-  jamf-cli scripts get 1 -o yaml`,
+  jamf-cli pro scripts get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a Script",
 		Long:  "Creates a script",
 		Example: `  # Show the JSON template for creating a script
-  jamf-cli scripts create --scaffold
+  jamf-cli pro scripts create --scaffold
 
   # Create a script from JSON
-  echo '{"name":"Example"}' | jamf-cli scripts create
+  echo '{"name":"Example"}' | jamf-cli pro scripts create
 
   # Get a script, modify it, and create a copy
-  jamf-cli scripts get 1 -o json | jq '.name = "Copy"' | jamf-cli scripts create`,
+  jamf-cli pro scripts get 1 -o json | jq '.name = "Copy"' | jamf-cli pro scripts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -339,13 +339,13 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Replace the script at the id with the supplied information",
 		Long:  "Replaces the script at the id with the supplied information",
 		Example: `  # Update a script from JSON
-  echo '{"name":"Updated"}' | jamf-cli scripts update 1
+  echo '{"name":"Updated"}' | jamf-cli pro scripts update 1
 
   # Update by name
-  jamf-cli scripts get --name "Example" -o json | jq '.field = "value"' | jamf-cli scripts update --name "Example"
+  jamf-cli pro scripts get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro scripts update --name "Example"
 
   # Get a script, modify, and update
-  jamf-cli scripts get 1 -o json | jq '.name = "New Name"' | jamf-cli scripts update 1`,
+  jamf-cli pro scripts get 1 -o json | jq '.name = "New Name"' | jamf-cli pro scripts update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -453,13 +453,13 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a Script at the specified id",
 		Long:  "Deletes a script at the specified id",
 		Example: `  # Delete a script (with confirmation)
-  jamf-cli scripts delete 1
+  jamf-cli pro scripts delete 1
 
   # Delete by name
-  jamf-cli scripts delete --name "Example" --yes
+  jamf-cli pro scripts delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli scripts delete 1 --yes`,
+  jamf-cli pro scripts delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -570,10 +570,10 @@ func newScriptsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Script history object",
 		Long:  "Gets specified Script history object",
 		Example: `  # Get history for a script by ID
-  jamf-cli scripts history 1
+  jamf-cli pro scripts history 1
 
   # Get history by name
-  jamf-cli scripts history --name "Example"`,
+  jamf-cli pro scripts history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -875,19 +875,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a script from a JSON file
-  jamf-cli scripts apply --from-file script.json
+  jamf-cli pro scripts apply --from-file script.json
 
   # Apply a script from a YAML file
-  jamf-cli scripts apply --from-file script.yaml
+  jamf-cli pro scripts apply --from-file script.yaml
 
   # Apply from stdin
-  cat script.json | jamf-cli scripts apply
+  cat script.json | jamf-cli pro scripts apply
 
   # Apply without replacement confirmation
-  jamf-cli scripts apply --from-file script.json --yes
+  jamf-cli pro scripts apply --from-file script.json --yes
 
   # Preview what would happen
-  jamf-cli scripts apply --from-file script.json --dry-run`,
+  jamf-cli pro scripts apply --from-file script.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

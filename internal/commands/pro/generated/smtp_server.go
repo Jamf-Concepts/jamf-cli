@@ -41,10 +41,10 @@ func newSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Finds the Jamf Pro SMTP Server information",
 		Long:  "Finds the Jamf Pro SMTP Server information",
 		Example: `  # Get smtp-server
-  jamf-cli smtp-server get
+  jamf-cli pro smtp-server get
 
   # Get smtp-server and output as YAML
-  jamf-cli smtp-server get -o yaml`,
+  jamf-cli pro smtp-server get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,10 +82,10 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Updates Jamf Pro SMTP Server information",
 		Long:  "Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided",
 		Example: `  # Update smtp-server
-  jamf-cli smtp-server get -o json | jq '.field = "value"' | jamf-cli smtp-server update
+  jamf-cli pro smtp-server get -o json | jq '.field = "value"' | jamf-cli pro smtp-server update
 
   # Update from a file
-  jamf-cli smtp-server update --from-file smtp-server.json`,
+  jamf-cli pro smtp-server update --from-file smtp-server.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -162,7 +162,7 @@ func newSmtpServerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified SMTP Server history object",
 		Long:  "Get specified SMTP Server history object",
 		Example: `  # Get history for a smtp-server
-  jamf-cli smtp-server history 1`,
+  jamf-cli pro smtp-server history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

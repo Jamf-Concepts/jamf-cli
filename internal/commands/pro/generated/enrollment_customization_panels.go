@@ -48,13 +48,13 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Create an LDAP Panel for a single Enrollment Customization",
 		Long:  "Create an LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Show the JSON template for creating a enrollment-customization-panel
-  jamf-cli enrollment-customization-panels create --scaffold
+  jamf-cli pro enrollment-customization-panels create --scaffold
 
   # Create a enrollment-customization-panel from JSON
-  echo '{"name":"Example"}' | jamf-cli enrollment-customization-panels create
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization-panels create
 
   # Get a enrollment-customization-panel, modify it, and create a copy
-  jamf-cli enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli enrollment-customization-panels create`,
+  jamf-cli pro enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization-panels create`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -125,10 +125,10 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Update a enrollment-customization-panel from JSON
-  echo '{"name":"Updated"}' | jamf-cli enrollment-customization-panels update 1 2
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customization-panels update 1 2
 
   # Get a enrollment-customization-panel, modify, and update
-  jamf-cli enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli enrollment-customization-panels update 1 2`,
+  jamf-cli pro enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customization-panels update 1 2`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -201,10 +201,10 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization-panel (with confirmation)
-  jamf-cli enrollment-customization-panels delete 1 2
+  jamf-cli pro enrollment-customization-panels delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli enrollment-customization-panels delete 1 2 --yes`,
+  jamf-cli pro enrollment-customization-panels delete 1 2 --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

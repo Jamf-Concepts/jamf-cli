@@ -42,13 +42,13 @@ func newUserPreferencesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get the user preferences for the authenticated user and key.",
 		Long:  "Gets the user preferences for the authenticated user and key.",
 		Example: `  # Get a user-preference by ID
-  jamf-cli user-preferences get 1
+  jamf-cli pro user-preferences get 1
 
   # Get a user-preference by name
-  jamf-cli user-preferences get --name "Example"
+  jamf-cli pro user-preferences get --name "Example"
 
   # Get a user-preference and output as YAML
-  jamf-cli user-preferences get 1 -o yaml`,
+  jamf-cli pro user-preferences get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -103,13 +103,13 @@ func newUserPreferencesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Persist the user setting",
 		Long:  "Persists the user setting",
 		Example: `  # Update a user-preference from JSON
-  echo '{"name":"Updated"}' | jamf-cli user-preferences update 1
+  echo '{"name":"Updated"}' | jamf-cli pro user-preferences update 1
 
   # Update by name
-  jamf-cli user-preferences get --name "Example" -o json | jq '.field = "value"' | jamf-cli user-preferences update --name "Example"
+  jamf-cli pro user-preferences get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro user-preferences update --name "Example"
 
   # Get a user-preference, modify, and update
-  jamf-cli user-preferences get 1 -o json | jq '.name = "New Name"' | jamf-cli user-preferences update 1`,
+  jamf-cli pro user-preferences get 1 -o json | jq '.name = "New Name"' | jamf-cli pro user-preferences update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -183,13 +183,13 @@ func newUserPreferencesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified setting for authenticated user",
 		Long:  "Remove specified setting for authenticated user",
 		Example: `  # Delete a user-preference (with confirmation)
-  jamf-cli user-preferences delete 1
+  jamf-cli pro user-preferences delete 1
 
   # Delete by name
-  jamf-cli user-preferences delete --name "Example" --yes
+  jamf-cli pro user-preferences delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli user-preferences delete 1 --yes`,
+  jamf-cli pro user-preferences delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

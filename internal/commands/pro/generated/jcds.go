@@ -43,10 +43,10 @@ func newJcdsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service.",
 		Example: `  # List all jcds
-  jamf-cli jcds list
+  jamf-cli pro jcds list
 
   # List jcds and extract IDs
-  jamf-cli jcds list --field id`,
+  jamf-cli pro jcds list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,13 +83,13 @@ func newJcdsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.",
 		Example: `  # Get a jcd by ID
-  jamf-cli jcds get 1
+  jamf-cli pro jcds get 1
 
   # Get a jcd by name
-  jamf-cli jcds get --name "Example"
+  jamf-cli pro jcds get --name "Example"
 
   # Get a jcd and output as YAML
-  jamf-cli jcds get 1 -o yaml`,
+  jamf-cli pro jcds get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -146,13 +146,13 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a file from the Jamf Cloud Distribution Service",
 		Long:  "Delete a file by filename from the Jamf Cloud Distribution Service.",
 		Example: `  # Delete a jcd (with confirmation)
-  jamf-cli jcds delete 1
+  jamf-cli pro jcds delete 1
 
   # Delete by name
-  jamf-cli jcds delete --name "Example" --yes
+  jamf-cli pro jcds delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli jcds delete 1 --yes`,
+  jamf-cli pro jcds delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

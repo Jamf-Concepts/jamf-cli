@@ -42,10 +42,10 @@ func newClassicPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all patchpolicies",
 		Example: `  # List all patchpolicies
-  jamf-cli classic-patch-policies list
+  jamf-cli pro classic-patch-policies list
 
   # List patchpolicies and extract IDs
-  jamf-cli classic-patch-policies list --field id`,
+  jamf-cli pro classic-patch-policies list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)
@@ -92,10 +92,10 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a patch_policy by ID",
 		Example: `  # Get a patch_policy by ID
-  jamf-cli classic-patch-policies get 1
+  jamf-cli pro classic-patch-policies get 1
 
   # Get a patch_policy and output as YAML
-  jamf-cli classic-patch-policies get 1 -o yaml`,
+  jamf-cli pro classic-patch-policies get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -141,7 +141,7 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a patch_policy",
 		Long:  "Create a new patch_policy. Reads XML body from stdin.",
 		Example: `  # Create a patch_policy from XML
-  cat patch_policy.xml | jamf-cli classic-patch-policies create`,
+  cat patch_policy.xml | jamf-cli pro classic-patch-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,7 +173,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a patch_policy",
 		Long:  "Update an existing patch_policy by ID. Reads XML body from stdin.",
 		Example: `  # Update a patch_policy from XML
-  cat patch_policy.xml | jamf-cli classic-patch-policies update 1`,
+  cat patch_policy.xml | jamf-cli pro classic-patch-policies update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -211,10 +211,10 @@ func newClassicPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a patch_policy",
 		Example: `  # Delete a patch_policy (with confirmation)
-  jamf-cli classic-patch-policies delete 1
+  jamf-cli pro classic-patch-policies delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-patch-policies delete 1 --yes`,
+  jamf-cli pro classic-patch-policies delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

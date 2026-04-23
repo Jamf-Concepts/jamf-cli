@@ -57,10 +57,10 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get sorted and paged Mobile Device Prestages",
 		Long:  "Gets sorted and paged mobile device prestages",
 		Example: `  # List all mobile-device-prestages
-  jamf-cli mobile-device-prestages list
+  jamf-cli pro mobile-device-prestages list
 
   # List mobile-device-prestages and extract IDs
-  jamf-cli mobile-device-prestages list --field id`,
+  jamf-cli pro mobile-device-prestages list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,13 +179,13 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Mobile Device Prestage with the supplied id",
 		Long:  "Retrieves a Mobile Device Prestage with the supplied id",
 		Example: `  # Get a mobile-device-prestage by ID
-  jamf-cli mobile-device-prestages get 1
+  jamf-cli pro mobile-device-prestages get 1
 
   # Get a mobile-device-prestage by name
-  jamf-cli mobile-device-prestages get --name "Example"
+  jamf-cli pro mobile-device-prestages get --name "Example"
 
   # Get a mobile-device-prestage and output as YAML
-  jamf-cli mobile-device-prestages get 1 -o yaml`,
+  jamf-cli pro mobile-device-prestages get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -240,13 +240,13 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Create a Mobile Device Prestage",
 		Long:  "Create a mobile device prestage",
 		Example: `  # Show the JSON template for creating a mobile-device-prestage
-  jamf-cli mobile-device-prestages create --scaffold
+  jamf-cli pro mobile-device-prestages create --scaffold
 
   # Create a mobile-device-prestage from JSON
-  echo '{"name":"Example"}' | jamf-cli mobile-device-prestages create
+  echo '{"name":"Example"}' | jamf-cli pro mobile-device-prestages create
 
   # Get a mobile-device-prestage, modify it, and create a copy
-  jamf-cli mobile-device-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli mobile-device-prestages create`,
+  jamf-cli pro mobile-device-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-prestages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -358,13 +358,13 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Update a Mobile Device Prestage",
 		Long:  "Updates a Mobile Device Prestage",
 		Example: `  # Update a mobile-device-prestage from JSON
-  echo '{"name":"Updated"}' | jamf-cli mobile-device-prestages update 1
+  echo '{"name":"Updated"}' | jamf-cli pro mobile-device-prestages update 1
 
   # Update by name
-  jamf-cli mobile-device-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli mobile-device-prestages update --name "Example"
+  jamf-cli pro mobile-device-prestages get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro mobile-device-prestages update --name "Example"
 
   # Get a mobile-device-prestage, modify, and update
-  jamf-cli mobile-device-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli mobile-device-prestages update 1`,
+  jamf-cli pro mobile-device-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-prestages update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -505,13 +505,13 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Delete a Mobile Device Prestage with the supplied id",
 		Long:  "Deletes a Mobile Device Prestage with the supplied id",
 		Example: `  # Delete a mobile-device-prestage (with confirmation)
-  jamf-cli mobile-device-prestages delete 1
+  jamf-cli pro mobile-device-prestages delete 1
 
   # Delete by name
-  jamf-cli mobile-device-prestages delete --name "Example" --yes
+  jamf-cli pro mobile-device-prestages delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli mobile-device-prestages delete 1 --yes`,
+  jamf-cli pro mobile-device-prestages delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -620,7 +620,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Remove an attachment for a Mobile Device Prestage",
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages by IDs
-  jamf-cli mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -750,10 +750,10 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Get sorted and paged Mobile Device Prestage history objects",
 		Long:  "Gets sorted and paged mobile device prestage history objects",
 		Example: `  # Get history for a mobile-device-prestage by ID
-  jamf-cli mobile-device-prestages history 1
+  jamf-cli pro mobile-device-prestages history 1
 
   # Get history by name
-  jamf-cli mobile-device-prestages history --name "Example"`,
+  jamf-cli pro mobile-device-prestages history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1102,19 +1102,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a mobile-device-prestage from a JSON file
-  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json
+  jamf-cli pro mobile-device-prestages apply --from-file mobile-device-prestage.json
 
   # Apply a mobile-device-prestage from a YAML file
-  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.yaml
+  jamf-cli pro mobile-device-prestages apply --from-file mobile-device-prestage.yaml
 
   # Apply from stdin
-  cat mobile-device-prestage.json | jamf-cli mobile-device-prestages apply
+  cat mobile-device-prestage.json | jamf-cli pro mobile-device-prestages apply
 
   # Apply without replacement confirmation
-  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json --yes
+  jamf-cli pro mobile-device-prestages apply --from-file mobile-device-prestage.json --yes
 
   # Preview what would happen
-  jamf-cli mobile-device-prestages apply --from-file mobile-device-prestage.json --dry-run`,
+  jamf-cli pro mobile-device-prestages apply --from-file mobile-device-prestage.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

@@ -40,10 +40,10 @@ func newJamfProServerUrlGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Pro Server URL settings",
 		Long:  "Get Jamf Pro Server URL settings",
 		Example: `  # Get jamf-pro-server-url
-  jamf-cli jamf-pro-server-url get
+  jamf-cli pro jamf-pro-server-url get
 
   # Get jamf-pro-server-url and output as YAML
-  jamf-cli jamf-pro-server-url get -o yaml`,
+  jamf-cli pro jamf-pro-server-url get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,10 +80,10 @@ func newJamfProServerUrlUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Jamf Pro Server URL settings",
 		Long:  "Update Jamf Pro Server URL settings",
 		Example: `  # Update jamf-pro-server-url
-  jamf-cli jamf-pro-server-url get -o json | jq '.field = "value"' | jamf-cli jamf-pro-server-url update
+  jamf-cli pro jamf-pro-server-url get -o json | jq '.field = "value"' | jamf-cli pro jamf-pro-server-url update
 
   # Update from a file
-  jamf-cli jamf-pro-server-url update --from-file jamf-pro-server-url.json`,
+  jamf-cli pro jamf-pro-server-url update --from-file jamf-pro-server-url.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -151,7 +151,7 @@ func newJamfProServerUrlHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Pro Server URL settings history",
 		Long:  "Gets Jamf Pro Server URL settings history",
 		Example: `  # Get history for a jamf-pro-server-url
-  jamf-cli jamf-pro-server-url history 1`,
+  jamf-cli pro jamf-pro-server-url history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

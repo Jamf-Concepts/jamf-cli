@@ -45,10 +45,10 @@ func newClassicComputerConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all computerconfigurations",
 		Example: `  # List all computerconfigurations
-  jamf-cli classic-computer-configs list
+  jamf-cli pro classic-computer-configs list
 
   # List computerconfigurations and extract IDs
-  jamf-cli classic-computer-configs list --field id`,
+  jamf-cli pro classic-computer-configs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerconfigurations", nil)
@@ -98,13 +98,13 @@ func newClassicComputerConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a computer_configuration by ID",
 		Example: `  # Get a computer_configuration by ID
-  jamf-cli classic-computer-configs get 1
+  jamf-cli pro classic-computer-configs get 1
 
   # Get a computer_configuration by name
-  jamf-cli classic-computer-configs get --name "Example"
+  jamf-cli pro classic-computer-configs get --name "Example"
 
   # Get a computer_configuration and output as YAML
-  jamf-cli classic-computer-configs get 1 -o yaml`,
+  jamf-cli pro classic-computer-configs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicComputerConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Create a computer_configuration",
 		Long:  "Create a new computer_configuration. Reads XML body from stdin.",
 		Example: `  # Create a computer_configuration from XML
-  cat computer_configuration.xml | jamf-cli classic-computer-configs create`,
+  cat computer_configuration.xml | jamf-cli pro classic-computer-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicComputerConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Update a computer_configuration",
 		Long:  "Update an existing computer_configuration by ID. Reads XML body from stdin.",
 		Example: `  # Update a computer_configuration from XML
-  cat computer_configuration.xml | jamf-cli classic-computer-configs update 1`,
+  cat computer_configuration.xml | jamf-cli pro classic-computer-configs update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicComputerConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "delete [<id>]",
 		Short: "Delete a computer_configuration",
 		Example: `  # Delete a computer_configuration (with confirmation)
-  jamf-cli classic-computer-configs delete 1
+  jamf-cli pro classic-computer-configs delete 1
 
   # Delete by name
-  jamf-cli classic-computer-configs delete --name "Example" --yes
+  jamf-cli pro classic-computer-configs delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-computer-configs delete 1 --yes`,
+  jamf-cli pro classic-computer-configs delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a computer_configuration from an XML file
-  jamf-cli classic-computer-configs apply --from-file computer_configuration.xml
+  jamf-cli pro classic-computer-configs apply --from-file computer_configuration.xml
 
   # Apply from stdin
-  cat computer_configuration.xml | jamf-cli classic-computer-configs apply
+  cat computer_configuration.xml | jamf-cli pro classic-computer-configs apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-computer-configs apply --from-file computer_configuration.xml --yes`,
+  jamf-cli pro classic-computer-configs apply --from-file computer_configuration.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

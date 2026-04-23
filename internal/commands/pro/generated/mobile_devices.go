@@ -46,10 +46,10 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Mobile Device objects",
 		Long:  "Gets Mobile Device objects.",
 		Example: `  # List all mobile-devices
-  jamf-cli mobile-devices list
+  jamf-cli pro mobile-devices list
 
   # List mobile-devices and extract IDs
-  jamf-cli mobile-devices list --field id`,
+  jamf-cli pro mobile-devices list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,13 +188,13 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Mobile Device",
 		Long:  "Get MobileDevice",
 		Example: `  # Get a mobile-device by ID
-  jamf-cli mobile-devices get 1
+  jamf-cli pro mobile-devices get 1
 
   # Get a mobile-device by name
-  jamf-cli mobile-devices get --name "Example"
+  jamf-cli pro mobile-devices get --name "Example"
 
   # Get a mobile-device and output as YAML
-  jamf-cli mobile-devices get 1 -o yaml`,
+  jamf-cli pro mobile-devices get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -269,22 +269,22 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update fields on a mobile device that are allowed to be modified by users",
 		Long:  "Updates fields on a mobile device that are allowed to be modified by users.\n\nIdentify the resource by ID (positional arg), --name, --serial, --udid. Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  assetTag                                     string\n  enforceName                                  boolean\n  location.buildingId                          string\n  location.departmentId                        string\n  location.emailAddress                        string\n  location.phoneNumber                         string\n  location.position                            string\n  location.realName                            string\n  location.room                                string\n  location.username                            string\n  name                                         string\n  siteId                                       string\n  timeZone                                     string\n  tvos.airplayPassword                         string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli mobile-devices patch 1 --set general.managed=true
+  jamf-cli pro mobile-devices patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli mobile-devices patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro mobile-devices patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli mobile-devices patch --name "Example" --set general.managed=true
+  jamf-cli pro mobile-devices patch --name "Example" --set general.managed=true
 
   # Update by serial
-  jamf-cli mobile-devices patch --serial <value> --set general.managed=true
+  jamf-cli pro mobile-devices patch --serial <value> --set general.managed=true
 
   # Update by udid
-  jamf-cli mobile-devices patch --udid <value> --set general.managed=true
+  jamf-cli pro mobile-devices patch --udid <value> --set general.managed=true
 
   # Patch from a file
-  jamf-cli mobile-devices patch 1 --from-file changes.json`,
+  jamf-cli pro mobile-devices patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

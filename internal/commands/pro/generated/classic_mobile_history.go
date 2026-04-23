@@ -38,13 +38,13 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a mobile_device_history by ID",
 		Example: `  # Get a mobile_device_history by ID
-  jamf-cli classic-mobile-history get 1
+  jamf-cli pro classic-mobile-history get 1
 
   # Get a mobile_device_history by name
-  jamf-cli classic-mobile-history get --name "Example"
+  jamf-cli pro classic-mobile-history get --name "Example"
 
   # Get a mobile_device_history and output as YAML
-  jamf-cli classic-mobile-history get 1 -o yaml`,
+  jamf-cli pro classic-mobile-history get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

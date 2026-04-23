@@ -45,10 +45,10 @@ func newClassicWebhooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all webhooks",
 		Example: `  # List all webhooks
-  jamf-cli classic-webhooks list
+  jamf-cli pro classic-webhooks list
 
   # List webhooks and extract IDs
-  jamf-cli classic-webhooks list --field id`,
+  jamf-cli pro classic-webhooks list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/webhooks", nil)
@@ -98,13 +98,13 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a webhook by ID",
 		Example: `  # Get a webhook by ID
-  jamf-cli classic-webhooks get 1
+  jamf-cli pro classic-webhooks get 1
 
   # Get a webhook by name
-  jamf-cli classic-webhooks get --name "Example"
+  jamf-cli pro classic-webhooks get --name "Example"
 
   # Get a webhook and output as YAML
-  jamf-cli classic-webhooks get 1 -o yaml`,
+  jamf-cli pro classic-webhooks get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a webhook",
 		Long:  "Create a new webhook. Reads XML body from stdin.",
 		Example: `  # Create a webhook from XML
-  cat webhook.xml | jamf-cli classic-webhooks create`,
+  cat webhook.xml | jamf-cli pro classic-webhooks create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a webhook",
 		Long:  "Update an existing webhook by ID. Reads XML body from stdin.",
 		Example: `  # Update a webhook from XML
-  cat webhook.xml | jamf-cli classic-webhooks update 1`,
+  cat webhook.xml | jamf-cli pro classic-webhooks update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a webhook",
 		Example: `  # Delete a webhook (with confirmation)
-  jamf-cli classic-webhooks delete 1
+  jamf-cli pro classic-webhooks delete 1
 
   # Delete by name
-  jamf-cli classic-webhooks delete --name "Example" --yes
+  jamf-cli pro classic-webhooks delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-webhooks delete 1 --yes`,
+  jamf-cli pro classic-webhooks delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a webhook from an XML file
-  jamf-cli classic-webhooks apply --from-file webhook.xml
+  jamf-cli pro classic-webhooks apply --from-file webhook.xml
 
   # Apply from stdin
-  cat webhook.xml | jamf-cli classic-webhooks apply
+  cat webhook.xml | jamf-cli pro classic-webhooks apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-webhooks apply --from-file webhook.xml --yes`,
+  jamf-cli pro classic-webhooks apply --from-file webhook.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

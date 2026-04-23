@@ -36,10 +36,10 @@ func newCacheGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Cache Settings",
 		Long:  "gets cache settings",
 		Example: `  # Get cache
-  jamf-cli cache get
+  jamf-cli pro cache get
 
   # Get cache and output as YAML
-  jamf-cli cache get -o yaml`,
+  jamf-cli pro cache get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -76,10 +76,10 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Cache Settings",
 		Long:  "updates cache settings",
 		Example: `  # Update cache
-  jamf-cli cache get -o json | jq '.field = "value"' | jamf-cli cache update
+  jamf-cli pro cache get -o json | jq '.field = "value"' | jamf-cli pro cache update
 
   # Update from a file
-  jamf-cli cache update --from-file cache.json`,
+  jamf-cli pro cache update --from-file cache.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

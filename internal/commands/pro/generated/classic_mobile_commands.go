@@ -29,10 +29,10 @@ func newClassicMobileCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all mobiledevicecommands",
 		Example: `  # List all mobiledevicecommands
-  jamf-cli classic-mobile-commands list
+  jamf-cli pro classic-mobile-commands list
 
   # List mobiledevicecommands and extract IDs
-  jamf-cli classic-mobile-commands list --field id`,
+  jamf-cli pro classic-mobile-commands list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicecommands", nil)

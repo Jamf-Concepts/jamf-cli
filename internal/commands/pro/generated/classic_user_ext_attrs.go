@@ -45,10 +45,10 @@ func newClassicUserExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all userextensionattributes",
 		Example: `  # List all userextensionattributes
-  jamf-cli classic-user-ext-attrs list
+  jamf-cli pro classic-user-ext-attrs list
 
   # List userextensionattributes and extract IDs
-  jamf-cli classic-user-ext-attrs list --field id`,
+  jamf-cli pro classic-user-ext-attrs list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/userextensionattributes", nil)
@@ -98,13 +98,13 @@ func newClassicUserExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a user_extension_attribute by ID",
 		Example: `  # Get a user_extension_attribute by ID
-  jamf-cli classic-user-ext-attrs get 1
+  jamf-cli pro classic-user-ext-attrs get 1
 
   # Get a user_extension_attribute by name
-  jamf-cli classic-user-ext-attrs get --name "Example"
+  jamf-cli pro classic-user-ext-attrs get --name "Example"
 
   # Get a user_extension_attribute and output as YAML
-  jamf-cli classic-user-ext-attrs get 1 -o yaml`,
+  jamf-cli pro classic-user-ext-attrs get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicUserExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a user_extension_attribute",
 		Long:  "Create a new user_extension_attribute. Reads XML body from stdin.",
 		Example: `  # Create a user_extension_attribute from XML
-  cat user_extension_attribute.xml | jamf-cli classic-user-ext-attrs create`,
+  cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicUserExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a user_extension_attribute",
 		Long:  "Update an existing user_extension_attribute by ID. Reads XML body from stdin.",
 		Example: `  # Update a user_extension_attribute from XML
-  cat user_extension_attribute.xml | jamf-cli classic-user-ext-attrs update 1`,
+  cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a user_extension_attribute",
 		Example: `  # Delete a user_extension_attribute (with confirmation)
-  jamf-cli classic-user-ext-attrs delete 1
+  jamf-cli pro classic-user-ext-attrs delete 1
 
   # Delete by name
-  jamf-cli classic-user-ext-attrs delete --name "Example" --yes
+  jamf-cli pro classic-user-ext-attrs delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-user-ext-attrs delete 1 --yes`,
+  jamf-cli pro classic-user-ext-attrs delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a user_extension_attribute from an XML file
-  jamf-cli classic-user-ext-attrs apply --from-file user_extension_attribute.xml
+  jamf-cli pro classic-user-ext-attrs apply --from-file user_extension_attribute.xml
 
   # Apply from stdin
-  cat user_extension_attribute.xml | jamf-cli classic-user-ext-attrs apply
+  cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-user-ext-attrs apply --from-file user_extension_attribute.xml --yes`,
+  jamf-cli pro classic-user-ext-attrs apply --from-file user_extension_attribute.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

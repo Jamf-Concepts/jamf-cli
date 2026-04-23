@@ -31,10 +31,10 @@ func newJamfProInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get basic information about the Jamf Pro Server",
 		Long:  "Get basic information about the Jamf Pro Server",
 		Example: `  # List all jamf-pro-informations
-  jamf-cli jamf-pro-informations list
+  jamf-cli pro jamf-pro-informations list
 
   # List jamf-pro-informations and extract IDs
-  jamf-cli jamf-pro-informations list --field id`,
+  jamf-cli pro jamf-pro-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

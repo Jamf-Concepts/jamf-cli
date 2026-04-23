@@ -34,10 +34,10 @@ func newDeviceComplianceInformationsListCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Retrieves Status of the Feature Toggle",
 		Long:  "Retrieves Status of the Feature Toggle",
 		Example: `  # List all device-compliance-informations
-  jamf-cli device-compliance-informations list
+  jamf-cli pro device-compliance-informations list
 
   # List device-compliance-informations and extract IDs
-  jamf-cli device-compliance-informations list --field id`,
+  jamf-cli pro device-compliance-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,13 +74,13 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Get compliance information for a single computer device",
 		Long:  "Return basic compliance information for the given computer device",
 		Example: `  # Get a device-compliance-information by ID
-  jamf-cli device-compliance-informations get 1
+  jamf-cli pro device-compliance-informations get 1
 
   # Get a device-compliance-information by name
-  jamf-cli device-compliance-informations get --name "Example"
+  jamf-cli pro device-compliance-informations get --name "Example"
 
   # Get a device-compliance-information and output as YAML
-  jamf-cli device-compliance-informations get 1 -o yaml`,
+  jamf-cli pro device-compliance-informations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

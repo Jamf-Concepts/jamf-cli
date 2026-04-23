@@ -43,10 +43,10 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Get all App Installer deployments",
 		Long:  "Retrieves all App Installer deployment configurations",
 		Example: `  # List all app-installer-deployments
-  jamf-cli app-installer-deployments list
+  jamf-cli pro app-installer-deployments list
 
   # List app-installer-deployments and extract IDs
-  jamf-cli app-installer-deployments list --field id`,
+  jamf-cli pro app-installer-deployments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,13 +83,13 @@ func newAppInstallerDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get an App Installer deployment by ID",
 		Long:  "Retrieves a specific App Installer deployment by its ID",
 		Example: `  # Get a app-installer-deployment by ID
-  jamf-cli app-installer-deployments get 1
+  jamf-cli pro app-installer-deployments get 1
 
   # Get a app-installer-deployment by name
-  jamf-cli app-installer-deployments get --name "Example"
+  jamf-cli pro app-installer-deployments get --name "Example"
 
   # Get a app-installer-deployment and output as YAML
-  jamf-cli app-installer-deployments get 1 -o yaml`,
+  jamf-cli pro app-installer-deployments get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -144,13 +144,13 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Create an App Installer deployment",
 		Long:  "Creates a new App Installer deployment configuration",
 		Example: `  # Show the JSON template for creating a app-installer-deployment
-  jamf-cli app-installer-deployments create --scaffold
+  jamf-cli pro app-installer-deployments create --scaffold
 
   # Create a app-installer-deployment from JSON
-  echo '{"name":"Example"}' | jamf-cli app-installer-deployments create
+  echo '{"name":"Example"}' | jamf-cli pro app-installer-deployments create
 
   # Get a app-installer-deployment, modify it, and create a copy
-  jamf-cli app-installer-deployments get 1 -o json | jq '.name = "Copy"' | jamf-cli app-installer-deployments create`,
+  jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-installer-deployments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -222,13 +222,13 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Update an App Installer deployment",
 		Long:  "Updates an existing App Installer deployment configuration",
 		Example: `  # Update a app-installer-deployment from JSON
-  echo '{"name":"Updated"}' | jamf-cli app-installer-deployments update 1
+  echo '{"name":"Updated"}' | jamf-cli pro app-installer-deployments update 1
 
   # Update by name
-  jamf-cli app-installer-deployments get --name "Example" -o json | jq '.field = "value"' | jamf-cli app-installer-deployments update --name "Example"
+  jamf-cli pro app-installer-deployments get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro app-installer-deployments update --name "Example"
 
   # Get a app-installer-deployment, modify, and update
-  jamf-cli app-installer-deployments get 1 -o json | jq '.name = "New Name"' | jamf-cli app-installer-deployments update 1`,
+  jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro app-installer-deployments update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -318,13 +318,13 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Delete an App Installer deployment",
 		Long:  "Deletes an App Installer deployment by ID",
 		Example: `  # Delete a app-installer-deployment (with confirmation)
-  jamf-cli app-installer-deployments delete 1
+  jamf-cli pro app-installer-deployments delete 1
 
   # Delete by name
-  jamf-cli app-installer-deployments delete --name "Example" --yes
+  jamf-cli pro app-installer-deployments delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli app-installer-deployments delete 1 --yes`,
+  jamf-cli pro app-installer-deployments delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -436,19 +436,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a app-installer-deployment from a JSON file
-  jamf-cli app-installer-deployments apply --from-file app-installer-deployment.json
+  jamf-cli pro app-installer-deployments apply --from-file app-installer-deployment.json
 
   # Apply a app-installer-deployment from a YAML file
-  jamf-cli app-installer-deployments apply --from-file app-installer-deployment.yaml
+  jamf-cli pro app-installer-deployments apply --from-file app-installer-deployment.yaml
 
   # Apply from stdin
-  cat app-installer-deployment.json | jamf-cli app-installer-deployments apply
+  cat app-installer-deployment.json | jamf-cli pro app-installer-deployments apply
 
   # Apply without replacement confirmation
-  jamf-cli app-installer-deployments apply --from-file app-installer-deployment.json --yes
+  jamf-cli pro app-installer-deployments apply --from-file app-installer-deployment.json --yes
 
   # Preview what would happen
-  jamf-cli app-installer-deployments apply --from-file app-installer-deployment.json --dry-run`,
+  jamf-cli pro app-installer-deployments apply --from-file app-installer-deployment.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

@@ -39,10 +39,10 @@ func newRemoteAdministrationConfigurationsListCmd(ctx *registry.CLIContext) *cob
 		Short: "Get information about all remote administration configurations.",
 		Long:  "Remote administration feature creates a secure screen-sharing experience between Jamf Pro administrators and their end-users.",
 		Example: `  # List all remote-administration-configurations
-  jamf-cli remote-administration-configurations list
+  jamf-cli pro remote-administration-configurations list
 
   # List remote-administration-configurations and extract IDs
-  jamf-cli remote-administration-configurations list --field id`,
+  jamf-cli pro remote-administration-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

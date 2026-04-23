@@ -42,13 +42,13 @@ func newIconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get an icon",
 		Long:  "Get an icon",
 		Example: `  # Get a icon by ID
-  jamf-cli icons get 1
+  jamf-cli pro icons get 1
 
   # Get a icon by name
-  jamf-cli icons get --name "Example"
+  jamf-cli pro icons get --name "Example"
 
   # Get a icon and output as YAML
-  jamf-cli icons get 1 -o yaml`,
+  jamf-cli pro icons get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

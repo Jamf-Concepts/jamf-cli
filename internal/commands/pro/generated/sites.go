@@ -34,10 +34,10 @@ func newSitesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Find all sites",
 		Long:  "Find all sites",
 		Example: `  # List all sites
-  jamf-cli sites list
+  jamf-cli pro sites list
 
   # List sites and extract IDs
-  jamf-cli sites list --field id`,
+  jamf-cli pro sites list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

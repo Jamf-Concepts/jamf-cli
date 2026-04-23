@@ -45,10 +45,10 @@ func newClassicLicensedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "list",
 		Short: "List all licensedsoftware",
 		Example: `  # List all licensedsoftware
-  jamf-cli classic-licensed-software list
+  jamf-cli pro classic-licensed-software list
 
   # List licensedsoftware and extract IDs
-  jamf-cli classic-licensed-software list --field id`,
+  jamf-cli pro classic-licensed-software list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/licensedsoftware", nil)
@@ -98,13 +98,13 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a licensed_software by ID",
 		Example: `  # Get a licensed_software by ID
-  jamf-cli classic-licensed-software get 1
+  jamf-cli pro classic-licensed-software get 1
 
   # Get a licensed_software by name
-  jamf-cli classic-licensed-software get --name "Example"
+  jamf-cli pro classic-licensed-software get --name "Example"
 
   # Get a licensed_software and output as YAML
-  jamf-cli classic-licensed-software get 1 -o yaml`,
+  jamf-cli pro classic-licensed-software get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -161,7 +161,7 @@ func newClassicLicensedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Create a licensed_software",
 		Long:  "Create a new licensed_software. Reads XML body from stdin.",
 		Example: `  # Create a licensed_software from XML
-  cat licensed_software.xml | jamf-cli classic-licensed-software create`,
+  cat licensed_software.xml | jamf-cli pro classic-licensed-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -194,7 +194,7 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Update a licensed_software",
 		Long:  "Update an existing licensed_software by ID. Reads XML body from stdin.",
 		Example: `  # Update a licensed_software from XML
-  cat licensed_software.xml | jamf-cli classic-licensed-software update 1`,
+  cat licensed_software.xml | jamf-cli pro classic-licensed-software update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -242,13 +242,13 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "delete [<id>]",
 		Short: "Delete a licensed_software",
 		Example: `  # Delete a licensed_software (with confirmation)
-  jamf-cli classic-licensed-software delete 1
+  jamf-cli pro classic-licensed-software delete 1
 
   # Delete by name
-  jamf-cli classic-licensed-software delete --name "Example" --yes
+  jamf-cli pro classic-licensed-software delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli classic-licensed-software delete 1 --yes`,
+  jamf-cli pro classic-licensed-software delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -331,13 +331,13 @@ The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a licensed_software from an XML file
-  jamf-cli classic-licensed-software apply --from-file licensed_software.xml
+  jamf-cli pro classic-licensed-software apply --from-file licensed_software.xml
 
   # Apply from stdin
-  cat licensed_software.xml | jamf-cli classic-licensed-software apply
+  cat licensed_software.xml | jamf-cli pro classic-licensed-software apply
 
   # Apply without replacement confirmation
-  jamf-cli classic-licensed-software apply --from-file licensed_software.xml --yes`,
+  jamf-cli pro classic-licensed-software apply --from-file licensed_software.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 

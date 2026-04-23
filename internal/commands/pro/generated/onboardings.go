@@ -49,7 +49,7 @@ func newOnboardingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Onboarding history object",
 		Long:  "Gets Onboarding history object",
 		Example: `  # Get history for a onboarding
-  jamf-cli onboardings history 1`,
+  jamf-cli pro onboardings history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

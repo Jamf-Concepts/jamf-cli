@@ -51,13 +51,13 @@ func newVenafisGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Example: `  # Get a venafi by ID
-  jamf-cli venafis get 1
+  jamf-cli pro venafis get 1
 
   # Get a venafi by name
-  jamf-cli venafis get --name "Example"
+  jamf-cli pro venafis get --name "Example"
 
   # Get a venafi and output as YAML
-  jamf-cli venafis get 1 -o yaml`,
+  jamf-cli pro venafis get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -112,13 +112,13 @@ func newVenafisCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a PKI configuration in Jamf Pro for Venafi",
 		Long:  "Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates",
 		Example: `  # Show the JSON template for creating a venafi
-  jamf-cli venafis create --scaffold
+  jamf-cli pro venafis create --scaffold
 
   # Create a venafi from JSON
-  echo '{"name":"Example"}' | jamf-cli venafis create
+  echo '{"name":"Example"}' | jamf-cli pro venafis create
 
   # Get a venafi, modify it, and create a copy
-  jamf-cli venafis get 1 -o json | jq '.name = "Copy"' | jamf-cli venafis create`,
+  jamf-cli pro venafis get 1 -o json | jq '.name = "Copy"' | jamf-cli pro venafis create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -186,13 +186,13 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete a Venafi PKI configuration from Jamf Pro",
 		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
 		Example: `  # Delete a venafi (with confirmation)
-  jamf-cli venafis delete 1
+  jamf-cli pro venafis delete 1
 
   # Delete by name
-  jamf-cli venafis delete --name "Example" --yes
+  jamf-cli pro venafis delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli venafis delete 1 --yes`,
+  jamf-cli pro venafis delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -303,10 +303,10 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Venafi CA history object",
 		Long:  "Get specified Venafi CA history object",
 		Example: `  # Get history for a venafi by ID
-  jamf-cli venafis history 1
+  jamf-cli pro venafis history 1
 
   # Get history by name
-  jamf-cli venafis history --name "Example"`,
+  jamf-cli pro venafis history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -528,16 +528,16 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Venafi PKI configuration in Jamf Pro",
 		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  refreshToken                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli venafis patch 1 --set general.managed=true
+  jamf-cli pro venafis patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli venafis patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro venafis patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli venafis patch --name "Example" --set general.managed=true
+  jamf-cli pro venafis patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli venafis patch 1 --from-file changes.json`,
+  jamf-cli pro venafis patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -899,19 +899,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a venafi from a JSON file
-  jamf-cli venafis apply --from-file venafi.json
+  jamf-cli pro venafis apply --from-file venafi.json
 
   # Apply a venafi from a YAML file
-  jamf-cli venafis apply --from-file venafi.yaml
+  jamf-cli pro venafis apply --from-file venafi.yaml
 
   # Apply from stdin
-  cat venafi.json | jamf-cli venafis apply
+  cat venafi.json | jamf-cli pro venafis apply
 
   # Apply without replacement confirmation
-  jamf-cli venafis apply --from-file venafi.json --yes
+  jamf-cli pro venafis apply --from-file venafi.json --yes
 
   # Preview what would happen
-  jamf-cli venafis apply --from-file venafi.json --dry-run`,
+  jamf-cli pro venafis apply --from-file venafi.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

@@ -44,10 +44,10 @@ func newJamfProtectGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Jamf Protect integration settings",
 		Long:  "Jamf Protect integration settings",
 		Example: `  # Get jamf-protect
-  jamf-cli jamf-protect get
+  jamf-cli pro jamf-protect get
 
   # Get jamf-protect and output as YAML
-  jamf-cli jamf-protect get -o yaml`,
+  jamf-cli pro jamf-protect get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,13 +84,13 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Register a Jamf Protect API configuration with Jamf Pro",
 		Long:  "Register a Jamf Protect API configuration with Jamf Pro",
 		Example: `  # Show the JSON template for creating a jamf-protect
-  jamf-cli jamf-protect create --scaffold
+  jamf-cli pro jamf-protect create --scaffold
 
   # Create a jamf-protect from JSON
-  echo '{"name":"Example"}' | jamf-cli jamf-protect create
+  echo '{"name":"Example"}' | jamf-cli pro jamf-protect create
 
   # Get a jamf-protect, modify it, and create a copy
-  jamf-cli jamf-protect get 1 -o json | jq '.name = "Copy"' | jamf-cli jamf-protect create`,
+  jamf-cli pro jamf-protect get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-protect create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -154,10 +154,10 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Jamf Protect integration settings",
 		Long:  "Jamf Protect integration settings",
 		Example: `  # Update jamf-protect
-  jamf-cli jamf-protect get -o json | jq '.field = "value"' | jamf-cli jamf-protect update
+  jamf-cli pro jamf-protect get -o json | jq '.field = "value"' | jamf-cli pro jamf-protect update
 
   # Update from a file
-  jamf-cli jamf-protect update --from-file jamf-protect.json`,
+  jamf-cli pro jamf-protect update --from-file jamf-protect.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -220,10 +220,10 @@ func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Jamf Protect API registration.",
 		Long:  "Deletes an existing Jamf Protect API registration if present. Jamf Protect API integration will be disabled.",
 		Example: `  # Delete a jamf-protect (with confirmation)
-  jamf-cli jamf-protect delete 1
+  jamf-cli pro jamf-protect delete 1
 
   # Delete without confirmation prompt
-  jamf-cli jamf-protect delete 1 --yes`,
+  jamf-cli pro jamf-protect delete 1 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -302,7 +302,7 @@ func newJamfProtectHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Protect history",
 		Long:  "Get Jamf Protect history",
 		Example: `  # Get history for a jamf-protect
-  jamf-cli jamf-protect history 1`,
+  jamf-cli pro jamf-protect history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

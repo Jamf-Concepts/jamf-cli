@@ -49,13 +49,13 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get Team Viewer Remote Administration connection configuration",
 		Long:  "Returns Team Viewer Remote Administration connection configuration",
 		Example: `  # Get a team-viewer-remote-administration by ID
-  jamf-cli team-viewer-remote-administrations get 1
+  jamf-cli pro team-viewer-remote-administrations get 1
 
   # Get a team-viewer-remote-administration by name
-  jamf-cli team-viewer-remote-administrations get --name "Example"
+  jamf-cli pro team-viewer-remote-administrations get --name "Example"
 
   # Get a team-viewer-remote-administration and output as YAML
-  jamf-cli team-viewer-remote-administrations get 1 -o yaml`,
+  jamf-cli pro team-viewer-remote-administrations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -110,13 +110,13 @@ func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Create Team Viewer Remote Administration connection configuration",
 		Long:  "Creates Team Viewer Remote Administration connection configuration",
 		Example: `  # Show the JSON template for creating a team-viewer-remote-administration
-  jamf-cli team-viewer-remote-administrations create --scaffold
+  jamf-cli pro team-viewer-remote-administrations create --scaffold
 
   # Create a team-viewer-remote-administration from JSON
-  echo '{"name":"Example"}' | jamf-cli team-viewer-remote-administrations create
+  echo '{"name":"Example"}' | jamf-cli pro team-viewer-remote-administrations create
 
   # Get a team-viewer-remote-administration, modify it, and create a copy
-  jamf-cli team-viewer-remote-administrations get 1 -o json | jq '.name = "Copy"' | jamf-cli team-viewer-remote-administrations create`,
+  jamf-cli pro team-viewer-remote-administrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro team-viewer-remote-administrations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -184,13 +184,13 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 		Short: "Delete Team Viewer Remote Administration connection configuration",
 		Long:  "Deletes Team Viewer Remote Administration connection configuration",
 		Example: `  # Delete a team-viewer-remote-administration (with confirmation)
-  jamf-cli team-viewer-remote-administrations delete 1
+  jamf-cli pro team-viewer-remote-administrations delete 1
 
   # Delete by name
-  jamf-cli team-viewer-remote-administrations delete --name "Example" --yes
+  jamf-cli pro team-viewer-remote-administrations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli team-viewer-remote-administrations delete 1 --yes`,
+  jamf-cli pro team-viewer-remote-administrations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -559,16 +559,16 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 		Short: "Update Team Viewer Remote Administration connection configuration",
 		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
-  jamf-cli team-viewer-remote-administrations patch 1 --set general.managed=true
+  jamf-cli pro team-viewer-remote-administrations patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli team-viewer-remote-administrations patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro team-viewer-remote-administrations patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli team-viewer-remote-administrations patch --name "Example" --set general.managed=true
+  jamf-cli pro team-viewer-remote-administrations patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli team-viewer-remote-administrations patch 1 --from-file changes.json`,
+  jamf-cli pro team-viewer-remote-administrations patch 1 --from-file changes.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -731,19 +731,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a team-viewer-remote-administration from a JSON file
-  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json
+  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json
 
   # Apply a team-viewer-remote-administration from a YAML file
-  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.yaml
+  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.yaml
 
   # Apply from stdin
-  cat team-viewer-remote-administration.json | jamf-cli team-viewer-remote-administrations apply
+  cat team-viewer-remote-administration.json | jamf-cli pro team-viewer-remote-administrations apply
 
   # Apply without replacement confirmation
-  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --yes
+  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --yes
 
   # Preview what would happen
-  jamf-cli team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --dry-run`,
+  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

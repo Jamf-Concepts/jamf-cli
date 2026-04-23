@@ -48,10 +48,10 @@ func newJamfConnectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for config profiles linked to Jamf Connect",
 		Long:  "Search for config profiles linked to Jamf Connect",
 		Example: `  # List all jamf-connects
-  jamf-cli jamf-connects list
+  jamf-cli pro jamf-connects list
 
   # List jamf-connects and extract IDs
-  jamf-cli jamf-connects list --field id`,
+  jamf-cli pro jamf-connects list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -175,13 +175,13 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Long:  "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Example: `  # Update a jamf-connect from JSON
-  echo '{"name":"Updated"}' | jamf-cli jamf-connects update 1
+  echo '{"name":"Updated"}' | jamf-cli pro jamf-connects update 1
 
   # Update by name
-  jamf-cli jamf-connects get --name "Example" -o json | jq '.field = "value"' | jamf-cli jamf-connects update --name "Example"
+  jamf-cli pro jamf-connects get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro jamf-connects update --name "Example"
 
   # Get a jamf-connect, modify, and update
-  jamf-cli jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli jamf-connects update 1`,
+  jamf-cli pro jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-connects update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -266,7 +266,7 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Jamf Connect history",
 		Long:  "Get Jamf Connect history",
 		Example: `  # Get history for a jamf-connect
-  jamf-cli jamf-connects history 1`,
+  jamf-cli pro jamf-connects history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

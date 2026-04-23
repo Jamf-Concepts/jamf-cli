@@ -51,10 +51,10 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for Users",
 		Long:  "Retrieves a paginated list of users with optional filtering and sorting.",
 		Example: `  # List all users
-  jamf-cli users list
+  jamf-cli pro users list
 
   # List users and extract IDs
-  jamf-cli users list --field id`,
+  jamf-cli pro users list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified User object",
 		Long:  "Gets the specified User object.",
 		Example: `  # Get a user by ID
-  jamf-cli users get 1
+  jamf-cli pro users get 1
 
   # Get a user by name
-  jamf-cli users get --name "Example"
+  jamf-cli pro users get --name "Example"
 
   # Get a user and output as YAML
-  jamf-cli users get 1 -o yaml`,
+  jamf-cli pro users get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -238,13 +238,13 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create User record",
 		Long:  "Creates a new user in inventory.",
 		Example: `  # Show the JSON template for creating a user
-  jamf-cli users create --scaffold
+  jamf-cli pro users create --scaffold
 
   # Create a user from JSON
-  echo '{"name":"Example"}' | jamf-cli users create
+  echo '{"name":"Example"}' | jamf-cli pro users create
 
   # Get a user, modify it, and create a copy
-  jamf-cli users get 1 -o json | jq '.name = "Copy"' | jamf-cli users create`,
+  jamf-cli pro users get 1 -o json | jq '.name = "Copy"' | jamf-cli pro users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -314,13 +314,13 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified User object",
 		Long:  "Updates the specified User object.",
 		Example: `  # Update a user from JSON
-  echo '{"name":"Updated"}' | jamf-cli users update 1
+  echo '{"name":"Updated"}' | jamf-cli pro users update 1
 
   # Update by name
-  jamf-cli users get --name "Example" -o json | jq '.field = "value"' | jamf-cli users update --name "Example"
+  jamf-cli pro users get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro users update --name "Example"
 
   # Get a user, modify, and update
-  jamf-cli users get 1 -o json | jq '.name = "New Name"' | jamf-cli users update 1`,
+  jamf-cli pro users get 1 -o json | jq '.name = "New Name"' | jamf-cli pro users update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -408,13 +408,13 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete specified User object",
 		Long:  "Deletes the specified User object.",
 		Example: `  # Delete a user (with confirmation)
-  jamf-cli users delete 1
+  jamf-cli pro users delete 1
 
   # Delete by name
-  jamf-cli users delete --name "Example" --yes
+  jamf-cli pro users delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli users delete 1 --yes`,
+  jamf-cli pro users delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -526,19 +526,19 @@ The username field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a user from a JSON file
-  jamf-cli users apply --from-file user.json
+  jamf-cli pro users apply --from-file user.json
 
   # Apply a user from a YAML file
-  jamf-cli users apply --from-file user.yaml
+  jamf-cli pro users apply --from-file user.yaml
 
   # Apply from stdin
-  cat user.json | jamf-cli users apply
+  cat user.json | jamf-cli pro users apply
 
   # Apply without replacement confirmation
-  jamf-cli users apply --from-file user.json --yes
+  jamf-cli pro users apply --from-file user.json --yes
 
   # Preview what would happen
-  jamf-cli users apply --from-file user.json --dry-run`,
+  jamf-cli pro users apply --from-file user.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

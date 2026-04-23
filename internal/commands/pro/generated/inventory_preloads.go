@@ -62,10 +62,10 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return all Inventory Preload records",
 		Long:  "Returns all Inventory Preload records.",
 		Example: `  # List all inventory-preloads
-  jamf-cli inventory-preloads list
+  jamf-cli pro inventory-preloads list
 
   # List inventory-preloads and extract IDs
-  jamf-cli inventory-preloads list --field id`,
+  jamf-cli pro inventory-preloads list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,13 +188,13 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get an Inventory Preload record",
 		Long:  "Retrieves an Inventory Preload record.",
 		Example: `  # Get a inventory-preload by ID
-  jamf-cli inventory-preloads get 1
+  jamf-cli pro inventory-preloads get 1
 
   # Get a inventory-preload by name
-  jamf-cli inventory-preloads get --name "Example"
+  jamf-cli pro inventory-preloads get --name "Example"
 
   # Get a inventory-preload and output as YAML
-  jamf-cli inventory-preloads get 1 -o yaml`,
+  jamf-cli pro inventory-preloads get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -249,13 +249,13 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a new Inventory Preload record using JSON",
 		Long:  "Create a new Inventory Preload record using JSON.",
 		Example: `  # Show the JSON template for creating a inventory-preload
-  jamf-cli inventory-preloads create --scaffold
+  jamf-cli pro inventory-preloads create --scaffold
 
   # Create a inventory-preload from JSON
-  echo '{"name":"Example"}' | jamf-cli inventory-preloads create
+  echo '{"name":"Example"}' | jamf-cli pro inventory-preloads create
 
   # Get a inventory-preload, modify it, and create a copy
-  jamf-cli inventory-preloads get 1 -o json | jq '.name = "Copy"' | jamf-cli inventory-preloads create`,
+  jamf-cli pro inventory-preloads get 1 -o json | jq '.name = "Copy"' | jamf-cli pro inventory-preloads create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -341,13 +341,13 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update an Inventory Preload record",
 		Long:  "Updates an Inventory Preload record.",
 		Example: `  # Update a inventory-preload from JSON
-  echo '{"name":"Updated"}' | jamf-cli inventory-preloads update 1
+  echo '{"name":"Updated"}' | jamf-cli pro inventory-preloads update 1
 
   # Update by name
-  jamf-cli inventory-preloads get --name "Example" -o json | jq '.field = "value"' | jamf-cli inventory-preloads update --name "Example"
+  jamf-cli pro inventory-preloads get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro inventory-preloads update --name "Example"
 
   # Get a inventory-preload, modify, and update
-  jamf-cli inventory-preloads get 1 -o json | jq '.name = "New Name"' | jamf-cli inventory-preloads update 1`,
+  jamf-cli pro inventory-preloads get 1 -o json | jq '.name = "New Name"' | jamf-cli pro inventory-preloads update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -451,13 +451,13 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete an Inventory Preload record",
 		Long:  "Deletes an Inventory Preload record.",
 		Example: `  # Delete a inventory-preload (with confirmation)
-  jamf-cli inventory-preloads delete 1
+  jamf-cli pro inventory-preloads delete 1
 
   # Delete by name
-  jamf-cli inventory-preloads delete --name "Example" --yes
+  jamf-cli pro inventory-preloads delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli inventory-preloads delete 1 --yes`,
+  jamf-cli pro inventory-preloads delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -567,7 +567,7 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Inventory Preload history entries",
 		Long:  "Gets Inventory Preload history entries.",
 		Example: `  # Get history for a inventory-preload
-  jamf-cli inventory-preloads history 1`,
+  jamf-cli pro inventory-preloads history 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -757,7 +757,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Export a collection of inventory preload records",
 		Long:  "Export a collection of inventory preload records",
 		Example: `  # Export inventory-preloads to CSV
-  jamf-cli inventory-preloads export --out-file inventory-preloads.csv`,
+  jamf-cli pro inventory-preloads export --out-file inventory-preloads.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1221,19 +1221,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a inventory-preload from a JSON file
-  jamf-cli inventory-preloads apply --from-file inventory-preload.json
+  jamf-cli pro inventory-preloads apply --from-file inventory-preload.json
 
   # Apply a inventory-preload from a YAML file
-  jamf-cli inventory-preloads apply --from-file inventory-preload.yaml
+  jamf-cli pro inventory-preloads apply --from-file inventory-preload.yaml
 
   # Apply from stdin
-  cat inventory-preload.json | jamf-cli inventory-preloads apply
+  cat inventory-preload.json | jamf-cli pro inventory-preloads apply
 
   # Apply without replacement confirmation
-  jamf-cli inventory-preloads apply --from-file inventory-preload.json --yes
+  jamf-cli pro inventory-preloads apply --from-file inventory-preload.json --yes
 
   # Preview what would happen
-  jamf-cli inventory-preloads apply --from-file inventory-preload.json --dry-run`,
+  jamf-cli pro inventory-preloads apply --from-file inventory-preload.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

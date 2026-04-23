@@ -42,10 +42,10 @@ func newClassicVppAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all vppaccounts",
 		Example: `  # List all vppaccounts
-  jamf-cli classic-vpp-accounts list
+  jamf-cli pro classic-vpp-accounts list
 
   # List vppaccounts and extract IDs
-  jamf-cli classic-vpp-accounts list --field id`,
+  jamf-cli pro classic-vpp-accounts list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppaccounts", nil)
@@ -92,10 +92,10 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a vpp_account by ID",
 		Example: `  # Get a vpp_account by ID
-  jamf-cli classic-vpp-accounts get 1
+  jamf-cli pro classic-vpp-accounts get 1
 
   # Get a vpp_account and output as YAML
-  jamf-cli classic-vpp-accounts get 1 -o yaml`,
+  jamf-cli pro classic-vpp-accounts get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -141,7 +141,7 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a vpp_account",
 		Long:  "Create a new vpp_account. Reads XML body from stdin.",
 		Example: `  # Create a vpp_account from XML
-  cat vpp_account.xml | jamf-cli classic-vpp-accounts create`,
+  cat vpp_account.xml | jamf-cli pro classic-vpp-accounts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,7 +173,7 @@ func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a vpp_account",
 		Long:  "Update an existing vpp_account by ID. Reads XML body from stdin.",
 		Example: `  # Update a vpp_account from XML
-  cat vpp_account.xml | jamf-cli classic-vpp-accounts update 1`,
+  cat vpp_account.xml | jamf-cli pro classic-vpp-accounts update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -211,10 +211,10 @@ func newClassicVppAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a vpp_account",
 		Example: `  # Delete a vpp_account (with confirmation)
-  jamf-cli classic-vpp-accounts delete 1
+  jamf-cli pro classic-vpp-accounts delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-vpp-accounts delete 1 --yes`,
+  jamf-cli pro classic-vpp-accounts delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

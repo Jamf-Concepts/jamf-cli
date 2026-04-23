@@ -42,10 +42,10 @@ func newClassicVppAssignmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all vppassignments",
 		Example: `  # List all vppassignments
-  jamf-cli classic-vpp-assignments list
+  jamf-cli pro classic-vpp-assignments list
 
   # List vppassignments and extract IDs
-  jamf-cli classic-vpp-assignments list --field id`,
+  jamf-cli pro classic-vpp-assignments list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppassignments", nil)
@@ -92,10 +92,10 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Get a vpp_assignment by ID",
 		Example: `  # Get a vpp_assignment by ID
-  jamf-cli classic-vpp-assignments get 1
+  jamf-cli pro classic-vpp-assignments get 1
 
   # Get a vpp_assignment and output as YAML
-  jamf-cli classic-vpp-assignments get 1 -o yaml`,
+  jamf-cli pro classic-vpp-assignments get 1 -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -141,7 +141,7 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Create a vpp_assignment",
 		Long:  "Create a new vpp_assignment. Reads XML body from stdin.",
 		Example: `  # Create a vpp_assignment from XML
-  cat vpp_assignment.xml | jamf-cli classic-vpp-assignments create`,
+  cat vpp_assignment.xml | jamf-cli pro classic-vpp-assignments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,7 +173,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Update a vpp_assignment",
 		Long:  "Update an existing vpp_assignment by ID. Reads XML body from stdin.",
 		Example: `  # Update a vpp_assignment from XML
-  cat vpp_assignment.xml | jamf-cli classic-vpp-assignments update 1`,
+  cat vpp_assignment.xml | jamf-cli pro classic-vpp-assignments update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -211,10 +211,10 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "delete <id>",
 		Short: "Delete a vpp_assignment",
 		Example: `  # Delete a vpp_assignment (with confirmation)
-  jamf-cli classic-vpp-assignments delete 1
+  jamf-cli pro classic-vpp-assignments delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-vpp-assignments delete 1 --yes`,
+  jamf-cli pro classic-vpp-assignments delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

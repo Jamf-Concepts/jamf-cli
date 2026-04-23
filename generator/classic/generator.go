@@ -94,7 +94,7 @@ func templateFuncs() template.FuncMap {
 		"hasLookup":    hasLookup,
 		"extraLookups": extraLookups,
 		"classicExample": func(r ClassicResource, op string) string {
-			bin := "jamf-cli"
+			bin := "jamf-cli pro"
 			name := r.CLIName
 			singular := r.Singular
 			switch op {

@@ -39,10 +39,10 @@ func newMobileDeviceGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return the list of all Mobile Device Groups",
 		Long:  "Returns the list of all mobile device groups.",
 		Example: `  # List all mobile-device-groups
-  jamf-cli mobile-device-groups list
+  jamf-cli pro mobile-device-groups list
 
   # List mobile-device-groups and extract IDs
-  jamf-cli mobile-device-groups list --field id`,
+  jamf-cli pro mobile-device-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,13 +83,13 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Smart Group Membership by Id",
 		Long:  "Get Smart Group Membership by Id",
 		Example: `  # Get a mobile-device-group by ID
-  jamf-cli mobile-device-groups get 1
+  jamf-cli pro mobile-device-groups get 1
 
   # Get a mobile-device-group by name
-  jamf-cli mobile-device-groups get --name "Example"
+  jamf-cli pro mobile-device-groups get --name "Example"
 
   # Get a mobile-device-group and output as YAML
-  jamf-cli mobile-device-groups get 1 -o yaml`,
+  jamf-cli pro mobile-device-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -42,10 +42,10 @@ func newMobileDevicePrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Get all Device Scope for all Mobile Device Prestages",
 		Long:  "Get all device scope for all mobile device prestages",
 		Example: `  # List all mobile-device-prestage-scopes
-  jamf-cli mobile-device-prestage-scopes list
+  jamf-cli pro mobile-device-prestage-scopes list
 
   # List mobile-device-prestage-scopes and extract IDs
-  jamf-cli mobile-device-prestage-scopes list --field id`,
+  jamf-cli pro mobile-device-prestage-scopes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +85,7 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 		Short: "Remove Device Scope for a specific Mobile Device Prestage",
 		Long:  "Remove device scope for a specific mobile device prestage",
 		Example: `  # Delete multiple mobile-device-prestage-scopes by IDs
-  jamf-cli mobile-device-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro mobile-device-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

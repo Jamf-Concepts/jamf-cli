@@ -34,10 +34,10 @@ func newMobileDevicePrestageSyncStatesListCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get all Prestage sync States for all prestages",
 		Long:  "Get all prestage sync states for all prestages",
 		Example: `  # List all mobile-device-prestage-sync-states
-  jamf-cli mobile-device-prestage-sync-states list
+  jamf-cli pro mobile-device-prestage-sync-states list
 
   # List mobile-device-prestage-sync-states and extract IDs
-  jamf-cli mobile-device-prestage-sync-states list --field id`,
+  jamf-cli pro mobile-device-prestage-sync-states list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

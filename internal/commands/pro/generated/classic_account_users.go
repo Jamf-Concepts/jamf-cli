@@ -42,10 +42,10 @@ func newClassicAccountUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all account-users",
 		Example: `  # List all account-users
-  jamf-cli classic-account-users list
+  jamf-cli pro classic-account-users list
 
   # List account-users and extract IDs
-  jamf-cli classic-account-users list --field id`,
+  jamf-cli pro classic-account-users list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -90,10 +90,10 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Get a account_user by ID",
 		Example: `  # Get a account_user by ID
-  jamf-cli classic-account-users get 1
+  jamf-cli pro classic-account-users get 1
 
   # Get a account_user and output as YAML
-  jamf-cli classic-account-users get 1 -o yaml`,
+  jamf-cli pro classic-account-users get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -150,7 +150,7 @@ func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a account_user",
 		Long:  "Create a new account_user. Reads XML body from stdin.",
 		Example: `  # Create a account_user from XML
-  cat account_user.xml | jamf-cli classic-account-users create`,
+  cat account_user.xml | jamf-cli pro classic-account-users create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,7 +182,7 @@ func newClassicAccountUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a account_user",
 		Long:  "Update an existing account_user by ID. Reads XML body from stdin.",
 		Example: `  # Update a account_user from XML
-  cat account_user.xml | jamf-cli classic-account-users update 1`,
+  cat account_user.xml | jamf-cli pro classic-account-users update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -220,10 +220,10 @@ func newClassicAccountUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a account_user",
 		Example: `  # Delete a account_user (with confirmation)
-  jamf-cli classic-account-users delete 1
+  jamf-cli pro classic-account-users delete 1
 
   # Delete without confirmation prompt
-  jamf-cli classic-account-users delete 1 --yes`,
+  jamf-cli pro classic-account-users delete 1 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

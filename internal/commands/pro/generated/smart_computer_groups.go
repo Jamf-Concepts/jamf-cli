@@ -51,10 +51,10 @@ func newSmartComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for Smart Computer Groups",
 		Long:  "Search for Smart Computer Groups",
 		Example: `  # List all smart-computer-groups
-  jamf-cli smart-computer-groups list
+  jamf-cli pro smart-computer-groups list
 
   # List smart-computer-groups and extract IDs
-  jamf-cli smart-computer-groups list --field id`,
+  jamf-cli pro smart-computer-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -177,13 +177,13 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Smart Computer Group by Id",
 		Long:  "Get Smart Computer Group by Id",
 		Example: `  # Get a smart-computer-group by ID
-  jamf-cli smart-computer-groups get 1
+  jamf-cli pro smart-computer-groups get 1
 
   # Get a smart-computer-group by name
-  jamf-cli smart-computer-groups get --name "Example"
+  jamf-cli pro smart-computer-groups get --name "Example"
 
   # Get a smart-computer-group and output as YAML
-  jamf-cli smart-computer-groups get 1 -o yaml`,
+  jamf-cli pro smart-computer-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -239,13 +239,13 @@ func newSmartComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create a Smart Computer Group",
 		Long:  "Creates a Smart Computer Group",
 		Example: `  # Show the JSON template for creating a smart-computer-group
-  jamf-cli smart-computer-groups create --scaffold
+  jamf-cli pro smart-computer-groups create --scaffold
 
   # Create a smart-computer-group from JSON
-  echo '{"name":"Example"}' | jamf-cli smart-computer-groups create
+  echo '{"name":"Example"}' | jamf-cli pro smart-computer-groups create
 
   # Get a smart-computer-group, modify it, and create a copy
-  jamf-cli smart-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli smart-computer-groups create`,
+  jamf-cli pro smart-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro smart-computer-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -315,13 +315,13 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Smart Computer Group",
 		Long:  "Updates a Smart Computer Group",
 		Example: `  # Update a smart-computer-group from JSON
-  echo '{"name":"Updated"}' | jamf-cli smart-computer-groups update 1
+  echo '{"name":"Updated"}' | jamf-cli pro smart-computer-groups update 1
 
   # Update by name
-  jamf-cli smart-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli smart-computer-groups update --name "Example"
+  jamf-cli pro smart-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro smart-computer-groups update --name "Example"
 
   # Get a smart-computer-group, modify, and update
-  jamf-cli smart-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli smart-computer-groups update 1`,
+  jamf-cli pro smart-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro smart-computer-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -405,13 +405,13 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Smart Computer Group",
 		Long:  "Remove specified Smart Computer Group",
 		Example: `  # Delete a smart-computer-group (with confirmation)
-  jamf-cli smart-computer-groups delete 1
+  jamf-cli pro smart-computer-groups delete 1
 
   # Delete by name
-  jamf-cli smart-computer-groups delete --name "Example" --yes
+  jamf-cli pro smart-computer-groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli smart-computer-groups delete 1 --yes`,
+  jamf-cli pro smart-computer-groups delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -523,19 +523,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a smart-computer-group from a JSON file
-  jamf-cli smart-computer-groups apply --from-file smart-computer-group.json
+  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json
 
   # Apply a smart-computer-group from a YAML file
-  jamf-cli smart-computer-groups apply --from-file smart-computer-group.yaml
+  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.yaml
 
   # Apply from stdin
-  cat smart-computer-group.json | jamf-cli smart-computer-groups apply
+  cat smart-computer-group.json | jamf-cli pro smart-computer-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli smart-computer-groups apply --from-file smart-computer-group.json --yes
+  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json --yes
 
   # Preview what would happen
-  jamf-cli smart-computer-groups apply --from-file smart-computer-group.json --dry-run`,
+  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

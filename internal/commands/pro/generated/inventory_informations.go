@@ -31,10 +31,10 @@ func newInventoryInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get statistics about managed/unmanaged devices and computers in the inventory",
 		Long:  "Gets statistics about managed/unmanaged devices and computers in the inventory.",
 		Example: `  # List all inventory-informations
-  jamf-cli inventory-informations list
+  jamf-cli pro inventory-informations list
 
   # List inventory-informations and extract IDs
-  jamf-cli inventory-informations list --field id`,
+  jamf-cli pro inventory-informations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

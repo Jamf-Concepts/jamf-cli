@@ -41,10 +41,10 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *registry.CLIContext) *co
 		Short: "Returns computer inventory settings",
 		Long:  "Returns computer inventory settings",
 		Example: `  # List all computer-inventory-collection-settings
-  jamf-cli computer-inventory-collection-settings list
+  jamf-cli pro computer-inventory-collection-settings list
 
   # List computer-inventory-collection-settings and extract IDs
-  jamf-cli computer-inventory-collection-settings list --field id`,
+  jamf-cli pro computer-inventory-collection-settings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,13 +81,13 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
 		Short: "Create Computer Inventory Collection Settings Custom Path",
 		Long:  "Creates a custom search path to use when collecting applications.",
 		Example: `  # Show the JSON template for creating a computer-inventory-collection-setting
-  jamf-cli computer-inventory-collection-settings create --scaffold
+  jamf-cli pro computer-inventory-collection-settings create --scaffold
 
   # Create a computer-inventory-collection-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli computer-inventory-collection-settings create
+  echo '{"name":"Example"}' | jamf-cli pro computer-inventory-collection-settings create
 
   # Get a computer-inventory-collection-setting, modify it, and create a copy
-  jamf-cli computer-inventory-collection-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli computer-inventory-collection-settings create`,
+  jamf-cli pro computer-inventory-collection-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-inventory-collection-settings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -152,13 +152,13 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 		Short: "Delete Custom Path from Computer Inventory Collection Settings",
 		Long:  "Delete Custom Path from Computer Inventory Collection Settings",
 		Example: `  # Delete a computer-inventory-collection-setting (with confirmation)
-  jamf-cli computer-inventory-collection-settings delete 1
+  jamf-cli pro computer-inventory-collection-settings delete 1
 
   # Delete by name
-  jamf-cli computer-inventory-collection-settings delete --name "Example" --yes
+  jamf-cli pro computer-inventory-collection-settings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli computer-inventory-collection-settings delete 1 --yes`,
+  jamf-cli pro computer-inventory-collection-settings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -265,10 +265,10 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 		Short: "Update computer inventory settings",
 		Long:  "Update computer inventory settings\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  computerInventoryCollectionPreferences.allowChangingUserAndLocation boolean\n  computerInventoryCollectionPreferences.calculateSizes boolean\n  computerInventoryCollectionPreferences.collectSyncedMobileDeviceInfo boolean\n  computerInventoryCollectionPreferences.collectUnmanagedCertificates boolean\n  computerInventoryCollectionPreferences.includeAccounts boolean\n  computerInventoryCollectionPreferences.includeHiddenAccounts boolean\n  computerInventoryCollectionPreferences.includePackages boolean\n  computerInventoryCollectionPreferences.includePrinters boolean\n  computerInventoryCollectionPreferences.includeServices boolean\n  computerInventoryCollectionPreferences.includeSoftwareId boolean\n  computerInventoryCollectionPreferences.includeSoftwareUpdates boolean\n  computerInventoryCollectionPreferences.monitorApplicationUsage boolean\n  computerInventoryCollectionPreferences.monitorBeacons boolean\n  computerInventoryCollectionPreferences.updateLdapInfoOnComputerInventorySubmissions boolean\n  computerInventoryCollectionPreferences.useUnixUserPaths boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field
-  jamf-cli computer-inventory-collection-settings patch --set field=value
+  jamf-cli pro computer-inventory-collection-settings patch --set field=value
 
   # Update using JSON
-  jamf-cli computer-inventory-collection-settings get -o json | jq '.field = "value"' | jamf-cli computer-inventory-collection-settings patch`,
+  jamf-cli pro computer-inventory-collection-settings get -o json | jq '.field = "value"' | jamf-cli pro computer-inventory-collection-settings patch`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

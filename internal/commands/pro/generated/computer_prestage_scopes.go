@@ -42,10 +42,10 @@ func newComputerPrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get all device Scope for all Computer Prestages",
 		Long:  "Get all device scope for all computer prestages",
 		Example: `  # List all computer-prestage-scopes
-  jamf-cli computer-prestage-scopes list
+  jamf-cli pro computer-prestage-scopes list
 
   # List computer-prestage-scopes and extract IDs
-  jamf-cli computer-prestage-scopes list --field id`,
+  jamf-cli pro computer-prestage-scopes list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +85,7 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 		Short: "Remove device Scope for a specific Computer Prestage",
 		Long:  "Remove device scope for a specific computer prestage",
 		Example: `  # Delete multiple computer-prestage-scopes by IDs
-  jamf-cli computer-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro computer-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

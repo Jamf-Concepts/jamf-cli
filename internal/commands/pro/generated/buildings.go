@@ -56,10 +56,10 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Search for sorted and paged Buildings",
 		Long:  "Search for sorted and paged buildings",
 		Example: `  # List all buildings
-  jamf-cli buildings list
+  jamf-cli pro buildings list
 
   # List buildings and extract IDs
-  jamf-cli buildings list --field id`,
+  jamf-cli pro buildings list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,13 +182,13 @@ func newBuildingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Building object",
 		Long:  "Gets specified Building object",
 		Example: `  # Get a building by ID
-  jamf-cli buildings get 1
+  jamf-cli pro buildings get 1
 
   # Get a building by name
-  jamf-cli buildings get --name "Example"
+  jamf-cli pro buildings get --name "Example"
 
   # Get a building and output as YAML
-  jamf-cli buildings get 1 -o yaml`,
+  jamf-cli pro buildings get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -243,13 +243,13 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Building record",
 		Long:  "Create building record",
 		Example: `  # Show the JSON template for creating a building
-  jamf-cli buildings create --scaffold
+  jamf-cli pro buildings create --scaffold
 
   # Create a building from JSON
-  echo '{"name":"Example"}' | jamf-cli buildings create
+  echo '{"name":"Example"}' | jamf-cli pro buildings create
 
   # Get a building, modify it, and create a copy
-  jamf-cli buildings get 1 -o json | jq '.name = "Copy"' | jamf-cli buildings create`,
+  jamf-cli pro buildings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro buildings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -318,13 +318,13 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified Building object",
 		Long:  "Update specified building object",
 		Example: `  # Update a building from JSON
-  echo '{"name":"Updated"}' | jamf-cli buildings update 1
+  echo '{"name":"Updated"}' | jamf-cli pro buildings update 1
 
   # Update by name
-  jamf-cli buildings get --name "Example" -o json | jq '.field = "value"' | jamf-cli buildings update --name "Example"
+  jamf-cli pro buildings get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro buildings update --name "Example"
 
   # Get a building, modify, and update
-  jamf-cli buildings get 1 -o json | jq '.name = "New Name"' | jamf-cli buildings update 1`,
+  jamf-cli pro buildings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro buildings update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -411,13 +411,13 @@ func newBuildingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified Building record",
 		Long:  "Removes specified building record",
 		Example: `  # Delete a building (with confirmation)
-  jamf-cli buildings delete 1
+  jamf-cli pro buildings delete 1
 
   # Delete by name
-  jamf-cli buildings delete --name "Example" --yes
+  jamf-cli pro buildings delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli buildings delete 1 --yes`,
+  jamf-cli pro buildings delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -525,7 +525,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete multiple Buildings by their ids",
 		Long:  "multiple many Buildings by their ids",
 		Example: `  # Delete multiple buildings by IDs
-  jamf-cli buildings delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro buildings delete-multiple --ids 1,2,3 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -625,10 +625,10 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified Building History object",
 		Long:  "Gets specified Building history object",
 		Example: `  # Get history for a building by ID
-  jamf-cli buildings history 1
+  jamf-cli pro buildings history 1
 
   # Get history by name
-  jamf-cli buildings history --name "Example"`,
+  jamf-cli pro buildings history --name "Example"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -854,7 +854,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Export Buildings collection",
 		Long:  "Export Buildings collection",
 		Example: `  # Export buildings to CSV
-  jamf-cli buildings export --out-file buildings.csv`,
+  jamf-cli pro buildings export --out-file buildings.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1117,19 +1117,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a building from a JSON file
-  jamf-cli buildings apply --from-file building.json
+  jamf-cli pro buildings apply --from-file building.json
 
   # Apply a building from a YAML file
-  jamf-cli buildings apply --from-file building.yaml
+  jamf-cli pro buildings apply --from-file building.yaml
 
   # Apply from stdin
-  cat building.json | jamf-cli buildings apply
+  cat building.json | jamf-cli pro buildings apply
 
   # Apply without replacement confirmation
-  jamf-cli buildings apply --from-file building.json --yes
+  jamf-cli pro buildings apply --from-file building.json --yes
 
   # Preview what would happen
-  jamf-cli buildings apply --from-file building.json --dry-run`,
+  jamf-cli pro buildings apply --from-file building.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

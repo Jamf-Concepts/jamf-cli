@@ -43,10 +43,10 @@ func newReturnToServiceConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "Get all Return to Service Configurations",
 		Long:  "Gets all return to service configurations.",
 		Example: `  # List all return-to-service-configurations
-  jamf-cli return-to-service-configurations list
+  jamf-cli pro return-to-service-configurations list
 
   # List return-to-service-configurations and extract IDs
-  jamf-cli return-to-service-configurations list --field id`,
+  jamf-cli pro return-to-service-configurations list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,13 +83,13 @@ func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Com
 		Short: "Retrieve a Return to Service Configuration with the supplied id",
 		Long:  "Retrieves a Return to Service Configuration with the supplied id",
 		Example: `  # Get a return-to-service-configuration by ID
-  jamf-cli return-to-service-configurations get 1
+  jamf-cli pro return-to-service-configurations get 1
 
   # Get a return-to-service-configuration by name
-  jamf-cli return-to-service-configurations get --name "Example"
+  jamf-cli pro return-to-service-configurations get --name "Example"
 
   # Get a return-to-service-configuration and output as YAML
-  jamf-cli return-to-service-configurations get 1 -o yaml`,
+  jamf-cli pro return-to-service-configurations get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -144,13 +144,13 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Create a Return to Service Configuration",
 		Long:  "Create a return to service configuration",
 		Example: `  # Show the JSON template for creating a return-to-service-configuration
-  jamf-cli return-to-service-configurations create --scaffold
+  jamf-cli pro return-to-service-configurations create --scaffold
 
   # Create a return-to-service-configuration from JSON
-  echo '{"name":"Example"}' | jamf-cli return-to-service-configurations create
+  echo '{"name":"Example"}' | jamf-cli pro return-to-service-configurations create
 
   # Get a return-to-service-configuration, modify it, and create a copy
-  jamf-cli return-to-service-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli return-to-service-configurations create`,
+  jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro return-to-service-configurations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -214,13 +214,13 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update a Return to Service Configuration",
 		Long:  "Updates a Return to Service Configuration",
 		Example: `  # Update a return-to-service-configuration from JSON
-  echo '{"name":"Updated"}' | jamf-cli return-to-service-configurations update 1
+  echo '{"name":"Updated"}' | jamf-cli pro return-to-service-configurations update 1
 
   # Update by name
-  jamf-cli return-to-service-configurations get --name "Example" -o json | jq '.field = "value"' | jamf-cli return-to-service-configurations update --name "Example"
+  jamf-cli pro return-to-service-configurations get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro return-to-service-configurations update --name "Example"
 
   # Get a return-to-service-configuration, modify, and update
-  jamf-cli return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli return-to-service-configurations update 1`,
+  jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro return-to-service-configurations update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -302,13 +302,13 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Delete a Return To Service Configuration with the supplied id",
 		Long:  "Deletes a Return To Service Configuration with the supplied id",
 		Example: `  # Delete a return-to-service-configuration (with confirmation)
-  jamf-cli return-to-service-configurations delete 1
+  jamf-cli pro return-to-service-configurations delete 1
 
   # Delete by name
-  jamf-cli return-to-service-configurations delete --name "Example" --yes
+  jamf-cli pro return-to-service-configurations delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli return-to-service-configurations delete 1 --yes`,
+  jamf-cli pro return-to-service-configurations delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -420,19 +420,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a return-to-service-configuration from a JSON file
-  jamf-cli return-to-service-configurations apply --from-file return-to-service-configuration.json
+  jamf-cli pro return-to-service-configurations apply --from-file return-to-service-configuration.json
 
   # Apply a return-to-service-configuration from a YAML file
-  jamf-cli return-to-service-configurations apply --from-file return-to-service-configuration.yaml
+  jamf-cli pro return-to-service-configurations apply --from-file return-to-service-configuration.yaml
 
   # Apply from stdin
-  cat return-to-service-configuration.json | jamf-cli return-to-service-configurations apply
+  cat return-to-service-configuration.json | jamf-cli pro return-to-service-configurations apply
 
   # Apply without replacement confirmation
-  jamf-cli return-to-service-configurations apply --from-file return-to-service-configuration.json --yes
+  jamf-cli pro return-to-service-configurations apply --from-file return-to-service-configuration.json --yes
 
   # Preview what would happen
-  jamf-cli return-to-service-configurations apply --from-file return-to-service-configuration.json --dry-run`,
+  jamf-cli pro return-to-service-configurations apply --from-file return-to-service-configuration.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

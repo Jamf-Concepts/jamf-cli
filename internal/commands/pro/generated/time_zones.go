@@ -31,10 +31,10 @@ func newTimeZonesListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Return information about the currently supported Time Zones",
 		Long:  "Returns information about the currently supported time zones",
 		Example: `  # List all time-zones
-  jamf-cli time-zones list
+  jamf-cli pro time-zones list
 
   # List time-zones and extract IDs
-  jamf-cli time-zones list --field id`,
+  jamf-cli pro time-zones list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
