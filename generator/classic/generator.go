@@ -194,6 +194,14 @@ func templateFuncs() template.FuncMap {
 			}
 			return false
 		},
+		"anyHasCustomPayload": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if r.HasCustomPayload {
+					return true
+				}
+			}
+			return false
+		},
 		"anyListSubset": func(resources []ClassicResource) bool {
 			for _, r := range resources {
 				if r.ListSubset != "" {
@@ -458,6 +466,8 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if .FileFields }}	var (
 {{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
 {{ end }}	)
 {{ end }}	cmd := &cobra.Command{
 		Use:   "create",
@@ -477,16 +487,45 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("reading input: %w", err)
 				}
 			}
-			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
-			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}")
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}{{ if .HasCustomPayload }} || len(flagCustomPayloadFiles) > 0{{ end }}
+{{ if .HasCustomPayload }}
+			if flag{{ lookupCamel (index .FileFields 0).Flag }} != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--{{ (index .FileFields 0).Flag }} and --custom-payload-file are mutually exclusive")
 			}
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
+{{ end -}}
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
+			}
+{{ if .HasCustomPayload }}
+			var err error
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if err != nil {
+					return err
+				}
+				bodyBytes, err = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				bodyBytes, err = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}				})
+			}
+			if err != nil {
+				return err
+			}
+{{ else -}}
 			bodyBytes, err := injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
 {{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
 {{ end }}			})
 			if err != nil {
 				return err
 			}
+{{- end }}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(bodyBytes))
 {{ else }}
 			var body io.Reader
@@ -509,7 +548,9 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 {{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
-{{ end }}{{ end }}	return cmd
+{{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
+{{ end }}	return cmd
 }
 {{ end }}
 {{ if hasOp .Operations "update" }}
@@ -517,6 +558,8 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}	var flagName string
 {{ end }}{{ if .FileFields }}	var (
 {{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
 {{ end }}	)
 {{ end }}
 	cmd := &cobra.Command{
@@ -541,9 +584,17 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 			}
 {{ if .FileFields }}
-			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
+{{ if .HasCustomPayload }}
+			if flag{{ lookupCamel (index .FileFields 0).Flag }} != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--{{ (index .FileFields 0).Flag }} and --custom-payload-file are mutually exclusive")
+			}
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
+{{- end }}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}{{ if .HasCustomPayload }} || len(flagCustomPayloadFiles) > 0{{ end }}
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}")
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
 			}
 {{ else }}
 			if len(bodyBytes) == 0 {
@@ -628,6 +679,26 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 
 {{ if .FileFields }}
+{{ if .HasCustomPayload }}
+			var injErr error
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, injErr = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if injErr != nil {
+					return injErr
+				}
+				bodyBytes, injErr = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				bodyBytes, injErr = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}				})
+			}
+			if injErr != nil {
+				return injErr
+			}
+{{- else }}
 			var injErr error
 			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
 {{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
@@ -635,9 +706,11 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if injErr != nil {
 				return injErr
 			}
+{{- end }}
 {{ end }}
 {{ if .IsConfigProfile }}
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
 {{ end }}
 
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
@@ -677,7 +750,9 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 {{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
-{{ end }}{{ end }}	return cmd
+{{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
+{{ end }}	return cmd
 }
 {{ end }}
 {{ if hasOp .Operations "delete" }}
@@ -791,6 +866,9 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagDryRun bool
 {{ if hasFetchMergePut . }}		flagName   string
 {{ end }}{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ end }}{{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
+{{ if not (hasFetchMergePut .) }}		flagName               string
 {{ end }}{{ end }}	)
 
 	cmd := &cobra.Command{
@@ -808,7 +886,15 @@ If not, a new resource is created.` + "`" + `,
 			// Read input
 			data, err := readApplyInput(fromFile)
 {{ if .FileFields }}
-			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}
+			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}{{ if .HasCustomPayload }} || len(flagCustomPayloadFiles) > 0{{ end }}
+{{ if .HasCustomPayload }}
+			if flag{{ lookupCamel (index .FileFields 0).Flag }} != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--{{ (index .FileFields 0).Flag }} and --custom-payload-file are mutually exclusive")
+			}
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
+{{ end -}}
 			if err != nil && !anyFileFlag {
 				return err
 			}
@@ -821,9 +907,29 @@ If not, a new resource is created.` + "`" + `,
 {{ if .FileFields }}
 			// Inject file fields before name extraction so name-fallback (if any)
 			// can populate <general><name> for lookup.
+{{ if .HasCustomPayload }}
+			if flagName != "" {
+				data = setClassicGeneralName(data, "{{ .Singular }}", flagName)
+			}
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if err != nil {
+					return err
+				}
+				data, err = injectClassicFileFields(data, "{{ .Singular }}", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				data, err = injectClassicFileFields(data, "{{ .Singular }}", []classicFileFieldSpec{
+{{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
+{{ end }}				})
+			}
+{{ else -}}
 			data, err = injectClassicFileFields(data, "{{ .Singular }}", []classicFileFieldSpec{
 {{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
 {{ end }}			})
+{{- end }}
 			if err != nil {
 				return err
 			}
@@ -911,6 +1017,7 @@ If not, a new resource is created.` + "`" + `,
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			data = injectClassicRedeployOnUpdate(data)
 {{ end }}
 			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
@@ -929,6 +1036,9 @@ If not, a new resource is created.` + "`" + `,
 {{ if hasFetchMergePut . }}	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing {{ .Singular }} to update (required when body is empty)")
 {{ end }}{{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
+{{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
+{{ if not (hasFetchMergePut .) }}	cmd.Flags().StringVar(&flagName, "name", "", "Profile name (overrides filename-based default when using --custom-payload-file)")
 {{ end }}{{ end }}
 	return cmd
 }
@@ -958,6 +1068,9 @@ import (
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"net/url"
 {{- end }}
+{{- if anyHasCustomPayload . }}
+	"crypto/rand"
+{{- end }}
 
 	"github.com/spf13/cobra"
 
@@ -967,6 +1080,9 @@ import (
 {{- end }}
 {{- if anyIsConfigProfile . }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
+{{- end }}
+{{- if anyHasCustomPayload . }}
+	"howett.net/plist"
 {{- end }}
 )
 
@@ -1232,15 +1348,33 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 
 	return replaceClassicProfilePayload(xmlBody, modified)
 }
+
+// injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
+// is present inside <general>. If the XML already contains <redeploy_on_update>
+// (e.g. supplied by the caller), the existing value is left unchanged.
+func injectClassicRedeployOnUpdate(body []byte) []byte {
+	s := string(body)
+	if strings.Contains(s, "<redeploy_on_update>") {
+		return body
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		return body
+	}
+	insertAt := gOpen + len("<general>")
+	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
+}
 {{ end }}
 {{ if anyClassicFileFields . }}
-// classicFileFieldSpec describes one Classic XML field sourced from a local file.
+// classicFileFieldSpec describes one Classic XML field sourced from a local file or in-memory bytes.
 type classicFileFieldSpec struct {
-	FilePath      string   // user-supplied path (empty = skip)
-	ParentPath    []string // path to the immediate parent element under the root (e.g. ["general"])
-	LeafName      string   // name of the element receiving the file contents (e.g. "payloads")
-	Encoding      string   // "xml-cdata" | "raw"
-	NameFallback  string   // "none" | "keep-ext" | "strip-ext"
+	FilePath     string   // user-supplied path (empty = skip when FileBytes also nil)
+	FileBytes    []byte   // alternative to FilePath; used when content is built in memory
+	FileNameHint string   // path hint used with FileBytes for NameFallback (filepath.Base applied internally)
+	ParentPath   []string // path to the immediate parent element under the root (e.g. ["general"])
+	LeafName     string   // name of the element receiving the file contents (e.g. "payloads")
+	Encoding     string   // "xml-cdata" | "raw"
+	NameFallback string   // "none" | "keep-ext" | "strip-ext"
 }
 
 // injectClassicFileFields overlays file-sourced XML fields into body. The body
@@ -1250,7 +1384,7 @@ type classicFileFieldSpec struct {
 func injectClassicFileFields(body []byte, rootName string, specs []classicFileFieldSpec) ([]byte, error) {
 	active := false
 	for _, s := range specs {
-		if s.FilePath != "" {
+		if s.FilePath != "" || len(s.FileBytes) > 0 {
 			active = true
 			break
 		}
@@ -1265,12 +1399,21 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 	}
 
 	for _, s := range specs {
-		if s.FilePath == "" {
+		if s.FilePath == "" && len(s.FileBytes) == 0 {
 			continue
 		}
-		data, err := os.ReadFile(s.FilePath)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		var data []byte
+		var nameForFallback string
+		if len(s.FileBytes) > 0 {
+			data = s.FileBytes
+			nameForFallback = filepath.Base(s.FileNameHint)
+		} else {
+			var err error
+			data, err = os.ReadFile(s.FilePath)
+			if err != nil {
+				return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+			}
+			nameForFallback = filepath.Base(s.FilePath)
 		}
 		var inner string
 		if s.Encoding == "xml-cdata" {
@@ -1316,7 +1459,7 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 			// Users often provide scope/category with their own <name> elements —
 			// those are distinct, so we target <general><name> specifically.
 			if !hasClassicGeneralName(bodyStr) {
-				nm := filepath.Base(s.FilePath)
+				nm := nameForFallback
 				if s.NameFallback == "strip-ext" {
 					if dot := strings.LastIndex(nm, "."); dot > 0 {
 						nm = nm[:dot]
@@ -1356,6 +1499,111 @@ func classicXMLEscape(s string) string {
 	return b.String()
 }
 
+{{ if anyHasCustomPayload . }}
+// newProfileUUID returns a random RFC 4122 v4 UUID string (uppercase, hyphenated).
+func newProfileUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant bits
+	return fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// buildCustomPayloadMobileconfig constructs a com.apple.ManagedClient.preferences
+// mobileconfig plist from one or more preference plist files. Each file's parsed
+// contents become the mcx_preference_settings for its preference domain. The
+// domain is inferred from the filename (extension stripped) unless domain is set,
+// which is only valid when len(files)==1.
+func buildCustomPayloadMobileconfig(files []string, domain string) ([]byte, error) {
+	if domain != "" && len(files) != 1 {
+		return nil, fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+	}
+	var payloadContent []any
+	for _, file := range files {
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", file, err)
+		}
+		var settings map[string]any
+		if _, err := plist.Unmarshal(raw, &settings); err != nil {
+			return nil, fmt.Errorf("parsing plist %s: %w", file, err)
+		}
+		d := domain
+		if d == "" {
+			base := filepath.Base(file)
+			if dot := strings.LastIndex(base, "."); dot > 0 {
+				d = base[:dot]
+			} else {
+				d = base
+			}
+		}
+		innerUUID := newProfileUUID()
+		payloadContent = append(payloadContent, map[string]any{
+			"PayloadDisplayName":  "Custom Settings",
+			"PayloadIdentifier":   innerUUID,
+			"PayloadOrganization": "JAMF Software",
+			"PayloadType":         "com.apple.ManagedClient.preferences",
+			"PayloadUUID":         innerUUID,
+			"PayloadVersion":      1,
+			"PayloadContent": map[string]any{
+				d: map[string]any{
+					"Forced": []any{
+						map[string]any{"mcx_preference_settings": settings},
+					},
+				},
+			},
+		})
+	}
+	outerUUID := newProfileUUID()
+	profile := map[string]any{
+		"PayloadUUID":              outerUUID,
+		"PayloadType":              "Configuration",
+		"PayloadOrganization":      "JAMF Software",
+		"PayloadIdentifier":        outerUUID,
+		"PayloadDisplayName":       "Custom",
+		"PayloadDescription":       "",
+		"PayloadVersion":           1,
+		"PayloadEnabled":           true,
+		"PayloadRemovalDisallowed": true,
+		"PayloadScope":             "System",
+		"PayloadContent":           payloadContent,
+	}
+	return plist.MarshalIndent(profile, plist.XMLFormat, "\t")
+}
+
+// setClassicGeneralName sets or replaces the <name> element inside <general>
+// in a Classic API XML body. When body is empty, a minimal root element is
+// created. Used by apply --name to override the NameFallback-derived name.
+func setClassicGeneralName(body []byte, rootName, name string) []byte {
+	nameEl := "<name>" + classicXMLEscape(name) + "</name>"
+	s := strings.TrimSpace(string(body))
+	if s == "" {
+		return []byte("<" + rootName + "><general>" + nameEl + "</general></" + rootName + ">")
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		// No <general>: insert before closing root tag.
+		if ri := strings.LastIndex(s, "</"+rootName+">"); ri >= 0 {
+			s = s[:ri] + "<general>" + nameEl + "</general>" + s[ri:]
+		}
+		return []byte(s)
+	}
+	gClose := strings.Index(s[gOpen:], "</general>")
+	if gClose < 0 {
+		return []byte(s)
+	}
+	gClose += gOpen
+	inner := s[gOpen+len("<general>") : gClose]
+	if nOpen := strings.Index(inner, "<name>"); nOpen >= 0 {
+		if nClose := strings.Index(inner[nOpen:], "</name>"); nClose >= 0 {
+			inner = inner[:nOpen] + nameEl + inner[nOpen+nClose+len("</name>"):]
+			return []byte(s[:gOpen+len("<general>")] + inner + s[gClose:])
+		}
+	}
+	// No existing <name>: prepend inside <general>.
+	return []byte(s[:gOpen+len("<general>")] + nameEl + inner + s[gClose:])
+}
+{{ end }}
 // fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
 // returning the bytes and its ID. Used by apply for resources that need
 // fetch-merge-put semantics (e.g. mac/mobile app AppConfig). Returns an error

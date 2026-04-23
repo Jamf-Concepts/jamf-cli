@@ -5,6 +5,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
+	"howett.net/plist"
 )
 
 // RegisterClassicCommands registers all Classic API resource commands.
@@ -327,9 +329,27 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 	return replaceClassicProfilePayload(xmlBody, modified)
 }
 
-// classicFileFieldSpec describes one Classic XML field sourced from a local file.
+// injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
+// is present inside <general>. If the XML already contains <redeploy_on_update>
+// (e.g. supplied by the caller), the existing value is left unchanged.
+func injectClassicRedeployOnUpdate(body []byte) []byte {
+	s := string(body)
+	if strings.Contains(s, "<redeploy_on_update>") {
+		return body
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		return body
+	}
+	insertAt := gOpen + len("<general>")
+	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
+}
+
+// classicFileFieldSpec describes one Classic XML field sourced from a local file or in-memory bytes.
 type classicFileFieldSpec struct {
-	FilePath     string   // user-supplied path (empty = skip)
+	FilePath     string   // user-supplied path (empty = skip when FileBytes also nil)
+	FileBytes    []byte   // alternative to FilePath; used when content is built in memory
+	FileNameHint string   // path hint used with FileBytes for NameFallback (filepath.Base applied internally)
 	ParentPath   []string // path to the immediate parent element under the root (e.g. ["general"])
 	LeafName     string   // name of the element receiving the file contents (e.g. "payloads")
 	Encoding     string   // "xml-cdata" | "raw"
@@ -343,7 +363,7 @@ type classicFileFieldSpec struct {
 func injectClassicFileFields(body []byte, rootName string, specs []classicFileFieldSpec) ([]byte, error) {
 	active := false
 	for _, s := range specs {
-		if s.FilePath != "" {
+		if s.FilePath != "" || len(s.FileBytes) > 0 {
 			active = true
 			break
 		}
@@ -358,12 +378,21 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 	}
 
 	for _, s := range specs {
-		if s.FilePath == "" {
+		if s.FilePath == "" && len(s.FileBytes) == 0 {
 			continue
 		}
-		data, err := os.ReadFile(s.FilePath)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+		var data []byte
+		var nameForFallback string
+		if len(s.FileBytes) > 0 {
+			data = s.FileBytes
+			nameForFallback = filepath.Base(s.FileNameHint)
+		} else {
+			var err error
+			data, err = os.ReadFile(s.FilePath)
+			if err != nil {
+				return nil, fmt.Errorf("reading %s: %w", s.FilePath, err)
+			}
+			nameForFallback = filepath.Base(s.FilePath)
 		}
 		var inner string
 		if s.Encoding == "xml-cdata" {
@@ -409,7 +438,7 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 			// Users often provide scope/category with their own <name> elements —
 			// those are distinct, so we target <general><name> specifically.
 			if !hasClassicGeneralName(bodyStr) {
-				nm := filepath.Base(s.FilePath)
+				nm := nameForFallback
 				if s.NameFallback == "strip-ext" {
 					if dot := strings.LastIndex(nm, "."); dot > 0 {
 						nm = nm[:dot]
@@ -447,6 +476,110 @@ func classicXMLEscape(s string) string {
 	var b strings.Builder
 	_ = xml.EscapeText(&b, []byte(s))
 	return b.String()
+}
+
+// newProfileUUID returns a random RFC 4122 v4 UUID string (uppercase, hyphenated).
+func newProfileUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant bits
+	return fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// buildCustomPayloadMobileconfig constructs a com.apple.ManagedClient.preferences
+// mobileconfig plist from one or more preference plist files. Each file's parsed
+// contents become the mcx_preference_settings for its preference domain. The
+// domain is inferred from the filename (extension stripped) unless domain is set,
+// which is only valid when len(files)==1.
+func buildCustomPayloadMobileconfig(files []string, domain string) ([]byte, error) {
+	if domain != "" && len(files) != 1 {
+		return nil, fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+	}
+	var payloadContent []any
+	for _, file := range files {
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", file, err)
+		}
+		var settings map[string]any
+		if _, err := plist.Unmarshal(raw, &settings); err != nil {
+			return nil, fmt.Errorf("parsing plist %s: %w", file, err)
+		}
+		d := domain
+		if d == "" {
+			base := filepath.Base(file)
+			if dot := strings.LastIndex(base, "."); dot > 0 {
+				d = base[:dot]
+			} else {
+				d = base
+			}
+		}
+		innerUUID := newProfileUUID()
+		payloadContent = append(payloadContent, map[string]any{
+			"PayloadDisplayName":  "Custom Settings",
+			"PayloadIdentifier":   innerUUID,
+			"PayloadOrganization": "JAMF Software",
+			"PayloadType":         "com.apple.ManagedClient.preferences",
+			"PayloadUUID":         innerUUID,
+			"PayloadVersion":      1,
+			"PayloadContent": map[string]any{
+				d: map[string]any{
+					"Forced": []any{
+						map[string]any{"mcx_preference_settings": settings},
+					},
+				},
+			},
+		})
+	}
+	outerUUID := newProfileUUID()
+	profile := map[string]any{
+		"PayloadUUID":              outerUUID,
+		"PayloadType":              "Configuration",
+		"PayloadOrganization":      "JAMF Software",
+		"PayloadIdentifier":        outerUUID,
+		"PayloadDisplayName":       "Custom",
+		"PayloadDescription":       "",
+		"PayloadVersion":           1,
+		"PayloadEnabled":           true,
+		"PayloadRemovalDisallowed": true,
+		"PayloadScope":             "System",
+		"PayloadContent":           payloadContent,
+	}
+	return plist.MarshalIndent(profile, plist.XMLFormat, "\t")
+}
+
+// setClassicGeneralName sets or replaces the <name> element inside <general>
+// in a Classic API XML body. When body is empty, a minimal root element is
+// created. Used by apply --name to override the NameFallback-derived name.
+func setClassicGeneralName(body []byte, rootName, name string) []byte {
+	nameEl := "<name>" + classicXMLEscape(name) + "</name>"
+	s := strings.TrimSpace(string(body))
+	if s == "" {
+		return []byte("<" + rootName + "><general>" + nameEl + "</general></" + rootName + ">")
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		// No <general>: insert before closing root tag.
+		if ri := strings.LastIndex(s, "</"+rootName+">"); ri >= 0 {
+			s = s[:ri] + "<general>" + nameEl + "</general>" + s[ri:]
+		}
+		return []byte(s)
+	}
+	gClose := strings.Index(s[gOpen:], "</general>")
+	if gClose < 0 {
+		return []byte(s)
+	}
+	gClose += gOpen
+	inner := s[gOpen+len("<general>") : gClose]
+	if nOpen := strings.Index(inner, "<name>"); nOpen >= 0 {
+		if nClose := strings.Index(inner[nOpen:], "</name>"); nClose >= 0 {
+			inner = inner[:nOpen] + nameEl + inner[nOpen+nClose+len("</name>"):]
+			return []byte(s[:gOpen+len("<general>")] + inner + s[gClose:])
+		}
+	}
+	// No existing <name>: prepend inside <general>.
+	return []byte(s[:gOpen+len("<general>")] + nameEl + inner + s[gClose:])
 }
 
 // fetchClassicFullXMLByName fetches a Classic resource's full XML body by name,
