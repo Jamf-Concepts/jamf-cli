@@ -163,7 +163,9 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
 func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagMobileconfigFile string
+		flagMobileconfigFile    string
+		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -183,16 +185,37 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 					return fmt.Errorf("reading input: %w", err)
 				}
 			}
-			anyFileFlag := flagMobileconfigFile != ""
-			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+			anyFileFlag := flagMobileconfigFile != "" || len(flagCustomPayloadFiles) > 0
+
+			if flagMobileconfigFile != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--mobileconfig-file and --custom-payload-file are mutually exclusive")
 			}
-			bodyBytes, err := injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
-				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
-			})
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
+			if len(bodyBytes) == 0 && !anyFileFlag {
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file or --custom-payload-file")
+			}
+
+			var err error
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if err != nil {
+					return err
+				}
+				bodyBytes, err = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				bodyBytes, err = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			}
 			if err != nil {
 				return err
 			}
+
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 
 			if err != nil {
@@ -205,13 +228,17 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
+	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
 	return cmd
 }
 
 func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 	var (
-		flagMobileconfigFile string
+		flagMobileconfigFile    string
+		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
 	)
 
 	cmd := &cobra.Command{
@@ -234,9 +261,15 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 				}
 			}
 
-			anyFileFlag := flagMobileconfigFile != ""
+			if flagMobileconfigFile != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--mobileconfig-file and --custom-payload-file are mutually exclusive")
+			}
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
+			anyFileFlag := flagMobileconfigFile != "" || len(flagCustomPayloadFiles) > 0
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file or --custom-payload-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
@@ -260,9 +293,20 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			var injErr error
-			bodyBytes, injErr = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
-				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
-			})
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, injErr = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if injErr != nil {
+					return injErr
+				}
+				bodyBytes, injErr = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				bodyBytes, injErr = injectClassicFileFields(bodyBytes, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			}
 			if injErr != nil {
 				return injErr
 			}
@@ -284,6 +328,8 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up os_x_configuration_profile by name")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
+	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
 	return cmd
 }
 
@@ -373,10 +419,13 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
 func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile             string
-		flagYes              bool
-		flagDryRun           bool
-		flagMobileconfigFile string
+		fromFile                string
+		flagYes                 bool
+		flagDryRun              bool
+		flagMobileconfigFile    string
+		flagCustomPayloadFiles  []string
+		flagCustomPayloadDomain string
+		flagName                string
 	)
 
 	cmd := &cobra.Command{
@@ -401,7 +450,14 @@ If not, a new resource is created.`,
 			// Read input
 			data, err := readApplyInput(fromFile)
 
-			anyFileFlag := flagMobileconfigFile != ""
+			anyFileFlag := flagMobileconfigFile != "" || len(flagCustomPayloadFiles) > 0
+
+			if flagMobileconfigFile != "" && len(flagCustomPayloadFiles) > 0 {
+				return fmt.Errorf("--mobileconfig-file and --custom-payload-file are mutually exclusive")
+			}
+			if flagCustomPayloadDomain != "" && len(flagCustomPayloadFiles) != 1 {
+				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
+			}
 			if err != nil && !anyFileFlag {
 				return err
 			}
@@ -409,9 +465,25 @@ If not, a new resource is created.`,
 
 			// Inject file fields before name extraction so name-fallback (if any)
 			// can populate <general><name> for lookup.
-			data, err = injectClassicFileFields(data, "os_x_configuration_profile", []classicFileFieldSpec{
-				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
-			})
+
+			if flagName != "" {
+				data = setClassicGeneralName(data, "os_x_configuration_profile", flagName)
+			}
+			if len(flagCustomPayloadFiles) > 0 {
+				var mcBytes []byte
+				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
+				if err != nil {
+					return err
+				}
+				data, err = injectClassicFileFields(data, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FileBytes: mcBytes, FileNameHint: flagCustomPayloadFiles[0], ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			} else {
+				data, err = injectClassicFileFields(data, "os_x_configuration_profile", []classicFileFieldSpec{
+					{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
+				})
+			}
+
 			if err != nil {
 				return err
 			}
@@ -486,6 +558,9 @@ If not, a new resource is created.`,
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
+	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
+	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Profile name (overrides filename-based default when using --custom-payload-file)")
 
 	return cmd
 }

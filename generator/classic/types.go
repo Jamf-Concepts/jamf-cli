@@ -6,18 +6,19 @@ import "slices"
 
 // ClassicResource represents a Classic API resource parsed from the YAML manifest.
 type ClassicResource struct {
-	Name            string // e.g., "policies"
-	Path            string // URL segment under /JSSResource/: "policies"
-	CLIName         string // e.g., "classic-policies"
-	GoName          string // e.g., "ClassicPolicies"
-	Singular        string // JSON root key for a single object: "policy"
-	Description     string
-	Operations      []string // ["list", "get", "create", "update", "delete"]
-	Lookups         []string // ["id", "name", "serialnumber", "macaddress", "udid"]
-	HasScope        bool     // true if the resource supports scope operations
-	IDPath          string   // path segment between base path and ID value; defaults to "id" (e.g. "groupid" → /accounts/groupid/{id})
-	IsConfigProfile bool     // true for macOS and mobile device configuration profile resources
-	FileFields      []ClassicFileField
+	Name             string // e.g., "policies"
+	Path             string // URL segment under /JSSResource/: "policies"
+	CLIName          string // e.g., "classic-policies"
+	GoName           string // e.g., "ClassicPolicies"
+	Singular         string // JSON root key for a single object: "policy"
+	Description      string
+	Operations       []string // ["list", "get", "create", "update", "delete"]
+	Lookups          []string // ["id", "name", "serialnumber", "macaddress", "udid"]
+	HasScope         bool     // true if the resource supports scope operations
+	IDPath           string   // path segment between base path and ID value; defaults to "id" (e.g. "groupid" → /accounts/groupid/{id})
+	IsConfigProfile  bool     // true for macOS and mobile device configuration profile resources
+	HasCustomPayload bool     // true only for osxconfigurationprofiles (supports --custom-payload-file)
+	FileFields       []ClassicFileField
 	// ListSubset marks a list operation as sharing the list endpoint with a
 	// sibling resource: GET /JSSResource/{path} returns both, and the generated
 	// list command extracts only the named sub-element before formatting.
