@@ -710,6 +710,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 {{ if .IsConfigProfile }}
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
 {{ end }}
 
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
@@ -1016,6 +1017,7 @@ If not, a new resource is created.` + "`" + `,
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			data = injectClassicRedeployOnUpdate(data)
 {{ end }}
 			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
@@ -1344,6 +1346,22 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 	}
 
 	return replaceClassicProfilePayload(xmlBody, modified)
+}
+
+// injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
+// is present inside <general>. If the XML already contains <redeploy_on_update>
+// (e.g. supplied by the caller), the existing value is left unchanged.
+func injectClassicRedeployOnUpdate(body []byte) []byte {
+	s := string(body)
+	if strings.Contains(s, "<redeploy_on_update>") {
+		return body
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		return body
+	}
+	insertAt := gOpen + len("<general>")
+	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
 }
 {{ end }}
 {{ if anyClassicFileFields . }}

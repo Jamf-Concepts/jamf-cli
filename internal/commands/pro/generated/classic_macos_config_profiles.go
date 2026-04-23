@@ -312,6 +312,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
+			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
 
 			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -541,6 +542,7 @@ If not, a new resource is created.`,
 			// Preserve existing PayloadUUID and PayloadIdentifier.
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "osxconfigurationprofiles", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
+			data = injectClassicRedeployOnUpdate(data)
 
 			updatePath := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))

@@ -330,6 +330,22 @@ func injectClassicProfilePayloadUUIDs(xmlBody, existingPayload []byte) []byte {
 	return replaceClassicProfilePayload(xmlBody, modified)
 }
 
+// injectClassicRedeployOnUpdate ensures <redeploy_on_update>All</redeploy_on_update>
+// is present inside <general>. If the XML already contains <redeploy_on_update>
+// (e.g. supplied by the caller), the existing value is left unchanged.
+func injectClassicRedeployOnUpdate(body []byte) []byte {
+	s := string(body)
+	if strings.Contains(s, "<redeploy_on_update>") {
+		return body
+	}
+	gOpen := strings.Index(s, "<general>")
+	if gOpen < 0 {
+		return body
+	}
+	insertAt := gOpen + len("<general>")
+	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
+}
+
 // classicFileFieldSpec describes one Classic XML field sourced from a local file or in-memory bytes.
 type classicFileFieldSpec struct {
 	FilePath     string   // user-supplied path (empty = skip when FileBytes also nil)
