@@ -5,6 +5,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -16,11 +17,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"crypto/rand"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
-
 	"howett.net/plist"
 )
 

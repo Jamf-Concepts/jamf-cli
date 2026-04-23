@@ -868,8 +868,8 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
 {{ end }}{{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
-		flagName               string
-{{ end }}	)
+{{ if not (hasFetchMergePut .) }}		flagName               string
+{{ end }}{{ end }}	)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
@@ -1038,8 +1038,8 @@ If not, a new resource is created.` + "`" + `,
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
 	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Profile name (overrides filename-based default when using --custom-payload-file)")
-{{ end }}
+{{ if not (hasFetchMergePut .) }}	cmd.Flags().StringVar(&flagName, "name", "", "Profile name (overrides filename-based default when using --custom-payload-file)")
+{{ end }}{{ end }}
 	return cmd
 }
 {{ end }}
@@ -1068,6 +1068,9 @@ import (
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"net/url"
 {{- end }}
+{{- if anyHasCustomPayload . }}
+	"crypto/rand"
+{{- end }}
 
 	"github.com/spf13/cobra"
 
@@ -1079,8 +1082,6 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 {{- end }}
 {{- if anyHasCustomPayload . }}
-	"crypto/rand"
-
 	"howett.net/plist"
 {{- end }}
 )
