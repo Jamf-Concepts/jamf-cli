@@ -380,7 +380,7 @@ func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 		if redactAuth && strings.EqualFold(k, "Authorization") {
 			v = "[redacted]"
 		}
-		fmt.Fprintf(w, "    %s: %s\n", k, v)
+		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
 	}
 }
 
@@ -391,9 +391,9 @@ func logBody(w io.Writer, data []byte) {
 		return
 	}
 	truncated := len(data) >= bodyLogLimit
-	fmt.Fprintf(w, "    %s\n", strings.ReplaceAll(strings.TrimRight(string(data), "\n"), "\n", "\n    "))
+	_, _ = fmt.Fprintf(w, "    %s\n", strings.ReplaceAll(strings.TrimRight(string(data), "\n"), "\n", "\n    "))
 	if truncated {
-		fmt.Fprintf(w, "    [body truncated at %d bytes]\n", bodyLogLimit)
+		_, _ = fmt.Fprintf(w, "    [body truncated at %d bytes]\n", bodyLogLimit)
 	}
 }
 
