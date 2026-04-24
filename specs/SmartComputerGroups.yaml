@@ -1,262 +1,278 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - Smart Computer Groups
-    version: 0.0.1
-paths:
-    /v2/computer-groups/smart-groups:
-        get:
-            tags:
-                - computer-groups
-            summary: |
-                Search for Smart Computer Groups
-            description: |
-                Search for Smart Computer Groups
-            parameters:
-                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                - name: sort
-                  in: query
-                  description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is id:asc. Multiple sort criteria are supported and must be separated with
-          a comma. Example: sort=name:asc'
-                  explode: true
-                  schema:
-                      type: array
-                      items:
-                          type: string
-                      default: [id:asc]
-                - name: filter
-                  in: query
-                  description: 'Query in the RSQL format, allowing to filter smart computer group collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: id, name, siteId.
-                      The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. 
-                      Example: name=="*group*"'
-                  schema:
-                      type: string
-                      default: ''
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/SmartGroupSearchResult'
-            x-required-privileges:
-                - Read Smart Computer Groups
-        post:
-            tags:
-                - computer-groups
-            summary: |
-                Create a Smart Computer Group
-            description: |
-                Creates a Smart Computer Group
-            parameters:
-                - name: platform
-                  in: query
-                  description: 'Optional. Return platform identifiers instead of internal identifiers when set to true.'
-                  schema:
-                      type: boolean
-                      default: false
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/SmartComputerGroupV2'
-                required: true
-            responses:
-                201:
-                    description: Successful response - Smart Computer Group created
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-            x-required-privileges:
-                - Create Smart Computer Groups
-    /v2/computer-groups/smart-groups/{id}:
-        get:
-            tags:
-                - computer-groups
-            summary: |
-                Get Smart Computer Group by Id
-            description: |
-                Get Smart Computer Group by Id
-            parameters:
-                - name: id
-                  in: path
-                  description: instance id of smart computer group
-                  required: true
-                  schema:
-                      type: string
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/SmartComputerGroupV2'
-                404:
-                    description: Smart Computer Group with the specified id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Smart Computer Groups
-        put:
-            tags:
-                - computer-groups
-            summary: |
-                Update a Smart Computer Group
-            description: |
-                Updates a Smart Computer Group
-            parameters:
-                - name: id
-                  in: path
-                  description: id of target Smart Computer Group
-                  required: true
-                  schema:
-                      type: string
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/SmartComputerGroupV2'
-                required: true
-            responses:
-                202:
-                    description: Successful response - Smart Computer Group updated
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/SmartComputerGroupV2'
-                404:
-                    description: Target Smart Computer Group does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Smart Computer Groups
-        delete:
-            tags:
-                - computer-groups
-            summary: |
-                Remove specified Smart Computer Group
-            description: |
-                Remove specified Smart Computer Group
-            parameters:
-                - name: id
-                  in: path
-                  description: id of target Smart Computer Group
-                  required: true
-                  schema:
-                      type: string
-            responses:
-                204:
-                    description: Successful response - Smart Computer Group removed
-                404:
-                    description: Target Smart Computer Group does not exist.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Delete Smart Computer Groups
-    /v2/computer-groups/smart-group-membership/{id}:
-        get:
-            tags:
-                - computer-groups
-            summary: |
-                Get the membership of a Smart Computer Group
-            description: |
-                Gets the membership of a Smart Computer Group
-            parameters:
-                - name: id
-                  in: path
-                  description: id of the Smart Computer Group
-                  required: true
-                  schema:
-                      type: string
-            responses:
-                200:
-                    description: Successful response - Smart Computer Group membership retrieved
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/SmartGroupMembership'
-                404:
-                    description: Smart Computer Group with the specified id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Smart Computer Groups
 components:
-    schemas:
-        SmartComputerGroupSearch:
-            type: object
-            properties:
-                id:
-                    type: string
-                    example: 1
-                    minLength: 1
-                    readOnly: true
-                siteId:
-                    type: string
-                    example: 1
-                    minLength: 1
-                    readOnly: true
-                name:
-                    type: string
-                    minLength: 1
-                    example: My computer group
-                description:
-                    type: string
-                    minLength: 0
-                    example: My computer group description
-                membershipCount:
-                    type: integer
-                    example: 231
-        SmartGroupSearchResult:
-            type: object
-            properties:
-                totalCount:
-                    type: integer
-                    minimum: 0
-                    example: 3
-                results:
-                    type: array
-                    minItems: 0
-                    items:
-                        $ref: '#/components/schemas/SmartComputerGroupSearch'
-        SmartComputerGroupV2:
-            required:
-                - name
-            type: object
-            properties:
-                name:
-                    type: string
-                    example: New Group Name
-                description:
-                    type: string
-                    example: New Group Description
-                criteria:
-                    type: array
-                    items:
-                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/SmartSearchCriterion'
-                siteId:
-                    type: string
-                    nullable: true
-                    example: -1
-        SmartGroupMembership:
-            description: the ids of the computers that are members of the smart group
-            type: object
-            properties:
-                members:
-                    type: array
-                    items:
-                        type: integer
-                    example: [ 1, 2, 3 ]
-                    minLength: 0
+  schemas:
+    SmartComputerGroupSearch:
+      properties:
+        description:
+          example: My computer group description
+          minLength: 0
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        membershipCount:
+          example: 231
+          type: integer
+        name:
+          example: My computer group
+          minLength: 1
+          type: string
+        siteId:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+      type: object
+    SmartComputerGroupV2:
+      properties:
+        criteria:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/SmartSearchCriterion
+          type: array
+        description:
+          example: New Group Description
+          type: string
+        name:
+          example: New Group Name
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - name
+      type: object
+    SmartGroupMembership:
+      description: the ids of the computers that are members of the smart group
+      properties:
+        members:
+          example:
+            - 1
+            - 2
+            - 3
+          items:
+            type: integer
+          minLength: 0
+          type: array
+      type: object
+    SmartGroupSearchResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/SmartComputerGroupSearch'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+info:
+  title: Jamf Pro API - SmartComputerGroups
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/computer-groups/smart-group-membership/{id}:
+    get:
+      description: |
+        Gets the membership of a Smart Computer Group
+      parameters:
+        - description: id of the Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupMembership'
+          description: Successful response - Smart Computer Group membership retrieved
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Smart Computer Group with the specified id does not exist
+      summary: |
+        Get the membership of a Smart Computer Group
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Smart Computer Groups
+  /v2/computer-groups/smart-groups:
+    get:
+      description: |
+        Search for Smart Computer Groups
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:asc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter smart computer group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. Example: name=="*group*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupSearchResult'
+          description: Successful response
+      summary: |
+        Search for Smart Computer Groups
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Smart Computer Groups
+    post:
+      description: |
+        Creates a Smart Computer Group
+      parameters:
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartComputerGroupV2'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successful response - Smart Computer Group created
+      summary: |
+        Create a Smart Computer Group
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Create Smart Computer Groups
+  /v2/computer-groups/smart-groups/{id}:
+    delete:
+      description: |
+        Remove specified Smart Computer Group
+      parameters:
+        - description: id of target Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful response - Smart Computer Group removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Smart Computer Group does not exist.
+      summary: |
+        Remove specified Smart Computer Group
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Delete Smart Computer Groups
+    get:
+      description: |
+        Get Smart Computer Group by Id
+      parameters:
+        - description: instance id of smart computer group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartComputerGroupV2'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Smart Computer Group with the specified id does not exist
+      summary: |
+        Get Smart Computer Group by Id
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Smart Computer Groups
+    put:
+      description: |
+        Updates a Smart Computer Group
+      parameters:
+        - description: id of target Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartComputerGroupV2'
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartComputerGroupV2'
+          description: Successful response - Smart Computer Group updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Smart Computer Group does not exist
+      summary: |
+        Update a Smart Computer Group
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Update Smart Computer Groups
+servers:
+  - url: /api

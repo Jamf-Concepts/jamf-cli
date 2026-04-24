@@ -1,87 +1,87 @@
-openapi: 3.0.1
+components:
+  schemas:
+    HealthStatus:
+      nullable: false
+      properties:
+        api:
+          $ref: '#/components/schemas/HealthStatusStats'
+        default:
+          $ref: '#/components/schemas/HealthStatusStats'
+        device:
+          $ref: '#/components/schemas/HealthStatusStats'
+        enrollment:
+          $ref: '#/components/schemas/HealthStatusStats'
+        ui:
+          $ref: '#/components/schemas/HealthStatusStats'
+      required:
+        - api
+        - default
+        - device
+        - enrollment
+        - ui
+      type: object
+    HealthStatusStats:
+      nullable: false
+      properties:
+        fifteenMinutes:
+          description: Percentage of accepted requests out of total requests for the last 15 minutes
+          example: 0.75
+          readOnly: true
+          type: number
+        fiveMinutes:
+          description: Percentage of accepted requests out of total requests for the last 5 minutes
+          example: 0.75
+          readOnly: true
+          type: number
+        oneMinute:
+          description: Percentage of accepted requests out of total requests for the last 1 minute
+          example: 0.75
+          readOnly: true
+          type: number
+        thirtyMinutes:
+          description: Percentage of accepted requests out of total requests for the last 30 minutes
+          example: 0.75
+          readOnly: true
+          type: number
+        thirtySeconds:
+          description: Percentage of accepted requests out of total requests for the last 30 seconds
+          example: 0.75
+          nullable: false
+          readOnly: true
+          type: number
+      readOnly: true
+      type: object
 info:
-  title: Jamf Pro API - API Health Check
-  version: 1.0.0
+  title: Jamf Pro API - HealthCheck
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/health-check:
     get:
-      tags:
-        - health-check
-      summary: Get Jamf Pro API status
       description: Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.
       responses:
         204:
           description: The Jamf Pro API is working properly.
+      summary: Get Jamf Pro API status
+      tags:
+        - health-check
       x-authentication-required: false
   /v1/health-status:
     get:
-      tags:
-        - health-check
-      summary: Retrieve request acceptance ratios for this Jamf Pro node
       description: |
         Returns metrics representing the request acceptance ratio for each concurrency group and time window on this Jamf Pro node. The acceptance ratio is a decimal value between 0 and 1, where 1 means all requests were accepted and 0 means all were denied. Health status metrics are only available in Jamf Cloud. This API will return a 404 if the Jamf Pro node does not support health status metrics.
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatus'
+          description: Success
         404:
           description: This Jamf Pro node does not support health status metrics.
+      summary: Retrieve request acceptance ratios for this Jamf Pro node
+      tags:
+        - health-check
       x-authentication-required: true
-
-components:
-  schemas:
-    HealthStatus:
-      type: object
-      nullable: false
-      required:
-        - api
-        - ui
-        - enrollment
-        - device
-        - default
-      properties:
-        api:
-          $ref: '#/components/schemas/HealthStatusStats'
-        ui:
-          $ref: '#/components/schemas/HealthStatusStats'
-        enrollment:
-          $ref: '#/components/schemas/HealthStatusStats'
-        device:
-          $ref: '#/components/schemas/HealthStatusStats'
-        default:
-          $ref: '#/components/schemas/HealthStatusStats'
-
-    HealthStatusStats:
-      type: object
-      readOnly: true
-      nullable: false
-      properties:
-        thirtySeconds:
-          type: number
-          readOnly: true
-          nullable: false
-          description: Percentage of accepted requests out of total requests for the last 30 seconds
-          example: 0.75
-        oneMinute:
-          type: number
-          readOnly: true
-          description: Percentage of accepted requests out of total requests for the last 1 minute
-          example: 0.75
-        fiveMinutes:
-          type: number
-          readOnly: true
-          description: Percentage of accepted requests out of total requests for the last 5 minutes
-          example: 0.75
-        fifteenMinutes:
-          type: number
-          readOnly: true
-          description: Percentage of accepted requests out of total requests for the last 15 minutes
-          example: 0.75
-        thirtyMinutes:
-          type: number
-          readOnly: true
-          description: Percentage of accepted requests out of total requests for the last 30 minutes
-          example: 0.75
+servers:
+  - url: /api

@@ -1,49 +1,49 @@
-openapi: 3.0.1
+components:
+  schemas:
+    TimeZone:
+      properties:
+        displayName:
+          example: Chicago - CT (-0500)
+          type: string
+        region:
+          enum:
+            - Africa
+            - America
+            - Asia
+            - Atlantic
+            - Australia
+            - Europe
+            - Indian
+            - Pacific
+            - None
+          example: America
+          type: string
+        zoneId:
+          example: America/Chicago
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Time Zones
+  title: Jamf Pro API - TimeZones
   version: 0.0.1
-servers:
-- url: /
+openapi: 3.0.1
 paths:
   /v1/time-zones:
     get:
-      tags:
-      - time-zones-preview
-      summary: |
-        Return information about the currently supported Time Zones
       description: |
         Returns information about the currently supported time zones
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/TimeZone'
+                type: array
+          description: Successful response
+      summary: |
+        Return information about the currently supported Time Zones
+      tags:
+        - time-zones-preview
       x-authentication-required: false
-components:
-  schemas:
-    TimeZone:
-      type: object
-      properties:
-        zoneId:
-          type: string
-          example: America/Chicago
-        region:
-          type: string
-          enum:
-          - Africa
-          - America
-          - Asia
-          - Atlantic
-          - Australia
-          - Europe
-          - Indian
-          - Pacific
-          - None
-          example: America
-        displayName:
-          type: string
-          example: Chicago - CT (-0500)
+servers:
+  - url: /api

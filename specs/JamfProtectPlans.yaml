@@ -1,51 +1,104 @@
-openapi: 3.0.1
+components:
+  schemas:
+    JamfProtectPlan:
+      properties:
+        description:
+          example: Plan for the majority of the company's computers
+          readOnly: true
+          type: string
+        id:
+          example: d265dfd3-8fde-4bf2-aa56-b167c8b68069
+          readOnly: true
+          type: string
+        name:
+          example: Main Plan
+          readOnly: true
+          type: string
+        profileId:
+          example: 12
+          readOnly: true
+          type: integer
+        profileName:
+          example: Main Plan (Jamf Protect)
+          readOnly: true
+          type: string
+        profileVersion:
+          example: 1
+          readOnly: true
+          type: integer
+        scopeDescription:
+          example: All Computers
+          readOnly: true
+          type: string
+        siteId:
+          example: "-1"
+          readOnly: true
+          type: string
+        uuid:
+          example: b999dfd3-8fde-4bf2-aa56-b167c8b68071
+          nullable: false
+          readOnly: true
+          type: string
+      type: object
+    PlanSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/JamfProtectPlan'
+          type: array
+        totalCount:
+          example: 3
+          nullable: false
+          type: integer
+      type: object
 info:
-  title: Jamf Protect integration
-  description: Jamf Protect integration
+  title: Jamf Pro API - JamfProtectPlans
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/jamf-protect/plans:
     get:
-      tags:
-        - jamf-protect
-      summary: Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile
       description: Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/filter
       responses:
         200:
-          description: Success.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PlanSearchResults'
+                $ref: '#/components/schemas/PlanSearchResults'
+          description: Success.
+      summary: Get all of the previously synced Jamf Protect Plans with information about their associated configuration profile
+      tags:
+        - jamf-protect
       x-required-privileges:
         - Read Jamf Protect Deployments
   /v1/jamf-protect/plans/sync:
     post:
-      tags:
-        - jamf-protect
-      summary: Sync Plans with Jamf Protect
       description: Sync Plans with Jamf Protect. Configuration profiles associated with new plans will be imported to Jamf Pro.
       responses:
         204:
           description: Success.
-        404:
-          description: Protect API credentials have not been configured.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         400:
-          description: Cloud Services Connection has not been established.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Services Connection has not been established.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Protect API credentials have not been configured.
+      summary: Sync Plans with Jamf Protect
+      tags:
+        - jamf-protect
+      x-action: true
       x-required-privileges:
         - Read Jamf Protect Settings
-      x-action: true
-
+servers:
+  - url: /api

@@ -1,566 +1,70 @@
-openapi: 3.0.3
-info:
-  title: Jamf Pro API - Computer Extension Attributes
-  version: 0.0.1
-servers:
-  - url: 'https'
-paths:
-  /v1/computer-extension-attributes:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Retrieve Computer Extension Attributes.
-      description: Retrieves All Computer Extension Attributes Configuration.
-      x-required-privileges:
-        - Read Computer Extension Attributes
-      parameters:
-        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        -   name: sort
-            in: query
-            description: 'Sorts results by one or more criteria, following the format property:asc/desc.<br/>
-                    Default sort is name:asc.<br/>
-                    If using multiple criteria, separate with commas. Allows sort for id and name.'
-            explode: true
-            schema:
-              type: array
-              items:
-                type: string
-              default: [name.asc]
-        -   name: filter
-            in: query
-            description: 'Filters results.
-                    Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/>
-                    Can be combined with paging and sorting.<br/>
-                    Fields allowed in the query: id, name <br/>
-                    Default filter is an empty query and returns all results from the requested page.'
-            schema:
-              type: string
-              default: ''
-      responses:
-        200:
-          description: Computer Extension Attribute objects has been fetched successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerExtensionAttributeSearchResults'
-        404:
-          description: Computer Extension Attribute objects could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    post:
-      tags:
-        - computer-extension-attributes
-      summary: Create Computer Extension Attribute.
-      description: Create Computer Extension Attribute to collect extra inventory information.
-      requestBody:
-        description: Computer Extension Attribute to be created.
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/ComputerExtensionAttributes'
-        required: true
-      responses:
-        201:
-          description: Computer Extension Attribute was successfully created.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        400:
-          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br>
-            1) Required fields are not provided in request body.</br>
-            2) Fields which are not associated with provided inputType has some value.</br>
-            3) Any values outside of the allowed range are included in the request body.</br>
-            4) LDAP is not configured.</br>
-            5) Error occured during database create operation.</br>
-            6) Duplicate_Field
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create Computer Extension Attributes
-      x-action: true
-  /v1/computer-extension-attributes/{id}:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Get specified Computer Extension Attribute object.
-      description: Gets specified Computer Extension Attribute object.
-      parameters:
-        -   name: id
-            in: path
-            description: Unique ID of Computer Extension Attribute.
-            required: true
-            schema:
-              type: string
-      responses:
-        200:
-          description: Computer Extension Attribute object has been fetched successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerExtensionAttributes'
-        400:
-          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
-        404:
-          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computer Extension Attributes
-    put:
-      tags:
-        - computer-extension-attributes
-      summary: Update specified Computer Extension Attribute object.
-      description: Update specified Computer Extension Attribute object.
-      parameters:
-        -   name: id
-            in: path
-            description: Unique ID of Computer Extension Attribute.
-            required: true
-            schema:
-              type: string
-      requestBody:
-        description: Computer Extension Attribute object to be updated. IDs defined in this body will be ignored.
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/ComputerExtensionAttributes'
-        required: true
-      responses:
-        202:
-          description: Computer Extension Attribute updated successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerExtensionAttributes'
-        400:
-          description: Bad Request. Specified Computer Extension Attribute could not be updated due to bad request. Possible reasons are:</br>
-            1) The specified extension attribute id does not include a valid number.</br>
-            2) Duplicate_Field.</br>
-            3) Required fields are not provided in request body.</br>
-            4) Fields which are not associated with provided inputType has some value.</br>
-            5) Any values outside of the allowed range are included in the request body.</br>
-            6) LDAP is not configured.</br>
-            7) Error occured during database update operation.
-          content:
-            'application/json':
-              schema:
-                $ref:  'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified Computer Extension Attribute object does not exist. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-          content:
-            'application/json':
-              schema:
-                $ref:  'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Computer Extension Attributes
-    delete:
-      tags:
-        - computer-extension-attributes
-      summary: Remove specified Computer Extension Attribute.
-      description: ID of the Computer Extension Attribute to be deleted.
-      parameters:
-        -   name: id
-            in: path
-            description: Unique ID of Computer Extension Attribute.
-            required: true
-            schema:
-              type: string
-      responses:
-        204:
-          description: Computer Extension Attribute deleted successfully.
-        400:
-          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
-        404:
-          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-      x-required-privileges:
-        - Delete Computer Extension Attributes
-  /v1/computer-extension-attributes/delete-multiple:
-    post:
-      tags:
-        - computer-extension-attributes
-      summary: Delete multiple Computer Extension Attribute at once.
-      description: IDs of the Computer Extension Attribute to be deleted.
-      requestBody:
-        description: IDs of the Computer Extension Attribute to be deleted
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
-        required: true
-      responses:
-        204:
-          description: All specified Computer Extension Attribute deleted successfully.
-        400:
-          description: Bad Request. Returns error codes and IDs for any Computer Extension Attribute that were unable to be deleted. Possible reasons are:</br>
-            1) The specified extension attribute id does not include a valid number.</br>
-            2) The specified extension attribute id does not exist in Jamf Pro.
-          content:
-            'application/json':
-              schema:
-                $ref:  'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Delete Computer Extension Attributes
-      x-action: true
-
-  /v1/computer-extension-attributes/{id}/history:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Get specified Computer Extension Attribute History object
-      description: Get specified Computer Extension Attribute history object
-      parameters:
-        -   name: id
-            in: path
-            description: Instance ID of Computer Extension Attribute history
-            required: true
-            schema:
-              type: string
-        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        -   name: sort
-            in: query
-            description: 'Sorts results by one or more criteria, following the format property:asc/desc.
-                    Default sort is ID:asc.
-                    If using multiple criteria, separate with commas.'
-            explode: true
-            schema:
-              type: array
-              items:
-                type: string
-              default: [ id:asc ]
-        -   name: filter
-            in: query
-            description: 'Filters results.
-                    Use RSQL format for query.
-                    Allows for many fields, including ID, name, etc.
-                    Can be combined with paging and sorting.
-                    Default filter is an empty query and returns all results from the requested page.'
-            schema:
-              type: string
-              default: ''
-      responses:
-        200:
-          description: Details of Computer Extension Attribute history were found.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-        400:
-          description: Bad Request. Specified Computer Extension Attribute history object could not be found. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computer Extension Attributes
-    post:
-      tags:
-        - computer-extension-attributes
-      summary: Add specified Computer Extension Attribute history object notes
-      description: Add specified Computer Extension Attribute history object notes
-      parameters:
-        -   name: id
-            in: path
-            description: Instance ID of Computer Extension Attribute history
-            required: true
-            schema:
-              type: string
-      requestBody:
-        description: History note to be created
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Computer Extension Attribute history note created successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
-        400:
-          description: Bad Request. Error creating history note. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Computer Extension Attributes
-
-  /v1/computer-extension-attributes/{id}/data-dependency:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Get smart group/advance search dependent objects for a specified computer extension attribute
-      description: Get smart group/advance search dependent objects for a specified computer extension attribute
-      parameters:
-        - name: id
-          in: path
-          description: Unique ID of computer extension attribute.
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Fetches list of dependent objects for a specified computer extension attribute.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DependencyObjectResults'
-        404:
-          description: Specified computer extension attribute id were not found in database.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        400:
-          description: Bad Request. The server could not understand the request because of invalid syntax.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computer Extension Attributes
-  /v1/computer-extension-attributes/upload:
-    post:
-      tags:
-        - computer-extension-attributes
-      summary: Upload Computer Extension Attribute.
-      description: Uploads a Computer Extension Attribute.
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - file
-              properties:
-                file:
-                  type: string
-                  description: The file to upload
-                  format: binary
-        required: true
-      responses:
-        200:
-          description: Computer Extension Attribute object has been fetched successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerExtensionAttributes'
-        404:
-          description: Bad Request. Possible reasons are:</br>
-            1) Unsupported file extension. Acceptable format is xml.</br>
-            2) Uploaded file should not be empty.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create Computer Extension Attributes
-        - Read Computer Extension Attributes
-      x-action: true
-  /v1/computer-extension-attributes/templates:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Retrieve All Computer Extension Attributes Templates.
-      description: Retrieves All Computer Extension Attributes Templates.
-      x-required-privileges:
-        - Read Computer Extension Attributes
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorts results by one or more criteria, following the format property:asc/desc.<br/>
-                    Default sort is templateName:asc.<br/>
-                    If using multiple criteria, separate with commas. Allows sort for templateName and templateCategory.'
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ templateName.asc ]
-        - name: filter
-          in: query
-          description: 'Filters results.
-                    Use RSQL format for queries. which allows filtering by multiple fields such as templateName, templateCategoryName.<br/>
-                    Can be combined with paging and sorting.<br/>
-                    Fields allowed in the query: templateName, templateCategoryName <br/>
-                    Default filter is an empty query and returns all results from the requested page.'
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Computer Extension Attribute templates objects has been fetched successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/CeaTemplatesResults'
-  /v1/computer-extension-attributes/templates/{id}:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Get specified Computer Extension Attribute Template object.
-      description: Gets specified Computer Extension Attribute Template object.
-      parameters:
-        - name: id
-          in: path
-          description: Unique Id of the Template.
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Computer Extension Attribute Template object has been fetched successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerExtensionAttributes'
-        404:
-          description: Specified Computer Extension Attribute Template object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computer Extension Attributes
-  /v1/computer-extension-attributes/{id}/download:
-    get:
-      tags:
-        - computer-extension-attributes
-      summary: Download the specified Computer Extension Attribute.
-      description: Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.
-      parameters:
-        - name: id
-          in: path
-          description: The unique ID of the Computer Extension Attribute to be downloaded.
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: The requested Computer Extension Attribute XML file was fetched successfully.
-          content:
-            'application/xml':
-              schema:
-                type: string
-                format: binary
-                example: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><extensionAttribute><displayName>Testing</displayName></extensionAttribute>"
-        400:
-          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
-        404:
-          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-action: true
-      x-required-privileges:
-        - Read Computer Extension Attributes
 components:
   schemas:
-    DependencyObjectResults:
-      type: object
+    CeaTemplatesResults:
       properties:
-        totalCount:
-          type: integer
-          example: 1
-        results :
-          type: array
-          minItems: 0
+        results:
           items:
-            type: object
-            properties:
-              id:
-                type: integer
-                description: Unique Id for Dependency Object.
-                example: 1
-              objectId:
-                type: integer
-                description: Object Type Id of the dependency object.
-                example: 1
-              nameLocalization:
-                type: string
-                description: Name of localization which display dependent object.
-                example: 'SMART_COMPUTER_GROUPS'
-              identifiableName:
-                type: string
-                description: Name of the dependent object.
-                example: 'identifiableName'
-              hyperlink:
-                type: string
-                description: Link to dependent object or to page with list of dependent objects.
-                example: '/smartComputerGroups.html?id=3&o=r'
-    ComputerExtensionAttributeSearchResults:
-      type: object
+            $ref: '#/components/schemas/ComputerExtensionAttributeTemplates'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          type: integer
       required:
         - totalCount
+      type: object
+    ComputerExtensionAttributeSearchResults:
       properties:
-        totalCount:
-          type: integer
-          example: 1
         results:
-          type: array
-          minItems: 0
           items:
             $ref: '#/components/schemas/ComputerExtensionAttributes'
-
-    ExtensionAttributes:
-      type: object
-      required:
-        - name
-        - dataType
-      properties:
-        id:
-          type: string
-          description: Unique Id for Computer Extension Attribute.
+          minItems: 0
+          type: array
+        totalCount:
           example: 1
+          type: integer
+      required:
+        - totalCount
+      type: object
+    ComputerExtensionAttributeTemplates:
+      properties:
+        templateCategoryName:
+          description: Template category name of the extension attribute.
+          example: AntiVirus
+          type: string
+        templateId:
+          description: Unique Id for Computer Extension Attribute Template.
+          example: "1"
           readOnly: true
-        name:
           type: string
-          description: Display name for the extension attribute.
-          example: 'ComputerExtensionAttribute'
-        description:
+        templateName:
+          description: Template display name of the extension attribute.
+          example: ClamXav - Virus Definition Date
           type: string
-          description: Description for the extension attribute.
-          example: 'Computer Extension Attribute'
-        dataType:
-          type: string
-          description: Type of data being collected.
-          enum:
-            - INTEGER
-            - STRING
-            - DATE
-          default: STRING
+      required:
+        - templateCategoryName
+        - templateName
+      type: object
     ComputerExtensionAttributes:
       allOf:
-        - "$ref": '#/components/schemas/ExtensionAttributes'
-        - type: object
-          required:
-            - inventoryDisplayType
-            - inputType
-          properties:
+        - $ref: _MonolithLibrary.yaml#/components/schemas/ExtensionAttributes
+        - properties:
             enabled:
-              type: boolean
-              description: Enabled by default, but for inputType Script we can disable it as well. <br/>
-                Possible values are:<br/>
-                false <br/>
-                true
               default: true
+              description: Enabled by default, but for inputType Script we can disable it as well. <br/> Possible values are:<br/> false <br/> true
               example: true
-            inventoryDisplayType:
+              type: boolean
+            inputType:
+              default: TEXT
+              description: Extension attributes collect inventory data by using an input type.The type of the Input used to populate the extension attribute.
+              enum:
+                - SCRIPT
+                - TEXT
+                - POPUP
+                - DIRECTORY_SERVICE_ATTRIBUTE_MAPPING
               type: string
+            inventoryDisplayType:
+              default: GENERAL
               description: Category in which to display the extension attribute in Jamf Pro.
               enum:
                 - GENERAL
@@ -569,82 +73,505 @@ components:
                 - USER_AND_LOCATION
                 - PURCHASING
                 - EXTENSION_ATTRIBUTES
-              example: 'GENERAL'
-              default: GENERAL
-            inputType:
+              example: GENERAL
               type: string
-              description:
-                Extension attributes collect inventory data by using an input type.The type of the Input used to populate the extension attribute.
-              enum:
-                - SCRIPT
-                - TEXT
-                - POPUP
-                - DIRECTORY_SERVICE_ATTRIBUTE_MAPPING
-              default: TEXT
-            scriptContents:
-              type: string
-              description: When we run this script it returns a data value each time a computer submits inventory to Jamf Pro. Provide scriptContents only when inputType is 'SCRIPT'.
-              example: 'scriptContent'
-              nullable: true
-            popupMenuChoices:
-              type: array
-              description: When added with list of choices while creating computer extension attributes these Pop-up menu can be displayed in inventory information. User can choose a value from the pop-up menu list when enrolling a computer any time using Jamf Pro. Provide popupMenuChoices only when inputType is 'POPUP'.
-              minItems: 0
-              items:
-                type: string
-                description: Popup Menu choices.
-              example: [ "Test","Popup" ]
             ldapAttributeMapping:
+              description: Directory Service attribute use to populate the extension attribute. <br/> Required when inputType is "DIRECTORY_SERVICE_ATTRIBUTE_MAPPING"
+              example: ldapAttributeMapping
               type: string
-              description: Directory Service attribute use to populate the extension attribute. <br/>
-                Required when inputType is "DIRECTORY_SERVICE_ATTRIBUTE_MAPPING"
-              example: 'ldapAttributeMapping'
             ldapExtensionAttributeAllowed:
-              type: boolean
-              description: Collect multiple values for this extension attribute. ldapExtensionAttributeAllowed is disabled by default, only for inputType 'DIRECTORY_SERVICE_ATTRIBUTE_MAPPING' it can be enabled. It's value cannot be modified during edit operation.<br/>
-                Possible values are:<br/>
-                false <br/>
-                true <br/>
-              example: false
               default: false
+              description: Collect multiple values for this extension attribute. ldapExtensionAttributeAllowed is disabled by default, only for inputType 'DIRECTORY_SERVICE_ATTRIBUTE_MAPPING' it can be enabled. It's value cannot be modified during edit operation.<br/> Possible values are:<br/> false <br/> true <br/>
+              example: false
+              type: boolean
             manageExistingData:
-              type: string
-              description:
-                It is used to specify to either delete or retain the extension attributes values when inputType is Script and enabled is false.
+              description: It is used to specify to either delete or retain the extension attributes values when inputType is Script and enabled is false.
               enum:
                 - RETAIN
                 - DELETE
               example: RETAIN
-
-    CeaTemplatesResults:
-      type: object
-      required:
-        - totalCount
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/ComputerExtensionAttributeTemplates'
-    ComputerExtensionAttributeTemplates:
-      type: object
-      required:
-        - templateName
-        - templateCategoryName
-      properties:
-        templateId:
-          type: string
-          description: Unique Id for Computer Extension Attribute Template.
-          example: 1
-          readOnly: true
-        templateName:
-          type: string
-          description: Template display name of the extension attribute.
-          example: 'ClamXav - Virus Definition Date'
-        templateCategoryName:
-          type: string
-          description: Template category name of the extension attribute.
-          example: 'AntiVirus'
+              type: string
+            popupMenuChoices:
+              description: When added with list of choices while creating computer extension attributes these Pop-up menu can be displayed in inventory information. User can choose a value from the pop-up menu list when enrolling a computer any time using Jamf Pro. Provide popupMenuChoices only when inputType is 'POPUP'.
+              example:
+                - Test
+                - Popup
+              items:
+                description: Popup Menu choices.
+                type: string
+              minItems: 0
+              type: array
+            scriptContents:
+              description: When we run this script it returns a data value each time a computer submits inventory to Jamf Pro. Provide scriptContents only when inputType is 'SCRIPT'.
+              example: scriptContent
+              nullable: true
+              type: string
+          required:
+            - inputType
+            - inventoryDisplayType
+          type: object
+info:
+  title: Jamf Pro API - ComputerExtensionAttribute
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/computer-extension-attributes:
+    get:
+      description: Retrieves All Computer Extension Attributes Configuration.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is name:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id and name.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - name.asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc.<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: id, name <br/> Default filter is an empty query and returns all results from the requested page.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerExtensionAttributeSearchResults'
+          description: Computer Extension Attribute objects has been fetched successfully.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Computer Extension Attribute objects could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Retrieve Computer Extension Attributes.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+    post:
+      description: Create Computer Extension Attribute to collect extra inventory information.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputerExtensionAttributes'
+        description: Computer Extension Attribute to be created.
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Computer Extension Attribute was successfully created.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br> 1) Required fields are not provided in request body.</br> 2) Fields which are not associated with provided inputType has some value.</br> 3) Any values outside of the allowed range are included in the request body.</br> 4) LDAP is not configured.</br> 5) Error occured during database create operation.</br> 6) Duplicate_Field
+      summary: Create Computer Extension Attribute.
+      tags:
+        - computer-extension-attributes
+      x-action: true
+      x-required-privileges:
+        - Create Computer Extension Attributes
+  /v1/computer-extension-attributes/delete-multiple:
+    post:
+      description: IDs of the Computer Extension Attribute to be deleted.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: IDs of the Computer Extension Attribute to be deleted
+        required: true
+      responses:
+        204:
+          description: All specified Computer Extension Attribute deleted successfully.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Returns error codes and IDs for any Computer Extension Attribute that were unable to be deleted. Possible reasons are:</br> 1) The specified extension attribute id does not include a valid number.</br> 2) The specified extension attribute id does not exist in Jamf Pro.
+      summary: Delete multiple Computer Extension Attribute at once.
+      tags:
+        - computer-extension-attributes
+      x-action: true
+      x-required-privileges:
+        - Delete Computer Extension Attributes
+  /v1/computer-extension-attributes/templates:
+    get:
+      description: Retrieves All Computer Extension Attributes Templates.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is templateName:asc.<br/> If using multiple criteria, separate with commas. Allows sort for templateName and templateCategory.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - templateName.asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Filters results. Use RSQL format for queries. which allows filtering by multiple fields such as templateName, templateCategoryName.<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: templateName, templateCategoryName <br/> Default filter is an empty query and returns all results from the requested page.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CeaTemplatesResults'
+          description: Computer Extension Attribute templates objects has been fetched successfully.
+      summary: Retrieve All Computer Extension Attributes Templates.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+  /v1/computer-extension-attributes/templates/{id}:
+    get:
+      description: Gets specified Computer Extension Attribute Template object.
+      parameters:
+        - description: Unique Id of the Template.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerExtensionAttributes'
+          description: Computer Extension Attribute Template object has been fetched successfully.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Computer Extension Attribute Template object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Get specified Computer Extension Attribute Template object.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+  /v1/computer-extension-attributes/upload:
+    post:
+      description: Uploads a Computer Extension Attribute.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  description: The file to upload
+                  format: binary
+                  type: string
+              required:
+                - file
+              type: object
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerExtensionAttributes'
+          description: Computer Extension Attribute object has been fetched successfully.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Possible reasons are:</br> 1) Unsupported file extension. Acceptable format is xml.</br> 2) Uploaded file should not be empty.
+      summary: Upload Computer Extension Attribute.
+      tags:
+        - computer-extension-attributes
+      x-action: true
+      x-required-privileges:
+        - Create Computer Extension Attributes
+        - Read Computer Extension Attributes
+  /v1/computer-extension-attributes/{id}:
+    delete:
+      description: ID of the Computer Extension Attribute to be deleted.
+      parameters:
+        - description: Unique ID of Computer Extension Attribute.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Computer Extension Attribute deleted successfully.
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
+        404:
+          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Remove specified Computer Extension Attribute.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Delete Computer Extension Attributes
+    get:
+      description: Gets specified Computer Extension Attribute object.
+      parameters:
+        - description: Unique ID of Computer Extension Attribute.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerExtensionAttributes'
+          description: Computer Extension Attribute object has been fetched successfully.
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Get specified Computer Extension Attribute object.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+    put:
+      description: Update specified Computer Extension Attribute object.
+      parameters:
+        - description: Unique ID of Computer Extension Attribute.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputerExtensionAttributes'
+        description: Computer Extension Attribute object to be updated. IDs defined in this body will be ignored.
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerExtensionAttributes'
+          description: Computer Extension Attribute updated successfully.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Specified Computer Extension Attribute could not be updated due to bad request. Possible reasons are:</br> 1) The specified extension attribute id does not include a valid number.</br> 2) Duplicate_Field.</br> 3) Required fields are not provided in request body.</br> 4) Fields which are not associated with provided inputType has some value.</br> 5) Any values outside of the allowed range are included in the request body.</br> 6) LDAP is not configured.</br> 7) Error occured during database update operation.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Computer Extension Attribute object does not exist. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Update specified Computer Extension Attribute object.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Update Computer Extension Attributes
+  /v1/computer-extension-attributes/{id}/data-dependency:
+    get:
+      description: Get smart group/advance search dependent objects for a specified computer extension attribute
+      parameters:
+        - description: Unique ID of computer extension attribute.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/DependencyObjectResults
+          description: Fetches list of dependent objects for a specified computer extension attribute.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. The server could not understand the request because of invalid syntax.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer extension attribute id were not found in database.
+      summary: Get smart group/advance search dependent objects for a specified computer extension attribute
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+  /v1/computer-extension-attributes/{id}/download:
+    get:
+      description: Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.
+      parameters:
+        - description: The unique ID of the Computer Extension Attribute to be downloaded.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/xml:
+              schema:
+                example: <?xml version="1.0" encoding="UTF-8"?><extensionAttribute><displayName>Testing</displayName></extensionAttribute>
+                type: string
+          description: The requested Computer Extension Attribute XML file was fetched successfully.
+        400:
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reason can be 'The specified extension attribute id does not include a valid number.'
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Computer Extension Attribute object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Download the specified Computer Extension Attribute.
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+  /v1/computer-extension-attributes/{id}/history:
+    get:
+      description: Get specified Computer Extension Attribute history object
+      parameters:
+        - description: Instance ID of Computer Extension Attribute history
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of Computer Extension Attribute history were found.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Specified Computer Extension Attribute history object could not be found. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
+      summary: Get specified Computer Extension Attribute History object
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Read Computer Extension Attributes
+    post:
+      description: Add specified Computer Extension Attribute history object notes
+      parameters:
+        - description: Instance ID of Computer Extension Attribute history
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History note to be created
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
+          description: Computer Extension Attribute history note created successfully.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Error creating history note. Possible reason can be 'Provided id field is not string of positive numeric value or -1'.
+      summary: Add specified Computer Extension Attribute history object notes
+      tags:
+        - computer-extension-attributes
+      x-required-privileges:
+        - Update Computer Extension Attributes
+servers:
+  - url: /api

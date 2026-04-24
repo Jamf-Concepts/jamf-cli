@@ -25,6 +25,7 @@ import (
 func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewAccessManagementsCmd(ctx))
 	root.AddCommand(NewAccountDrivenUserEnrollmentSessionTokenSettingsCmd(ctx))
+	root.AddCommand(NewAccountGroupsCmd(ctx))
 	root.AddCommand(NewAccountPreferencesCmd(ctx))
 	root.AddCommand(NewActivationCodesCmd(ctx))
 	root.AddCommand(NewAdcsSettingsCmd(ctx))
@@ -105,6 +106,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewJamfProtectPlansCmd(ctx))
 	root.AddCommand(NewJamfRemoteAssistSessionHistoriesCmd(ctx))
 	root.AddCommand(NewJcdsCmd(ctx))
+	root.AddCommand(NewLastLoginsCmd(ctx))
 	root.AddCommand(NewLdapRsCmd(ctx))
 	root.AddCommand(NewLocalAdminPasswordsCmd(ctx))
 	root.AddCommand(NewLocalesCmd(ctx))

@@ -1,819 +1,68 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - mobile-device-groups
-  version: 0.0.1
-paths:
-  /v1/mobile-device-groups:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Return the list of all Mobile Device Groups
-      description: |
-        Returns the list of all mobile device groups.
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MobileDeviceGroup'
-      x-required-privileges:
-        - Read Smart Mobile Device Groups
-        - Read Static Mobile Device Groups
-  /v1/mobile-device-groups/smart-groups:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Smart Groups
-      description: |
-        Get Smart Groups
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc.
-                        Available criteria to sort on: groupId, groupName, siteId.'
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ groupId:asc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter smart group collection.
-                            Default filter is empty query - returning all results for the requested page.
-                            Fields allowed in the query: groupId, groupName, siteId.
-                            The siteId field can only be filtered by admins with full access.
-                            Any sited admin will have siteId filtered automatically.
-                            This param can be combined with paging and sorting.
-                            Example: groupName=="smartGroup1"'
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SmartGroupSearchResults'
-      x-required-privileges:
-        - Read Smart Mobile Device Groups
-    post:
-      tags:
-        - mobile-device-groups
-      description: |
-        Create a smart group
-      summary: |
-        Create a smart group
-      parameters:
-        - name: platform
-          in: query
-          description: 'Optional. Return platform identifiers instead of internal identifiers when set to true.'
-          schema:
-            type: boolean
-            default: false
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/SmartGroupAssignment'
-        required: true
-      responses:
-        201:
-          description: Smart mobile device group created successfully
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        400:
-          description: Could not save smart group
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create Smart Mobile Device Groups
-  /v1/mobile-device-groups/smart-groups/{id}:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Smart Group by Id
-      description: |
-        Get Smart Group by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of smart-group
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SmartGroupDetail'
-        404:
-          description: No smart group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Smart Mobile Device Groups
-    put:
-      tags:
-        - mobile-device-groups
-      description: |
-        Update a smart group
-      summary: |
-        Update a smart group
-      parameters:
-        - name: id
-          in: path
-          description: instance id of a smart group
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/SmartGroupAssignment'
-        required: true
-      responses:
-        202:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SmartGroupAssignment'
-        404:
-          description: No smart group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Smart Mobile Device Groups
-    delete:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Remove Smart Group by Id
-      description: |
-        Remove Smart Group by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of smart-group
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Smart Group successfully removed
-      x-required-privileges:
-        - Delete Smart Mobile Device Groups
-  /v1/mobile-device-groups/static-groups:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Static Groups
-      description: |
-        Get Static Groups
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc.
-                        Available criteria to sort on: groupId, groupName, siteId.'
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ groupId:asc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter department collection.
-                            Default filter is empty query - returning all results for the requested page.
-                            Fields allowed in the query: groupId, groupName, siteId.
-                            The siteId field can only be filtered by admins with full access.
-                            Any sited admin will have siteId filtered automatically.
-                            This param can be combined with paging and sorting.
-                            Example: groupName=="staticGroup1"'
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/StaticGroupSearchResults'
-      x-required-privileges:
-        - Read Static Mobile Device Groups
-    post:
-      tags:
-        - mobile-device-groups
-      description: |
-        Create membership of a static group
-      summary: |
-        Create membership of a static group
-      parameters:
-        - name: platform
-          in: query
-          description: 'Optional. Return platform identifiers instead of internal identifiers when set to true.'
-          schema:
-            type: boolean
-            default: false
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/StaticGroupAssignment'
-        required: true
-      responses:
-        201:
-          description: Static mobile device group created successfully
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        400:
-          description: Could not save mobile device group
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create Static Mobile Device Groups
-  /v1/mobile-device-groups/static-groups/{id}:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Static Group by Id
-      description: |
-        Get Static Group by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of static-group
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/StaticGroup'
-        404:
-          description: No static group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Static Mobile Device Groups
-    delete:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Remove Static Group by Id
-      description: |
-        Remove Static Group by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of static-group
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Static Group successfully removed
-      x-required-privileges:
-        - Delete Static Mobile Device Groups
-    patch:
-      tags:
-        - mobile-device-groups
-      description: |
-        Update membership of a static group
-      summary: |
-        Update membership of a static group
-      parameters:
-        - name: id
-          in: path
-          description: instance id of a static group
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/StaticGroupAssignment'
-        required: true
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/StaticGroupAssignment'
-        404:
-          description: No static group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Static Mobile Device Groups
-  /v1/mobile-device-groups/static-group-membership/{id}:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Static Group Membership by Id
-      description: |
-        Get Static Group Membership by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of static-group
-          required: true
-          schema:
-            type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: |
-            Sorting criteria in the format: property:asc/desc. Default sort
-            is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with
-            a comma. 
-            
-            Fields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
-            `batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
-            `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
-            `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, 
-            `enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,
-            `osRapidSecurityResponse`, `osSupplementalBuildVersion`, `osVersion`, `ipAddress`, `itunesStoreAccountActive`,
-            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
-            `lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,
-            `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,
-            `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,
-            `serialNumber`, `sharedIpad`, `supervised`, `tethered`,
-            `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
-            `deviceOwnershipType`, `building`, `department`, `emailAddress`,
-            `fullName`, `userPhoneNumber`, `position`, `room`,
-            `username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,
-            `poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,
-            `purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,
-            `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,
-            `hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,
-            `passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,
-            `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, 
-            `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, 
-            `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
-            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
-            
-            Extension attributes can be sorted by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`
-
-            Example: `sort=displayName:desc,username:asc`
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ displayName:asc ]
-        - name: filter
-          in: query
-          description: |
-            Query in the RSQL format, allowing to filter mobile device collection.
-            Default filter is empty query - returning all results for the requested page.
-            
-            Fields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
-            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
-            `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
-            `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, 
-            `cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, 
-            `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,
-            `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, 
-            `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, 
-            `residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,
-            `tethered`, `timeZone`, `udid`, `usedSpacePercentage`, 
-            `wifiMacAddress`, `building`, `department`, `emailAddress`,
-            `fullName`, `userPhoneNumber`, `position`, `room`,
-            `username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, 
-            `purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,
-            `vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, 
-            `fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,
-            `passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,
-            `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
-            `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
-            `imei`, `imei2`, `meid`, `personalHotspotEnabled`, 
-            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
-            
-            Extension attributes can be filtered by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`
-
-            This param can be combined with paging and sorting.
-            Example: `filter=displayName=="iPad"`
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/InventoryListMobileDeviceSearchResults'
-        404:
-          description: No static group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Static Mobile Device Groups
-        - Read Mobile Devices
-  /v1/mobile-device-groups/smart-group-membership/{id}:
-    get:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Get Smart Group Membership by Id
-      description: |
-        Get Smart Group Membership by Id
-      parameters:
-        - name: id
-          in: path
-          description: instance id of smart-group
-          required: true
-          schema:
-            type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: |
-            Sorting criteria in the format: property:asc/desc. Default sort
-            is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with
-            a comma. 
-            
-            Fields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
-            `batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
-            `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
-            `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, 
-            `enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,
-            `osRapidSecurityResponse`, `osSupplementalBuildVersion`, `osVersion`, `ipAddress`, `itunesStoreAccountActive`,
-            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
-            `lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,
-            `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,
-            `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,
-            `serialNumber`, `sharedIpad`, `supervised`, `tethered`,
-            `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
-            `deviceOwnershipType`, `building`, `department`, `emailAddress`,
-            `fullName`, `userPhoneNumber`, `position`, `room`,
-            `username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,
-            `poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,
-            `purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,
-            `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,
-            `hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,
-            `passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,
-            `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, 
-            `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, 
-            `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
-            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
-            
-            Extension attributes can be sorted by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`
-
-            Example: `sort=displayName:desc,username:asc`
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ displayName:asc ]
-        - name: filter
-          in: query
-          description: |
-            Query in the RSQL format, allowing to filter mobile device collection.
-            Default filter is empty query - returning all results for the requested page.
-            
-            Fields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, 
-            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, 
-            `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
-            `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, 
-            `cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, 
-            `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,
-            `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, 
-            `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, 
-            `residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,
-            `tethered`, `timeZone`, `udid`, `usedSpacePercentage`, 
-            `wifiMacAddress`, `building`, `department`, `emailAddress`,
-            `fullName`, `userPhoneNumber`, `position`, `room`,
-            `username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, 
-            `purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,
-            `vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, 
-            `fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,
-            `passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,
-            `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
-            `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
-            `imei`, `imei2`, `meid`, `personalHotspotEnabled`, 
-            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
-            
-            Extension attributes can be filtered by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`
-
-            This param can be combined with paging and sorting.
-            Example: `filter=displayName=="iPad"`
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/InventoryListMobileDeviceSearchResults'
-        404:
-          description: No smart group found with the given id.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Smart Mobile Device Groups
-        - Read Mobile Devices
-  /v1/mobile-device-groups/{id}/erase:
-    post:
-      tags:
-        - mobile-device-groups
-      summary: |
-        Erase all devices in the group
-      description: |
-        Erase all devices in the group
-      parameters:
-        - name: id
-          in: path
-          description: instance id of mobile-device-group
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/GroupResetRequest'
-        required: true
-      responses:
-        204:
-          description: Erase all devices in the group
-      x-required-privileges:
-        - Send MDM command information in Jamf Pro API
-      x-action: true
 components:
   schemas:
-    MobileDeviceGroup:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        name:
-          type: string
-          example: All Managed iPads
-        description:
-          type: string
-          example: A group containing all managed iPads
-        isSmartGroup:
-          type: boolean
-          example: true
-    SmartGroup:
-      type: object
-      properties:
-        groupId:
-          type: string
-          example: 1
-        groupName:
-          type: string
-          example: Smart iPad Group
-        groupDescription:
-            type: string
-            example: A smart group containing iPads meeting certain criteria
-        siteId:
-          type: string
-          example: 11
-        count:
-          type: integer
-          description: membership count
-          example: 25
-          minimum: 0
-    SmartGroupDetail:
-      allOf:
-        - $ref: '#/components/schemas/SmartGroup'
-        - type: object
-          properties:
-            criteria:
-              type: array
-              minLength: 0
-              items:
-                $ref: '#/components/schemas/SmartGroupCriteria'
-              description: The criteria used to define the smart group
-    StaticGroup:
-      type: object
-      properties:
-        groupId:
-          type: string
-          example: 6
-        groupName:
-          type: string
-          example: Static iPad Group
-        groupDescription:
-          type: string
-          example: A static group containing only iPads
-        siteId:
-          type: string
-          example: 11
-        count:
-          type: integer
-          description: membership count
-          example: 15
-          minimum: 0
-    StaticGroupAssignment:
-      type: object
-      required:
-        - groupName
-      properties:
-        groupId:
-          type: string
-          readOnly: true
-          minLength: 1
-          example: 7
-        groupName:
-          type: string
-          minLength: 1
-          example: Static iPads
-        groupDescription:
-          type: string
-          example: Static iPads
-        siteId:
-          type: string
-          example: 11
-        assignments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Assignment'
-    SmartGroupAssignment:
-      type: object
-      required:
-        - groupName
-      properties:
-        groupId:
-          type: string
-          readOnly: true
-          minLength: 1
-          example: 7
-          description: The unique identifier of the smart group
-        groupName:
-          type: string
-          minLength: 1
-          example: Smart iPads Group
-        groupDescription:
-          type: string
-          example: Smart iPads that meet certain criteria
-        siteId:
-          type: string
-          example: 11
-        criteria:
-          type: array
-          items:
-            $ref: '#/components/schemas/SmartGroupCriteria'
-    SmartGroupCriteria:
-      type: object
-      required:
-        - name
-        - andOr
-        - searchType
-        - value
-      properties:
-        name:
-          type: string
-          example: Model
-          description: The field to search on (e.g., Model, OS Version, etc.)
-        searchType:
-          type: string
-          example: is
-          description: The type of search to perform (e.g., is, is not, like, etc.)
-        value:
-          type: string
-          example: iPad
-          description: The value to search for
-        andOr:
-          type: string
-          example: and
-          description: Whether this criterion should be ANDed or ORed with the previous criterion
-        openingParen:
-          type: boolean
-          example: false
-          description: Whether to add an opening parenthesis before this criterion
-        closingParen:
-          type: boolean
-          example: false
-          description: Whether to add a closing parenthesis after this criterion
-        priority:
-          type: integer
-          example: 0
-          description: The priority order of this criterion
     Assignment:
-      type: object
       properties:
         mobileDeviceId:
+          example: "5"
           type: string
-          example: 5
         selected:
-          type: boolean
           description: If true the device should be added to the group, if false should be removed from the group
           example: true
-    StaticGroupSearchResults:
+          type: boolean
       type: object
+    ExtensionAttributeValue:
       properties:
-        totalCount:
-          type: integer
-          example: 3
-          minimum: 0
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/StaticGroup'
-    SmartGroupSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 2
-          minimum: 0
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/SmartGroup'
-    InventoryListMobileDeviceSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
+        displayName:
+          example: EA Name
           nullable: false
-          example: 3
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/InventoryListMobileDevice'
-    InventoryListMobileDevice:
+          type: string
+        value:
+          example: EA Value
+          nullable: true
+          type: string
       type: object
+    GroupResetRequest:
       properties:
-        mobileDeviceId:
-          type: string
-          minLength: 1
-          example: 1
-        udid:
-          type: string
-          example: 0dad565fb40b010a9e490440188063a378721069
+        clearActivationLock:
+          example: true
+          nullable: false
+          type: boolean
+        disallowProximitySetup:
+          example: true
+          nullable: false
+          type: boolean
+        preserveDataPlan:
+          example: true
+          nullable: false
+          type: boolean
+        returnToService:
+          example: true
+          nullable: false
+          type: boolean
+      type: object
+    InventoryListMobileDevice:
+      properties:
+        activationLockEnabled:
+          example: true
+          type: boolean
         airPlayPassword:
-          type: string
           example: "1234"
           format: password
+          type: string
         appAnalyticsEnabled:
-          type: boolean
           example: false
+          type: boolean
+        appleCareId:
+          example: "9546567.0"
+          type: string
         assetTag:
-          type: string
           example: "8675309"
-        availableSpaceMb:
-          type: integer
-          example: 26646
-        batteryLevel:
-          type: integer
-          example: 100
-        batteryHealth:
           type: string
+        availableSpaceMb:
+          example: 26646
+          type: integer
+        batteryHealth:
+          default: UNKNOWN
           description: |
             - NON_GENUINE: The battery isn’t a genuine Apple battery.
             - NORMAL: The battery is operating normally.
@@ -826,337 +75,975 @@ components:
             - SERVICE_RECOMMENDED
             - UNKNOWN
             - UNSUPPORTED
-          default: UNKNOWN
-        bluetoothLowEnergyCapable:
-          type: boolean
-          example: false
-        bluetoothMacAddress:
           type: string
-          example: ee:00:7c:f0:e5:aa
-        capacityMb:
+        batteryLevel:
+          example: 100
           type: integer
-          example: 27503
-        lostModeEnabledDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        declarativeDeviceManagementEnabled:
-          type: boolean
-          example: false
-        deviceId:
-          type: string
-          example: "1"
-        deviceLocatorServiceEnabled:
-          type: boolean
-          example: false
-        deviceOwnershipType:
-          type: string
-          example: institutional
-        devicePhoneNumber:
-          type: string
-          example: 555-555-5555
-        diagnosticAndUsageReportingEnabled:
-          type: boolean
-          example: false
-        displayName:
-          type: string
-          example: iPad
-        doNotDisturbEnabled:
-          type: boolean
-          example: false
-        enrollmentSessionTokenValid:
-          type: boolean
-          example: false
-        exchangeDeviceId:
-          type: string
-          example: TH3YE2RI4D234IS2B6U6IGH95D
-        cloudBackupEnabled:
-          type: boolean
-          example: false
-        osBuild:
-          type: string
-          example: 15F79
-        osSupplementalBuildVersion:
-          type: string
-          example: 22A103310o
-        osRapidSecurityResponse:
-          type: string
-          example: (a)
-        osVersion:
-          type: string
-          example: "11.4"
-        ipAddress:
-          type: string
-          example: 10.0.0.1
-        itunesStoreAccountActive:
-          type: boolean
-          example: false
-        jamfParentPairings:
-          type: integer
-          example: 1
-        languages:
-          type: string
-          example: Polish
-        lastBackupDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        lastEnrolledDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        lastCloudBackupDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        lastInventoryUpdateDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        locales:
-          type: string
-          example: "null"
-        locationServicesForSelfServiceMobileEnabled:
-          type: boolean
-          example: false
-        lostModeEnabled:
-          type: boolean
-          example: false
-        managed:
-          type: boolean
-          example: true
-        managementId:
-          type: string
-          example: 73226fb6-61df-4c10-9552-eb9bc353d507
-        mdmProfileExpirationDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        model:
-          type: string
-          example: iPad 7th Generation (Wi-Fi)
-        modelIdentifier:
-          type: string
-          example: iPad7,11
-        modelNumber:
-          type: string
-          example: MW742LL
-        modemFirmwareVersion:
-          type: string
-          example: 5.70.01
-        pairedDevices:
-          type: integer
-          example: 1
-        quotaSize:
-          type: integer
-          example: 1024
-        residentUsers:
-          type: integer
-          example: 0
-        serialNumber:
-          type: string
-          example: 5c28fdae
-        sharedIpad:
-          type: boolean
-          example: false
-        supervised:
-          type: boolean
-          example: true
-        tethered:
-          type: boolean
-          example: false
-        timeZone:
-          type: string
-          example: Europe/Warsaw
-        usedSpacePercentage:
-          type: integer
-          example: 3
-        wifiMacAddress:
-          type: string
-          example: C4:84:66:92:78:00
-        building:
-          type: string
-          example: Eau Claire
-        department:
-          type: string
-          example: Support
-        emailAddress:
-          type: string
-          example: support@jamf.com
-        fullName:
-          type: string
-          example: John Smith
-        position:
-          type: string
-          example: IT Team Lead
-        room:
-          type: string
-          example: 4th Floor - Quad 3
-        userPhoneNumber:
-          type: string
-          example: 555-555-5555
-        username:
-          type: string
-          example: admin
-        appleCareId:
-          type: string
-          example: "9546567.0"
-        leaseExpirationDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        lifeExpectancyYears:
-          type: integer
-          example: 7
-        poDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        poNumber:
-          type: string
-          example: "8675309"
-        purchasePrice:
-          type: string
-          example: $399
-        purchasedOrLeased:
-          type: boolean
-          example: true
-        purchasingAccount:
-          type: string
-          example: IT Budget
-        purchasingContact:
-          type: string
-          example: Nick in IT
-        vendor:
-          type: string
-          example: Apple
-        warrantyExpirationDate:
-          type: string
-          format: date-time
-          example: 2022-10-17T11:48:56.307Z
-        activationLockEnabled:
-          type: boolean
-          example: true
         blockEncryptionCapable:
-          type: boolean
           example: false
-        dataProtection:
           type: boolean
+        bluetoothLowEnergyCapable:
           example: false
-        fileEncryptionCapable:
           type: boolean
-          example: false
-        hardwareEncryptionSupported:
-          type: boolean
-          example: false
-        jailbreakStatus:
+        bluetoothMacAddress:
+          example: ee:00:7c:f0:e5:aa
           type: string
-          example: Compromised
-        passcodeCompliant:
-          type: boolean
-          example: true
-        passcodeCompliantWithProfile:
-          type: boolean
-          example: true
-        passcodeLockGracePeriodEnforcedSeconds:
+        building:
+          example: Eau Claire
+          type: string
+        capacityMb:
+          example: 27503
           type: integer
-          example: 9819083
-        passcodePresent:
-          type: boolean
-          example: true
-        personalDeviceProfileCurrent:
-          type: boolean
-          default: false
-          readOnly: true
-          deprecated: true
-          description: >
-            **Deprecated as of 11.25.** This field always returns false.
         carrierSettingsVersion:
-          type: string
           example: "33.1"
+          type: string
         cellularTechnology:
-          type: string
           example: Both
+          type: string
+        cloudBackupEnabled:
+          example: false
+          type: boolean
         currentCarrierNetwork:
-          type: string
           example: Verizon Wireless
+          type: string
         currentMobileCountryCode:
-          type: string
           example: "311"
+          type: string
         currentMobileNetworkCode:
-          type: string
           example: "480"
+          type: string
+        dataProtection:
+          example: false
+          type: boolean
         dataRoamingEnabled:
-          type: boolean
           example: true
-        eid:
-          type: string
-          example: "89049032007008882600085727376656"
-        homeCarrierNetwork:
-          type: string
-          example: Verizon
-        homeMobileCountryCode:
-          type: string
-          example: US
-        homeMobileNetworkCode:
-          type: string
-          example: "480"
-        iccid:
-          type: string
-          example: 8991101200003204514
-        imei:
-          type: string
-          example: "35 882334 083223 0"
-        imei2:
-          type: string
-          example: "35 585308 072899 3"
-        meid:
-          type: string
-          example: "35882334083223"
-        personalHotspotEnabled:
           type: boolean
+        declarativeDeviceManagementEnabled:
           example: false
-        preferredVoiceNumber:
+          type: boolean
+        department:
+          example: Support
           type: string
+        deviceId:
+          example: "1"
+          type: string
+        deviceLocatorServiceEnabled:
+          example: false
+          type: boolean
+        deviceOwnershipType:
+          example: institutional
+          type: string
+        devicePhoneNumber:
           example: 555-555-5555
-        roaming:
-          type: boolean
+          type: string
+        diagnosticAndUsageReportingEnabled:
           example: false
-        voiceRoamingEnabled:
+          type: boolean
+        displayName:
+          example: iPad
           type: string
-          example: Enabled
+        doNotDisturbEnabled:
+          example: false
+          type: boolean
+        eid:
+          example: "89049032007008882600085727376656"
+          type: string
+        emailAddress:
+          example: support@jamf.com
+          type: string
+        enrollmentSessionTokenValid:
+          example: false
+          type: boolean
+        exchangeDeviceId:
+          example: TH3YE2RI4D234IS2B6U6IGH95D
+          type: string
+        extensionAttributeValueList:
+          items:
+            $ref: '#/components/schemas/ExtensionAttributeValue'
+          minLength: 0
+          type: array
+        fileEncryptionCapable:
+          example: false
+          type: boolean
+        fullName:
+          example: John Smith
+          type: string
+        hardwareEncryptionSupported:
+          example: false
+          type: boolean
+        homeCarrierNetwork:
+          example: Verizon
+          type: string
+        homeMobileCountryCode:
+          example: US
+          type: string
+        homeMobileNetworkCode:
+          example: "480"
+          type: string
+        iccid:
+          example: "8991101200003204514"
+          type: string
+        imei:
+          example: 35 882334 083223 0
+          type: string
+        imei2:
+          example: 35 585308 072899 3
+          type: string
+        ipAddress:
+          example: 10.0.0.1
+          type: string
+        itunesStoreAccountActive:
+          example: false
+          type: boolean
+        jailbreakStatus:
+          example: Compromised
+          type: string
+        jamfParentPairings:
+          example: 1
+          type: integer
+        languages:
+          example: Polish
+          type: string
+        lastBackupDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        lastCloudBackupDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        lastEnrolledDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        lastInventoryUpdateDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
         lastLoggedInUsernameSelfService:
-          type: string
           example: admin
           nullable: true
-        lastLoggedInUsernameSelfServiceTimestamp:
           type: string
+        lastLoggedInUsernameSelfServiceTimestamp:
+          example: "2018-10-31T18:04:13Z"
           format: date-time
-          example: 2018-10-31T18:04:13Z
           nullable: true
-        extensionAttributeValueList:
-          type: array
-          items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExtensionAttributeValue'
-          minLength: 0
-    GroupResetRequest:
+          type: string
+        leaseExpirationDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        lifeExpectancyYears:
+          example: 7
+          type: integer
+        locales:
+          example: "null"
+          type: string
+        locationServicesForSelfServiceMobileEnabled:
+          example: false
+          type: boolean
+        lostModeEnabled:
+          example: false
+          type: boolean
+        lostModeEnabledDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        managed:
+          example: true
+          type: boolean
+        managementId:
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          type: string
+        mdmProfileExpirationDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        meid:
+          example: "35882334083223"
+          type: string
+        mobileDeviceId:
+          example: "1"
+          minLength: 1
+          type: string
+        model:
+          example: iPad 7th Generation (Wi-Fi)
+          type: string
+        modelIdentifier:
+          example: iPad7,11
+          type: string
+        modelNumber:
+          example: MW742LL
+          type: string
+        modemFirmwareVersion:
+          example: 5.70.01
+          type: string
+        osBuild:
+          example: 15F79
+          type: string
+        osRapidSecurityResponse:
+          example: (a)
+          type: string
+        osSupplementalBuildVersion:
+          example: 22A103310o
+          type: string
+        osVersion:
+          example: "11.4"
+          type: string
+        pairedDevices:
+          example: 1
+          type: integer
+        passcodeCompliant:
+          example: true
+          type: boolean
+        passcodeCompliantWithProfile:
+          example: true
+          type: boolean
+        passcodeLockGracePeriodEnforcedSeconds:
+          example: 9819083
+          type: integer
+        passcodePresent:
+          example: true
+          type: boolean
+        personalDeviceProfileCurrent:
+          default: false
+          deprecated: true
+          description: |
+            **Deprecated as of 11.25.** This field always returns false.
+          readOnly: true
+          type: boolean
+        personalHotspotEnabled:
+          example: false
+          type: boolean
+        poDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        poNumber:
+          example: "8675309"
+          type: string
+        position:
+          example: IT Team Lead
+          type: string
+        preferredVoiceNumber:
+          example: 555-555-5555
+          type: string
+        purchasePrice:
+          example: $399
+          type: string
+        purchasedOrLeased:
+          example: true
+          type: boolean
+        purchasingAccount:
+          example: IT Budget
+          type: string
+        purchasingContact:
+          example: Nick in IT
+          type: string
+        quotaSize:
+          example: 1024
+          type: integer
+        residentUsers:
+          example: 0
+          type: integer
+        roaming:
+          example: false
+          type: boolean
+        room:
+          example: 4th Floor - Quad 3
+          type: string
+        serialNumber:
+          example: 5c28fdae
+          type: string
+        sharedIpad:
+          example: false
+          type: boolean
+        supervised:
+          example: true
+          type: boolean
+        tethered:
+          example: false
+          type: boolean
+        timeZone:
+          example: Europe/Warsaw
+          type: string
+        udid:
+          example: 0dad565fb40b010a9e490440188063a378721069
+          type: string
+        usedSpacePercentage:
+          example: 3
+          type: integer
+        userPhoneNumber:
+          example: 555-555-5555
+          type: string
+        username:
+          example: admin
+          type: string
+        vendor:
+          example: Apple
+          type: string
+        voiceRoamingEnabled:
+          example: Enabled
+          type: string
+        warrantyExpirationDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
+        wifiMacAddress:
+          example: C4:84:66:92:78:00
+          type: string
       type: object
+    InventoryListMobileDeviceSearchResults:
       properties:
-        preserveDataPlan:
-          type: boolean
-          example: true
+        results:
+          items:
+            $ref: '#/components/schemas/InventoryListMobileDevice'
+          type: array
+        totalCount:
+          example: 3
           nullable: false
-        disallowProximitySetup:
-          type: boolean
+          type: integer
+      type: object
+    MobileDeviceGroup:
+      properties:
+        description:
+          example: A group containing all managed iPads
+          type: string
+        id:
+          example: 1
+          type: integer
+        isSmartGroup:
           example: true
-          nullable: false
-        clearActivationLock:
           type: boolean
-          example: true
-          nullable: false
-        returnToService:
-          type: boolean
-          example: true
-          nullable: false
-
-
+        name:
+          example: All Managed iPads
+          type: string
+      type: object
+    SmartGroup:
+      properties:
+        count:
+          description: membership count
+          example: 25
+          minimum: 0
+          type: integer
+        groupDescription:
+          example: A smart group containing iPads meeting certain criteria
+          type: string
+        groupId:
+          example: "1"
+          type: string
+        groupName:
+          example: Smart iPad Group
+          type: string
+        siteId:
+          example: "11"
+          type: string
+      type: object
+    SmartGroupAssignment:
+      properties:
+        criteria:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/SmartGroupCriteria
+          type: array
+        groupDescription:
+          example: Smart iPads that meet certain criteria
+          type: string
+        groupId:
+          description: The unique identifier of the smart group
+          example: "7"
+          minLength: 1
+          readOnly: true
+          type: string
+        groupName:
+          example: Smart iPads Group
+          minLength: 1
+          type: string
+        siteId:
+          example: "11"
+          type: string
+      required:
+        - groupName
+      type: object
+    SmartGroupDetail:
+      allOf:
+        - $ref: '#/components/schemas/SmartGroup'
+        - properties:
+            criteria:
+              description: The criteria used to define the smart group
+              items:
+                $ref: _MonolithLibrary.yaml#/components/schemas/SmartGroupCriteria
+              minLength: 0
+              type: array
+          type: object
+    SmartGroupSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/SmartGroup'
+          type: array
+        totalCount:
+          example: 2
+          minimum: 0
+          type: integer
+      type: object
+    StaticGroup:
+      properties:
+        count:
+          description: membership count
+          example: 15
+          minimum: 0
+          type: integer
+        groupDescription:
+          example: A static group containing only iPads
+          type: string
+        groupId:
+          example: "6"
+          type: string
+        groupName:
+          example: Static iPad Group
+          type: string
+        siteId:
+          example: "11"
+          type: string
+      type: object
+    StaticGroupAssignment:
+      properties:
+        assignments:
+          items:
+            $ref: '#/components/schemas/Assignment'
+          type: array
+        groupDescription:
+          example: Static iPads
+          type: string
+        groupId:
+          example: "7"
+          minLength: 1
+          readOnly: true
+          type: string
+        groupName:
+          example: Static iPads
+          minLength: 1
+          type: string
+        siteId:
+          example: "11"
+          type: string
+      required:
+        - groupName
+      type: object
+    StaticGroupSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/StaticGroup'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+info:
+  title: Jamf Pro API - MobileDeviceGroup
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/mobile-device-groups:
+    get:
+      description: |
+        Returns the list of all mobile device groups.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MobileDeviceGroup'
+                type: array
+          description: Success
+      summary: |
+        Return the list of all Mobile Device Groups
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Smart Mobile Device Groups
+        - Read Static Mobile Device Groups
+  /v1/mobile-device-groups/smart-group-membership/{id}:
+    get:
+      description: |
+        Get Smart Group Membership by Id
+      parameters:
+        - description: instance id of smart-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: "Sorting criteria in the format: property:asc/desc. Default sort\nis mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with\na comma. \n\nFields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,\n`devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, \n`enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,\n`osRapidSecurityResponse`, `osSupplementalBuildVersion`, `osVersion`, `ipAddress`, `itunesStoreAccountActive`,\n`mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,\n`lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,\n`managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,\n`modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,\n`serialNumber`, `sharedIpad`, `supervised`, `tethered`,\n`timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,\n`deviceOwnershipType`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,\n`poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,\n`purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,\n`activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,\n`hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,\n`passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,\n`cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, \n`dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, \n`homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,\n`meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`\n\nExtension attributes can be sorted by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`\n\nExample: `sort=displayName:desc,username:asc`\n"
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - displayName:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: "Query in the RSQL format, allowing to filter mobile device collection.\nDefault filter is empty query - returning all results for the requested page.\n\nFields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,\n`diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, \n`cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, \n`itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,\n`locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, \n`modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, \n`residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,\n`tethered`, `timeZone`, `udid`, `usedSpacePercentage`, \n`wifiMacAddress`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, \n`purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,\n`vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, \n`fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,\n`passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,\n`currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,\n`network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,\n`imei`, `imei2`, `meid`, `personalHotspotEnabled`, \n`roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`\n\nExtension attributes can be filtered by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`\n\nThis param can be combined with paging and sorting.\nExample: `filter=displayName==\"iPad\"`\n"
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryListMobileDeviceSearchResults'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No smart group found with the given id.
+      summary: |
+        Get Smart Group Membership by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Smart Mobile Device Groups
+        - Read Mobile Devices
+  /v1/mobile-device-groups/smart-groups:
+    get:
+      description: |
+        Get Smart Groups
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Available criteria to sort on: groupId, groupName, siteId.'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - groupId:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter smart group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName=="smartGroup1"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupSearchResults'
+          description: Successful response
+      summary: |
+        Get Smart Groups
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Smart Mobile Device Groups
+    post:
+      description: |
+        Create a smart group
+      parameters:
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartGroupAssignment'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Smart mobile device group created successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Could not save smart group
+      summary: |
+        Create a smart group
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Create Smart Mobile Device Groups
+  /v1/mobile-device-groups/smart-groups/{id}:
+    delete:
+      description: |
+        Remove Smart Group by Id
+      parameters:
+        - description: instance id of smart-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Smart Group successfully removed
+      summary: |
+        Remove Smart Group by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Delete Smart Mobile Device Groups
+    get:
+      description: |
+        Get Smart Group by Id
+      parameters:
+        - description: instance id of smart-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupDetail'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No smart group found with the given id.
+      summary: |
+        Get Smart Group by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Smart Mobile Device Groups
+    put:
+      description: |
+        Update a smart group
+      parameters:
+        - description: instance id of a smart group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartGroupAssignment'
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupAssignment'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No smart group found with the given id.
+      summary: |
+        Update a smart group
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Update Smart Mobile Device Groups
+  /v1/mobile-device-groups/static-group-membership/{id}:
+    get:
+      description: |
+        Get Static Group Membership by Id
+      parameters:
+        - description: instance id of static-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: "Sorting criteria in the format: property:asc/desc. Default sort\nis mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with\na comma. \n\nFields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,\n`devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, \n`enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,\n`osRapidSecurityResponse`, `osSupplementalBuildVersion`, `osVersion`, `ipAddress`, `itunesStoreAccountActive`,\n`mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,\n`lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,\n`managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,\n`modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,\n`serialNumber`, `sharedIpad`, `supervised`, `tethered`,\n`timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,\n`deviceOwnershipType`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,\n`poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,\n`purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,\n`activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,\n`hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,\n`passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,\n`cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, \n`dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, \n`homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,\n`meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`\n\nExtension attributes can be sorted by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`\n\nExample: `sort=displayName:desc,username:asc`\n"
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - displayName:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: "Query in the RSQL format, allowing to filter mobile device collection.\nDefault filter is empty query - returning all results for the requested page.\n\nFields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,\n`diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, \n`cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, \n`itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,\n`locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, \n`modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, \n`residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,\n`tethered`, `timeZone`, `udid`, `usedSpacePercentage`, \n`wifiMacAddress`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, \n`purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,\n`vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, \n`fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,\n`passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,\n`currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,\n`network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,\n`imei`, `imei2`, `meid`, `personalHotspotEnabled`, \n`roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`\n\nExtension attributes can be filtered by using the format `EA+ID` where ID is the ID of the extension attribute, for example `EA+1!=null`\n\nThis param can be combined with paging and sorting.\nExample: `filter=displayName==\"iPad\"`\n"
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryListMobileDeviceSearchResults'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No static group found with the given id.
+      summary: |
+        Get Static Group Membership by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Static Mobile Device Groups
+        - Read Mobile Devices
+  /v1/mobile-device-groups/static-groups:
+    get:
+      description: |
+        Get Static Groups
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Available criteria to sort on: groupId, groupName, siteId.'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - groupId:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter department collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName=="staticGroup1"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaticGroupSearchResults'
+          description: Successful response
+      summary: |
+        Get Static Groups
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Static Mobile Device Groups
+    post:
+      description: |
+        Create membership of a static group
+      parameters:
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaticGroupAssignment'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Static mobile device group created successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Could not save mobile device group
+      summary: |
+        Create membership of a static group
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Create Static Mobile Device Groups
+  /v1/mobile-device-groups/static-groups/{id}:
+    delete:
+      description: |
+        Remove Static Group by Id
+      parameters:
+        - description: instance id of static-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Static Group successfully removed
+      summary: |
+        Remove Static Group by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Delete Static Mobile Device Groups
+    get:
+      description: |
+        Get Static Group by Id
+      parameters:
+        - description: instance id of static-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaticGroup'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No static group found with the given id.
+      summary: |
+        Get Static Group by Id
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Read Static Mobile Device Groups
+    patch:
+      description: |
+        Update membership of a static group
+      parameters:
+        - description: instance id of a static group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaticGroupAssignment'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaticGroupAssignment'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No static group found with the given id.
+      summary: |
+        Update membership of a static group
+      tags:
+        - mobile-device-groups
+      x-required-privileges:
+        - Update Static Mobile Device Groups
+  /v1/mobile-device-groups/{id}/erase:
+    post:
+      description: |
+        Erase all devices in the group
+      parameters:
+        - description: instance id of mobile-device-group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupResetRequest'
+        required: true
+      responses:
+        204:
+          description: Erase all devices in the group
+      summary: |
+        Erase all devices in the group
+      tags:
+        - mobile-device-groups
+      x-action: true
+      x-required-privileges:
+        - Send MDM command information in Jamf Pro API
+servers:
+  - url: /api

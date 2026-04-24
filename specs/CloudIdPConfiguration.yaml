@@ -1,137 +1,176 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CloudIdPCommonResponse:
+      description: A Cloud Identity Provider information for responses
+      properties:
+        displayName:
+          example: Cloud Identity Provider
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: "1001"
+          minimum: 1001
+          type: string
+        providerDescription:
+          example: Entra ID
+          type: string
+        providerName:
+          enum:
+            - GOOGLE
+            - AZURE
+          example: PROVIDER
+          type: string
+      type: object
+    ConfigurationSearchResults:
+      description: A list with Cloud Identity Providers informations about configurations
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/CloudIdPCommonResponse'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - Cloud Identity Provider configurations summary
-  version: 0.0.2
+  title: Jamf Pro API - CloudIdPConfiguration
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/cloud-idp:
     get:
-      tags:
-        - cloud-idp
-      summary: Get information about all Cloud Identity Providers configurations.
       description: Returns basic informations about all configured Cloud Identity Provider.
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
           in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-               is id:asc. Multiple sort criteria are supported and must be separated with
-               a comma. Example: sort=date:desc,name:asc '
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:desc
             items:
               type: string
-            default: [id:desc]
+            type: array
+          style: form
       responses:
         200:
-          description: Cloud Identity Provider configurations informations returned.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/ConfigurationSearchResults'
-      x-required-privileges:
-        - Read LDAP Servers
-  /v1/cloud-idp/{id}:
-    get:
+                $ref: '#/components/schemas/ConfigurationSearchResults'
+          description: Cloud Identity Provider configurations informations returned.
+      summary: Get information about all Cloud Identity Providers configurations.
       tags:
         - cloud-idp
-      summary: Get Cloud Identity Provider configuration with given ID.
-      description: Get Cloud Identity Provider configuration with given ID.
-      parameters:
-        - name: id
-          in: path
-          description: Cloud Identity Provider identifier
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Cloud Identity Provider configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudIdPCommon'
-        400:
-          description: ID can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read LDAP Servers
   /v1/cloud-idp/export:
     post:
-      tags:
-        - cloud-idp
-      summary: |
-        Export Cloud Identity Providers collection
       description: |
         Export Cloud Identity Providers collection
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-              is id:desc. Multiple sort criteria are supported and must be seperated
-              with a comma. Example: sort=id:desc,name:asc'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-fields
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-labels
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be seperated with a comma. Example: sort=id:desc,name:asc'
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name=="*department*"'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-             Default filter is empty query - returning all results for the requested page.
-             Fields allowed in the query: id, name.
-             This param can be combined with paging and sorting.
-             Example: name=="*department*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       requestBody:
-        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ExportParameters
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         required: false
       responses:
         200:
-          description: Export successful
           content:
             text/csv:
               schema:
-                format: binary
                 example: |
                   Name,"Provider Name",Status
                   "Google LDAP",GOOGLE,true
                   "Azure LDAP",AZURE,true
+                format: binary
+          description: Export successful
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Export fields specified incorrectly - non-existing column or duplicate on the list.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Export currently unavailable, all export-related resources are in use. Try again later.
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: |
+        Export Cloud Identity Providers collection
+      tags:
+        - cloud-idp
+      x-action: true
       x-required-privileges:
         - Read LDAP Servers
-      x-action: true
-
-components:
-  schemas: {}
+  /v1/cloud-idp/{id}:
+    get:
+      description: Get Cloud Identity Provider configuration with given ID.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommon
+          description: Cloud Identity Provider configuration returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: ID can only be a number.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Cloud Identity Provider configuration does not exist.
+      summary: Get Cloud Identity Provider configuration with given ID.
+      tags:
+        - cloud-idp
+      x-required-privileges:
+        - Read LDAP Servers
+servers:
+  - url: /api

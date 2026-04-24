@@ -1,535 +1,548 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AssignRemoveProfileResponseSyncState:
+      properties:
+        failureCount:
+          example: 0
+          type: integer
+        id:
+          example: 1
+          type: integer
+        profileUUID:
+          example: 9164E5F7C74C2A4C4BE90BB15E549F14
+          type: string
+        serialNumber:
+          example: R7QFDE2YCFN4
+          type: string
+        syncStatus:
+          example: ASSIGN_SUCCESS
+          type: string
+        timestamp:
+          example: 1583855813080
+          type: integer
+      type: object
+    DeviceEnrollmentDevice:
+      properties:
+        assetTag:
+          example: ACME-1234
+          type: string
+        color:
+          example: BLACK
+          type: string
+        description:
+          example: MBP 15.4
+          type: string
+        deviceAssignedDate:
+          example: "2000-10-30T18:00:00-00:00"
+          type: string
+        deviceEnrollmentProgramInstanceId:
+          example: "1"
+          type: string
+        id:
+          example: "1"
+          type: string
+        model:
+          example: Macbook Pro 15 Retina
+          type: string
+        prestageId:
+          example: "1"
+          type: string
+        profileAssignTime:
+          example: "2000-10-30T18:00:00-00:00"
+          type: string
+        profilePushTime:
+          example: "2000-10-30T18:00:00-00:00"
+          type: string
+        profileStatus:
+          enum:
+            - EMPTY
+            - ASSIGNED
+            - PUSHED
+            - REMOVED
+          example: ASSIGNED
+          type: string
+        serialNumber:
+          example: R7QFDE2YCFN4
+          type: string
+        syncState:
+          $ref: '#/components/schemas/AssignRemoveProfileResponseSyncState'
+      type: object
+    DeviceEnrollmentDeviceSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/DeviceEnrollmentDevice'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    DeviceEnrollmentDisownBody:
+      properties:
+        devices:
+          example:
+            - 1a2s3d4f5g
+            - 0o9i8u7y6t
+          items:
+            type: string
+          type: array
+      type: object
+    DeviceEnrollmentDisownResponse:
+      properties:
+        devices:
+          additionalProperties:
+            type: string
+          example:
+            0o9i8u7y6t: FAILED
+            a2s3d4f5: SUCCESS
+          type: object
+      type: object
+    DeviceEnrollmentInstance:
+      properties:
+        adminId:
+          example: admin1234
+          readOnly: true
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        name:
+          example: Example Device Enrollment Instance
+          type: string
+        orgAddress:
+          example: 124 Conch Street, Bikini Bottom, Pacific Ocean
+          readOnly: true
+          type: string
+        orgEmail:
+          example: admin@test.com
+          readOnly: true
+          type: string
+        orgName:
+          example: Acme Enterprises
+          readOnly: true
+          type: string
+        orgPhone:
+          example: 555-0123
+          readOnly: true
+          type: string
+        serverName:
+          example: Acme ASM
+          readOnly: true
+          type: string
+        serverUuid:
+          example: BASD08C11F3C455
+          readOnly: true
+          type: string
+        siteId:
+          example: "-1"
+          type: string
+        supervisionIdentityId:
+          example: "1"
+          type: string
+        tokenExpirationDate:
+          example: "2000-10-30"
+          readOnly: true
+          type: string
+      required:
+        - name
+      type: object
+    DeviceEnrollmentInstanceSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/DeviceEnrollmentInstance'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    DeviceEnrollmentToken:
+      properties:
+        encodedToken:
+          description: The base 64 encoded token
+          example: VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=
+          format: byte
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+        tokenFileName:
+          description: Optional name of the token to be saved, if no name is provided one will be auto-generated
+          example: Acme MDM Token
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Device Enrollments
+  title: Jamf Pro API - DeviceEnrollmentInstance
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/device-enrollments:
     get:
-      tags:
-      - device-enrollments
-      summary: |
-         Read all sorted and paged Device Enrollment instances
       description: Search for sorted and paged device enrollment instances
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Multiple
-          sort criteria are supported and must be separated with a comma. Example:
-          sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
-            type: string
-          default: [id:asc]
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/DeviceEnrollmentInstanceSearchResults'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
-  /v1/device-enrollments/{id}:
-    get:
-      tags:
-      - device-enrollments
+          description: Successful response
       summary: |
-         Retrieve a Device Enrollment Instance with the supplied id
-      description: Retrieves a Device Enrollment Instance with the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
+        Read all sorted and paged Device Enrollment instances
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+  /v1/device-enrollments/public-key:
+    get:
+      description: Retrieve the Jamf Pro device enrollment public key
       responses:
         200:
+          content:
+            application/x-pem-file:
+              schema:
+                format: binary
+                type: string
           description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DeviceEnrollmentInstance'
         404:
-          description: Device Enrollment Instance with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
-    put:
-      tags:
-      - device-enrollments
+          description: Not Found
       summary: |
-         Update a Device Enrollment Instance with the supplied id
-      description: Updates a Device Enrollment Instance with the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
+        Retrieve the Jamf Pro Device Enrollment public key
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+  /v1/device-enrollments/upload-token:
+    post:
+      description: Creates a device enrollment instance with the supplied token.
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
-                $ref: '#/components/schemas/DeviceEnrollmentInstance'
+              $ref: '#/components/schemas/DeviceEnrollmentToken'
+        description: The downloaded token base 64 encoded from the MDM server to be used to create a new Device Enrollment Instance.
         required: true
       responses:
-        200:
-          description: Success
+        201:
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/DeviceEnrollmentInstance'
-        404:
-          description: Device Enrollment Instance with that id does not exist
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Device Enrollment Instance was created
+        500:
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Device Enrollment Program Instances
-    delete:
-      tags:
-      - device-enrollments
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Something went wrong
       summary: |
-         Delete a Device Enrollment Instance with the supplied id
+        Create a Device Enrollment Instance with the supplied Token
+      tags:
+        - device-enrollments
+      x-action: true
+      x-required-privileges:
+        - Create Device Enrollment Program Instances
+  /v1/device-enrollments/{id}:
+    delete:
       description: Deletes a Device Enrollment Instance with the supplied id
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         204:
           description: Success
         404:
-          description: Device Enrollment Instance with that id does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Delete Device Enrollment Program Instances
-  /v1/device-enrollments/{id}/upload-token:
-    put:
-      tags:
-      - device-enrollments
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Device Enrollment Instance with that id does not exist
       summary: |
-         Update a Device Enrollment Instance with the supplied Token
-      description: Updates a device enrollment instance with the supplied token.
+        Delete a Device Enrollment Instance with the supplied id
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Delete Device Enrollment Program Instances
+    get:
+      description: Retrieves a Device Enrollment Instance with the supplied id
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
-      requestBody:
-        description: The downloaded token base 64 encoded from the MDM server to be
-          used to create a new Device Enrollment Instance.
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/DeviceEnrollmentToken'
-        required: true
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/DeviceEnrollmentInstance'
+          description: Success
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Device Enrollment Instance with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        500:
-          description: Something went wrong
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Device Enrollment Program Instances
-      x-action: true
-  /v1/device-enrollments/upload-token:
-    post:
-      tags:
-      - device-enrollments
       summary: |
-         Create a Device Enrollment Instance with the supplied Token
-      description: Creates a device enrollment instance with the supplied token.
+        Retrieve a Device Enrollment Instance with the supplied id
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+    put:
+      description: Updates a Device Enrollment Instance with the supplied id
+      parameters:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: The downloaded token base 64 encoded from the MDM server to be
-          used to create a new Device Enrollment Instance.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: '#/components/schemas/DeviceEnrollmentToken'
+              $ref: '#/components/schemas/DeviceEnrollmentInstance'
         required: true
-      responses:
-        201:
-          description: Device Enrollment Instance was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        500:
-          description: Something went wrong
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Create Device Enrollment Program Instances
-      x-action: true
-  /v1/device-enrollments/public-key:
-    get:
-      tags:
-      - device-enrollments
-      summary: |
-         Retrieve the Jamf Pro Device Enrollment public key
-      description: Retrieve the Jamf Pro device enrollment public key
       responses:
         200:
-          description: Success
           content:
-            'application/x-pem-file':
+            application/json:
               schema:
-                type: string
-                format: binary
+                $ref: '#/components/schemas/DeviceEnrollmentInstance'
+          description: Success
         404:
-          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Device Enrollment Instance with that id does not exist
+      summary: |
+        Update a Device Enrollment Instance with the supplied id
+      tags:
+        - device-enrollments
       x-required-privileges:
-      - Read Device Enrollment Program Instances
+        - Update Device Enrollment Program Instances
+  /v1/device-enrollments/{id}/devices:
+    get:
+      description: Retrieves a list of devices assigned to the supplied id
+      parameters:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceEnrollmentDeviceSearchResults'
+          description: Success
+      summary: |
+        Retrieve a list of Devices assigned to the supplied id
+      tags:
+        - device-enrollments-devices
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
   /v1/device-enrollments/{id}/disown:
     post:
-      tags:
-      - device-enrollments
-      summary: |
-         Disown devices from the given Device Enrollment Instance
       description: Disowns devices from the given device enrollment instance
       parameters:
-      - name: id
-        in: path
-        description: Device Enrollment Instance identifier
-        required: true
-        schema:
-          type: string
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: List of device serial numbers to disown
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/DeviceEnrollmentDisownBody'
+        description: List of device serial numbers to disown
         required: false
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/DeviceEnrollmentDisownResponse'
+          description: Success
         404:
-          description: Could not find device enrollment program instance for given
-            id
+          description: Could not find device enrollment program instance for given id
         500:
           description: Something went wrong.
-      x-required-privileges:
-      - Update Device Enrollment Program Instances
-      x-action: true
-  /v1/device-enrollments/{id}/devices:
-    get:
-      tags:
-      - device-enrollments-devices
       summary: |
-         Retrieve a list of Devices assigned to the supplied id
-      description: Retrieves a list of devices assigned to the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DeviceEnrollmentDeviceSearchResults'
+        Disown devices from the given Device Enrollment Instance
+      tags:
+        - device-enrollments
+      x-action: true
       x-required-privileges:
-      - Read Device Enrollment Program Instances
+        - Update Device Enrollment Program Instances
   /v1/device-enrollments/{id}/history:
     get:
-      tags:
-      - device-enrollments
-      summary: |
-         Get sorted and paged Device Enrollment history objects
       description: Gets sorted and paged device enrollment history objects
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property,asc/desc. Default sort
-          order is descending. Multiple sort criteria are supported and must be entered
-          on separate lines in Swagger UI. In the URI the ''sort'' query param is
-          duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default: [date:desc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter history notes collection.
-          Default search is empty query - returning all results for the requested page.
-          Fields allowed in the query: username, date, note, details.
-          This param can be combined with paging and sorting.
-          Example: search=username!=admin and details==*disabled* and date<2019-12-15'
-        schema:
-          type: string
-          default: ''
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the ''sort'' query param is duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default search is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: search=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
       responses:
         200:
-          description: Details of device enrollment history were found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
-    post:
-      tags:
-      - device-enrollments
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of device enrollment history were found
       summary: |
-         Add Device Enrollment history object notes
+        Get sorted and paged Device Enrollment history objects
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+    post:
       description: Adds device enrollment history object notes
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: History notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Notes of device enrollment history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         503:
-          description: Device enrollment history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Device enrollment history can not be saved
+      summary: |
+        Add Device Enrollment history object notes
+      tags:
+        - device-enrollments
       x-required-privileges:
-      - Update Device Enrollment Program Instances
-components:
-  schemas:
-    DeviceEnrollmentInstance:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          minLength: 1
-          readOnly: true
-        name:
-          type: string
-          example: Example Device Enrollment Instance
-        supervisionIdentityId:
-          type: string
-          example: 1
-        siteId:
-          type: string
-          example: -1
-        serverName:
-          type: string
-          example: Acme ASM
-          readOnly: true
-        serverUuid:
-          type: string
-          example: BASD08C11F3C455
-          readOnly: true
-        adminId:
-          type: string
-          example: admin1234
-          readOnly: true
-        orgName:
-          type: string
-          example: Acme Enterprises
-          readOnly: true
-        orgEmail:
-          type: string
-          example: admin@test.com
-          readOnly: true
-        orgPhone:
-          type: string
-          example: 555-0123
-          readOnly: true
-        orgAddress:
-          type: string
-          example: 124 Conch Street, Bikini Bottom, Pacific Ocean
-          readOnly: true
-        tokenExpirationDate:
-          type: string
-          example: 2000-10-30
-          readOnly: true
-      required:
-        - name
-    DeviceEnrollmentInstanceSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          minimum: 0
-          example: 1
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/DeviceEnrollmentInstance'
-    DeviceEnrollmentToken:
-      type: object
-      properties:
-        tokenFileName:
-          type: string
-          description: Optional name of the token to be saved, if no name is provided
-            one will be auto-generated
-          example: Acme MDM Token
-        encodedToken:
-          description: The base 64 encoded token
-          example: U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==
-          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
-          type: string
-          format: byte
-    DeviceEnrollmentDisownResponse:
-      type: object
-      properties:
-        devices:
-          type: object
-          additionalProperties:
+        - Update Device Enrollment Program Instances
+  /v1/device-enrollments/{id}/upload-token:
+    put:
+      description: Updates a device enrollment instance with the supplied token.
+      parameters:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          example:
-            a2s3d4f5: SUCCESS
-            0o9i8u7y6t: FAILED
-    DeviceEnrollmentDisownBody:
-      type: object
-      properties:
-        devices:
-          type: array
-          example:
-          - 1a2s3d4f5g
-          - 0o9i8u7y6t
-          items:
-            type: string
-    DeviceEnrollmentDevice:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        deviceEnrollmentProgramInstanceId:
-          type: string
-          example: 1
-        prestageId:
-          type: string
-          example: 1
-        serialNumber:
-          type: string
-          example: R7QFDE2YCFN4
-        description:
-          type: string
-          example: MBP 15.4
-        model:
-          type: string
-          example: Macbook Pro 15 Retina
-        color:
-          type: string
-          example: BLACK
-        assetTag:
-          type: string
-          example: ACME-1234
-        profileStatus:
-          type: string
-          example: ASSIGNED
-          enum:
-          - EMPTY
-          - ASSIGNED
-          - PUSHED
-          - REMOVED
-        syncState:
-          $ref: '#/components/schemas/AssignRemoveProfileResponseSyncState'
-        profileAssignTime:
-          type: string
-          example: 2000-10-30T18:00:00-00:00
-        profilePushTime:
-          type: string
-          example: 2000-10-30T18:00:00-00:00
-        deviceAssignedDate:
-          type: string
-          example: 2000-10-30T18:00:00-00:00
-    DeviceEnrollmentDeviceSearchResults:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/DeviceEnrollmentDevice'
-    AssignRemoveProfileResponseSyncState:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        serialNumber:
-          type: string
-          example: R7QFDE2YCFN4
-        profileUUID:
-          type: string
-          example: 9164E5F7C74C2A4C4BE90BB15E549F14
-        syncStatus:
-          type: string
-          example: ASSIGN_SUCCESS
-        failureCount:
-          type: integer
-          example: 0
-        timestamp:
-          type: integer
-          example: 1583855813080
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceEnrollmentToken'
+        description: The downloaded token base 64 encoded from the MDM server to be used to create a new Device Enrollment Instance.
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceEnrollmentInstance'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Device Enrollment Instance with that id does not exist
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Something went wrong
+      summary: |
+        Update a Device Enrollment Instance with the supplied Token
+      tags:
+        - device-enrollments
+      x-action: true
+      x-required-privileges:
+        - Update Device Enrollment Program Instances
+servers:
+  - url: /api

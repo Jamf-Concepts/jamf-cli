@@ -1,117 +1,242 @@
-openapi: 3.0.1
+components:
+  schemas:
+    GroupTestSearch:
+      properties:
+        distinguishedName:
+          example: cn=users,ou=Groups,dc=jamf,dc=com
+          type: string
+        id:
+          example: users
+          type: string
+        name:
+          example: users
+          type: string
+        serverId:
+          example: "1001"
+          type: string
+        uuid:
+          example: "121100023"
+          type: string
+      type: object
+    GroupTestSearchRequest:
+      properties:
+        groupname:
+          example: users
+          type: string
+      required:
+        - groupname
+      type: object
+    GroupTestSearchResponse:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/GroupTestSearch'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    MembershipTestSearchRequest:
+      properties:
+        groupname:
+          example: users
+          type: string
+        username:
+          example: admin
+          type: string
+      required:
+        - groupname
+        - username
+      type: object
+    MembershipTestSearchResponse:
+      properties:
+        isMember:
+          example: true
+          type: boolean
+        username:
+          example: admin
+          type: string
+      type: object
+    UserTestAttributes:
+      properties:
+        buildingName:
+          example: Jamf
+          type: string
+        departmentName:
+          example: Engineering
+          type: string
+        emailAddress:
+          example: bob@jamf.com
+          type: string
+        fullName:
+          example: Bob
+          type: string
+        phoneNumber:
+          example: "123456789"
+          type: string
+        position:
+          example: SE
+          type: string
+        room:
+          example: "1"
+          type: string
+      type: object
+    UserTestSearch:
+      properties:
+        attributes:
+          $ref: '#/components/schemas/UserTestAttributes'
+        distinguishedName:
+          example: uid=admin,ou=Users,dc=jamf,dc=com
+          type: string
+        id:
+          example: admin@jamf.com
+          type: string
+        name:
+          example: admin
+          type: string
+        serverId:
+          example: "1001"
+          type: string
+        uuid:
+          example: admin
+          type: string
+      type: object
+    UserTestSearchRequest:
+      properties:
+        username:
+          example: admin
+          type: string
+      required:
+        - username
+      type: object
+    UserTestSearchResponse:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/UserTestSearch'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - Tests for Cloud Identity Provider
+  title: Jamf Pro API - CloudIdPTestSearch
   version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/cloud-idp/{id}/test-user:
-    post:
-      tags:
-        - cloud-idp
-      summary: Get user test search
-      description: Do test search to ensure about configuration and mappings
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Cloud Identity Provider identifier
-          schema:
-            type: string
-      requestBody:
-        description: Search request
-        content:
-          'application/json':
-            schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/UserTestSearchRequest'
-        required: true
-      responses:
-        200:
-          description: Cloud Identity Provider test search result returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/UserTestSearchResponse'
-        404:
-          description: Cloud Identity Provider does not exist or is not active.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-action: true
-      x-required-privileges:
-        - Read LDAP Servers
-
   /v1/cloud-idp/{id}/test-group:
     post:
-      tags:
-        - cloud-idp
-      summary: Get group test search
       description: Do test search to ensure about configuration and mappings
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       requestBody:
-        description: Search request
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/GroupTestSearchRequest'
+              $ref: '#/components/schemas/GroupTestSearchRequest'
+        description: Search request
         required: true
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupTestSearchResponse'
           description: Cloud Identity Provider test search result returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/GroupTestSearchResponse'
         404:
-          description: Cloud Identity Provider does not exist or is not active.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider does not exist or is not active.
+      summary: Get group test search
+      tags:
+        - cloud-idp
       x-action: true
       x-required-privileges:
         - Read LDAP Servers
-
+  /v1/cloud-idp/{id}/test-user:
+    post:
+      description: Do test search to ensure about configuration and mappings
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserTestSearchRequest'
+        description: Search request
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserTestSearchResponse'
+          description: Cloud Identity Provider test search result returned.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider does not exist or is not active.
+      summary: Get user test search
+      tags:
+        - cloud-idp
+      x-action: true
+      x-required-privileges:
+        - Read LDAP Servers
   /v1/cloud-idp/{id}/test-user-membership:
     post:
-      tags:
-        - cloud-idp
-      summary: Get membership test search
       description: Do test search to ensure about configuration and mappings
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       requestBody:
-        description: Search request
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/MembershipTestSearchRequest'
+              $ref: '#/components/schemas/MembershipTestSearchRequest'
+        description: Search request
         required: true
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipTestSearchResponse'
           description: Cloud Identity Provider test search result returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/MembershipTestSearchResponse'
         404:
-          description: Cloud Identity Provider does not exist or is not active.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider does not exist or is not active.
+      summary: Get membership test search
+      tags:
+        - cloud-idp
       x-action: true
       x-required-privileges:
         - Read LDAP Servers
-components:
-  schemas: {}
+servers:
+  - url: /api

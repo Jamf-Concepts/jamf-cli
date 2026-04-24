@@ -87,7 +87,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
     "4"
   ],
   "forceRestart": false,
-  "groupId": 1,
+  "groupId": "1",
   "maxDeferrals": 7,
   "priority": "HIGH",
   "skipVersionVerification": false,

@@ -156,7 +156,7 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "displayName": "displayName",
-  "wifiProfileId": 1
+  "wifiProfileId": "1"
 }`, ctx.Output.Format())
 			}
 
@@ -227,7 +227,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "displayName": "displayName",
-  "wifiProfileId": 1
+  "wifiProfileId": "1"
 }`, ctx.Output.Format())
 			}
 
@@ -437,7 +437,7 @@ If not, a new resource is created.`,
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "displayName": "displayName",
-  "wifiProfileId": 1
+  "wifiProfileId": "1"
 }`, ctx.Output.Format())
 			}
 

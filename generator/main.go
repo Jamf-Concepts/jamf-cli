@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/blueprintcomponents"
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 )
 
@@ -45,19 +47,46 @@ type backupEntry struct {
 }
 
 func main() {
-	specsDir := "./specs"
-	outputDir := "./internal/commands/pro/generated"
+	var (
+		specsDir     string
+		outputDir    string
+		monolithPath string
+	)
+	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing per-resource OpenAPI spec files")
+	flag.StringVar(&outputDir, "output", "./internal/commands/pro/generated", "Directory to write generated Go files into")
+	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to split into per-resource spec files before generation. Accepts a local path or http(s):// URL")
+	flag.Parse()
 
 	fmt.Println("jamf-cli code generator")
 	fmt.Println("==========================")
 	fmt.Printf("Specs directory: %s\n", specsDir)
 	fmt.Printf("Output directory: %s\n", outputDir)
+	if monolithPath != "" {
+		fmt.Printf("Monolith input:  %s\n", monolithPath)
+	}
 	fmt.Println()
 
 	// Create output directory
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		os.Exit(1)
+	}
+
+	// If a monolith was provided, split it into per-resource spec files first.
+	// The splitter overwrites *.yaml in the root of specsDir; classic/ and
+	// blueprint-components/ subdirectories are left untouched.
+	if monolithPath != "" {
+		fmt.Println("Splitting monolith spec")
+		fmt.Println("-----------------------")
+		written, warnings, err := monolith.Split(monolithPath, specsDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error splitting monolith: %v\n", err)
+			os.Exit(1)
+		}
+		for _, w := range warnings {
+			fmt.Fprintln(os.Stderr, "  note:", w)
+		}
+		fmt.Printf("  Wrote %d spec files (incl. %s)\n\n", len(written), monolith.LibraryFilename)
 	}
 
 	// Find all YAML specs

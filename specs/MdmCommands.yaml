@@ -1,187 +1,980 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AppAnalyticsSetting:
+      enum:
+        - ENABLE_APP_ANALYTICS
+        - DISABLE_APP_ANALYTICS
+      example: ENABLE_APP_ANALYTICS
+      type: string
+    ApplicationAttributes:
+      properties:
+        attributes:
+          $ref: '#/components/schemas/Attributes'
+        identifier:
+          example: com.jamf.selfservice
+          nullable: true
+          type: string
+      type: object
+    ApplicationConfiguration:
+      properties:
+        configuration:
+          example: <plist><dict><key>Key</key><string>Value</string></dict></plist>
+          nullable: true
+          type: string
+        identifier:
+          example: com.jamf.selfservice
+          type: string
+      type: object
+    ApplyRedemptionCodeCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            identifier:
+              description: The bundle identifier of the app
+              example: com.example.app
+              type: string
+            redemptionCode:
+              description: The redemption code that applies to the app pending installation
+              example: SB56LT7YX8RH
+              type: string
+          type: object
+    Attributes:
+      properties:
+        associatedDomains:
+          items:
+            example: jamf.com
+            type: string
+          type: array
+        cellularSliceUuid:
+          example: f3b2c6d7-4e8a-9b3a-1a2b3c4d5e6f
+          type: string
+        contentFilterUuid:
+          example: b7e6a1d2-4b3a-4c5a-8b3a-ca0cd7430937
+          type: string
+        dnsProxyUuid:
+          example: e2a1f5b4-3c6d-4e8a-9b3a-1a2b3c4d5e6f
+          type: string
+        enableDirectDownloads:
+          example: true
+          type: boolean
+        hideable:
+          example: true
+          type: boolean
+        lockable:
+          example: true
+          type: boolean
+        relayUuid:
+          example: d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f9a
+          type: string
+        removable:
+          example: true
+          type: boolean
+        tapToPayScreenLock:
+          example: true
+          type: boolean
+        vpnUuid:
+          example: aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937
+          nullable: true
+          type: string
+      type: object
+    BlankPushRequest:
+      properties:
+        clientManagementIds:
+          example:
+            - fd68c371-5921-436e-b16b-8a3c1bf90ee5
+            - a1b2c3d4-5678-90ab-cdef-1234567890ab
+          items:
+            type: string
+          type: array
+      required:
+        - clientManagementIds
+      type: object
+    BlankPushResponse:
+      properties:
+        errorUuids:
+          example:
+            - a1b2c3d4-5678-90ab-cdef-1234567890ab
+            - fd68c371-5921-436e-b16b-8a3c1bf90ee5
+          items:
+            type: string
+          type: array
+      required:
+        - errorUuids
+      type: object
+    CertificateListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    ClearPasscodeCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            unlockToken:
+              example: VU5MT0NLVE9LRU4=
+              type: string
+          required:
+            - unlockToken
+          type: object
+    ClearRestrictionsPasswordCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    DataRoamingSetting:
+      enum:
+        - ENABLE_DATA_ROAMING
+        - DISABLE_DATA_ROAMING
+      example: ENABLE_DATA_ROAMING
+      type: string
+    DeclarativeManagementCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            data:
+              description: Base64 encoded data to be sent with the command
+              example: TWFkZSB5YSBsb29r
+              type: string
+          type: object
+    DefaultApplications:
+      properties:
+        calling:
+          example: com.example.phone
+          nullable: true
+          type: string
+        messaging:
+          example: com.example.messages
+          nullable: true
+          type: string
+        webBrowser:
+          example: com.example.browser
+          nullable: true
+          type: string
+      type: object
+    DeleteUserCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            deleteAllUsers:
+              example: true
+              type: boolean
+            forceDeletion:
+              example: true
+              type: boolean
+            userName:
+              example: user123
+              type: string
+          type: object
+    DeviceInformationCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            queries:
+              example:
+                - DeviceName
+                - BatteryLevel
+                - IsSupervised
+              items:
+                description: List of queries specifying the information to collect from a device
+                externalDocs:
+                  description: For a full list of possible queries see Apple's documentation
+                  url: https://developer.apple.com/documentation/devicemanagement/deviceinformationcommand/command/queries
+                type: string
+              minItems: 1
+              type: array
+          type: object
+    DeviceLocationCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    DeviceLockCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            message:
+              example: message123
+              type: string
+            phoneNumber:
+              example: (123) 456-7890
+              type: string
+            pin:
+              example: pin123
+              type: string
+          type: object
+    DiagnosticSubmissionSetting:
+      enum:
+        - ENABLE_DIAGNOSTIC_SUBMISSION
+        - DISABLE_DIAGNOSTIC_SUBMISSION
+      example: ENABLE_DIAGNOSTIC_SUBMISSION
+      type: string
+    DisableLostModeCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    DisableRemoteDesktopCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            commandType:
+              example: DISABLE_REMOTE_DESKTOP
+              nullable: false
+          type: object
+    EnableLostModeCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            lostModeFootnote:
+              example: This is a footnote
+              type: string
+            lostModeMessage:
+              example: Lost Mode Message
+              type: string
+            lostModePhone:
+              example: 123-456-7890
+              type: string
+          type: object
+    EnableRemoteDesktopCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            commandType:
+              example: ENABLE_REMOTE_DESKTOP
+              nullable: false
+          type: object
+    EraseDeviceCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            disallowProximitySetup:
+              default: false
+              description: If true, disable Proximity Setup on the next reboot and skip the pane in Setup Assistant. This value is available in iOS 11 and later. Prior to iOS 14, don’t use this option with any other option.
+              example: true
+              type: boolean
+            obliterationBehavior:
+              description: This key defines the fallback behavior for erasing a device.
+              enum:
+                - Default
+                - DoNotObliterate
+                - ObliterateWithWarning
+                - Always
+              example: Default
+              type: string
+            pin:
+              description: The six-character PIN for Find My. This value is available in macOS 10.8 and later.
+              example: "123456"
+              maxLength: 6
+              minLength: 6
+              type: string
+            preserveDataPlan:
+              default: false
+              description: If true, preserve the data plan on an iPhone or iPad with eSIM functionality, if one exists. This value is available in iOS 11 and later.
+              example: true
+              type: boolean
+            returnToService:
+              $ref: '#/components/schemas/ReturnToService'
+          type: object
+    InstalledApplicationListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            identifiers:
+              description: Array of application bundle identifiers to query. If not provided, all installed applications are returned.
+              example:
+                - com.example.app1
+                - com.example.app2
+              items:
+                minLength: 1
+                nullable: false
+                type: string
+              nullable: true
+              type: array
+            items:
+              description: Array of keys to include in the response for each application. If not provided, default keys are returned.
+              example:
+                - Identifier
+                - Version
+                - Name
+                - BundleSize
+              items:
+                enum:
+                  - AdHocCodeSigned
+                  - AppStoreVendable
+                  - BetaApp
+                  - BundleSize
+                  - DeviceBasedVpp
+                  - DistributorIdentifier
+                  - DynamicSize
+                  - ExternalVersionIdentifier
+                  - HasUpdateAvailable
+                  - Identifier
+                  - Installing
+                  - AppClip
+                  - Validated
+                  - Name
+                  - ShortVersion
+                  - Version
+                type: string
+              nullable: true
+              type: array
+            managedAppsOnly:
+              description: If true, only managed applications are returned. If false or not provided, all applications are returned.
+              example: false
+              nullable: true
+              type: boolean
+          type: object
+    LogOutUserCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    ManagedApplicationListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            identifiers:
+              description: Array of application identifiers to manage
+              example:
+                - com.example.app1
+                - com.example.app2
+                - com.example.app3
+              items:
+                minLength: 1
+                nullable: false
+                type: string
+              minItems: 0
+              nullable: true
+              type: array
+          type: object
+    ManagedMediaListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    MdmClientType:
+      enum:
+        - MOBILE_DEVICE
+        - TV
+        - VISION_PRO
+        - WATCH
+        - COMPUTER
+        - COMPUTER_USER
+        - MOBILE_DEVICE_USER
+        - UNKNOWN
+      example: MOBILE_DEVICE
+      type: string
+    MdmCommand:
+      properties:
+        client:
+          $ref: '#/components/schemas/MdmCommandClient'
+        commandError:
+          $ref: '#/components/schemas/MdmCommandError'
+        commandState:
+          $ref: '#/components/schemas/MdmCommandState'
+        commandType:
+          $ref: '#/components/schemas/MdmCommandType'
+        dateCompleted:
+          example: "2019-05-16T20:43:43.945Z"
+          format: date-time
+          type: string
+        dateSent:
+          example: "2019-05-16T20:43:43.945Z"
+          format: date-time
+          type: string
+        profileId:
+          example: 1
+          type: integer
+        uuid:
+          example: aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937
+          type: string
+      type: object
+    MdmCommandBase:
+      properties:
+        commandType:
+          $ref: '#/components/schemas/MdmCommandType'
+      required:
+        - commandType
+      type: object
+    MdmCommandClient:
+      properties:
+        clientType:
+          $ref: '#/components/schemas/MdmClientType'
+        managementId:
+          example: aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937
+          type: string
+      type: object
+    MdmCommandClientRequest:
+      properties:
+        managementId:
+          example: aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937
+          type: string
+      type: object
+    MdmCommandError:
+      properties:
+        errorCode:
+          example: 1234
+          type: integer
+        errorDomain:
+          example: An error occurred while processing the command.
+          type: string
+        errorEnglishDescription:
+          example: An error occurred while processing the command.
+          type: string
+        errorLocalizedDescription:
+          example: An error occurred while processing the command.
+          type: string
+      type: object
+    MdmCommandRequest:
+      properties:
+        clientData:
+          items:
+            $ref: '#/components/schemas/MdmCommandClientRequest'
+          type: array
+        commandData:
+          discriminator:
+            mapping:
+              APPLY_REDEMPTION_CODE: '#/components/schemas/ApplyRedemptionCodeCommand'
+              CERTIFICATE_LIST: '#/components/schemas/CertificateListCommand'
+              CLEAR_PASSCODE: '#/components/schemas/ClearPasscodeCommand'
+              CLEAR_RESTRICTIONS_PASSWORD: '#/components/schemas/ClearRestrictionsPasswordCommand'
+              DECLARATIVE_MANAGEMENT: '#/components/schemas/DeclarativeManagementCommand'
+              DELETE_USER: '#/components/schemas/DeleteUserCommand'
+              DEVICE_INFORMATION: '#/components/schemas/DeviceInformationCommand'
+              DEVICE_LOCATION: '#/components/schemas/DeviceLocationCommand'
+              DEVICE_LOCK: '#/components/schemas/DeviceLockCommand'
+              DISABLE_LOST_MODE: '#/components/schemas/DisableLostModeCommand'
+              DISABLE_REMOTE_DESKTOP: '#/components/schemas/DisableRemoteDesktopCommand'
+              ENABLE_LOST_MODE: '#/components/schemas/EnableLostModeCommand'
+              ENABLE_REMOTE_DESKTOP: '#/components/schemas/EnableRemoteDesktopCommand'
+              ERASE_DEVICE: '#/components/schemas/EraseDeviceCommand'
+              INSTALLED_APPLICATION_LIST: '#/components/schemas/InstalledApplicationListCommand'
+              LOG_OUT_USER: '#/components/schemas/LogOutUserCommand'
+              MANAGED_APPLICATION_LIST: '#/components/schemas/ManagedApplicationListCommand'
+              MANAGED_MEDIA_LIST: '#/components/schemas/ManagedMediaListCommand'
+              PLAY_LOST_MODE_SOUND: '#/components/schemas/PlayLostModeSoundCommand'
+              PROFILE_LIST: '#/components/schemas/ProfileListCommand'
+              PROVISIONING_PROFILE_LIST: '#/components/schemas/ProvisioningProfileListCommand'
+              REFRESH_CELLULAR_PLANS: '#/components/schemas/RefreshCellularPlansCommand'
+              REQUEST_MIRRORING: '#/components/schemas/RequestMirroringCommand'
+              RESTART_DEVICE: '#/components/schemas/RestartDeviceCommand'
+              SECURITY_INFO: '#/components/schemas/SecurityInfoCommand'
+              SETTINGS: '#/components/schemas/SettingsCommand'
+              SET_AUTO_ADMIN_PASSWORD: '#/components/schemas/SetAutoAdminPasswordCommand'
+              SET_RECOVERY_LOCK: '#/components/schemas/SetRecoveryLockCommand'
+              SHUT_DOWN_DEVICE: '#/components/schemas/ShutDownDeviceCommand'
+              STOP_MIRRORING: '#/components/schemas/StopMirroringCommand'
+              UNLOCK_USER_ACCOUNT: '#/components/schemas/UnlockUserAccountCommand'
+              VALIDATE_APPLICATIONS: '#/components/schemas/ValidateApplicationsCommand'
+              VERIFY_RECOVERY_LOCK: '#/components/schemas/VerifyRecoveryLockCommand'
+            propertyName: commandType
+          example:
+            commandType: ENABLE_LOST_MODE
+            lostModeFootnote: This is a footnote
+            lostModeMessage: Lost Mode Message
+            lostModePhone: 123-456-7890
+          oneOf:
+            - $ref: '#/components/schemas/ApplyRedemptionCodeCommand'
+            - $ref: '#/components/schemas/CertificateListCommand'
+            - $ref: '#/components/schemas/ClearPasscodeCommand'
+            - $ref: '#/components/schemas/DeclarativeManagementCommand'
+            - $ref: '#/components/schemas/DeviceInformationCommand'
+            - $ref: '#/components/schemas/DeviceLocationCommand'
+            - $ref: '#/components/schemas/DeviceLockCommand'
+            - $ref: '#/components/schemas/DisableLostModeCommand'
+            - $ref: '#/components/schemas/DisableRemoteDesktopCommand'
+            - $ref: '#/components/schemas/EnableRemoteDesktopCommand'
+            - $ref: '#/components/schemas/EraseDeviceCommand'
+            - $ref: '#/components/schemas/ManagedApplicationListCommand'
+            - $ref: '#/components/schemas/InstalledApplicationListCommand'
+            - $ref: '#/components/schemas/ClearRestrictionsPasswordCommand'
+            - $ref: '#/components/schemas/DeleteUserCommand'
+            - $ref: '#/components/schemas/EnableLostModeCommand'
+            - $ref: '#/components/schemas/LogOutUserCommand'
+            - $ref: '#/components/schemas/ManagedMediaListCommand'
+            - $ref: '#/components/schemas/PlayLostModeSoundCommand'
+            - $ref: '#/components/schemas/ProfileListCommand'
+            - $ref: '#/components/schemas/ProvisioningProfileListCommand'
+            - $ref: '#/components/schemas/RefreshCellularPlansCommand'
+            - $ref: '#/components/schemas/RestartDeviceCommand'
+            - $ref: '#/components/schemas/RequestMirroringCommand'
+            - $ref: '#/components/schemas/SecurityInfoCommand'
+            - $ref: '#/components/schemas/SetAutoAdminPasswordCommand'
+            - $ref: '#/components/schemas/SetRecoveryLockCommand'
+            - $ref: '#/components/schemas/SettingsCommand'
+            - $ref: '#/components/schemas/ShutDownDeviceCommand'
+            - $ref: '#/components/schemas/StopMirroringCommand'
+            - $ref: '#/components/schemas/UnlockUserAccountCommand'
+            - $ref: '#/components/schemas/ValidateApplicationsCommand'
+            - $ref: '#/components/schemas/VerifyRecoveryLockCommand'
+      type: object
+    MdmCommandResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/MdmCommand'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    MdmCommandState:
+      enum:
+        - PENDING
+        - ACKNOWLEDGED
+        - NOT_NOW
+        - ERROR
+      example: PENDING
+      type: string
+    MdmCommandType:
+      enum:
+        - APPLY_REDEMPTION_CODE
+        - CERTIFICATE_LIST
+        - CLEAR_PASSCODE
+        - CLEAR_RESTRICTIONS_PASSWORD
+        - DECLARATIVE_MANAGEMENT
+        - DELETE_USER
+        - DEVICE_INFORMATION
+        - DEVICE_LOCATION
+        - DEVICE_LOCK
+        - DISABLE_LOST_MODE
+        - DISABLE_REMOTE_DESKTOP
+        - ENABLE_LOST_MODE
+        - ENABLE_REMOTE_DESKTOP
+        - ERASE_DEVICE
+        - INSTALLED_APPLICATION_LIST
+        - LOG_OUT_USER
+        - MANAGED_APPLICATION_LIST
+        - MANAGED_MEDIA_LIST
+        - REFRESH_CELLULAR_PLANS
+        - PLAY_LOST_MODE_SOUND
+        - PROFILE_LIST
+        - PROVISIONING_PROFILE_LIST
+        - RESTART_DEVICE
+        - REQUEST_MIRRORING
+        - SECURITY_INFO
+        - SETTINGS
+        - SET_AUTO_ADMIN_PASSWORD
+        - SET_RECOVERY_LOCK
+        - SHUT_DOWN_DEVICE
+        - STOP_MIRRORING
+        - UNLOCK_USER_ACCOUNT
+        - VALIDATE_APPLICATIONS
+        - VERIFY_RECOVERY_LOCK
+      example: ENABLE_LOST_MODE
+      type: string
+    PersonalHotspotSetting:
+      enum:
+        - ENABLE_PERSONAL_HOTSPOT
+        - DISABLE_PERSONAL_HOTSPOT
+      example: ENABLE_PERSONAL_HOTSPOT
+      type: string
+    PlayLostModeSoundCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    ProfileListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            managedOnly:
+              default: false
+              description: If true, only managed configuration profiles are returned. If false, all configuration profiles are returned. The default value is false.
+              example: true
+              nullable: true
+              type: boolean
+          type: object
+    ProvisioningProfileListCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            managedOnly:
+              default: false
+              description: If true, only managed provisioning profiles are returned. If false, all provisioning profiles are returned. The default value is false.
+              example: true
+              nullable: true
+              type: boolean
+          type: object
+    RefreshCellularPlansCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            esimServerUrl:
+              description: The URL of the eSIM server that the device should contact to refresh cellular plans.
+              example: https://esim.example.com
+              maxLength: 2048
+              minLength: 1
+              type: string
+          required:
+            - esimServerUrl
+          type: object
+    RequestMirroringCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            destinationDeviceId:
+              description: The hardware address of the destination device to which the screen will be mirrored. This value isn’t case-sensitive. Required if destinationName is not provided.
+              example: xx:xx:xx:xx:xx
+              type: string
+            destinationName:
+              description: The name of the destination device to which the screen will be mirrored. Required if destinationDeviceId is not provided.
+              example: airplay name
+              type: string
+            password:
+              description: The screen-sharing password used to connect to the destination device.
+              example: password123
+              format: password
+              nullable: true
+              type: string
+              writeOnly: true
+            scanTime:
+              description: The scan time which device spends in seconds to find the destination device.
+              example: 30
+              nullable: true
+              type: integer
+          type: object
+    RestartDeviceCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            kextPaths:
+              description: Only used if RebuildKernelCache is true
+              example:
+                - extension1
+                - extension2
+              items:
+                type: string
+              type: array
+            notifyUser:
+              example: true
+              type: boolean
+            rebuildKernelCache:
+              example: true
+              type: boolean
+          type: object
+    ReturnToService:
+      description: The configuration settings for Return to Service.
+      properties:
+        bootstrapToken:
+          description: Base64 encoded bootstrap token for the device.
+          example: HPZC3p80IWb3XgD51W7hhUxWNwKElvvEgCgjegI=
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        mdmProfileData:
+          description: Base64 encoded mdm profile
+          example: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxIj4KICAgIDxkaWN0PgogICAgICAgIDxrZXk+UGF5bG9hZFVVSUQ8L2tleT4KICAgICAgICA8c3RyaW5nPjAwMDAwMDAwLTAwMDAtMDAwMC1BMDAwLTRBNDE0RDQ2MDAwMzwvc3RyaW5nPgogICAgICAgIDxrZXk+UGF5bG9hZFR5cGU8L2tleT4KICAgICAgICA8c3RyaW5nPkNvbmZpZ3VyYXRpb248L3N0cmluZz4KICAgICAgICA8a2V5PlBheWxvYWRPcmdhbml6YXRpb248L2tleT4KICAgICAgICA8c3RyaW5nPkphbWYgUHJvPC9zdHJpbmc+CiAgICAgICAgPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5PgogICAgICAgIDxzdHJpbmc+MDAwMDAwMDAtMDAwMC0wMDAwLUEwMDAtNEE0MTRENDYwMDAzPC9zdHJpbmc+CiAgICAgICAgPGtleT5QYXlsb2FkRGlzcGxheU5hbWU8L2tleT4KICAgICAgICA8c3RyaW5nPk1ETSBQcm9maWxlPC9zdHJpbmc+CiAgICAgICAgPGtleT5QYXlsb2FkRGVzY3JpcHRpb248L2tleT4KICAgICAgICA8c3RyaW5nPk1ETSBQcm9maWxlIGZvciBtb2JpbGUgZGV2aWNlIG1hbmFnZW1lbnQ8L3N0cmluZz4KICAgICAgICA8a2V5PlBheWxvYWRWZXJzaW9uPC9rZXk+CiAgICAgICAgPGludGVnZXI+MTwvaW50ZWdlcj4KICAgICAgICA8a2V5PlBheWxvYWRFbmFibGVkPC9rZXk+CiAgICAgICAgPHRydWUgLz4KICAgICAgICA8a2V5PlBheWxvYWRSZW1vdmFsRGlzYWxsb3dlZDwva2V5PgogICAgICAgIDxmYWxzZSAvPgogICAgICAgIDxrZXk+UGF5bG9hZENvbnRlbnQ8L2tleT4KICAgICAgICA8YXJyYXk+CiAgICAgICAgICAgIDxkaWN0PgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkVVVJRDwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5FQjA1RURCNy04MzYxLTQ1N0ItQjUyOC0wQjFCMjU2QTY2QUY8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZFR5cGU8L2tleT4KICAgICAgICAgICAgICAgIDxzdHJpbmc+Y29tLmFwcGxlLnNlY3VyaXR5LnJvb3Q8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZE9yZ2FuaXphdGlvbjwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5KYW1mIFBybzwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5FQjA1RURCNy04MzYxLTQ1N0ItQjUyOC0wQjFCMjU2QTY2QUY8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZERpc3BsYXlOYW1lPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkNOPUphbWYgUHJvIEpTUyBCdWlsdC1pbiBDZXJ0aWZpY2F0ZSBBdXRob3JpdHk8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZERlc2NyaXB0aW9uPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkEgUm9vdCBDQSBDZXJ0aWZpY2F0ZTwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkVmVyc2lvbjwva2V5PgogICAgICAgICAgICAgICAgPGludGVnZXI+MTwvaW50ZWdlcj4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZEVuYWJsZWQ8L2tleT4KICAgICAgICAgICAgICAgIDx0cnVlIC8+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRDZXJ0aWZpY2F0ZUZpbGVOYW1lPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkNOPUphbWYgUHJvIEpTUyBCdWlsdC1pbiBDZXJ0aWZpY2F0ZSBBdXRob3JpdHk8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZENvbnRlbnQ8L2tleT4KICAgICAgICAgICAgICAgIDxkYXRhPgogICAgICAgICAgICAgICAgICAgIHBheWxvYWRDb250ZW50CiAgICAgICAgICAgICAgICA8L2RhdGE+CiAgICAgICAgICAgICAgICA8a2V5PkFsbG93QWxsQXBwc0FjY2Vzczwva2V5PgogICAgICAgICAgICAgICAgPGZhbHNlIC8+CiAgICAgICAgICAgIDwvZGljdD4KICAgICAgICAgICAgPGRpY3Q+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRVVUlEPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPjAwMDAwMDAwLTAwMDAtMDAwMC1BMDAwLTRBNDE0RDQ2MDAwNjwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkVHlwZTwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5jb20uYXBwbGUuc2VjdXJpdHkuc2NlcDwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkT3JnYW5pemF0aW9uPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkphbWYgUHJvPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRJZGVudGlmaWVyPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPmNvbS5qYW1mc29mdHdhcmUuZW5jcnlwdGVkLXByb2ZpbGUtc2VydmljZS1zY2VwMjwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkRGlzcGxheU5hbWU8L2tleT4KICAgICAgICAgICAgICAgIDxzdHJpbmc+SkFNRiBFbnJvbGxtZW50IFBheWxvYWQ6IFNDRVA8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZERlc2NyaXB0aW9uPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkNvbmZpZ3VyYXRpb24gdG8gY29ubmVjdCB0byB5b3VyIFNDRVAgU2VydmVyPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRWZXJzaW9uPC9rZXk+CiAgICAgICAgICAgICAgICA8aW50ZWdlcj4xPC9pbnRlZ2VyPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkRW5hYmxlZDwva2V5PgogICAgICAgICAgICAgICAgPHRydWUgLz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZENvbnRlbnQ8L2tleT4KICAgICAgICAgICAgICAgIDxkaWN0PgogICAgICAgICAgICAgICAgICAgIDxrZXk+VVJMPC9rZXk+CiAgICAgICAgICAgICAgICAgICAgPHN0cmluZz5odHRwczovL2pzcy51cmwvQ0EvU0NFUDwvc3RyaW5nPgogICAgICAgICAgICAgICAgICAgIDxrZXk+Q2hhbGxlbmdlPC9rZXk+CiAgICAgICAgICAgICAgICAgICAgPHN0cmluZz4wMDAwMDwvc3RyaW5nPgogICAgICAgICAgICAgICAgICAgIDxrZXk+S2V5IFR5cGU8L2tleT4KICAgICAgICAgICAgICAgICAgICA8c3RyaW5nPlJTQTwvc3RyaW5nPgogICAgICAgICAgICAgICAgICAgIDxrZXk+S2V5IFVzYWdlPC9rZXk+CiAgICAgICAgICAgICAgICAgICAgPGludGVnZXI+NTwvaW50ZWdlcj4KICAgICAgICAgICAgICAgICAgICA8a2V5PktleXNpemU8L2tleT4KICAgICAgICAgICAgICAgICAgICA8aW50ZWdlcj4yMDQ4PC9pbnRlZ2VyPgogICAgICAgICAgICAgICAgICAgIDxrZXk+U3ViamVjdDwva2V5PgogICAgICAgICAgICAgICAgICAgIDxhcnJheT4KICAgICAgICAgICAgICAgICAgICAgICAgPGFycmF5PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGFycmF5PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJpbmc+Tzwvc3RyaW5nPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJpbmc+SmFtZiBQcm88L3N0cmluZz4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvYXJyYXk+CiAgICAgICAgICAgICAgICAgICAgICAgIDwvYXJyYXk+CiAgICAgICAgICAgICAgICAgICAgICAgIDxhcnJheT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxhcnJheT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3RyaW5nPkNOPC9zdHJpbmc+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHN0cmluZz40RkY0QzJEQi0wRDhDLTREQjEtODUyNi04RTFGQUQ3ODg4RTQ8L3N0cmluZz4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDwvYXJyYXk+CiAgICAgICAgICAgICAgICAgICAgICAgIDwvYXJyYXk+CiAgICAgICAgICAgICAgICAgICAgPC9hcnJheT4KICAgICAgICAgICAgICAgIDwvZGljdD4KICAgICAgICAgICAgPC9kaWN0PgogICAgICAgICAgICA8ZGljdD4KICAgICAgICAgICAgICAgIDxrZXk+QWNjZXNzUmlnaHRzPC9rZXk+CiAgICAgICAgICAgICAgICA8aW50ZWdlcj44MTkxPC9pbnRlZ2VyPgogICAgICAgICAgICAgICAgPGtleT5DaGVja0luVVJMPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPgogICAgICAgICAgICAgICAgICAgIGh0dHBzOi8vanNzLnVybC9tZG0vQ2hlY2tJblVSTD9pbnZpdGF0aW9uPTI4MzY5MDc2MzU4NzI1MjExMzI4MzE0ODcxNjEyNjI2MzkxMzQxOTwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5DaGVja091dFdoZW5SZW1vdmVkPC9rZXk+CiAgICAgICAgICAgICAgICA8dHJ1ZSAvPgogICAgICAgICAgICAgICAgPGtleT5JZGVudGl0eUNlcnRpZmljYXRlVVVJRDwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz4wMDAwMDAwMC0wMDAwLTAwMDAtQTAwMC00QTQxNEQ0NjAwMDY8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZERlc2NyaXB0aW9uPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkNvbmZpZ3VyYXRpb24gdG8gY29ubmVjdCB0byB5b3VyIE1ETSBTZXJ2ZXI8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZERpc3BsYXlOYW1lPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPkpBTUYgTWFudWFsIEVucm9sbG1lbnQgUGF5bG9hZDogTURNPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRFbmFibGVkPC9rZXk+CiAgICAgICAgICAgICAgICA8dHJ1ZSAvPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz4wMDAwMDAwMC0wMDAwLTAwMDAtQTAwMC00QTQxNEQ0NjAwMDQ8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+UGF5bG9hZE9yZ2FuaXphdGlvbjwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5KYW1mIFBybzwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkVHlwZTwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5jb20uYXBwbGUubWRtPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8a2V5PlBheWxvYWRVVUlEPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPjAwMDAwMDAwLTAwMDAtMDAwMC1BMDAwLTRBNDE0RDQ2MDAwNDwvc3RyaW5nPgogICAgICAgICAgICAgICAgPGtleT5QYXlsb2FkVmVyc2lvbjwva2V5PgogICAgICAgICAgICAgICAgPGludGVnZXI+MTwvaW50ZWdlcj4KICAgICAgICAgICAgICAgIDxrZXk+U2VydmVyVVJMPC9rZXk+CiAgICAgICAgICAgICAgICA8c3RyaW5nPmh0dHBzOi8vanNzLnVybC9tZG0vU2VydmVyVVJMPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8a2V5PlNpZ25NZXNzYWdlPC9rZXk+CiAgICAgICAgICAgICAgICA8dHJ1ZSAvPgogICAgICAgICAgICAgICAgPGtleT5Ub3BpYzwva2V5PgogICAgICAgICAgICAgICAgPHN0cmluZz5jb20uYXBwbGUubWdtdC5FeHRlcm5hbC5hYWFhYWFhYS1hYWFhLWFhYWEtYWFhLWFhYWFhYWE8L3N0cmluZz4KICAgICAgICAgICAgICAgIDxrZXk+VXNlRGV2ZWxvcG1lbnRBUE5TPC9rZXk+CiAgICAgICAgICAgICAgICA8ZmFsc2UgLz4KICAgICAgICAgICAgICAgIDxrZXk+U2VydmVyQ2FwYWJpbGl0aWVzPC9rZXk+CiAgICAgICAgICAgICAgICA8YXJyYXk+CiAgICAgICAgICAgICAgICAgICAgPHN0cmluZz5jb20uYXBwbGUubWRtLnBlci11c2VyLWNvbm5lY3Rpb25zPC9zdHJpbmc+CiAgICAgICAgICAgICAgICA8L2FycmF5PgogICAgICAgICAgICA8L2RpY3Q+CiAgICAgICAgPC9hcnJheT4KICAgIDwvZGljdD4KPC9wbGlzdD4=
+          type: string
+        wifiProfileData:
+          description: Base64 encoded wifi profile
+          example: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+UGF5bG9hZENvbnRlbnQ8L2tleT4KCTxhcnJheT4KCQk8ZGljdD4KCQkJPGtleT5BdXRvSm9pbjwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+Q2FwdGl2ZUJ5cGFzczwva2V5PgoJCQk8ZmFsc2UvPgoJCQk8a2V5PkRpc2FibGVBc3NvY2lhdGlvbk1BQ1JhbmRvbWl6YXRpb248L2tleT4KCQkJPGZhbHNlLz4KCQkJPGtleT5FbmNyeXB0aW9uVHlwZTwva2V5PgoJCQk8c3RyaW5nPldQQTwvc3RyaW5nPgoJCQk8a2V5PkhJRERFTl9ORVRXT1JLPC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+SXNIb3RzcG90PC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+UGFzc3dvcmQ8L2tleT4KCQkJPHN0cmluZz53aWZpUGFzc3dvcmQ8L3N0cmluZz4KCQkJPGtleT5QYXlsb2FkRGVzY3JpcHRpb248L2tleT4KCQkJPHN0cmluZz5Db25maWd1cmVzIFdpLUZpIHNldHRpbmdzPC9zdHJpbmc+CgkJCTxrZXk+UGF5bG9hZERpc3BsYXlOYW1lPC9rZXk+CgkJCTxzdHJpbmc+V2ktRmk8L3N0cmluZz4KCQkJPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5PgoJCQk8c3RyaW5nPmNvbS5hcHBsZS53aWZpLm1hbmFnZWQuRDA1QzhDQzQtMzNGNi00OEVFLUEwNzMtM0M1M0VGOTExQUIzPC9zdHJpbmc+CgkJCTxrZXk+UGF5bG9hZFR5cGU8L2tleT4KCQkJPHN0cmluZz5jb20uYXBwbGUud2lmaS5tYW5hZ2VkPC9zdHJpbmc+CgkJCTxrZXk+UGF5bG9hZFVVSUQ8L2tleT4KCQkJPHN0cmluZz5EMDVDOENDNC0zM0Y2LTQ4RUUtQTA3My0zQzUzRUY5MTFBQjM8L3N0cmluZz4KCQkJPGtleT5QYXlsb2FkVmVyc2lvbjwva2V5PgoJCQk8aW50ZWdlcj4xPC9pbnRlZ2VyPgoJCQk8a2V5PlByb3h5VHlwZTwva2V5PgoJCQk8c3RyaW5nPk5vbmU8L3N0cmluZz4KCQkJPGtleT5TU0lEX1NUUjwva2V5PgoJCQk8c3RyaW5nPlNTSUQ8L3N0cmluZz4KCQk8L2RpY3Q+Cgk8L2FycmF5PgoJPGtleT5QYXlsb2FkRGlzcGxheU5hbWU8L2tleT4KCTxzdHJpbmc+VW50aXRsZWQ8L3N0cmluZz4KCTxrZXk+UGF5bG9hZElkZW50aWZpZXI8L2tleT4KCTxzdHJpbmc+Y29yZXkuODcxOUQ0RTktQTYxMy00OTg4LTlFQjctOUYzNzdGMEUwMEMwPC9zdHJpbmc+Cgk8a2V5PlBheWxvYWRSZW1vdmFsRGlzYWxsb3dlZDwva2V5PgoJPGZhbHNlLz4KCTxrZXk+UGF5bG9hZFR5cGU8L2tleT4KCTxzdHJpbmc+Q29uZmlndXJhdGlvbjwvc3RyaW5nPgoJPGtleT5QYXlsb2FkVVVJRDwva2V5PgoJPHN0cmluZz42MkZGQzZBRC1GMDFDLTRENzQtQUIwQS1EMEM0N0QzQjdBMDc8L3N0cmluZz4KCTxrZXk+UGF5bG9hZFZlcnNpb248L2tleT4KCTxpbnRlZ2VyPjE8L2ludGVnZXI+CjwvZGljdD4KPC9wbGlzdD4=
+          type: string
+      required:
+        - enabled
+      type: object
+    SecurityInfoCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    SetAutoAdminPasswordCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            guid:
+              description: The unique identifier of the local administrator account. Must match the GUID of an administrator account that MDM created during Device Enrollment Program (DEP) enrollment.
+              example: 76d765f1-651b-4032-9eea-a10e09a62d50
+              type: string
+            password:
+              description: The new password for the local administrator account.
+              example: newQuerty1234
+              format: password
+              minLength: 1
+              type: string
+              writeOnly: true
+          type: object
+    SetRecoveryLockCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            newPassword:
+              description: The new password for Recovery Lock. Set as an empty string to clear the Recovery Lock password.
+              example: newQuerty1234
+              format: password
+              type: string
+          type: object
+    SettingsCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            activationLockAllowedWhileSupervised:
+              description: If true, a supervised device registers itself with Activation Lock when the user enables Find My. This setting is available for supervised devices in iOS 7 and later, and macOS 10.15 and later.
+              example: true
+              type: boolean
+            appAnalytics:
+              $ref: '#/components/schemas/AppAnalyticsSetting'
+            applicationAttributes:
+              $ref: '#/components/schemas/ApplicationAttributes'
+            applicationConfiguration:
+              $ref: '#/components/schemas/ApplicationConfiguration'
+            bluetooth:
+              example: true
+              nullable: true
+              type: boolean
+            bootstrapTokenAllowed:
+              example: true
+              nullable: true
+              type: boolean
+            dataRoaming:
+              $ref: '#/components/schemas/DataRoamingSetting'
+            defaultApplications:
+              $ref: '#/components/schemas/DefaultApplications'
+            deviceName:
+              example: My iPhone
+              type: string
+            diagnosticSubmission:
+              $ref: '#/components/schemas/DiagnosticSubmissionSetting'
+            maximumResidentUsers:
+              example: 1
+              nullable: true
+              type: integer
+            passcodeLockGracePeriod:
+              description: The number of seconds before a locked screen requires the user to enter the device passcode to unlock it. (Shared iPad Only)
+              example: 60
+              nullable: true
+              type: integer
+            personalHotspot:
+              $ref: '#/components/schemas/PersonalHotspotSetting'
+            sharedDeviceConfiguration:
+              $ref: '#/components/schemas/SharedDeviceConfiguration'
+            softwareUpdateSettings:
+              $ref: '#/components/schemas/SoftwareUpdateSettings'
+            timeZone:
+              example: America/New_York
+              nullable: true
+              type: string
+            voiceRoaming:
+              $ref: '#/components/schemas/VoiceRoamingSetting'
+          type: object
+    SharedDeviceConfiguration:
+      properties:
+        quotaSize:
+          example: 2048
+          nullable: true
+          type: integer
+        residentUsers:
+          example: 3
+          type: integer
+      type: object
+    ShutDownDeviceCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    SoftwareUpdateSettings:
+      properties:
+        recommendationCadence:
+          enum:
+            - ALLOW_ALL_UPDATES
+            - ONLY_ALLOW_LEAST_CURRENT_UPDATE
+            - ONLY_ALLOW_MOST_CURRENT_UPDATE
+          example: ALLOW_ALL_UPDATES
+          type: string
+      type: object
+    StopMirroringCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    UnlockUserAccountCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            userName:
+              description: The username of the user account to unlock
+              example: user123
+              type: string
+          type: object
+    ValidateApplicationsCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
+    VerifyRecoveryLockCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            password:
+              description: The password to verify.
+              example: password123
+              format: password
+              minLength: 1
+              type: string
+              writeOnly: true
+          type: object
+    VoiceRoamingSetting:
+      enum:
+        - ENABLE_VOICE_ROAMING
+        - DISABLE_VOICE_ROAMING
+      example: ENABLE_VOICE_ROAMING
+      type: string
 info:
-  title: Jamf Pro API - MDM Commands
+  title: Jamf Pro API - MdmCommands
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/mdm/commands:
     get:
-      summary: Get information about mdm commands made by Jamf Pro.
+      deprecated: true
       description: Get information about mdm commands made by Jamf Pro.
-      tags:
-        - mdm
-      x-required-privileges:
-        - View MDM command information in Jamf Pro API
       parameters:
-        - name: uuids
+        - description: A list of the UUIDs of the commands being searched for.  Limited to 40 UUIDs in length. Choose one of two parameters, but not both.
+          explode: true
           in: query
+          name: uuids
           required: false
-          description: A list of the UUIDs of the commands being searched for.  Limited to 40 UUIDs in length. Choose one of two parameters, but not both.
           schema:
-            type: array
             items:
               type: string
-        - name: client-management-id
+            type: array
+          style: form
+        - description: The client management id used to search for a list of commands. Choose one of two parameters, but not both.
+          explode: true
           in: query
+          name: client-management-id
           required: false
-          description: The client management id used to search for a list of commands. Choose one of two parameters, but not both.
           schema:
-              type: string
-              example: fd68c371-5921-436e-b16b-8a3c1bf90ee5
-      deprecated: true
-      x-deprecation-date: 2023-10-16
+            example: fd68c371-5921-436e-b16b-8a3c1bf90ee5
+            type: string
+          style: form
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
-                  $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommand'
+                  $ref: '#/components/schemas/MdmCommand'
+                type: array
+          description: Success
         414:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Too many UUIDs were provided in the path. The limit is set at a strict 40 UUIDs.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         500:
-          description: Failure, unable to complete lookup.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to complete lookup.
+      summary: Get information about mdm commands made by Jamf Pro.
+      tags:
+        - mdm
+      x-deprecation-date: "2023-10-16"
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
   /v2/mdm/blank-push:
     post:
-      summary: Send blank push notifications to a list of client management IDs.
       description: Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.
-      tags:
-        - mdm
-      x-required-privileges:
-        - View MDM command information in Jamf Pro API
-      x-action: true
       requestBody:
-        description: A list of client management IDs to send push notifications to.
-        required: true
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/BlankPushRequest'
+        description: A list of client management IDs to send push notifications to.
+        required: true
       responses:
         200:
-          description: Push notifications sent successfully, with a list of UUIDs that encountered errors.
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/BlankPushResponse'
+          description: Push notifications sent successfully, with a list of UUIDs that encountered errors.
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Invalid input provided.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         500:
-          description: Internal server error.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Internal server error.
+      summary: Send blank push notifications to a list of client management IDs.
+      tags:
+        - mdm
+      x-action: true
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
   /v2/mdm/commands:
     get:
-      summary: |
-        Get information about mdm commands made by Jamf Pro.
       description: Get information about mdm commands made by Jamf Pro.
-      tags:
-        - mdm
-      x-required-privileges:
-        - View MDM command information in Jamf Pro API
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Default sort is dateSent:asc. Multiple sort criteria are supported and must be separated
-                        with a comma.'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Default sort is dateSent:asc. Multiple sort criteria are supported and must be separated with a comma.
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - dateSent:asc
             items:
               type: string
-            default: [ dateSent:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter, for a list of commands. All url must contain minimum one filter field. Fields allowed in the query: uuid, clientManagementId, command, status, clientType, dateSent, validAfter, dateCompleted, profileId, profileIdentifier, and active. This param can be combined with paging. Please note that any date filters must be used with gt, lt, ge, le Example: clientManagementId==fb511aae-c557-474f-a9c1-5dc845b90d0f;status==Pending;command==INSTALL_PROFILE;uuid==9e18f849-e689-4f2d-b616-a99d3da7db42;clientType==COMPUTER_USER;profileId==1;profileIdentifier==18cc61c2-01fc-11ed-b939-0242ac120002;dateCompleted=ge=2021-08-04T14:25:18.26Z;dateCompleted=le=2021-08-04T14:25:18.26Z;validAfter=ge=2021-08-05T14:25:18.26Z;active==true'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter, for a list of commands. All url must contain minimum one filter field.
-              Fields allowed in the query: uuid, clientManagementId, command, status, clientType, dateSent, validAfter, dateCompleted, profileId, profileIdentifier, and active. 
-              This param can be combined with paging. Please note that any date filters must be used with gt, lt, ge, le
-              Example: clientManagementId==fb511aae-c557-474f-a9c1-5dc845b90d0f;status==Pending;command==INSTALL_PROFILE;uuid==9e18f849-e689-4f2d-b616-a99d3da7db42;clientType==COMPUTER_USER;profileId==1;profileIdentifier==18cc61c2-01fc-11ed-b939-0242ac120002;dateCompleted=ge=2021-08-04T14:25:18.26Z;dateCompleted=le=2021-08-04T14:25:18.26Z;validAfter=ge=2021-08-05T14:25:18.26Z;active==true'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MdmCommandResults'
           description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandResults'
         500:
-          description: Failure, unable to complete lookup.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to complete lookup.
       summary: |
-        Post a command for creation and queuing
-      description: Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.
+        Get information about mdm commands made by Jamf Pro.
       tags:
         - mdm
       x-required-privileges:
         - View MDM command information in Jamf Pro API
-      x-action: true
+    post:
+      description: Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.
       requestBody:
-        description: The mdm command object to create and queue
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'MdmDefinitionsLibrary.yaml#/components/schemas/MdmCommandRequest'
+              $ref: '#/components/schemas/MdmCommandRequest'
+        description: The mdm command object to create and queue
       responses:
         201:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
-                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                  $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+                type: array
+          description: Success
         500:
-          description: Failure, unable to queue command.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-components:
-  schemas:
-    BlankPushRequest:
-      type: object
-      properties:
-        clientManagementIds:
-          type: array
-          items:
-            type: string
-          example:
-            - "fd68c371-5921-436e-b16b-8a3c1bf90ee5"
-            - "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-      required:
-        - clientManagementIds
-    BlankPushResponse:
-      type: object
-      properties:
-        errorUuids:
-          type: array
-          items:
-            type: string
-          example:
-            - "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-            - "fd68c371-5921-436e-b16b-8a3c1bf90ee5"
-      required:
-        - errorUuids
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to queue command.
+      summary: |
+        Post a command for creation and queuing
+      tags:
+        - mdm
+      x-action: true
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+servers:
+  - url: /api

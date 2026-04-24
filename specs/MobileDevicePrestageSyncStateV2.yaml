@@ -1,85 +1,91 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Mobile Device Prestage
-  version: 0.0.1
-paths:
-  /v2/mobile-device-prestages/syncs:
-    get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Get all Prestage sync States for all prestages
-      description: Get all prestage sync states for all prestages
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PrestageSyncStatusV2'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-  /v2/mobile-device-prestages/{id}/syncs:
-    get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Get all prestage sync states for a single prestage
-      description: Get all prestage sync states for a single prestage
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Mobile Device Prestage identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PrestageSyncStatusV2'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-  /v2/mobile-device-prestages/{id}/syncs/latest:
-    get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Get the latest Sync State for a single Prestage
-      description: Get the latest sync state for a single prestage
-      parameters:
-      - name: id
-        in: path
-        description: Mobile Device Prestage identifier
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PrestageSyncStatusV2'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
 components:
   schemas:
     PrestageSyncStatusV2:
-      type: object
       properties:
-        syncState:
-          type: string
-          example: CONNECTION_ERROR
         prestageId:
+          example: "1"
           type: string
-          example: 1
+        syncState:
+          example: CONNECTION_ERROR
+          type: string
         timestamp:
-          type: string
           example: 2019-04-17T14:08:06.706+0000
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - MobileDevicePrestageSyncStateV2
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/mobile-device-prestages/syncs:
+    get:
+      description: Get all prestage sync states for all prestages
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PrestageSyncStatusV2'
+                type: array
+          description: Successful response
+      summary: |
+        Get all Prestage sync States for all prestages
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+  /v2/mobile-device-prestages/{id}/syncs:
+    get:
+      description: Get all prestage sync states for a single prestage
+      parameters:
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PrestageSyncStatusV2'
+                type: array
+          description: Successful response
+      summary: |
+        Get all prestage sync states for a single prestage
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+  /v2/mobile-device-prestages/{id}/syncs/latest:
+    get:
+      description: Get the latest sync state for a single prestage
+      parameters:
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrestageSyncStatusV2'
+          description: Successful response
+      summary: |
+        Get the latest Sync State for a single Prestage
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+servers:
+  - url: /api

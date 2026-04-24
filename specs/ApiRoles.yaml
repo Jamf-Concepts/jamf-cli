@@ -1,229 +1,235 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ApiRole:
+      properties:
+        displayName:
+          example: One Role to Rule them all
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        privileges:
+          items:
+            example: View License Serial Numbers
+            type: string
+          minItems: 0
+          type: array
+      required:
+        - displayName
+        - id
+        - privileges
+      type: object
+    ApiRoleRequest:
+      properties:
+        displayName:
+          example: One Role to Rule them all
+          type: string
+        privileges:
+          items:
+            example: View License Serial Numbers
+            type: string
+          minItems: 0
+          type: array
+      required:
+        - displayName
+        - privileges
+      type: object
+    ApiRoleResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ApiRole'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          readOnly: true
+          type: integer
+      required:
+        - results
+        - totalCount
+      type: object
 info:
-  title: API Role
-  description: These endpoints are used for the CRUD of API roles
+  title: Jamf Pro API - ApiRoles
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/api-roles:
-    post:
-      tags:
-        - api-roles
-      summary: Create a new API role
-      operationId: postCreateApiRole
-      description: Post to create new Role
-      requestBody:
-        description: API Integrations Role to create
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/ApiRoleRequest'
-        required: true
-      responses:
-        200:
-          description: The created Role
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ApiRole'
-        400:
-          description: Bad Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create API Roles
     get:
-      tags:
-        - api-roles
       description: Get roles with Search Criteria
       operationId: getAllApiRoles
-      summary: Get the current Jamf API Roles
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                      is id:asc. Multiple sort criteria are supported and must be separated with
-                      a comma. Fields allowed in the query: id, displayName. Example: sort=displayName:desc'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Fields allowed in the query: id, displayName. Example: sort=displayName:desc'
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, displayName. Example: displayName=="*myRole*"'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter app titles collection.
-                        Default filter is empty query - returning all results for the requested page.
-                        Fields allowed in the query: id, displayName.
-                        Example: displayName=="*myRole*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
-          description: A list of the current Jamf API Roles
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ApiRoleResult'
-      x-required-privileges:
-        - Read API Roles
-
-  /v1/api-roles/{id}:
-    get:
+          description: A list of the current Jamf API Roles
+      summary: Get the current Jamf API Roles
       tags:
         - api-roles
-      description: Get specific Role
-      operationId: getOneApiRole
-      summary: Get the specific Jamf API Role
-      parameters:
-        - name: id
-          in: path
-          description: instance id of API role
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: The requested Jamf API Role
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ApiRole'
-        404:
-          description: Role not found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Read API Roles
-    put:
-      tags:
-        - api-roles
-      description: Update specific Role
-      operationId: putUpdateApiRole
-      summary: Update API Integrations Role
-      parameters:
-        - name: id
-          in: path
-          description: instance id of API role
-          required: true
-          schema:
-            type: string
+    post:
+      description: Post to create new Role
+      operationId: postCreateApiRole
       requestBody:
-        description: API Integrations Role to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/ApiRoleRequest'
+        description: API Integrations Role to create
         required: true
       responses:
         200:
-          description: Jamf API Integrations Role updated
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ApiRole'
-        404:
-          description: Role not found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+          description: The created Role
         400:
-          description: Bad Request, could not parse input.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update API Roles
-    delete:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Create a new API role
       tags:
         - api-roles
+      x-action: true
+      x-required-privileges:
+        - Create API Roles
+  /v1/api-roles/{id}:
+    delete:
       description: Delete specific Role
       operationId: deleteApiRole
-      summary: Delete API Integrations Role
       parameters:
-        - name: id
+        - description: instance id of API role
+          explode: false
           in: path
-          description: instance id of API role
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Jamf API Integrations Role deleted
-        409:
-          description: Role in use by an Integration/Client
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Role not found.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Role not found.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Role in use by an Integration/Client
+      summary: Delete API Integrations Role
+      tags:
+        - api-roles
       x-required-privileges:
         - Delete API Roles
-
-components:
-  schemas:
-    ApiRoleRequest:
-      required:
-        - displayName
-        - privileges
-      type: object
-      properties:
-        displayName:
-          type: string
-          example: "One Role to Rule them all"
-        privileges:
-          type: array
-          minItems: 0
-          items:
+    get:
+      description: Get specific Role
+      operationId: getOneApiRole
+      parameters:
+        - description: instance id of API role
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            example: "View License Serial Numbers"
-    ApiRole:
-      required:
-        - id
-        - displayName
-        - privileges
-      type: object
-      properties:
-        id:
-          readOnly: true
-          type: string
-          example: "1"
-        displayName:
-          type: string
-          example: "One Role to Rule them all"
-        privileges:
-          type: array
-          minItems: 0
-          items:
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiRole'
+          description: The requested Jamf API Role
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Role not found
+      summary: Get the specific Jamf API Role
+      tags:
+        - api-roles
+      x-required-privileges:
+        - Read API Roles
+    put:
+      description: Update specific Role
+      operationId: putUpdateApiRole
+      parameters:
+        - description: instance id of API role
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            example: "View License Serial Numbers"
-
-    ApiRoleResult:
-      required:
-        - totalCount
-        - results
-      type: object
-      properties:
-        totalCount:
-          readOnly: true
-          type: integer
-          minimum: 0
-          example: 1
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/ApiRole'
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiRoleRequest'
+        description: API Integrations Role to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiRole'
+          description: Jamf API Integrations Role updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request, could not parse input.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Role not found
+      summary: Update API Integrations Role
+      tags:
+        - api-roles
+      x-required-privileges:
+        - Update API Roles
+servers:
+  - url: /api

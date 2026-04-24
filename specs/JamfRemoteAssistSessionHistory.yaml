@@ -1,57 +1,60 @@
-openapi: 3.0.1
 info:
-    title: Jamf Pro API - Jamf Remote Assist Session History
-    description: Jamf Pro API - Jamf Remote Assist Session History
-    version: 0.0.1
+  title: Jamf Pro API - JamfRemoteAssistSessionHistory
+  version: 0.0.1
+openapi: 3.0.1
 paths:
-    /v1/jamf-remote-assist/session:
-        get:
-            tags:
-                - jamf-remote-assist
-            summary: |
-                Gets session history items.
-            description: |
-                Returns tenants sessions history.
-            responses:
-                200:
-                    description: Up to 100 latest session history items
-                    content:
-                        'application/json':
-                            schema:
-                                type: array
-                                items:
-                                    $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItem'
-            x-required-privileges:
-                - Read Remote Assist
-    /v1/jamf-remote-assist/session/{id}:
-        get:
-            tags:
-                - jamf-remote-assist
-            summary: |
-                Gets single session history item.
-            description: |
-                Returns tenants session history for specific session.
-            parameters:
-                -   name: id
-                    in: path
-                    description: instance id of session
-                    required: true
-                    schema:
-                        type: string
-            responses:
-                200:
-                    description: Single session history item
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'JamfRemoteAssistDefinitionsLibrary.yaml#/components/schemas/SessionHistoryItemWithDetails'
-                404:
-                    description: Session with given id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Remote Assist
-components:
-  schemas: {}
+  /v1/jamf-remote-assist/session:
+    get:
+      description: |
+        Returns tenants sessions history.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: _MonolithLibrary.yaml#/components/schemas/SessionHistoryItem
+                type: array
+          description: Up to 100 latest session history items
+        404:
+          description: Jamf Remote Assist is not available on this instance.
+      summary: |
+        Gets session history items.
+      tags:
+        - jamf-remote-assist
+      x-required-privileges:
+        - Read Remote Assist
+  /v1/jamf-remote-assist/session/{id}:
+    get:
+      description: |
+        Returns tenants session history for specific session.
+      parameters:
+        - description: instance id of session
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/SessionHistoryItemWithDetails
+          description: Single session history item
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Session history item not found. This may occur when the session with the given id does not exist, or when Jamf Remote Assist is not available on this instance.
+      summary: |
+        Gets single session history item.
+      tags:
+        - jamf-remote-assist
+      x-required-privileges:
+        - Read Remote Assist
+servers:
+  - url: /api

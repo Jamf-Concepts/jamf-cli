@@ -92,7 +92,7 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return printScaffoldOutput(`{
   "key": "",
   "keys": [],
-  "keystoreFile": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
+  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
   "keystoreFileName": "keystore.p12",
   "keystorePassword": "***",
   "keystoreSetupType": "UPLOADED",
@@ -342,7 +342,7 @@ func newSsoSettingsCertParseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "keystoreFile": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
+  "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
   "keystoreFileName": "keystore.p12",
   "keystorePassword": "***"
 }`, ctx.Output.Format())

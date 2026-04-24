@@ -1,32 +1,63 @@
-openapi: 3.0.1
+components:
+  schemas:
+    RemoteAdministrationResponse:
+      description: A Remote administration response
+      properties:
+        displayName:
+          example: Remote administration
+          type: string
+        id:
+          example: "1"
+          minimum: 1
+          type: string
+        siteId:
+          example: "1"
+          type: string
+        type:
+          enum:
+            - team-viewer
+          example: team-viewer
+          type: string
+      type: object
+    RemoteAdministrationSearchResults:
+      description: A list with Remote administration configurations
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/RemoteAdministrationResponse'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - Remote administration configurations
+  title: Jamf Pro API - RemoteAdministrationConfigurations
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /preview/remote-administration-configurations:
     get:
-      tags:
-        - remote-administration
-      summary: Get information about all remote administration configurations.
       description: Remote administration feature creates a secure screen-sharing experience between Jamf Pro administrators and their end-users.
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteAdministrationSearchResults'
           description: Remote administration configurations returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'RemoteAdministrationDefinitions.yaml#/components/schemas/RemoteAdministrationSearchResults'
         404:
-          description: Remote Administration feature is not available.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Remote Administration feature is not available.
+      summary: Get information about all remote administration configurations.
+      tags:
+        - remote-administration
       x-required-privileges:
         - Read Remote Administration
-
-components:
-  schemas: {}
+servers:
+  - url: /api

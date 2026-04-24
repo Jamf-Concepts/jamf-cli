@@ -1,69 +1,75 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - smart-computer-groups
+  title: Jamf Pro API - ComputerSmartGroup
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/computers/{id}/recalculate-smart-groups:
     post:
-      tags:
-      - smart-computer-groups-preview
-      summary: |
-        Recalculate a smart group for the given id
       description: |
         Recalculates a smart group for the given id and then
         returns the count of smart groups the computer falls into
       parameters:
-      - name: id
-        in: path
-        description: id of computer
-        required: true
-        schema:
-          type: integer
+        - description: id of computer
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/RecalculationResults
           description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
         400:
-          description: smart group not found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: smart group not found
+      summary: |
+        Recalculate a smart group for the given id
+      tags:
+        - smart-computer-groups-preview
       x-action: true
       x-required-privileges:
-      - Update Smart Computer Groups
+        - Update Smart Computer Groups
   /v1/smart-computer-groups/{id}/recalculate:
     post:
-      tags:
-      - smart-computer-groups-preview
-      summary: |
-        Recalculate the smart group for the given id
       description: |
         Recalculates the smart group for the given id and then
         returns the ids for the computers in the smart group
       parameters:
-      - name: id
-        in: path
-        description: instance id of smart group
-        required: true
-        schema:
-          type: integer
+        - description: instance id of smart group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/RecalculationResults
           description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
         400:
-          description: smart group not found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: smart group not found
+      summary: |
+        Recalculate the smart group for the given id
+      tags:
+        - smart-computer-groups-preview
       x-action: true
       x-required-privileges:
-      - Update Smart Computer Groups
+        - Update Smart Computer Groups
+servers:
+  - url: /api

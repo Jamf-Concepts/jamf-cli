@@ -1,540 +1,547 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - enrollment
-  version: 0.0.1
-paths:
-  /v4/enrollment:
-      get:
-          tags:
-              - enrollment
-          summary: |
-              Get Enrollment object and Re-enrollment settings
-          description: |
-              Gets Enrollment object and re-enrollment settings.
-          responses:
-              200:
-                  description: Successful response
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: '#/components/schemas/EnrollmentSettingsV4'
-          x-required-privileges:
-              - Read User-Initiated Enrollment
-      put:
-          tags:
-              - enrollment
-          summary: |
-              Update Enrollment object
-          description: |
-              Update enrollment object. Regarding the `developerCertificateIdentity`,
-              if this object is omitted, the certificate will not be deleted from Jamf Pro.
-              The `identityKeystore` is the entire cert file as a base64 encoded string. The
-              `md5Sum` field is not required in the PUT request, but is calculated and returned
-              in the response.
-          requestBody:
-              description: Update enrollment
-              content:
-                  'application/json':
-                      schema:
-                          $ref: '#/components/schemas/EnrollmentSettingsV4'
-              required: true
-          responses:
-              200:
-                  description: Successfully updated enrollment object
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: '#/components/schemas/EnrollmentSettingsV4'
-              400:
-                  description: Bad request
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-          x-required-privileges:
-              - Update User-Initiated Enrollment
-  /v3/enrollment/access-groups:
-    get:
-      tags:
-        - enrollment
-      summary: |
-        Retrieve the configured LDAP groups configured for User-Initiated Enrollment.
-      description: |
-        Retrieves the configured LDAP groups configured for User-Initiated Enrollment.
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: |
-            Sorting criteria in the format: `property:asc/desc`. Default sort
-            is `name:asc`. Multiple sort criteria are supported and must be separated
-            with a comma. Example: `sort=date:desc,name:asc`.
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [name:asc]
-        - name: all-users-option-first
-          in: query
-          description: Return "All LDAP Users" option on the first position if it is present in the current page
-          required: false
-          schema:
-            type: boolean
-            default: false
-      responses:
-        200:
-          description: Found access groups matching search params.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AccessGroupsPreviewSearchResults'
-      x-required-privileges:
-        - Read User-Initiated Enrollment
-    post:
-      tags:
-        - enrollment
-      summary: |
-        Add the configured LDAP group for User-Initiated Enrollment.
-      description: |
-        Add the configured LDAP group for User-Initiated Enrollment.
-      requestBody:
-        description: Configured LDAP group to create.
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
-        required: true
-      responses:
-        201:
-          description: Configured LDAP group record was created.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        400:
-          description: A record with given ldapServerId and name already exists.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update User-Initiated Enrollment
-
-  /v3/enrollment/access-groups/{id}:
-    get:
-      tags:
-        - enrollment
-      summary: |
-        Retrieve the configured LDAP groups configured for User-Initiated Enrollment
-      description: Retrieves the configured LDAP groups configured for User-Initiated
-        Enrollment.
-      parameters:
-        - name: id
-          in: path
-          description: Autogenerated Access Group ID.
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful query
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
-        404:
-          description: Group not found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read User-Initiated Enrollment
-    put:
-      tags:
-        - enrollment
-      summary: |
-        Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.
-      description: |
-        Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.
-      parameters:
-        - name: id
-          in: path
-          description: Autogenerated Access Group ID.
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
-        required: true
-      responses:
-        200:
-          description: Successful update
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
-        400:
-          description: Bad request.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update User-Initiated Enrollment
-    delete:
-      tags:
-        - enrollment
-      summary: |
-        Delete an LDAP group's access to user initiated Enrollment.
-      description: Deletes an LDAP group's access to user initiated enrollment. The
-        group "All LDAP Users" cannot be deleted, but it can be modified to disallow
-        User-Initiated Enrollment.
-      parameters:
-        - name: id
-          in: path
-          description: Autogenerated Access Group ID.
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Successful deletion
-        400:
-          description: |
-            "All LDAP Users" cannot be deleted.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Group not found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update User-Initiated Enrollment
-  /v2/enrollment/history:
-    get:
-      tags:
-        - enrollment
-      summary: |
-        Get sorted and paged Enrollment history object
-      description: |
-        Gets sorted and paged Enrollment history object
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: |
-            Sorting criteria in the format: `property:asc/desc`. Default sort
-            is `date:desc`. Multiple sort criteria are supported and must be separated
-            with a comma. Example: `sort=date:desc,name:asc`.
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [date:desc]
-      responses:
-        200:
-          description: Details of enrollment history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-        - Read User-Initiated Enrollment
-    post:
-      tags:
-        - enrollment
-      summary: |
-        Add Enrollment history object notes
-      description: |
-        Adds Enrollment history object notes
-      requestBody:
-        description: history notes to create
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Notes of enrollment history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        503:
-          description: Enrollment history can not be saved
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update User-Initiated Enrollment
-  /v2/enrollment/history/export:
-    post:
-      tags:
-        - enrollment
-      summary: |
-        Export enrollment history collection
-      description: |
-        Export enrollment history collection
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                    is id:desc. Multiple sort criteria are supported and must be separated
-                    with a comma. Example: sort=id:desc,name:asc '
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ id:asc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-                    Default filter is empty query - returning all results for the requested page.
-                    Fields allowed in the query: id, name.
-                    This param can be combined with paging and sorting.
-                    Example: name=="*script*"'
-          schema:
-            type: string
-            default: ''
-      requestBody:
-          description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
-          required: false
-      responses:
-          200:
-            description: Export successful
-            content:
-              text/csv,application/json:
-                schema:
-                  format: binary
-                  example: |
-                   Username,DATE,NOTES,Details
-                   admin, 2022-02-04T11:56:26.343Z, Edited ,Re-enrollment Restricted true
-          400:
-            description: |
-              Export fields specified incorrectly - non-existing column or duplicate in the list.
-              Supported columns: id,name,categoryName,categoryId,priority.
-            content:
-              application/json:
-                schema:
-                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-          503:
-            description: Export currently unavailable, all export-related resources are in use. Try again later.
-            content:
-              application/json:
-                schema:
-                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read User-Initiated Enrollment
-      x-action: true
 components:
   schemas:
-    CertificateDetails:
-      type: object
-      properties:
-        subject:
-          type: string
-          default: ""
-        serialNumber:
-          type: string
-          default: ""
-
     AccessGroupsPreviewSearchResults:
-      type: object
       properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 10
         results:
-          type: array
           items:
             $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
-    EnrollmentAccessGroupPreview:
+          type: array
+        totalCount:
+          example: 10
+          minimum: 0
+          type: integer
       type: object
+    CertificateDetails:
       properties:
-        id:
+        serialNumber:
+          default: ""
           type: string
+        subject:
+          default: ""
+          type: string
+      type: object
+    CertificateIdentityV2:
+      nullable: true
+      properties:
+        filename:
+          default: "null"
+          type: string
+        identityKeystore:
+          description: The base 64 encoded certificate.
+          example: WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09
+          format: byte
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+          writeOnly: true
+        keystorePassword:
+          default: ""
+          format: password
+          type: string
+          writeOnly: true
+        md5Sum:
+          default: ""
+          description: The md5 checksum of the certificate file. Intended to be used in verification the cert being used to sign QuickAdd packages.
           readOnly: true
-          example: "1"
-          description: Autogenerated ID
-        groupId:
           type: string
-          example: 1
-          description: LDAP Group ID
-        ldapServerId:
-          type: string
-          example: 1
-        name:
-          type: string
-          example: Grade School Pupils
-        siteId:
-          type: string
-          example: "-1"
-        enterpriseEnrollmentEnabled:
-          type: boolean
-          example: false
-        personalEnrollmentEnabled:
-          type: boolean
-          example: false
+      type: object
+    EnrollmentAccessGroupPreview:
+      properties:
         accountDrivenUserEnrollmentEnabled:
-          type: boolean
           example: false
+          type: boolean
+        enterpriseEnrollmentEnabled:
+          example: false
+          type: boolean
+        groupId:
+          description: LDAP Group ID
+          example: "1"
+          type: string
+        id:
+          description: Autogenerated ID
+          example: "1"
+          readOnly: true
+          type: string
+        ldapServerId:
+          example: "1"
+          type: string
+        name:
+          example: Grade School Pupils
+          type: string
+        personalEnrollmentEnabled:
+          example: false
+          type: boolean
         requireEula:
-          type: boolean
           example: false
+          type: boolean
+        siteId:
+          example: "-1"
+          type: string
       required:
         - groupId
         - ldapServerId
         - name
-    EnrollmentSettingsV4:
-        required:
-            - managementUsername
-        type: object
-        properties:
-            installSingleProfile:
-                type: boolean
-                default: false
-            signingMdmProfileEnabled:
-                type: boolean
-                default: false
-            mdmSigningCertificate:
-                $ref: '#/components/schemas/CertificateIdentityV2'
-            restrictReenrollment:
-                type: boolean
-                default: false
-            flushLocationInformation:
-                type: boolean
-                default: false
-            flushLocationHistoryInformation:
-                type: boolean
-                default: false
-            flushPolicyHistory:
-                type: boolean
-                default: false
-            flushExtensionAttributes:
-                type: boolean
-                default: false
-            flushSoftwareUpdatePlans:
-                type: boolean
-                default: false
-            flushMdmCommandsOnReenroll:
-                type: string
-                default: DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
-                enum:
-                    - DELETE_NOTHING
-                    - DELETE_ERRORS
-                    - DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
-                    - DELETE_EVERYTHING
-            macOsEnterpriseEnrollmentEnabled:
-                type: boolean
-                default: false
-            managementUsername:
-                type: string
-                example: radmin
-                default: ""
-            createManagementAccount:
-                type: boolean
-                default: true
-            hideManagementAccount:
-                type: boolean
-                default: false
-            allowSshOnlyManagementAccount:
-                type: boolean
-                default: false
-            ensureSshRunning:
-                type: boolean
-                default: true
-            launchSelfService:
-                type: boolean
-                default: false
-            signQuickAdd:
-                type: boolean
-                default: false
-            developerCertificateIdentity:
-                $ref: '#/components/schemas/CertificateIdentityV2'
-            developerCertificateIdentityDetails:
-                $ref: '#/components/schemas/CertificateDetails'
-            mdmSigningCertificateDetails:
-                $ref: '#/components/schemas/CertificateDetails'
-            iosEnterpriseEnrollmentEnabled:
-                type: boolean
-                default: true
-            iosPersonalEnrollmentEnabled:
-                type: boolean
-                default: false
-            personalDeviceEnrollmentType:
-                type: string
-                default: USERENROLLMENT
-                readOnly: true
-                deprecated: true
-                description: >
-                    **Deprecated as of 11.25.** This field always returns "USERENROLLMENT" in GET responses
-                    and ignores any input values in PUT requests.
-            accountDrivenUserEnrollmentEnabled:
-                type: boolean
-                default: false
-            accountDrivenDeviceIosEnrollmentEnabled:
-                type: boolean
-                default: false
-            accountDrivenDeviceMacosEnrollmentEnabled:
-                type: boolean
-                default: false
-            accountDrivenUserVisionosEnrollmentEnabled:
-                type: boolean
-                default: false
-            accountDrivenDeviceVisionosEnrollmentEnabled:
-                type: boolean
-                default: false
-            maidUsernameMergeEnabled:
-                type: boolean
-                default: false
-    CertificateIdentityV2:
       type: object
-      nullable: true
+    EnrollmentSettingsV4:
       properties:
-        filename:
+        accountDrivenDeviceIosEnrollmentEnabled:
+          default: false
+          type: boolean
+        accountDrivenDeviceMacosEnrollmentEnabled:
+          default: false
+          type: boolean
+        accountDrivenDeviceVisionosEnrollmentEnabled:
+          default: false
+          type: boolean
+        accountDrivenUserEnrollmentEnabled:
+          default: false
+          type: boolean
+        accountDrivenUserVisionosEnrollmentEnabled:
+          default: false
+          type: boolean
+        allowSshOnlyManagementAccount:
+          default: false
+          type: boolean
+        createManagementAccount:
+          default: true
+          type: boolean
+        developerCertificateIdentity:
+          $ref: '#/components/schemas/CertificateIdentityV2'
+        developerCertificateIdentityDetails:
+          $ref: '#/components/schemas/CertificateDetails'
+        ensureSshRunning:
+          default: true
+          type: boolean
+        flushExtensionAttributes:
+          default: false
+          type: boolean
+        flushLocationHistoryInformation:
+          default: false
+          type: boolean
+        flushLocationInformation:
+          default: false
+          type: boolean
+        flushMdmCommandsOnReenroll:
+          default: DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+          enum:
+            - DELETE_NOTHING
+            - DELETE_ERRORS
+            - DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+            - DELETE_EVERYTHING
           type: string
-          default: 'null'
-        keystorePassword:
-          type: string
-          writeOnly: true
-          format: password
+        flushPolicyHistory:
+          default: false
+          type: boolean
+        flushSoftwareUpdatePlans:
+          default: false
+          type: boolean
+        hideManagementAccount:
+          default: false
+          type: boolean
+        installSingleProfile:
+          default: false
+          type: boolean
+        iosEnterpriseEnrollmentEnabled:
+          default: true
+          type: boolean
+        iosPersonalEnrollmentEnabled:
+          default: false
+          type: boolean
+        launchSelfService:
+          default: false
+          type: boolean
+        macOsEnterpriseEnrollmentEnabled:
+          default: false
+          type: boolean
+        maidUsernameMergeEnabled:
+          default: false
+          type: boolean
+        managementUsername:
           default: ""
-        identityKeystore:
-          description: The base 64 encoded certificate.
-          writeOnly: true
-          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
-          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          example: radmin
           type: string
-          format: byte
-        md5Sum:
-          type: string
+        mdmSigningCertificate:
+          $ref: '#/components/schemas/CertificateIdentityV2'
+        mdmSigningCertificateDetails:
+          $ref: '#/components/schemas/CertificateDetails'
+        personalDeviceEnrollmentType:
+          default: USERENROLLMENT
+          deprecated: true
+          description: |
+            **Deprecated as of 11.25.** This field always returns "USERENROLLMENT" in GET responses and ignores any input values in PUT requests.
           readOnly: true
-          description: The md5 checksum of the certificate file. Intended to be
-            used in verification the cert being used to sign QuickAdd packages.
-          default: ""
+          type: string
+        restrictReenrollment:
+          default: false
+          type: boolean
+        signQuickAdd:
+          default: false
+          type: boolean
+        signingMdmProfileEnabled:
+          default: false
+          type: boolean
+      required:
+        - managementUsername
+      type: object
+info:
+  title: Jamf Pro API - EnrollmentSettings
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/enrollment/history:
+    get:
+      description: |
+        Gets sorted and paged Enrollment history object
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `date:desc`. Multiple sort criteria are supported and must be separated
+            with a comma. Example: `sort=date:desc,name:asc`.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of enrollment history were found
+      summary: |
+        Get sorted and paged Enrollment history object
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    post:
+      description: |
+        Adds Enrollment history object notes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of enrollment history were added
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Enrollment history can not be saved
+      summary: |
+        Add Enrollment history object notes
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+  /v2/enrollment/history/export:
+    post:
+      description: |
+        Export enrollment history collection
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-fields
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-labels
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name=="*script*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ExportParameters
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+        required: false
+      responses:
+        200:
+          content:
+            text/csv,application/json:
+              schema:
+                example: |
+                  Username,DATE,NOTES,Details
+                  admin, 2022-02-04T11:56:26.343Z, Edited ,Re-enrollment Restricted true
+                format: binary
+          description: Export successful
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Export fields specified incorrectly - non-existing column or duplicate in the list.
+            Supported columns: id,name,categoryName,categoryId,priority.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: |
+        Export enrollment history collection
+      tags:
+        - enrollment
+      x-action: true
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+  /v3/enrollment/access-groups:
+    get:
+      description: |
+        Retrieves the configured LDAP groups configured for User-Initiated Enrollment.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `name:asc`. Multiple sort criteria are supported and must be separated
+            with a comma. Example: `sort=date:desc,name:asc`.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - name:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: Return "All LDAP Users" option on the first position if it is present in the current page
+          explode: true
+          in: query
+          name: all-users-option-first
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessGroupsPreviewSearchResults'
+          description: Found access groups matching search params.
+      summary: |
+        Retrieve the configured LDAP groups configured for User-Initiated Enrollment.
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    post:
+      description: |
+        Add the configured LDAP group for User-Initiated Enrollment.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
+        description: Configured LDAP group to create.
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Configured LDAP group record was created.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: A record with given ldapServerId and name already exists.
+      summary: |
+        Add the configured LDAP group for User-Initiated Enrollment.
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+  /v3/enrollment/access-groups/{id}:
+    delete:
+      description: Deletes an LDAP group's access to user initiated enrollment. The group "All LDAP Users" cannot be deleted, but it can be modified to disallow User-Initiated Enrollment.
+      parameters:
+        - description: Autogenerated Access Group ID.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful deletion
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            "All LDAP Users" cannot be deleted.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Group not found
+      summary: |
+        Delete an LDAP group's access to user initiated Enrollment.
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+    get:
+      description: Retrieves the configured LDAP groups configured for User-Initiated Enrollment.
+      parameters:
+        - description: Autogenerated Access Group ID.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
+          description: Successful query
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Group not found
+      summary: |
+        Retrieve the configured LDAP groups configured for User-Initiated Enrollment
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    put:
+      description: |
+        Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.
+      parameters:
+        - description: Autogenerated Access Group ID.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentAccessGroupPreview'
+          description: Successful update
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad request.
+      summary: |
+        Modify the configured LDAP groups configured for User-Initiated Enrollment. Only exiting Access Groups can be updated.
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+  /v4/enrollment:
+    get:
+      description: |
+        Gets Enrollment object and re-enrollment settings.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentSettingsV4'
+          description: Successful response
+      summary: |
+        Get Enrollment object and Re-enrollment settings
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    put:
+      description: |
+        Update enrollment object. Regarding the `developerCertificateIdentity`,
+        if this object is omitted, the certificate will not be deleted from Jamf Pro.
+        The `identityKeystore` is the entire cert file as a base64 encoded string. The
+        `md5Sum` field is not required in the PUT request, but is calculated and returned
+        in the response.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentSettingsV4'
+        description: Update enrollment
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentSettingsV4'
+          description: Successfully updated enrollment object
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad request
+      summary: |
+        Update Enrollment object
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+servers:
+  - url: /api

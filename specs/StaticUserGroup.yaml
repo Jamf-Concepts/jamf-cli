@@ -1,70 +1,72 @@
-openapi: 3.0.1
+components:
+  schemas:
+    StaticUserGroup:
+      properties:
+        description:
+          example: A group containing all grade school teachers
+          type: string
+        id:
+          example: 1
+          type: integer
+        name:
+          example: Grade School Teachers
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - static-user-groups
+  title: Jamf Pro API - StaticUserGroup
   version: 0.0.1
-servers:
-- url: /
+openapi: 3.0.1
 paths:
   /v1/static-user-groups:
     get:
-      tags:
-      - static-user-groups-preview
-      summary: |
-        Return a list of all Static User Groups
       description: |
         Returns a list of all static user groups.
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/StaticUserGroup'
+                type: array
+          description: Success
+      summary: |
+        Return a list of all Static User Groups
+      tags:
+        - static-user-groups-preview
       x-required-privileges:
-      - Read Static User Groups
+        - Read Static User Groups
   /v1/static-user-groups/{id}:
     get:
-      tags:
-      - static-user-groups-preview
-      summary: |
-        Return a specific Static User Group by id
       description: |
         Returns a specific static user group by id.
       parameters:
-      - name: id
-        in: path
-        description: Instance id of static user group record
-        required: true
-        schema:
-          type: integer
+        - description: Instance id of static user group record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/StaticUserGroup'
+          description: Success
         404:
-          description: Specified static user group object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified static user group object does not exist.
+      summary: |
+        Return a specific Static User Group by id
+      tags:
+        - static-user-groups-preview
       x-required-privileges:
-      - Read Static User Groups
-components:
-  schemas:
-    StaticUserGroup:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        name:
-          type: string
-          example: Grade School Teachers
-        description:
-          type: string
-          example: A group containing all grade school teachers
+        - Read Static User Groups
+servers:
+  - url: /api

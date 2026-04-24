@@ -33,8 +33,9 @@ func NewVenafisCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafisPatchCmd(ctx))
 	cmd.AddCommand(newVenafisConnectionStatusCmd(ctx))
 	cmd.AddCommand(newVenafisDependentProfilesCmd(ctx))
-	cmd.AddCommand(newVenafisDownloadCmd(ctx))
+	cmd.AddCommand(newVenafisJamfPublicKeyCmd(ctx))
 	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
+	cmd.AddCommand(newVenafisProxyTrustStoreCmd(ctx))
 	cmd.AddCommand(newVenafisApplyCmd(ctx))
 
 	return cmd
@@ -736,21 +737,21 @@ func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newVenafisDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafisJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download [<id>]",
+		Use:   "jamf-public-key [<id>]",
 		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Example: `  # Save to file
-  jamf-cli pro venafis download <id> -O output.bin
+  jamf-cli pro venafis jamf-public-key <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro venafis download <id> > output.bin`,
+  jamf-cli pro venafis jamf-public-key <id> > output.bin`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -876,6 +877,81 @@ func newVenafisRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
+
+	return cmd
+}
+
+func newVenafisProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+		flagName   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "proxy-trust-store [<id>]",
+		Short: "Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:  "Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Example: `  # Save to file
+  jamf-cli pro venafis proxy-trust-store <id> -O output.bin
+
+  # Pipe to stdout
+  jamf-cli pro venafis proxy-trust-store <id> > output.bin`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
 
 	return cmd

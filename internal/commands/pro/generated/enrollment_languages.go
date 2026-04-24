@@ -273,7 +273,7 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "loginDescription": "Log in to enroll your device.",
   "logoutButton": "Log Out",
   "name": "English",
-  "password": 12345,
+  "password": "12345",
   "personalEula": "Personal Eula",
   "quickAddButton": "Download",
   "quickAddName": "",

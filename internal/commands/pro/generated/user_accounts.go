@@ -28,7 +28,9 @@ func NewUserAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newUserAccountsListCmd(ctx))
 	cmd.AddCommand(newUserAccountsGetCmd(ctx))
 	cmd.AddCommand(newUserAccountsCreateCmd(ctx))
+	cmd.AddCommand(newUserAccountsUpdateCmd(ctx))
 	cmd.AddCommand(newUserAccountsDeleteCmd(ctx))
+	cmd.AddCommand(newUserAccountsApplyCmd(ctx))
 
 	return cmd
 }
@@ -305,6 +307,104 @@ func newUserAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newUserAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "update [<id>]",
+		Short: "Updates the user account.",
+		Long:  "Updates the user account for the given id.",
+		Example: `  # Update a user-account from JSON
+  echo '{"name":"Updated"}' | jamf-cli pro user-accounts update 1
+
+  # Update by name
+  jamf-cli pro user-accounts get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro user-accounts update --name "Example"
+
+  # Get a user-account, modify, and update
+  jamf-cli pro user-accounts get 1 -o json | jq '.name = "New Name"' | jamf-cli pro user-accounts update 1`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accessLevel": "",
+  "accountStatus": "",
+  "accountType": "",
+  "changePasswordOnNextLogin": true,
+  "distinguishedName": "",
+  "email": "bob@jamf.com",
+  "ldapServerId": -1,
+  "phone": "715-999-9999",
+  "plainPassword": "testpassword4321",
+  "privilegeLevel": "",
+  "realname": "Bob Jones",
+  "siteId": -1,
+  "username": "testusername"
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/accounts", "username", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/accounts/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up user-account by name")
+
+	return cmd
+}
+
 func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
@@ -414,6 +514,133 @@ func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user-account by name")
+
+	return cmd
+}
+
+func newUserAccountsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or replace a user-account by name",
+		Long: `Create or replace a user-account. Reads JSON or YAML from --from-file or stdin.
+
+The username field in the input is used to check if the resource
+already exists. If it does, the resource is replaced (with confirmation).
+If not, a new resource is created.`,
+		Example: `  # Apply a user-account from a JSON file
+  jamf-cli pro user-accounts apply --from-file user-account.json
+
+  # Apply a user-account from a YAML file
+  jamf-cli pro user-accounts apply --from-file user-account.yaml
+
+  # Apply from stdin
+  cat user-account.json | jamf-cli pro user-accounts apply
+
+  # Apply without replacement confirmation
+  jamf-cli pro user-accounts apply --from-file user-account.json --yes
+
+  # Preview what would happen
+  jamf-cli pro user-accounts apply --from-file user-account.json --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			reqCtx := cmd.Context()
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "accessLevel": "",
+  "accountStatus": "",
+  "accountType": "",
+  "changePasswordOnNextLogin": true,
+  "distinguishedName": "",
+  "email": "bob@jamf.com",
+  "ldapServerId": -1,
+  "phone": "715-999-9999",
+  "plainPassword": "testpassword4321",
+  "privilegeLevel": "",
+  "realname": "Bob Jones",
+  "siteId": -1,
+  "username": "testusername"
+}`, ctx.Output.Format())
+			}
+
+			// Read input (JSON or YAML). When file flags are present, empty input
+			// is OK — the file-field injector constructs a minimal body.
+			data, err := readApplyInput(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(data) > 0 {
+				data, err = normalizeInputToJSON(data)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Extract name from JSON input
+			name, err := extractJSONField(data, "username")
+			if err != nil {
+				return fmt.Errorf("input must include a %q field: %w", "username", err)
+			}
+
+			// Check if resource exists by name (read-only, runs even in dry-run)
+			noInput, _ := cmd.Flags().GetBool("no-input")
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/accounts", "username", "id", name, noInput)
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				// Not found — create
+				if flagDryRun {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create user-account %q\n", name)
+					return nil
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/accounts", bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				fmt.Fprintf(os.Stderr, "Created user-account %q\n", name)
+				return ctx.Output.PrintResponse(resp)
+			}
+
+			// Found — replace
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace user-account %q (id: %s)\n", name, id)
+				return nil
+			}
+			if !flagYes {
+				if noInput {
+					return fmt.Errorf("user-account %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+				}
+				fmt.Fprintf(os.Stderr, "user-account %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			updatePath := strings.Replace("/v1/accounts/{id}", "{id}", url.PathEscape(id), 1)
+			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Fprintf(os.Stderr, "Replaced user-account %q (id: %s)\n", name, id)
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

@@ -1,48 +1,51 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Declarative Device Management Declarations
-  version: 0.0.2
+  title: Jamf Pro API - DssProxy
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/dss-declarations/{declarationId}:
     get:
+      description: Retrieves a stored declaration based on the provided declaration id
+      parameters:
+        - description: Declaration UUID
+          example: 538F90D7-9383-4A2B-B1C8-81E845A9CFD7
+          explode: false
+          in: path
+          name: declarationId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/DssDeclarations
+          description: The Declaration request was sent successfully.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Insufficient privileges to perform this action.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Existing declaration not found.
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Server Error, unable to complete Declaration request.
+      summary: Retrieve an existing declaration
       tags:
         - declarative-device-management
-      summary: Retrieve an existing declaration
-      description:
-        Retrieves a stored declaration based on the provided declaration id
       x-required-privileges:
         - Read Mobile Devices
         - Read Computers
-      parameters:
-        -   name: declarationId
-            in: path
-            required: true
-            description: Declaration UUID
-            example: 538F90D7-9383-4A2B-B1C8-81E845A9CFD7
-            schema:
-              type: string
-      responses:
-        200:
-          description: The Declaration request was sent successfully.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/DssDeclarations'
-        403:
-          description: Insufficient privileges to perform this action.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Existing declaration not found.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        500:
-          description: Server Error, unable to complete Declaration request.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+servers:
+  - url: /api

@@ -1,0 +1,169 @@
+components:
+  schemas:
+    AccountGroupSearchResultsV1:
+      properties:
+        results:
+          description: The collection of account groups for the requested page
+          items:
+            $ref: '#/components/schemas/AccountGroupV1'
+          minItems: 0
+          type: array
+        totalCount:
+          description: Total number of account groups matching the filter criteria
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    AccountGroupV1:
+      properties:
+        accessLevel:
+          default: FullAccess
+          description: Access level for the account group
+          enum:
+            - FullAccess
+            - SiteAccess
+            - GroupBasedAccess
+          type: string
+        directoryGroupId:
+          example: ""
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        ldapServerId:
+          example: "-1"
+          type: string
+        members:
+          description: Members of this account group
+          items:
+            properties:
+              email:
+                example: admin@jamf.com
+                nullable: true
+                type: string
+              id:
+                example: "1"
+                readOnly: true
+                type: string
+              realname:
+                example: Admin User
+                nullable: true
+                type: string
+              username:
+                example: admin
+                nullable: true
+                type: string
+            required:
+              - id
+            type: object
+          type: array
+        name:
+          example: Admin
+          minLength: 1
+          type: string
+        privilegeLevel:
+          default: ADMINISTRATOR
+          description: Privilege level for the account group
+          enum:
+            - ADMINISTRATOR
+            - AUDITOR
+            - ENROLLMENT
+            - CUSTOM
+          type: string
+        privileges:
+          description: List of privilege strings assigned to this group
+          example:
+            - Read Computers
+            - Update Computers
+          items:
+            type: string
+          type: array
+        siteId:
+          example: "-1"
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - AccountGroup
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/account-groups:
+    get:
+      description: Get all account groups with pagination, sorting, and filtering support.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: property:asc/desc. Default sort is
+            name:asc. Multiple sort criteria are supported and must be separated with a comma.
+            Accepts fields: id, name, siteId, ldapServerId.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - name:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: |
+            Query in the RSQL format to filter account groups collection. An empty query returns all results for the requested page.
+            Supported fields: id, name, siteId, ldapServerId.
+            Multiple conditions can be combined using logical operators.
+            This parameter can be used with paging and sorting parameters.
+            Example: name=="Admins" and siteId==-1
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountGroupSearchResultsV1'
+          description: Account groups retrieved successfully
+      summary: Get account groups
+      tags:
+        - account-groups
+      x-authentication-required: true
+      x-required-privileges:
+        - Read Account Groups
+  /v1/account-groups/{id}:
+    get:
+      description: |
+        Gets the account group for the given id.
+      parameters:
+        - description: id of target account group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountGroupV1'
+          description: Successful response - account group retrieved
+        404:
+          description: Not Found - account group does not exist
+      summary: |
+        Gets the account group.
+      tags:
+        - account-groups
+      x-authentication-required: true
+      x-required-privileges:
+        - Read Account Groups
+servers:
+  - url: /api

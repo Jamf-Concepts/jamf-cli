@@ -253,7 +253,7 @@ func newDeviceEnrollmentInstancesCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "encodedToken": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
   "tokenFileName": "Acme MDM Token"
 }`, ctx.Output.Format())
 			}
@@ -369,8 +369,8 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "name": "Example Device Enrollment Instance",
-  "siteId": -1,
-  "supervisionIdentityId": 1
+  "siteId": "-1",
+  "supervisionIdentityId": "1"
 }`, ctx.Output.Format())
 			}
 
@@ -1036,7 +1036,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "encodedToken": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "encodedToken": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
   "tokenFileName": "Acme MDM Token"
 }`, ctx.Output.Format())
 			}

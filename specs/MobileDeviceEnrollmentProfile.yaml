@@ -1,32 +1,35 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Mobile Device Enrollment Profile
+  title: Jamf Pro API - MobileDeviceEnrollmentProfile
   version: 0.0.1
-
+openapi: 3.0.1
 paths:
   /v1/mobile-device-enrollment-profile/{id}/download-profile:
     get:
-      tags:
-        - mobile-device-enrollment-profile
-      summary:  |
-        Retrieve the MDM Enrollment Profile
       description: Retrieve the MDM Enrollment Profile
       parameters:
-        - name: id
+        - description: MDM Enrollment Profile identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: MDM Enrollment Profile identifier
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/x-apple-aspen-config':
+            application/x-apple-aspen-config:
               schema:
-                type: string
                 format: binary
+                type: string
+          description: Success
         404:
           description: Not Found
+      summary: |
+        Retrieve the MDM Enrollment Profile
+      tags:
+        - mobile-device-enrollment-profile
       x-required-privileges:
         - Read Enrollment Profiles
+servers:
+  - url: /api

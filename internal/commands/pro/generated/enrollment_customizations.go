@@ -253,7 +253,7 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
   "description": "Example description",
   "displayName": "Example",
   "enrollmentCustomizationBrandingSettings": {},
-  "siteId": 2
+  "siteId": "2"
 }`, ctx.Output.Format())
 			}
 
@@ -326,7 +326,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
   "description": "Example description",
   "displayName": "Example",
   "enrollmentCustomizationBrandingSettings": {},
-  "siteId": 2
+  "siteId": "2"
 }`, ctx.Output.Format())
 			}
 
@@ -942,7 +942,7 @@ If not, a new resource is created.`,
   "description": "Example description",
   "displayName": "Example",
   "enrollmentCustomizationBrandingSettings": {},
-  "siteId": 2
+  "siteId": "2"
 }`, ctx.Output.Format())
 			}
 

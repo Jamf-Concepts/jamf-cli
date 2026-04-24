@@ -1,168 +1,336 @@
-openapi: 3.0.1
+components:
+  schemas:
+    EnrollmentCustomizationDependencies:
+      properties:
+        dependencies:
+          items:
+            $ref: '#/components/schemas/EnrollmentCustomizationDependency'
+          type: array
+      type: object
+    EnrollmentCustomizationDependency:
+      properties:
+        humanReadableName:
+          example: Enrollment Customization
+          type: string
+        hyperlink:
+          example: /enrollment-customization/id
+          type: string
+        name:
+          example: Name
+          type: string
+      type: object
+    EnrollmentSsoConfig:
+      properties:
+        hosts:
+          default: []
+          example:
+            - dev-12324233.okta.com
+            - example.okta.com
+          items:
+            type: string
+          minItems: 0
+          type: array
+        managementHint:
+          default: ""
+          type: string
+      type: object
+    OidcSettings:
+      properties:
+        jamfIdAuthenticationEnabled:
+          default: true
+          type: boolean
+        userMapping:
+          enum:
+            - USERNAME
+            - EMAIL
+          example: USERNAME
+          type: string
+        usernameAttributeClaimMapping:
+          enum:
+            - USERNAME
+            - EMAIL
+          example: EMAIL
+          type: string
+      required:
+        - userMapping
+      type: object
+    SamlSettings:
+      properties:
+        entityId:
+          example: saml/metadata
+          type: string
+        federationMetadataFile:
+          example: WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09
+          format: byte
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+        groupAttributeName:
+          default: http://schemas.xmlsoap.org/claims/Group
+          type: string
+        groupRdnKey:
+          default: ' '
+          type: string
+        idpProviderType:
+          enum:
+            - ADFS
+            - OKTA
+            - GOOGLE
+            - SHIBBOLETH
+            - ONELOGIN
+            - PING
+            - CENTRIFY
+            - AZURE
+            - OTHER
+          example: ADFS
+          type: string
+        idpUrl:
+          example: https://example.idp.com/app/id/sso/saml/metadata
+          type: string
+        metadataFileName:
+          example: if MetadataSource is set to URL, remove this field
+          type: string
+        metadataSource:
+          enum:
+            - URL
+            - FILE
+            - UNKNOWN
+          example: URL
+          type: string
+        otherProviderTypeName:
+          default: ' '
+          type: string
+        sessionTimeout:
+          default: 480
+          format: int32
+          type: integer
+        tokenExpirationDisabled:
+          default: false
+          type: boolean
+        userAttributeEnabled:
+          default: false
+          type: boolean
+        userAttributeName:
+          default: ' '
+          type: string
+        userMapping:
+          enum:
+            - USERNAME
+            - EMAIL
+          example: USERNAME
+          type: string
+      type: object
+    SsoSettingsV3:
+      properties:
+        configurationType:
+          enum:
+            - SAML
+            - OIDC
+            - OIDC_WITH_SAML
+          example: SAML
+          type: string
+        enrollmentSsoConfig:
+          $ref: '#/components/schemas/EnrollmentSsoConfig'
+        enrollmentSsoForAccountDrivenEnrollmentEnabled:
+          default: false
+          type: boolean
+        groupEnrollmentAccessEnabled:
+          default: false
+          type: boolean
+        groupEnrollmentAccessName:
+          default: ' '
+          type: string
+        oidcSettings:
+          $ref: '#/components/schemas/OidcSettings'
+        samlSettings:
+          $ref: '#/components/schemas/SamlSettings'
+        ssoBypassAllowed:
+          default: false
+          type: boolean
+        ssoEnabled:
+          default: false
+          type: boolean
+        ssoForEnrollmentEnabled:
+          default: false
+          type: boolean
+        ssoForMacOsSelfServiceEnabled:
+          default: false
+          type: boolean
+      required:
+        - configurationType
+        - enrollmentSsoForAccountDrivenEnrollmentEnabled
+        - groupEnrollmentAccessEnabled
+        - oidcSettings
+        - samlSettings
+        - ssoBypassAllowed
+        - ssoEnabled
+        - ssoForEnrollmentEnabled
+        - ssoForMacOsSelfServiceEnabled
+      type: object
 info:
-    title: Jamf Pro API - SSO Settings
-    version: 0.0.1
+  title: Jamf Pro API - SsoSettings
+  version: 0.0.1
+openapi: 3.0.1
 paths:
-    #    v3 API
-    /v3/sso:
-        get:
-            tags:
-                - sso-settings
-            summary: |
-                Retrieve the current Single Sign On configuration settings
-            description: Retrieves the current Single Sign On configuration settings
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
-            x-required-privileges:
-                - Read SSO Settings
-        put:
-            tags:
-                - sso-settings
-            summary: |
-                Updates the current Single Sign On configuration settings
-            description: Updates the current Single Sign On configuration settings
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
-            responses:
-                200:
-                    description: The update was successful and the newly updated object is returned.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/SsoSettingsV3'
-                400:
-                    description: Bad Request. Either required fields are missing or there was
-                        a validation exception.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update SSO Settings
-    /v3/sso/history:
-        get:
-            tags:
-                - sso-settings
-            summary: |
-                Get SSO history object
-            description: |
-                Gets SSO history object
-            parameters:
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
-                    style: form
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ id:desc ]
-                -   name: filter
-                    in: query
-                    description: 'Query in the RSQL format, allowing to filter history notes collection.
-          Default filter is empty query - returning all results for the requested page.
-          Fields allowed in the query: username, date, note, details.
-          This param can be combined with paging and sorting.
-          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-                    schema:
-                        type: string
-                        default: ''
-            responses:
-                200:
-                    description: Details of SSO history were found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-            x-required-privileges:
-                - Read SSO Settings
-        post:
-            tags:
-                - sso-settings
-            summary: |
-                Add SSO history object notes
-            description: Adds SSO history object notes
-            requestBody:
-                description: history notes to create
-                content:
-                    'application/json':
-                        schema:
-                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-                required: true
-            responses:
-                201:
-                    description: Notes of SSO history were added
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-                503:
-                    description: SSO object history can not be saved
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update SSO Settings
-    /v3/sso/metadata/download:
-        get:
-            tags:
-                - sso-settings
-            summary: |
-                Download the Jamf Pro SAML metadata file
-            description: Download the Jamf Pro SAML metadata file
-            responses:
-                200:
-                    description: Successful resposne
-                    content:
-                        'text/plain':
-                            schema:
-                                type: string
-                                format: binary
-            x-action: true
-            x-required-privileges:
-                - Read SSO Settings
-    /v3/sso/disable:
-        post:
-            tags:
-                - sso-settings
-            summary: |
-                Disable SSO
-            description: Disable SSO
-            responses:
-                202:
-                    description: SSO has been disabled
-                400:
-                    description: SSO object don't exist or is already disabled
-            x-required-privileges:
-                - Update SSO Settings
-            x-action: true
-    /v3/sso/dependencies:
-        get:
-            tags:
-                - sso-settings
-            summary: |
-                Retrieve the list of Enrollment Customizations using SSO
-            description: Retrieves the list of Enrollment Customizations using SSO
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'SsoSettingsLibrary.yaml#/components/schemas/EnrollmentCustomizationDependencies'
-            x-required-privileges:
-                - Read SSO Settings
+  /v3/sso:
+    get:
+      description: Retrieves the current Single Sign On configuration settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoSettingsV3'
+          description: Successful response
+      summary: |
+        Retrieve the current Single Sign On configuration settings
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Read SSO Settings
+    put:
+      description: Updates the current Single Sign On configuration settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SsoSettingsV3'
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoSettingsV3'
+          description: The update was successful and the newly updated object is returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Either required fields are missing or there was a validation exception.
+      summary: |
+        Updates the current Single Sign On configuration settings
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Update SSO Settings
+  /v3/sso/dependencies:
+    get:
+      description: Retrieves the list of Enrollment Customizations using SSO
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentCustomizationDependencies'
+          description: Success
+      summary: |
+        Retrieve the list of Enrollment Customizations using SSO
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Read SSO Settings
+  /v3/sso/disable:
+    post:
+      description: Disable SSO
+      responses:
+        202:
+          description: SSO has been disabled
+        400:
+          description: SSO object don't exist or is already disabled
+        409:
+          description: SSO cannot be disabled due to existing dependencies to it. This might happen if there are enrollment customizations depending on it or if SSO is the only authentication method available for the users.
+      summary: |
+        Disable SSO
+      tags:
+        - sso-settings
+      x-action: true
+      x-required-privileges:
+        - Update SSO Settings
+  /v3/sso/history:
+    get:
+      description: |
+        Gets SSO history object
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of SSO history were found
+      summary: |
+        Get SSO history object
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Read SSO Settings
+    post:
+      description: Adds SSO history object notes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of SSO history were added
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: SSO object history can not be saved
+      summary: |
+        Add SSO history object notes
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Update SSO Settings
+  /v3/sso/metadata/download:
+    get:
+      description: Download the Jamf Pro SAML metadata file
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                format: binary
+                type: string
+          description: Successful resposne
+      summary: |
+        Download the Jamf Pro SAML metadata file
+      tags:
+        - sso-settings
+      x-required-privileges:
+        - Read SSO Settings
+servers:
+  - url: /api

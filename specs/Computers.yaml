@@ -1,123 +1,126 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ComputerLocation:
+      properties:
+        position:
+          example: IT Team Lead
+          type: string
+        room:
+          example: 4th Floor - Quad 3
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    ComputerOverview:
+      properties:
+        assetTag:
+          example: A123BC
+          type: string
+        id:
+          example: "7"
+          minLength: 1
+          type: string
+        ipAddress:
+          example: 93.184.216.34
+          type: string
+        isManaged:
+          example: true
+          type: boolean
+        lastContactDate:
+          example: "2000-04-25T21:09:31.661Z"
+          type: string
+        lastEnrolledDate:
+          example: "2000-04-25T21:09:31.661Z"
+          type: string
+        lastReportDate:
+          example: "2000-04-25T21:09:31.661Z"
+          type: string
+        location:
+          $ref: '#/components/schemas/ComputerLocation'
+        macAddress:
+          example: F3:7C:6F:2C:B6:76
+          type: string
+        managementId:
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+          type: string
+        mdmAccessRights:
+          example: 1
+          type: integer
+        modelIdentifier:
+          example: MNYF2XX/A
+          type: string
+        name:
+          example: Zach's hand me down MacBook Pro
+          type: string
+        operatingSystemBuild:
+          example: TK421
+          type: string
+        operatingSystemRapidSecurityResponse:
+          description: Collected for macOS 13.0 or later
+          example: (a)
+          type: string
+        operatingSystemSupplementalBuildVersion:
+          description: Collected for macOS 13.0 or later
+          example: TK953
+          type: string
+        operatingSystemVersion:
+          example: 10.9.5
+          type: string
+        serialNumber:
+          example: C02L29ECF8J1
+          type: string
+        udid:
+          example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
+          type: string
+      type: object
+    ComputersSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ComputerOverview'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - computers
+  title: Jamf Pro API - Computers
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /preview/computers:
     get:
-      tags:
-      - computers-preview
-      summary: |
-        Return a list of Computers
       description: Returns a list of computers.
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is name:asc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc'
-        schema:
-          type: string
-          default: name:asc
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/pagesize
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default: name:asc
+            type: string
+          style: form
       responses:
         200:
-          description: OK
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComputersSearchResults'
+          description: OK
+      summary: |
+        Return a list of Computers
+      tags:
+        - computers-preview
       x-required-privileges:
-      - Read Computers
-components:
-  schemas:
-    ComputerLocation:
-      type: object
-      properties:
-        username:
-          type: string
-          example: admin
-        position:
-          type: string
-          example: IT Team Lead
-        room:
-          type: string
-          example: 4th Floor - Quad 3
-    ComputerOverview:
-      type: object
-      properties:
-        id:
-          type: string
-          minLength: 1
-          example: "7"
-        location:
-          $ref: '#/components/schemas/ComputerLocation'
-        name:
-          type: string
-          example: Zach's hand me down MacBook Pro
-        udid:
-          type: string
-          example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
-        serialNumber:
-          type: string
-          example: C02L29ECF8J1
-        lastContactDate:
-          type: string
-          example: 2000-04-25T21:09:31.661Z
-        lastReportDate:
-          type: string
-          example: 2000-04-25T21:09:31.661Z
-        lastEnrolledDate:
-          type: string
-          example: 2000-04-25T21:09:31.661Z
-        operatingSystemVersion:
-          type: string
-          example: 10.9.5
-        operatingSystemBuild:
-          type: string
-          example: TK421
-        operatingSystemSupplementalBuildVersion:
-          type: string
-          example: TK953
-          description: Collected for macOS 13.0 or later
-        operatingSystemRapidSecurityResponse:
-          type: string
-          example: (a)
-          description: Collected for macOS 13.0 or later
-        ipAddress:
-          type: string
-          example: 93.184.216.34
-        macAddress:
-          type: string
-          example: F3:7C:6F:2C:B6:76
-        assetTag:
-          type: string
-          example: A123BC
-        modelIdentifier:
-          type: string
-          example: MNYF2XX/A
-        mdmAccessRights:
-          type: integer
-          example: 1
-        isManaged:
-          type: boolean
-          example: true
-        managementId:
-          type: string
-          example: 73226fb6-61df-4c10-9552-eb9bc353d507
-          readOnly: true
-    ComputersSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          minimum: 0
-          example: 3
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/ComputerOverview'
+        - Read Computers
+servers:
+  - url: /api

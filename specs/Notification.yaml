@@ -1,72 +1,6 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - jamf-pro-notifications
-  version: 0.0.1
-paths:
-  /v1/notifications:
-    get:
-      tags:
-        - jamf-pro-notifications
-      summary: |
-        Get Notifications for user and site
-      description: |
-        Gets notifications for user and site
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/NotificationV1'
-      x-authentication-required: true
-  /v1/notifications/{type}/{id}:
-    delete:
-      tags:
-        - jamf-pro-notifications
-      summary: |
-        Delete Notifications
-      description: |
-        Deletes notifications with given type and id.
-      parameters:
-        - name: id
-          in: path
-          description: instance ID of the notification
-          required: true
-          schema:
-            type: string
-        - name: type
-          in: path
-          description: type of the notification
-          required: true
-          schema:
-            $ref: '#/components/schemas/NotificationType'
-            example: 'EXCEEDED_LICENSE_COUNT'
-      responses:
-        204:
-          description: Sucessful deletion
-      x-required-privileges:
-        - Dismiss Notifications
 components:
   schemas:
-    NotificationV1:
-      type: object
-      description: Jamf Pro notification used for important alerts.
-      properties:
-        type:
-          $ref: '#/components/schemas/NotificationType'
-          example: 'EXCEEDED_LICENSE_COUNT'
-        id:
-          type: string
-          example: '1'
-        params:
-          type: object
-          additionalProperties:
-            type: object
-          example: { }
     NotificationType:
-      type: string
       enum:
         - APNS_CERT_REVOKED
         - APNS_CONNECTION_FAILURE
@@ -132,3 +66,74 @@ components:
         - APP_INSTALLERS_DEPLOYMENT_INSTALLATION_FAILED
         - SAML_RESPONSE_ASSERTION_SIGNING_REQUIRED
         - DIRECTORY_CACHE_AWAITING_SYNC
+        - PSSO_EXTERNAL_URL_UNAVAILABLE
+      type: string
+    NotificationV1:
+      description: Jamf Pro notification used for important alerts.
+      properties:
+        id:
+          example: "1"
+          type: string
+        params:
+          additionalProperties:
+            type: object
+          example: {}
+          type: object
+        type:
+          $ref: '#/components/schemas/NotificationType'
+      type: object
+info:
+  title: Jamf Pro API - Notification
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/notifications:
+    get:
+      description: |
+        Gets notifications for user and site
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NotificationV1'
+                type: array
+          description: Successful response
+      summary: |
+        Get Notifications for user and site
+      tags:
+        - jamf-pro-notifications
+      x-authentication-required: true
+  /v1/notifications/{type}/{id}:
+    delete:
+      description: |
+        Deletes notifications with given type and id.
+      parameters:
+        - description: instance ID of the notification
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: type of the notification
+          explode: false
+          in: path
+          name: type
+          required: true
+          schema:
+            $ref: '#/components/schemas/NotificationType'
+          style: simple
+      responses:
+        204:
+          description: Sucessful deletion
+      summary: |
+        Delete Notifications
+      tags:
+        - jamf-pro-notifications
+      x-required-privileges:
+        - Dismiss Notifications
+servers:
+  - url: /api

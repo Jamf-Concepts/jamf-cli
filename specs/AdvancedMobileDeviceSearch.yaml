@@ -1,246 +1,262 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AdvancedSearch:
+      properties:
+        criteria:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/SmartSearchCriterion
+          type: array
+        displayFields:
+          example:
+            - AirPlay Password
+            - App Analytics Enabled
+          items:
+            type: string
+          type: array
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        name:
+          example: Andy's Search
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - name
+      type: object
+    AdvancedSearchCriteriaChoices:
+      properties:
+        choices:
+          example:
+            - Option 1
+            - Option 2
+          items:
+            type: string
+          type: array
+      type: object
+    AdvancedSearchSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/AdvancedSearch'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - Advanced Mobile Device Search
+  title: Jamf Pro API - AdvancedMobileDeviceSearch
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/advanced-mobile-device-searches:
     get:
-      tags:
-      - advanced-mobile-device-searches
-      summary: |
-        Get Advanced Search objects
       description: |
         Gets Advanced Search Objects
       responses:
         200:
-          description: Successful response - Advanced searches retrieved
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/AdvancedSearchSearchResults'
-      x-required-privileges:
-      - Read Advanced Mobile Device Searches
-    post:
-      tags:
-      - advanced-mobile-device-searches
+          description: Successful response - Advanced searches retrieved
       summary: |
-        Create Advanced Search object
+        Get Advanced Search objects
+      tags:
+        - advanced-mobile-device-searches
+      x-required-privileges:
+        - Read Advanced Mobile Device Searches
+    post:
       description: |
         Creates Advanced Search Object
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/AdvancedSearch'
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Successful response - Advanced search created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-      - Create Advanced Mobile Device Searches
-  /v1/advanced-mobile-device-searches/{id}:
-    get:
-      tags:
-      - advanced-mobile-device-searches
       summary: |
-        Get specified Advanced Search object
-      description: |
-        Gets Specified Advanced Search Object
-      parameters:
-      - name: id
-        in: path
-        description: id of target Advanced Search
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response - Advanced Search retrieved
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AdvancedSearch'
-        404:
-          description: Target Advanced Search does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Advanced Mobile Device Searches
-    put:
+        Create Advanced Search object
       tags:
-      - advanced-mobile-device-searches
-      summary: |
-        Get specified Advanced Search object
-      description: |
-        Gets Specified Advanced Search Object
-      parameters:
-      - name: id
-        in: path
-        description: id of target Advanced Search
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AdvancedSearch'
-        required: true
-      responses:
-        200:
-          description: Successful response - Advanced Search updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AdvancedSearch'
-        404:
-          description: Target Advanced Search does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        - advanced-mobile-device-searches
       x-required-privileges:
-      - Update Advanced Mobile Device Searches
-    delete:
-      tags:
-      - advanced-mobile-device-searches
-      summary: |
-        Remove specified Advanced Search object
-      description: |
-        Removes specified Advanced Search Object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of advanced search record
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Successful response - Advanced search deleted
-        404:
-          description: Target Advanced Search does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Delete Advanced Mobile Device Searches
+        - Create Advanced Mobile Device Searches
   /v1/advanced-mobile-device-searches/choices:
     get:
-      tags:
-      - advanced-mobile-device-searches
-      summary: |
-        Get Mobile Device Advanced Search criteria choices
       description: |
         Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are "App Name", "Building", and "Display Name".
       parameters:
-      - name: criteria
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: site
-        in: query
-        schema:
-          type: string
-          default: -1
-      - name: contains
-        in: query
-        schema:
-          type: string
-          default: 'null'
+        - explode: true
+          in: query
+          name: criteria
+          required: true
+          schema:
+            type: string
+          style: form
+        - explode: true
+          in: query
+          name: site
+          required: false
+          schema:
+            default: "-1"
+            type: string
+          style: form
+        - explode: true
+          in: query
+          name: contains
+          required: false
+          schema:
+            default: "null"
+            type: string
+          style: form
       responses:
         200:
-          description: Successful response - Criteria choices retrieved
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/AdvancedSearchCriteriaChoices'
-      x-required-privileges:
-      - Read Advanced Mobile Device Searches
-  /v1/advanced-mobile-device-searches/delete-multiple:
-    post:
+          description: Successful response - Criteria choices retrieved
+      summary: |
+        Get Mobile Device Advanced Search criteria choices
       tags:
         - advanced-mobile-device-searches
-      summary: |
-        Remove specified Advanced Search objects
+      x-required-privileges:
+        - Read Advanced Mobile Device Searches
+  /v1/advanced-mobile-device-searches/delete-multiple:
+    post:
       description: |
         Removes specified Advanced Search Objects
       requestBody:
-        description: ids of the building to be deleted
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: ids of the building to be deleted
         required: true
       responses:
         204:
           description: Successful response - Advanced searches deleted
         400:
-          description: At least one target Advanced Search does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: At least one target Advanced Search does not exist
+      summary: |
+        Remove specified Advanced Search objects
+      tags:
+        - advanced-mobile-device-searches
+      x-action: true
       x-required-privileges:
         - Delete Advanced Mobile Device Searches
-      x-action: true
-components:
-  schemas:
-    AdvancedSearch:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          readOnly: true
-          minLength: 1
-        name:
-          type: string
-          example: Andy's Search
-        criteria:
-          type: array
-          items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/SmartSearchCriterion'
-        displayFields:
-          type: array
-          example:
-          - AirPlay Password
-          - App Analytics Enabled
-          items:
+  /v1/advanced-mobile-device-searches/{id}:
+    delete:
+      description: |
+        Removes specified Advanced Search Object
+      parameters:
+        - description: instance id of advanced search record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-        siteId:
-          type: string
-          nullable: true
-          example: -1
-    AdvancedSearchSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 3
-          minimum: 0
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/AdvancedSearch'
-    AdvancedSearchCriteriaChoices:
-      type: object
-      properties:
-        choices:
-          type: array
-          items:
+          style: simple
+      responses:
+        204:
+          description: Successful response - Advanced search deleted
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Advanced Search does not exist
+      summary: |
+        Remove specified Advanced Search object
+      tags:
+        - advanced-mobile-device-searches
+      x-required-privileges:
+        - Delete Advanced Mobile Device Searches
+    get:
+      description: |
+        Gets Specified Advanced Search Object
+      parameters:
+        - description: id of target Advanced Search
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          example:
-            - Option 1
-            - Option 2
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvancedSearch'
+          description: Successful response - Advanced Search retrieved
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Advanced Search does not exist
+      summary: |
+        Get specified Advanced Search object
+      tags:
+        - advanced-mobile-device-searches
+      x-required-privileges:
+        - Read Advanced Mobile Device Searches
+    put:
+      description: |
+        Gets Specified Advanced Search Object
+      parameters:
+        - description: id of target Advanced Search
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvancedSearch'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvancedSearch'
+          description: Successful response - Advanced Search updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Advanced Search does not exist
+      summary: |
+        Get specified Advanced Search object
+      tags:
+        - advanced-mobile-device-searches
+      x-required-privileges:
+        - Update Advanced Mobile Device Searches
+servers:
+  - url: /api

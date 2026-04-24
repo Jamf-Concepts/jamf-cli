@@ -260,7 +260,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "stateProvince": "California",
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
-  "zipPostalCode": 95014
+  "zipPostalCode": "95014"
 }`, ctx.Output.Format())
 			}
 
@@ -336,7 +336,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "stateProvince": "California",
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
-  "zipPostalCode": 95014
+  "zipPostalCode": "95014"
 }`, ctx.Output.Format())
 			}
 
@@ -1139,7 +1139,7 @@ If not, a new resource is created.`,
   "stateProvince": "California",
   "streetAddress1": "The McIntosh Tree",
   "streetAddress2": "One Apple Park Way",
-  "zipPostalCode": 95014
+  "zipPostalCode": "95014"
 }`, ctx.Output.Format())
 			}
 

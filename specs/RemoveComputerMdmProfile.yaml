@@ -1,51 +1,54 @@
-openapi: 3.0.3
-info:
-  title: Jamf Pro API - Remove Computer MDM Profile
-  description: Jamf Pro API - Remove Computer MDM Profile
-  version: 0.0.1
-paths:
-  /v1/computer-inventory/{id}/remove-mdm-profile:
-    post:
-      tags:
-        - computer-inventory
-      summary: |
-        Remove a computer's MDM profile
-      description: Remove a computer's MDM profile
-      parameters:
-        - name: id
-          in: path
-          description: Id of the computer to remove the MDM profile from
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Command to remove the mdm profile was queued
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/RemoveComputerMdmProfileResponse'
-        403:
-          description: Insufficient privileges to perform this action.
-        500:
-          description: Failure, unable to queue command.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Send Computer Unmanage Command
-      x-action: true
 components:
   schemas:
     RemoveComputerMdmProfileResponse:
-      type: object
       properties:
-        deviceId:
-          type: string
-          example: 1234
-          description: Id of the computer whose MDM profile was removed
         commandUuid:
-          type: string
-          example: "1234-5678-90ab-cdef-1234567890ab"
           description: Uuid of the command queued that removes the MDM profile
+          example: 1234-5678-90ab-cdef-1234567890ab
+          type: string
+        deviceId:
+          description: Id of the computer whose MDM profile was removed
+          example: "1234"
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - RemoveComputerMdmProfile
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/computer-inventory/{id}/remove-mdm-profile:
+    post:
+      description: Remove a computer's MDM profile
+      parameters:
+        - description: Id of the computer to remove the MDM profile from
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveComputerMdmProfileResponse'
+          description: Command to remove the mdm profile was queued
+        403:
+          description: Insufficient privileges to perform this action.
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to queue command.
+      summary: |
+        Remove a computer's MDM profile
+      tags:
+        - computer-inventory
+      x-action: true
+      x-required-privileges:
+        - Send Computer Unmanage Command
+servers:
+  - url: /api

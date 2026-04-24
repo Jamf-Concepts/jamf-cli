@@ -1,85 +1,91 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Mobile Device Prestage
-  version: 0.0.1
-paths:
-  /v1/device-enrollments/syncs:
-    get:
-      tags:
-      - device-enrollments
-      summary: |
-         Get all instance sync states for all Device Enrollment Instances
-      description: Get all instance sync states for all instances
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
-  /v1/device-enrollments/{id}/syncs:
-    get:
-      tags:
-      - device-enrollments
-      summary: |
-         Get all instance sync states for a single Device Enrollment Instance
-      description: Get all instance sync states for a single instance
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
-  /v1/device-enrollments/{id}/syncs/latest:
-    get:
-      tags:
-      - device-enrollments
-      summary: |
-         Get the latest sync state for a single Device Enrollment Instance
-      description: Get the latest sync state for a single instance
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Device Enrollment Instance identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
-      x-required-privileges:
-      - Read Device Enrollment Program Instances
 components:
   schemas:
     DeviceEnrollmentInstanceSyncStatus:
-      type: object
       properties:
-        syncState:
-          type: string
-          example: CONNECTION_ERROR
         instanceId:
+          example: "1"
           type: string
-          example: 1
+        syncState:
+          example: CONNECTION_ERROR
+          type: string
         timestamp:
-          type: string
           example: 2019-04-17T14:08:06.706+0000
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - DeviceEnrollmentInstanceSyncState
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/device-enrollments/syncs:
+    get:
+      description: Get all instance sync states for all instances
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
+                type: array
+          description: Successful response
+      summary: |
+        Get all instance sync states for all Device Enrollment Instances
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+  /v1/device-enrollments/{id}/syncs:
+    get:
+      description: Get all instance sync states for a single instance
+      parameters:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
+                type: array
+          description: Successful response
+      summary: |
+        Get all instance sync states for a single Device Enrollment Instance
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+  /v1/device-enrollments/{id}/syncs/latest:
+    get:
+      description: Get the latest sync state for a single instance
+      parameters:
+        - description: Device Enrollment Instance identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceEnrollmentInstanceSyncStatus'
+          description: Successful response
+      summary: |
+        Get the latest sync state for a single Device Enrollment Instance
+      tags:
+        - device-enrollments
+      x-required-privileges:
+        - Read Device Enrollment Program Instances
+servers:
+  - url: /api

@@ -253,7 +253,7 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 
@@ -448,7 +448,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 
@@ -568,7 +568,7 @@ If not, a new resource is created.`,
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 

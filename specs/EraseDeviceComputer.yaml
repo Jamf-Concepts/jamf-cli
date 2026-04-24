@@ -1,73 +1,75 @@
-openapi: 3.0.3
+components:
+  schemas:
+    EraseDeviceComputerRequest:
+      properties:
+        pin:
+          description: The six-character PIN for Find My.
+          example: "123456"
+          maximum: 6
+          minimum: 6
+          nullable: true
+          type: string
+      type: object
+    EraseDeviceComputerResponse:
+      properties:
+        commandUuid:
+          description: Uuid of the queued eraseDevice command
+          example: 1234-5678-90ab-cdef-1234567890ab
+          type: string
+        deviceId:
+          description: Id of the computer for which eraseDevice command was queued
+          example: "1234"
+          type: string
+      required:
+        - commandUuid
+        - deviceId
+      type: object
 info:
-  title: Jamf Pro API - Erase Computer
-  description: Jamf Pro API - Erase Computer
+  title: Jamf Pro API - EraseDeviceComputer
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/computer-inventory/{id}/erase:
     post:
-      tags:
-        - computer-inventory
-      summary: |
-        Erase a computer
       description: Erase a computer
-      x-required-privileges:
-        - Send Computer Remote Wipe Command
-      x-action: true
       parameters:
-        - name: id
+        - description: Id of the computer to erase
+          explode: false
           in: path
-          description: Id of the computer to erase
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       requestBody:
-        description: Options for eraseDevice command
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/EraseDeviceComputerRequest'
+        description: Options for eraseDevice command
       responses:
         200:
-          description: Erase command was queued for this device.
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/EraseDeviceComputerResponse'
+          description: Erase command was queued for this device.
         403:
           description: Insufficient privileges to perform this action.
         404:
           description: Computer not found.
         500:
-          description: Failure, unable to queue command.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-components:
-    schemas:
-      EraseDeviceComputerRequest:
-        type: object
-        properties:
-          pin:
-            type: string
-            example: "123456"
-            maximum: 6
-            minimum: 6
-            description: The six-character PIN for Find My.
-            default: null
-            nullable: true
-      EraseDeviceComputerResponse:
-        type: object
-        required:
-          - deviceId
-          - commandUuid
-        properties:
-          deviceId:
-            type: string
-            example: 1234
-            description: Id of the computer for which eraseDevice command was queued
-          commandUuid:
-            type: string
-            example: "1234-5678-90ab-cdef-1234567890ab"
-            description: Uuid of the queued eraseDevice command
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to queue command.
+      summary: |
+        Erase a computer
+      tags:
+        - computer-inventory
+      x-action: true
+      x-required-privileges:
+        - Send Computer Remote Wipe Command
+servers:
+  - url: /api

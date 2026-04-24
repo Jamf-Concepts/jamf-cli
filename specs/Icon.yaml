@@ -1,140 +1,152 @@
-openapi: 3.0.1
+components:
+  schemas:
+    IconResponse:
+      properties:
+        id:
+          example: 5
+          type: integer
+        url:
+          example: https://stage-ics.services.jamfcloud.com/icon/hash_c315ef577b84505de1bfcb50b0c4b1c963da30b2a805f84b24ad09f282b7fad4
+          type: string
+      type: object
 info:
   title: Jamf Pro API - Icon
-  version: 0.1.0
+  version: 0.0.1
+openapi: 3.0.1
 paths:
+  /v1/branding-images/download/{id}:
+    get:
+      description: Download a self service branding image
+      parameters:
+        - description: id of the self service branding image
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            image/*:
+              schema:
+                format: binary
+                type: string
+          description: Successful response
+      summary: |
+        Download a self service branding image
+      tags:
+        - branding
+      x-authentication-required: true
   /v1/icon:
     post:
-      tags:
-        - icon
-      summary: |
-        Upload an icon
       description: Uploads an icon
       requestBody:
         content:
           multipart/form-data:
             schema:
-              type: object
-              required:
-                - file
               properties:
                 file:
-                  type: string
                   description: The file to upload
                   format: binary
+                  type: string
+              required:
+                - file
+              type: object
         required: true
       responses:
         201:
-          description: Icon successfully uploaded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IconResponse'
+          description: Icon successfully uploaded
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: 'Failure, field required: "file".'
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         500:
-          description: Upload Failed.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-authentication-required: true
-  /v1/icon/{id}:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Upload Failed.
+      summary: |
+        Upload an icon
       tags:
         - icon
-      summary: |
-        Get an icon
-      description: Get an icon
-      parameters:
-        - name: id
-          in: path
-          description: id of the icon
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/IconResponse'
       x-authentication-required: true
   /v1/icon/download/{id}:
     get:
-      tags:
-        - icon
-      summary: |
-        Download a self service icon
       description: Download a self service icon
       parameters:
-        - name: id
+        - description: id of the self service icon
+          explode: false
           in: path
-          description: id of the self service icon
+          name: id
           required: true
           schema:
             type: string
-        - name: res
+          style: simple
+        - description: request a specific resolution of original, 300, or 512; invalid options will result in original resolution
+          explode: true
           in: query
-          description: request a specific resolution of original, 300, or 512; invalid options will result in original resolution
+          name: res
           required: false
           schema:
+            default: original
+            example: "300"
             type: string
-            default: 'original'
-            example: '300'
-        - name: scale
+          style: form
+        - description: request a scale; 0 results in original image, non-0 results in scaled to 300
+          explode: true
           in: query
-          description: request a scale; 0 results in original image, non-0 results in scaled to 300
+          name: scale
           required: false
           schema:
+            default: "0"
+            example: "1"
             type: string
-            default: '0'
-            example: '1'
+          style: form
       responses:
         200:
-          description: Successful response
           content:
             image/*:
               schema:
-                type: string
                 format: binary
-      x-authentication-required: true
-  /v1/branding-images/download/{id}:
-    get:
-      tags:
-        - branding
+                type: string
+          description: Successful response
       summary: |
-        Download a self service branding image
-      description: Download a self service branding image
+        Download a self service icon
+      tags:
+        - icon
+      x-authentication-required: true
+  /v1/icon/{id}:
+    get:
+      description: Get an icon
       parameters:
-        - name: id
+        - description: id of the icon
+          explode: false
           in: path
-          description: id of the self service branding image
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successful response
           content:
-            image/*:
+            application/json:
               schema:
-                type: string
-                format: binary
+                $ref: '#/components/schemas/IconResponse'
+          description: Successful response
+      summary: |
+        Get an icon
+      tags:
+        - icon
       x-authentication-required: true
-components:
-  schemas:
-    IconResponse:
-      type: object
-      properties:
-        url:
-          type: string
-          example: https://stage-ics.services.jamfcloud.com/icon/hash_c315ef577b84505de1bfcb50b0c4b1c963da30b2a805f84b24ad09f282b7fad4
-        id:
-          type: integer
-          example: 5
+servers:
+  - url: /api

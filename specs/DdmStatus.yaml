@@ -1,112 +1,118 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - Declarative Device Management StatusReport Items
-    version: 0.0.1
-paths:
-    /v1/ddm/{clientManagementId}/status-items:
-        get:
-            tags:
-                - declarative-device-management
-            summary: Retrieve the Status Items from the latest Status Report for a device
-            description:
-                Retrieves the Status Items from the latest Status Report for a device
-            x-required-privileges:
-                - Read Mobile Devices
-                - Read Computers
-            parameters:
-                -   name: clientManagementId
-                    in: path
-                    required: true
-                    description: client management id of the target device.
-                    schema:
-                        type: string
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/StatusItems'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: The client could not be found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/ddm/{clientManagementId}/status-items/{key}:
-        get:
-            tags:
-                - declarative-device-management
-            summary: Retrieve a Status Item from the latest Status Report for a device
-            description:
-                Retrieves a Status Item from the latest Status Report for a device
-            x-required-privileges:
-                - Read Mobile Devices
-                - Read Computers
-            parameters:
-                -   name: clientManagementId
-                    in: path
-                    required: true
-                    description: client management id of the target device.
-                    schema:
-                        type: string
-                -   name: key
-                    in: path
-                    required: true
-                    description: the status item key to retrieve.
-                    schema:
-                        type: string
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/StatusItem'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: The client or specified key could not be found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
 components:
-    schemas:
-        StatusItems:
-            type: object
-            properties:
-                statusItems:
-                    type: array
-                    nullable: false
-                    default: [ ]
-                    items:
-                        $ref: '#/components/schemas/StatusItem'
-        StatusItem:
-            type: object
-            properties:
-                key:
-                    type: string
-                    nullable: false
-                    example: "device.identifier.udid"
-                    description: The StatusItem key
-                value:
-                    type: string
-                    nullable: false
-                    example: "00008103-000C51E402E2001E"
-                    description: The StatusItem value
-                lastUpdateTime:
-                    type: string
-                    nullable: false
-                    example: 2024-08-25T21:09:31
-                    description: The local server time when the StatusItem was last updated
+  schemas:
+    StatusItem:
+      properties:
+        key:
+          description: The StatusItem key
+          example: device.identifier.udid
+          nullable: false
+          type: string
+        lastUpdateTime:
+          description: The local server time when the StatusItem was last updated
+          example: 2024-08-25T21:09:31
+          nullable: false
+          type: string
+        value:
+          description: The StatusItem value
+          example: 00008103-000C51E402E2001E
+          nullable: false
+          type: string
+      type: object
+    StatusItems:
+      properties:
+        statusItems:
+          default: []
+          items:
+            $ref: '#/components/schemas/StatusItem'
+          nullable: false
+          type: array
+      type: object
+info:
+  title: Jamf Pro API - DdmStatus
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/ddm/{clientManagementId}/status-items:
+    get:
+      description: Retrieves the Status Items from the latest Status Report for a device
+      parameters:
+        - description: client management id of the target device.
+          explode: false
+          in: path
+          name: clientManagementId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusItems'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The client could not be found
+      summary: Retrieve the Status Items from the latest Status Report for a device
+      tags:
+        - declarative-device-management
+      x-required-privileges:
+        - Read Mobile Devices
+        - Read Computers
+  /v1/ddm/{clientManagementId}/status-items/{key}:
+    get:
+      description: Retrieves a Status Item from the latest Status Report for a device
+      parameters:
+        - description: client management id of the target device.
+          explode: false
+          in: path
+          name: clientManagementId
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: the status item key to retrieve.
+          explode: false
+          in: path
+          name: key
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusItem'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The client or specified key could not be found
+      summary: Retrieve a Status Item from the latest Status Report for a device
+      tags:
+        - declarative-device-management
+      x-required-privileges:
+        - Read Mobile Devices
+        - Read Computers
+servers:
+  - url: /api

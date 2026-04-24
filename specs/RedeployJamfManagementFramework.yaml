@@ -1,49 +1,52 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Redeploy Jamf Management Framework
-  description: Jamf Pro API - Redeploy Jamf Management Framework
-  version: 0.0.1
-paths:
-  /v1/jamf-management-framework/redeploy/{id}:
-    post:
-      tags:
-        - jamf-management-framework
-      summary:  |
-        Redeploy Jamf Management Framework
-      description:  |
-        Redeploys the Jamf Management Framework for enrolled device
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer
-          required: true
-          schema:
-            type: string
-      responses:
-        202:
-          description: Command successfully queued to redeploy the Jamf Managment Framework
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/RedeployJamfManagementFrameworkResponse'
-        404:
-          description: Computer with given id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Send Computer Remote Command to Install Package
-        - Read Computer Check-In
-      x-action: true
 components:
   schemas:
     RedeployJamfManagementFrameworkResponse:
-      type: object
       properties:
-        deviceId:
-          type: string
-          example: 1
         commandUuid:
+          example: f5965c4f-0db4-4dc4-9f37-6f1dad4e939c
           type: string
-          example: 'f5965c4f-0db4-4dc4-9f37-6f1dad4e939c'
+        deviceId:
+          example: "1"
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - RedeployJamfManagementFramework
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/jamf-management-framework/redeploy/{id}:
+    post:
+      description: |
+        Redeploys the Jamf Management Framework for enrolled device
+      parameters:
+        - description: instance id of computer
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeployJamfManagementFrameworkResponse'
+          description: Command successfully queued to redeploy the Jamf Managment Framework
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Computer with given id does not exist
+      summary: |
+        Redeploy Jamf Management Framework
+      tags:
+        - jamf-management-framework
+      x-action: true
+      x-required-privileges:
+        - Send Computer Remote Command to Install Package
+        - Read Computer Check-In
+servers:
+  - url: /api

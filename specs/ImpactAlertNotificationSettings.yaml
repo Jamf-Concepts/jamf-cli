@@ -1,71 +1,73 @@
-openapi: 3.0.3
-info:
-    title: Jamf Pro API - Impact Alert Notification Settings
-    version: 1.0.0
-paths:
-    /v1/impact-alert-notification-settings:
-        get:
-            tags:
-                - impact-alert-notification-settings
-            summary: Get Impact Alert Notification Settings
-            description: Get Impact Alert Notification Settings
-            responses:
-                200:
-                    description: Successful
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Impact Alert Notification Settings
-        put:
-            tags:
-                - impact-alert-notification-settings
-            summary: Update Impact Alert Notification Settings
-            description: Update Impact Alert Notification Settings
-            requestBody:
-                description: Configure Access Management settings
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
-                required: true
-            responses:
-                204:
-                    description: Update Successful
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Impact Alert Notification Settings
 components:
-    schemas:
-        ImpactAlertNotificationSettingsV1:
-            type: object
-            required:
-                - scopeableObjectsAlertEnabled
-                - scopeableObjectsConfirmationCodeEnabled
-                - deployableObjectsAlertEnabled
-                - deployableObjectsConfirmationCodeEnabled
-            properties:
-                scopeableObjectsAlertEnabled:
-                    type: boolean
-                    default: true
-                scopeableObjectsConfirmationCodeEnabled:
-                    type: boolean
-                    default: false
-                deployableObjectsAlertEnabled:
-                    type: boolean
-                    default: true
-                deployableObjectsConfirmationCodeEnabled:
-                    type: boolean
-                    default: false
+  schemas:
+    ImpactAlertNotificationSettingsV1:
+      properties:
+        deployableObjectsAlertEnabled:
+          default: true
+          type: boolean
+        deployableObjectsConfirmationCodeEnabled:
+          default: false
+          type: boolean
+        scopeableObjectsAlertEnabled:
+          default: true
+          type: boolean
+        scopeableObjectsConfirmationCodeEnabled:
+          default: false
+          type: boolean
+      required:
+        - deployableObjectsAlertEnabled
+        - deployableObjectsConfirmationCodeEnabled
+        - scopeableObjectsAlertEnabled
+        - scopeableObjectsConfirmationCodeEnabled
+      type: object
+info:
+  title: Jamf Pro API - ImpactAlertNotificationSettings
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/impact-alert-notification-settings:
+    get:
+      description: Get Impact Alert Notification Settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
+          description: Successful
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Get Impact Alert Notification Settings
+      tags:
+        - impact-alert-notification-settings
+      x-required-privileges:
+        - Read Impact Alert Notification Settings
+    put:
+      description: Update Impact Alert Notification Settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpactAlertNotificationSettingsV1'
+        description: Configure Access Management settings
+        required: true
+      responses:
+        204:
+          description: Update Successful
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Update Impact Alert Notification Settings
+      tags:
+        - impact-alert-notification-settings
+      x-required-privileges:
+        - Update Impact Alert Notification Settings
+servers:
+  - url: /api

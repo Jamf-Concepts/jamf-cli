@@ -514,7 +514,7 @@ func newSupervisionIdentitiesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "certificateData": "U29tZSByYW5kb20gYml0IG9mIHRleHQgdG8gdXNlIGFuZCBzZWUgaWYgYW55b25lIGFjdHVhbGx5IHRyaWVzIHRvIGRlY29kZSBpdA==",
+  "certificateData": "VTI5dFpTQnlZVzVrYjIwZ1ltbDBJRzltSUhSbGVIUWdkRzhnZFhObElHRnVaQ0J6WldVZ2FXWWdZVzU1YjI1bElHRmpkSFZoYkd4NUlIUnlhV1Z6SUhSdklHUmxZMjlrWlNCcGRBPT0=",
   "displayName": "Supervision Identity",
   "password": "jamf1234"
 }`, ctx.Output.Format())

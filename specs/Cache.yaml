@@ -1,123 +1,124 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CacheSettings:
+      properties:
+        cacheType:
+          example: ehcache
+          type: string
+        cacheUniqueId:
+          description: The default is for Jamf Pro to generate a UUID, so we can only give an example instead.
+          example: 24864549-94ea-4cc1-bb80-d7fb392c6556
+          type: string
+        directoryTimeToLiveSeconds:
+          example: 120
+          format: int32
+          type: integer
+        ehcacheMaxBytesLocalHeap:
+          default: "null"
+          type: string
+        elasticache:
+          default: false
+          type: boolean
+        id:
+          default: "0"
+          minLength: 1
+          readOnly: true
+          type: string
+        memcachedEndpoints:
+          example: []
+          items:
+            $ref: '#/components/schemas/MemcachedEndpoints'
+          type: array
+        name:
+          default: cache configuration
+          type: string
+        timeToIdleSeconds:
+          example: 120
+          format: int32
+          type: integer
+        timeToLiveSeconds:
+          example: 120
+          format: int32
+          type: integer
+      required:
+        - cacheType
+        - cacheUniqueId
+        - memcachedEndpoints
+        - timeToLiveSeconds
+      type: object
+    MemcachedEndpoints:
+      properties:
+        enabled:
+          example: true
+          type: boolean
+        hostName:
+          example: https://memcache.jamf.com
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        jssCacheConfigurationId:
+          example: 1
+          type: integer
+        name:
+          example: Jamf Fake Example Memcache
+          type: string
+        port:
+          example: 9001
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - cache-settings
+  title: Jamf Pro API - Cache
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/cache-settings:
     get:
-      tags:
-      - cache-settings
-      summary: |
-         Get Cache Settings
       description: gets cache settings
       responses:
         200:
-          description: cache settings
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/CacheSettings'
-      x-required-privileges:
-      - Read Cache
-    put:
-      tags:
-      - cache-settings
+          description: cache settings
       summary: |
-        Update Cache Settings
+        Get Cache Settings
+      tags:
+        - cache-settings
+      x-required-privileges:
+        - Read Cache
+    put:
       description: |
         updates cache settings
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/CacheSettings'
         required: true
       responses:
         200:
-          description: cache has been updated
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/CacheSettings'
+          description: cache has been updated
         403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: |
             The following code is returned by this call:
             HOSTED_ENVIRONMENT - PUT command is not available in hosted environments.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      summary: |
+        Update Cache Settings
+      tags:
+        - cache-settings
       x-required-privileges:
-      - Update Cache
-components:
-  schemas:
-    CacheSettings:
-      required:
-      - cacheType
-      - cacheUniqueId
-      - memcachedEndpoints
-      - timeToLiveSeconds
-      type: object
-      properties:
-        id:
-          type: string
-          default: 0
-          minLength: 1
-          readOnly: true
-        name:
-          type: string
-          default: cache configuration
-        cacheType:
-          type: string
-          example: ehcache
-        timeToLiveSeconds:
-          type: integer
-          format: int32
-          example: 120
-        timeToIdleSeconds:
-          type: integer
-          format: int32
-          example: 120
-        directoryTimeToLiveSeconds:
-          type: integer
-          format: int32
-          example: 120
-        ehcacheMaxBytesLocalHeap:
-          type: string
-          default: 'null'
-        cacheUniqueId:
-          type: string
-          description: The default is for Jamf Pro to generate a UUID, so we can only
-            give an example instead.
-          example: 24864549-94ea-4cc1-bb80-d7fb392c6556
-        elasticache:
-          type: boolean
-          default: false
-        memcachedEndpoints:
-          type: array
-          example: []
-          items:
-            $ref: '#/components/schemas/MemcachedEndpoints'
-    MemcachedEndpoints:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          minLength: 1
-          readOnly: true
-        name:
-          type: string
-          example: Jamf Fake Example Memcache
-        hostName:
-          type: string
-          example: https://memcache.jamf.com
-        port:
-          type: integer
-          example: 9001
-        enabled:
-          type: boolean
-          example: true
-        jssCacheConfigurationId:
-          type: integer
-          example: 1
+        - Update Cache
+servers:
+  - url: /api

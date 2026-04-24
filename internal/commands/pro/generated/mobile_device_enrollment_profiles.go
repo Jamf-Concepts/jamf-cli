@@ -21,25 +21,25 @@ func NewMobileDeviceEnrollmentProfilesCmd(ctx *registry.CLIContext) *cobra.Comma
 		Long:  `Manage mobile-device-enrollment-profiles in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newMobileDeviceEnrollmentProfilesDownloadCmd(ctx))
+	cmd.AddCommand(newMobileDeviceEnrollmentProfilesDownloadProfileCmd(ctx))
 
 	return cmd
 }
 
-func newMobileDeviceEnrollmentProfilesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newMobileDeviceEnrollmentProfilesDownloadProfileCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download <id>",
+		Use:   "download-profile <id>",
 		Short: "Retrieve the MDM Enrollment Profile",
 		Long:  "Retrieve the MDM Enrollment Profile",
 		Example: `  # Save to file
-  jamf-cli pro mobile-device-enrollment-profiles download <id> -O output.bin
+  jamf-cli pro mobile-device-enrollment-profiles download-profile <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro mobile-device-enrollment-profiles download <id> > output.bin`,
+  jamf-cli pro mobile-device-enrollment-profiles download-profile <id> > output.bin`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -1,38 +1,37 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AppConfigReinstallCode:
+      properties:
+        reinstallCode:
+          example: 975767FE-074E-4F42-BB8B-925B1627CA6F
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - mobiledeviceapps
+  title: Jamf Pro API - MobileDeviceApps
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/mobile-device-apps/reinstall-app-config:
     post:
-      tags:
-      - mobile-device-apps
-      summary: |
-        Reinstall App Config for Managed iOS Apps
-      description: |
-          Redeploys the managed app configuration for a specific app on a specific device using the $APP_CONFIG_REINSTALL_CODE generated during deployment. 
-          This endpoint does not require authorization, only the re-install code. The code does not contain any user authentication information. 
-          For example usage, see the following Teacher app documentation: [Teacher App Manged App Configuration](https://learn.jamf.com/bundle/jamf-teacher-configuration-guide/page/Jamf_Teacher_Integration_with_Jamf_Pro.html)
+      description: "Redeploys the managed app configuration for a specific app on a specific device using the $APP_CONFIG_REINSTALL_CODE generated during deployment. \nThis endpoint does not require authorization, only the re-install code. The code does not contain any user authentication information. \nFor example usage, see the following Teacher app documentation: [Teacher App Manged App Configuration](https://learn.jamf.com/bundle/jamf-teacher-configuration-guide/page/Jamf_Teacher_Integration_with_Jamf_Pro.html)\n"
       requestBody:
-        description: |
-            The $APP_CONFIG_REINSTALL_CODE variable for the specific device and app supplied by the managed iOS app's current App Config.
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/AppConfigReinstallCode'
+        description: |
+          The $APP_CONFIG_REINSTALL_CODE variable for the specific device and app supplied by the managed iOS app's current App Config.
         required: true
       responses:
         204:
           description: Install App Config command successfully issued
         400:
           description: Supplied re-install code was either invalid or not supplied
-      x-authentication-required: false
+      summary: |
+        Reinstall App Config for Managed iOS Apps
+      tags:
+        - mobile-device-apps
       x-action: true
-components:
-  schemas:
-    AppConfigReinstallCode:
-      type: object
-      properties:
-        reinstallCode:
-          type: string
-          example: 975767FE-074E-4F42-BB8B-925B1627CA6F
+      x-authentication-required: false
+servers:
+  - url: /api

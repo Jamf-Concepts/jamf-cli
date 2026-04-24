@@ -253,7 +253,7 @@ func newSmartComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "criteria": [],
   "description": "New Group Description",
   "name": "New Group Name",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -330,7 +330,7 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "criteria": [],
   "description": "New Group Description",
   "name": "New Group Name",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -542,7 +542,7 @@ If not, a new resource is created.`,
   "criteria": [],
   "description": "New Group Description",
   "name": "New Group Name",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 

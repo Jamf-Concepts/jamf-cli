@@ -1,33 +1,36 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Declarative Device Management Sync
+  title: Jamf Pro API - DdmSync
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/ddm/{clientManagementId}/sync:
     post:
-      tags:
-        - declarative-device-management
-      summary: Force a device DDM sync
-      description:
-        Force a device to sync by queuing a new DeclarativeManagementCommand
-      x-required-privileges:
-        - Send Declarative Management Command
-      x-action: true
+      description: Force a device to sync by queuing a new DeclarativeManagementCommand
       parameters:
-        - name: clientManagementId
+        - description: The client management id of the target device.
+          explode: false
           in: path
-          description: The client management id of the target device.
+          name: clientManagementId
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: The device was successfully synced.
         403:
           description: Insufficient privileges to perform this action.
         500:
-          description: Failure, unable to complete sync request.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to complete sync request.
+      summary: Force a device DDM sync
+      tags:
+        - declarative-device-management
+      x-action: true
+      x-required-privileges:
+        - Send Declarative Management Command
+servers:
+  - url: /api

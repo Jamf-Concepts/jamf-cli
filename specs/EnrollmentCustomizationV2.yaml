@@ -1,329 +1,388 @@
-openapi: 3.0.1
+components:
+  schemas:
+    EnrollmentCustomizationBrandingSettings:
+      properties:
+        backgroundColor:
+          example: 0000FF
+          type: string
+        buttonColor:
+          example: 0000FF
+          type: string
+        buttonTextColor:
+          example: 0000FF
+          type: string
+        iconUrl:
+          example: https://jamfUrl/api/v2/enrollment-customizations/images/1
+          type: string
+        textColor:
+          example: 0000FF
+          type: string
+      required:
+        - backgroundColor
+        - buttonColor
+        - buttonTextColor
+        - iconUrl
+        - textColor
+      type: object
+    EnrollmentCustomizationSearchResultsV2:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/EnrollmentCustomizationV2'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    EnrollmentCustomizationV2:
+      properties:
+        description:
+          example: Example description
+          type: string
+        displayName:
+          example: Example
+          type: string
+        enrollmentCustomizationBrandingSettings:
+          $ref: '#/components/schemas/EnrollmentCustomizationBrandingSettings'
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        siteId:
+          example: "2"
+          type: string
+      required:
+        - description
+        - displayName
+        - enrollmentCustomizationBrandingSettings
+        - siteId
+      type: object
+    PrestageDependencies:
+      properties:
+        dependencies:
+          items:
+            $ref: '#/components/schemas/PrestageDependency'
+          type: array
+      type: object
+    PrestageDependency:
+      properties:
+        humanReadableName:
+          example: Computer PreStage
+          type: string
+        hyperlink:
+          example: /mobile-prestage/id
+          type: string
+        name:
+          example: Name
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Enrollment Customization
+  title: Jamf Pro API - EnrollmentCustomizationV2
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/enrollment-customizations:
     get:
-      tags:
-      - enrollment-customization
-      summary: |
-         Retrieve sorted and paged Enrollment Customizations
       description: Retrieves sorted and paged Enrollment Customizations
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Multiple
-          sort criteria are supported and must be separated with a comma. Example:
-          sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
-            type: string
-          default: [id:asc]
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/EnrollmentCustomizationSearchResultsV2'
-      x-required-privileges:
-      - Read Enrollment Customizations
-    post:
-      tags:
-      - enrollment-customization
+          description: Success
       summary: |
-         Create an Enrollment Customization
+        Retrieve sorted and paged Enrollment Customizations
+      tags:
+        - enrollment-customization
+      x-required-privileges:
+        - Read Enrollment Customizations
+    post:
       description: Create an enrollment customization
       requestBody:
-        description: Enrollment customization to create.
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/EnrollmentCustomizationV2'
+        description: Enrollment customization to create.
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Enrollment customization was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-      - Create Enrollment Customizations
-  /v2/enrollment-customizations/{id}:
-    get:
-      tags:
-      - enrollment-customization
       summary: |
-         Retrieve an Enrollment Customization with the supplied id
-      description: Retrieves an Enrollment Customization with the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/EnrollmentCustomizationV2'
-        404:
-          description: Enrollment Customization with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Enrollment Customizations
-    put:
-      tags:
-      - enrollment-customization
-      summary: |
-         Update an Enrollment Customization
-      description: Updates an Enrollment Customization
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
-      requestBody:
-        description: Enrollment Customization to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/EnrollmentCustomizationV2'
-        required: true
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/EnrollmentCustomizationV2'
-        404:
-          description: Enrollment Customization with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Enrollment Customizations
-    delete:
-      tags:
-      - enrollment-customization
-      summary: |
-         Delete an Enrollment Customization with the supplied id
-      description: Deletes an Enrollment Customization with the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
-      responses:
-        204:
-          description: Success
-      x-required-privileges:
-      - Delete Enrollment Customizations
-      - Read Enrollment Customizations
-  /v2/enrollment-customizations/images:
-    post:
+        Create an Enrollment Customization
       tags:
         - enrollment-customization
-      summary:
-        Upload an image
+      x-required-privileges:
+        - Create Enrollment Customizations
+  /v2/enrollment-customizations/images:
+    post:
       description: Uploads an image
       requestBody:
         content:
           multipart/form-data:
             schema:
-              type: object
-              required:
-                - file
               properties:
                 file:
-                  type: string
                   description: The file to upload
                   format: binary
+                  type: string
+              required:
+                - file
+              type: object
         required: true
       responses:
         201:
-          description: Image successfully uploaded
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/BrandingImageUrl'
+                $ref: _MonolithLibrary.yaml#/components/schemas/BrandingImageUrl
+          description: Image successfully uploaded
+      summary: Upload an image
+      tags:
+        - enrollment-customization
       x-required-privileges:
         - Update Enrollment Customizations
   /v2/enrollment-customizations/images/{id}:
     get:
-      tags:
-        - enrollment-customization
-      summary: |
-        Download an enrollment customization image
       description: Download an enrollment customization image
       parameters:
-        - name: id
+        - description: id of the enrollment customization image
+          explode: false
           in: path
-          description: id of the enrollment customization image
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successful response
           content:
             image/*:
               schema:
-                type: string
                 format: binary
-      x-authentication-required: false
-  /v2/enrollment-customizations/{id}/prestages:
-    get:
-      tags:
-      - enrollment-customization
+                type: string
+          description: Successful response
       summary: |
-         Retrieve the list of Prestages using this Enrollment Customization
-      description: Retrieves the list of Prestages using this Enrollment Customization
+        Download an enrollment customization image
+      tags:
+        - enrollment-customization
+      x-authentication-required: false
+  /v2/enrollment-customizations/{id}:
+    delete:
+      description: Deletes an Enrollment Customization with the supplied id
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Success
+      summary: |
+        Delete an Enrollment Customization with the supplied id
+      tags:
+        - enrollment-customization
+      x-required-privileges:
+        - Delete Enrollment Customizations
+        - Read Enrollment Customizations
+    get:
+      description: Retrieves an Enrollment Customization with the supplied id
+      parameters:
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentCustomizationV2'
           description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/PrestageDependencies'
         404:
-          description: Enrollment Customization with that id does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Enrollment Customization with that id does not exist
+      summary: |
+        Retrieve an Enrollment Customization with the supplied id
+      tags:
+        - enrollment-customization
       x-required-privileges:
-      - Read Enrollment Customizations
+        - Read Enrollment Customizations
+    put:
+      description: Updates an Enrollment Customization
+      parameters:
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentCustomizationV2'
+        description: Enrollment Customization to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentCustomizationV2'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Enrollment Customization with that id does not exist
+      summary: |
+        Update an Enrollment Customization
+      tags:
+        - enrollment-customization
+      x-required-privileges:
+        - Update Enrollment Customizations
   /v2/enrollment-customizations/{id}/history:
     get:
-      tags:
-      - enrollment-customization
-      summary: |
-         Get sorted and paged Enrollment Customization history objects
       description: Gets sorted and paged enrollment customization history objects
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property,asc/desc. Default sort
-          order is descending. Multiple sort criteria are supported and must be entered
-          on separate lines in Swagger UI. In the URI the ''sort'' query param is
-          duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default: [date:desc]
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the ''sort'' query param is duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
       responses:
         200:
-          description: Details of enrollment customization history were found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-      - Read Enrollment Customizations
-    post:
-      tags:
-      - enrollment-customization
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of enrollment customization history were found
       summary: |
-         Add Enrollment Customization history object notes
+        Get sorted and paged Enrollment Customization history objects
+      tags:
+        - enrollment-customization
+      x-required-privileges:
+        - Read Enrollment Customizations
+    post:
       description: Adds enrollment customization history object notes
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Enrollment Customization identifier
-        schema:
-          type: string
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: History notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
           description: Notes of enrollment customization history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
         503:
-          description: Enrollment customization history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Enrollment customization history can not be saved
+      summary: |
+        Add Enrollment Customization history object notes
+      tags:
+        - enrollment-customization
       x-required-privileges:
-      - Update Enrollment Customizations
-components:
-  schemas:
-    EnrollmentCustomizationV2:
-      required:
-        - siteId
-        - displayName
-        - description
-        - enrollmentCustomizationBrandingSettings
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          readOnly: true
-        siteId:
-          type: string
-          example: 2
-        displayName:
-          type: string
-          example: Example
-        description:
-          type: string
-          example: Example description
-        enrollmentCustomizationBrandingSettings:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/EnrollmentCustomizationBrandingSettings'
-    EnrollmentCustomizationSearchResultsV2:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/EnrollmentCustomizationV2'
+        - Update Enrollment Customizations
+  /v2/enrollment-customizations/{id}/prestages:
+    get:
+      description: Retrieves the list of Prestages using this Enrollment Customization
+      parameters:
+        - description: Enrollment Customization identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrestageDependencies'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Enrollment Customization with that id does not exist
+      summary: |
+        Retrieve the list of Prestages using this Enrollment Customization
+      tags:
+        - enrollment-customization
+      x-required-privileges:
+        - Read Enrollment Customizations
+servers:
+  - url: /api

@@ -72,7 +72,8 @@ make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs, Classic manifest, and DDM component scaffolds
-make sync-specs             # Copy specs from jamf/jss repo, then regenerate
+make sync-specs             # Copy per-resource specs from jamf-pro-server repo checkout, then regenerate
+make sync-spec JAMF_MONOLITH_SPEC=./monolith.json  # Split a consolidated /api/schema/ JSON into specs/, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
 make verify-site            # Check that site supports all product namespaces (CI-safe)
 make site                   # Build binary, generate commands.json, serve site locally at :8080
@@ -137,6 +138,7 @@ docs/
   site/                  GitHub Pages showcase site (HTML/CSS/JS, deployed via GH Action)
 generator/
   blueprintcomponents/   DDM component scaffold generator: parses OpenAPI specs → scaffolds.go
+  monolith/              Consolidated OpenAPI splitter: monolith → per-resource specs/*.yaml
   site/                  Site data generator: introspects binary → commands.json
 ```
 
@@ -403,9 +405,28 @@ These helpers are shared by both Protect and Platform commands (originally Prote
 
 ### Syncing specs for a new Jamf Pro version
 
+Two pipelines. Pick whichever source is available.
+
+**A. Monorepo checkout (per-resource specs, upstream layout).**
 1. `make sync-specs JAMF_SERVER_PATH=/path/to/jss`
 2. Review: `git diff --stat -- internal/commands/pro/generated/`
 3. Run: `make test`
+
+**B. Consolidated `/api/schema/` document (one JSON bundle).**
+1. Fetch the monolith (needs auth). Example:
+   `curl -H "Authorization: Bearer $JAMF_TOKEN" https://<instance>/api/schema/ -o monolith.json`
+2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json`
+3. Review: `git diff --stat -- specs/ internal/commands/pro/generated/`
+4. Run: `make test`
+
+The monolith splitter (`generator/monolith/`) routes every path into the filename that currently owns it under `specs/` (path-based layout). New paths not in the existing layout fall through to `firstTag → TagFilenameOverrides → PascalSingular(tag)`. Components are classified as **exclusive** (inlined into their single owning file) or **shared** (emitted to `specs/_MonolithLibrary.yaml` and referenced via external $ref). This preserves upstream per-resource spec shape so heuristics like `detectNameField` (which only scan locally-declared schemas) continue to work.
+
+Knobs in `generator/monolith/overrides.go`:
+- `TagFilenameOverrides` — explicit tag → filename map for new tags where the auto-derived PascalSingular is wrong.
+- `DroppedTags` — tags whose paths must never be emitted (legacy preview endpoints that shadow canonical resources).
+- `PreservedSpecs` — spec files sourced outside the public monolith (e.g. private endpoints). The splitter leaves them untouched and treats their paths as invisible; any library files they reference are auto-preserved via $ref scan.
+
+After ingest, any **new tag** will surface as a new resource command and trip `TestApplyProGroups_AllCommandsGrouped` — wire the command into the correct `proGroupMap` entry in `internal/commands/groups.go`.
 
 ### Adding a new Jamf Pro handwritten command
 

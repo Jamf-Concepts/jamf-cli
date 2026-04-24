@@ -1,344 +1,360 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ExternalRecipient:
+      properties:
+        email:
+          example: bob@example.com
+          minLength: 1
+          type: string
+        name:
+          example: Bob Exampleman
+          minLength: 1
+          type: string
+      required:
+        - email
+        - name
+      type: object
+    InternalRecipient:
+      properties:
+        accountId:
+          example: "1"
+          pattern: ^\d+$
+          type: string
+        frequency:
+          default: DAILY
+          enum:
+            - DAILY
+          example: DAILY
+          type: string
+      required:
+        - accountId
+      type: object
+    VolumePurchasingSubscription:
+      allOf:
+        - $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
+        - properties:
+            id:
+              example: "1"
+              readOnly: true
+              type: string
+          type: object
+    VolumePurchasingSubscriptionBase:
+      properties:
+        enabled:
+          default: true
+          example: true
+          type: boolean
+        externalRecipients:
+          items:
+            $ref: '#/components/schemas/ExternalRecipient'
+          type: array
+        internalRecipients:
+          items:
+            $ref: '#/components/schemas/InternalRecipient'
+          type: array
+        locationIds:
+          items:
+            example: "1"
+            pattern: ^\d+$
+            type: string
+          type: array
+        name:
+          example: Example
+          minLength: 1
+          type: string
+        siteId:
+          default: "-1"
+          example: "1"
+          type: string
+        triggers:
+          items:
+            enum:
+              - NO_MORE_LICENSES
+              - REMOVED_FROM_APP_STORE
+            example: NO_MORE_LICENSES
+            type: string
+          type: array
+      required:
+        - name
+      type: object
+    VolumePurchasingSubscriptions:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/VolumePurchasingSubscription'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - Volume Purchasing Subscriptions
+  title: Jamf Pro API - VppSubscriptions
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/volume-purchasing-subscriptions:
     get:
-      tags:
-        - volume-purchasing-subscriptions
-      summary: Retrieve Volume Purchasing Subscriptions
       description: Retrieves Volume Purchasing Subscriptions
-      x-required-privileges:
-        - Read Volume Purchasing Locations
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-              is id:asc. Multiple sort criteria are supported and must be separated
-              with a comma. Allowable properties are id, name, and enabled.'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Allowable properties are id, name, and enabled.'
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
+            type: array
+          style: form
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/VolumePurchasingSubscriptions'
-    post:
+          description: Success
+      summary: Retrieve Volume Purchasing Subscriptions
       tags:
         - volume-purchasing-subscriptions
-      summary: Create a Volume Purchasing Subscription
-      description: Creates a Volume Purchasing Subscription
       x-required-privileges:
-        - Create Volume Purchasing Locations
+        - Read Volume Purchasing Locations
+    post:
+      description: Creates a Volume Purchasing Subscription
       requestBody:
-        description: Volume Purchasing Subscription to create
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
+        description: Volume Purchasing Subscription to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Volume Purchasing Subscription was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Bad Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Failed to create volume purchasing subscription
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+      summary: Create a Volume Purchasing Subscription
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Create Volume Purchasing Locations
   /v1/volume-purchasing-subscriptions/{id}:
-    get:
-      tags:
-        - volume-purchasing-subscriptions
-      summary: Retrieve a Volume Purchasing Subscription with the supplied id
-      description: Retrieves a Volume Purchasing Subscription with the supplied id
-      x-required-privileges:
-        - Read Volume Purchasing Locations
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Volume Purchasing Subscription identifier
-          schema:
-            type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/VolumePurchasingSubscription'
-        404:
-          description: Volume Purchasing Subscription with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    put:
-      tags:
-        - volume-purchasing-subscriptions
-      summary: Update a Volume Purchasing Subscription
-      description: Updates a Volume Purchasing Subscription
-      x-required-privileges:
-        - Update Volume Purchasing Locations
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Volume Purchasing Subscription identifier
-          schema:
-            type: string
-      requestBody:
-        description: Volume Purchasing Subscription to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
-        required: true
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/VolumePurchasingSubscription'
-        404:
-          description: Volume Purchasing Subscription with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        500:
-          description: Failed to update volume purchasing subscription
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
     delete:
-      tags:
-        - volume-purchasing-subscriptions
-      summary: Delete a Volume Purchasing Subscription with the supplied id
       description: Deletes a Volume Purchasing Subscription with the supplied id
-      x-required-privileges:
-        - Delete Volume Purchasing Locations
       parameters:
-        - name: id
+        - description: Volume Purchasing Subscription identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Volume Purchasing Subscription identifier
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Success
         404:
-          description: VPP Subscription with that id does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: VPP Subscription with that id does not exist
+      summary: Delete a Volume Purchasing Subscription with the supplied id
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Delete Volume Purchasing Locations
+    get:
+      description: Retrieves a Volume Purchasing Subscription with the supplied id
+      parameters:
+        - description: Volume Purchasing Subscription identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingSubscription'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Volume Purchasing Subscription with that id does not exist
+      summary: Retrieve a Volume Purchasing Subscription with the supplied id
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+    put:
+      description: Updates a Volume Purchasing Subscription
+      parameters:
+        - description: Volume Purchasing Subscription identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
+        description: Volume Purchasing Subscription to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumePurchasingSubscription'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Volume Purchasing Subscription with that id does not exist
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failed to update volume purchasing subscription
+      summary: Update a Volume Purchasing Subscription
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Update Volume Purchasing Locations
   /v1/volume-purchasing-subscriptions/{id}/history:
-      get:
-          tags:
-              - volume-purchasing-subscriptions
-          summary: |
-              Get specified Volume Purchasing Subscription history object
-          description: |
-              Gets specified Volume Purchasing Subscription history object
-          parameters:
-              - name: id
-                in: path
-                description: Volume Purchasing Subscription Id
-                required: true
-                schema:
-                    type: string
-              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-              - name: sort
-                in: query
-                description: 'Sorting criteria in the format: property:asc/desc. Default sort
-            is date:desc. Multiple sort criteria are supported and must be separated
-            with a comma. '
-                explode: true
-                schema:
-                    type: array
-                    items:
-                        type: string
-                    default: [ date:desc ]
-              - name: filter
-                in: query
-                description: 'Query in the RSQL format, allowing to filter history notes collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: username, date, note, details.
-            This param can be combined with paging and sorting.
-            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-                schema:
-                    type: string
-                    default: ''
-          responses:
-              200:
-                  description: Details of Volume Purchasing Subscription history were found
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-              404:
-                  description: Specified Volume Purchasing Subscription object does not exist.
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-          x-required-privileges:
-              - Read Volume Purchasing Locations
-      post:
-          tags:
-              - volume-purchasing-subscriptions
-          summary: |
-              Add Volume Purchasing Subscription history object notes
-          description: Adds Volume Purchasing Subscription history object notes
-          parameters:
-              - name: id
-                in: path
-                required: true
-                description: Volume Purchasing Subscription Id
-                schema:
-                    type: string
-          requestBody:
-              description: History notes to create
-              content:
-                  'application/json':
-                      schema:
-                          $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-              required: true
-          responses:
-              201:
-                  description: Notes of Volume Purchasing Subscription history were added
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-              400:
-                  description: Invalid Request
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-              404:
-                  description: Volume Purchasing Subscription with that Id does not exist
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-              503:
-                  description: Volume Purchasing Subscription history can not be saved
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-          x-required-privileges:
-              - Update Volume Purchasing Locations
-components:
-  schemas:
-    VolumePurchasingSubscriptions:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/VolumePurchasingSubscription'
-    VolumePurchasingSubscriptionBase:
-      type: object
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          example: Example
-          minLength: 1
-        enabled:
-          type: boolean
-          example: true
-          default: true
-        triggers:
-          type: array
-          items:
+    get:
+      description: |
+        Gets specified Volume Purchasing Subscription history object
+      parameters:
+        - description: Volume Purchasing Subscription Id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            enum: [ 'NO_MORE_LICENSES', 'REMOVED_FROM_APP_STORE' ]
-            example: 'NO_MORE_LICENSES'
-        locationIds:
-          type: array
-          items:
-            type: string
-            pattern: ^\d+$
-            example: '1'
-        internalRecipients:
-          type: array
-          items:
-            $ref: '#/components/schemas/InternalRecipient'
-        externalRecipients:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExternalRecipient'
-        siteId:
-          type: string
-          example: '1'
-          default: '-1'
-    VolumePurchasingSubscription:
-      allOf:
-        - $ref: '#/components/schemas/VolumePurchasingSubscriptionBase'
-        - type: object
-          properties:
-            id:
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
               type: string
-              example: '1'
-              readOnly: true
-    ExternalRecipient:
-      type: object
-      required:
-        - name
-        - email
-      properties:
-        name:
-          type: string
-          example: 'Bob Exampleman'
-          minLength: 1
-        email:
-          type: string
-          example: 'bob@example.com'
-          minLength: 1
-    InternalRecipient:
-      type: object
-      required:
-        - accountId
-      properties:
-        accountId:
-          type: string
-          example: '1'
-          pattern: ^\d+$
-        frequency:
-          type: string
-          enum: [ 'DAILY' ]
-          example: 'DAILY'
-          default: 'DAILY'
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of Volume Purchasing Subscription history were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Volume Purchasing Subscription object does not exist.
+      summary: |
+        Get specified Volume Purchasing Subscription history object
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Read Volume Purchasing Locations
+    post:
+      description: Adds Volume Purchasing Subscription history object notes
+      parameters:
+        - description: Volume Purchasing Subscription Id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of Volume Purchasing Subscription history were added
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Volume Purchasing Subscription with that Id does not exist
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Volume Purchasing Subscription history can not be saved
+      summary: |
+        Add Volume Purchasing Subscription history object notes
+      tags:
+        - volume-purchasing-subscriptions
+      x-required-privileges:
+        - Update Volume Purchasing Locations
+servers:
+  - url: /api

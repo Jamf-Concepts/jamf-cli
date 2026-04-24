@@ -180,7 +180,7 @@ func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/cloud-idp", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/cloud-idp", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}

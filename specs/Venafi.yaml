@@ -1,507 +1,533 @@
-openapi: 3.0.1
+components:
+  schemas:
+    VenafiCaRecord:
+      properties:
+        clientId:
+          example: jamf-pro
+          type: string
+        id:
+          example: 4
+          readOnly: true
+          type: integer
+        name:
+          example: Venafi Certificate Authority
+          type: string
+        proxyAddress:
+          example: localhost:9443
+          type: string
+        refreshToken:
+          example: qdkP4SrCFKd7tefAVM6N
+          type: string
+          writeOnly: true
+        refreshTokenConfigured:
+          example: true
+          readOnly: true
+          type: boolean
+        revocationEnabled:
+          example: true
+          type: boolean
+      required:
+        - name
+      type: object
+    VenafiPkiPayloadRecord:
+      properties:
+        name:
+          example: Configuration Profile Name
+          type: string
+        urlPath:
+          example: OSXConfigurationProfile.html?id=1
+          type: string
+      type: object
+    VenafiPkiPayloadRecordSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/VenafiPkiPayloadRecord'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    VenafiServiceStatus:
+      properties:
+        status:
+          example: Successfully connected
+          readOnly: true
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Venafi PKI
-  version: 0.2.1
+  title: Jamf Pro API - Venafi
+  version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/pki/venafi/{id}/jamf-public-key:
-    get:
-      tags:
-        - venafi-preview
-      summary: |
-        Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
-      description: |
-        Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
-      parameters:
-        - name: id
-          in: path
-          description: ID of the Venafi configuration
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response downloads the certificate
-          content:
-            application/pem-certificate-chain:
-              schema:
-                type: string
-                format: binary
-        400:
-          description: Keystore not found for Certificate Authority
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Certificate not found for Id
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read PKI
-  /v1/pki/venafi/{id}/jamf-public-key/regenerate:
-    post:
-      tags:
-        - venafi-preview
-      summary: |
-        Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
-      description: |
-        Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
-      parameters:
-        - name: id
-          in: path
-          description: ID of the Venafi configuration
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Successful response regenerates the certificate
-        404:
-          description: Certificate Authority not found for Id
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-action: true
-      x-required-privileges:
-        - Update PKI
   /v1/pki/venafi:
     post:
-      tags:
-        - venafi-preview
-      summary: |
-        Create a PKI configuration in Jamf Pro for Venafi
       description: |
         Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/VenafiCaRecord'
+        required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Successful response creates a Venafi PKI configuration
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
-          description: Invalid attributes for Certificate Authority configuration
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid attributes for Certificate Authority configuration
+      summary: |
+        Create a PKI configuration in Jamf Pro for Venafi
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Update PKI
   /v1/pki/venafi/{id}:
-    get:
-      tags:
-        - venafi-preview
-      summary: |
-        Retrieve a Venafi PKI configuration from Jamf Pro
-      description: |
-        Retrieve a Venafi PKI configuration from Jamf Pro
-      parameters:
-        - name: id
-          in: path
-          description: ID of the Venafi configuration
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response returns a Venafi PKI configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VenafiCaRecord'
-        404:
-          description: Certificate Authority not found for Id
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read PKI
-    patch:
-      tags:
-        - venafi-preview
-      summary: |
-        Update a Venafi PKI configuration in Jamf Pro
-      description: |
-        Update a Venafi PKI configuration in Jamf Pro
-      parameters:
-        - name: id
-          in: path
-          description: ID of the Venafi configuration
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VenafiCaRecord'
-      responses:
-        200:
-          description: Successful response returns a Venafi PKI configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VenafiCaRecord'
-        400:
-          description: Invalid attributes for Certificate Authority configuration
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Certificate Authority not found for Id
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update PKI
     delete:
-      tags:
-        - venafi-preview
-      summary: |
-        Delete a Venafi PKI configuration from Jamf Pro
       description: |
         Delete a Venafi PKI configuration from Jamf Pro
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Successful response deletes Venafi PKI configuration from Jamf Pro
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Certificate Authority not found for Id
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
-          description: Conflict deleting target, Venafi PKI configuration still in use on Configuration Profile
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update PKI
-  /v1/pki/venafi/{id}/proxy-trust-store:
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Conflict deleting target, Venafi PKI configuration still in use on Configuration Profile
+      summary: |
+        Delete a Venafi PKI configuration from Jamf Pro
       tags:
         - venafi-preview
-      summary: |
-        Uploads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
-      description: |
-        Uploads the PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
-      parameters:
-        - name: id
-          in: path
-          description: ID of the Venafi configuration
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/pem-certificate-chain:
-            schema:
-              type: string
-              format: binary
-      responses:
-        204:
-          description: Successful response replaces or removes public key
-        400:
-          description: Keystore not found for Certificate Authority
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Certificate not found for Certificate Authority
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update PKI
     get:
-      tags:
-        - venafi-preview
-      summary: |
-        Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
       description: |
-        Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
+        Retrieve a Venafi PKI configuration from Jamf Pro
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successful response downloads the certificate
-          content:
-            application/pem-certificate-chain:
-              schema:
-                type: string
-                format: binary
-        400:
-          description: Keystore not found for Certificate Authority
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: '#/components/schemas/VenafiCaRecord'
+          description: Successful response returns a Venafi PKI configuration
         404:
-          description: Certificate not found for Certificate Authority
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read PKI
-    delete:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate Authority not found for Id
+      summary: |
+        Retrieve a Venafi PKI configuration from Jamf Pro
       tags:
         - venafi-preview
-      summary: |
-        Removes the PKI Proxy Server public key used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      x-required-privileges:
+        - Read PKI
+    patch:
       description: |
-        Removes the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
+        Update a Venafi PKI configuration in Jamf Pro
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenafiCaRecord'
+        required: true
       responses:
-        204:
-          description: Successful removes public key
-        404:
-          description: Certificate Authority not found for Id
+        200:
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: '#/components/schemas/VenafiCaRecord'
+          description: Successful response returns a Venafi PKI configuration
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid attributes for Certificate Authority configuration
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate Authority not found for Id
+      summary: |
+        Update a Venafi PKI configuration in Jamf Pro
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Update PKI
   /v1/pki/venafi/{id}/connection-status:
     get:
-      tags:
-        - venafi-preview
-      summary: |
-        Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server
       description: |
         Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successfully connected to Venafi
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VenafiServiceStatus'
+          description: Successfully connected to Venafi
         503:
-          description: Why we failed to connect
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Why we failed to connect
+      summary: |
+        Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Read PKI
   /v1/pki/venafi/{id}/dependent-profiles:
     get:
-      tags:
-        - venafi-preview
-      summary: |
-        Get configuration profile data using specified Venafi CA object
       description: |
         Get configuration profile data using specified Venafi CA object
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successfully returns a list of configuration profile data connected to the Venafi CA
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VenafiPkiPayloadRecordSearchResults'
+          description: Successfully returns a list of configuration profile data connected to the Venafi CA
+      summary: |
+        Get configuration profile data using specified Venafi CA object
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Read PKI
   /v1/pki/venafi/{id}/history:
     get:
-      tags:
-        - venafi-preview
-      summary: |
-        Get specified Venafi CA history object
       description: |
         Get specified Venafi CA history object
       parameters:
-        - name: id
+        - description: ID of the Venafi configuration
+          explode: false
           in: path
-          description: ID of the Venafi configuration
+          name: id
           required: true
           schema:
             type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - date:desc
             items:
               type: string
-            default: [date:desc]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: username, date, note, details.
-            This param can be combined with paging and sorting.
-            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
           description: Details of Venafi CA history was found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
         404:
-          description: Specified Venafi CA object does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Venafi CA object does not exist
+      summary: |
+        Get specified Venafi CA history object
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Read PKI
     post:
-      tags:
-        - venafi-preview
-      summary: |
-        Add specified Venafi CA Object Note
       description: |
         Adds specified Venafi CA Object Note
       parameters:
-      - name: id
-        in: path
-        description: instance id of Venafi CA history record
-        required: true
-        schema:
-          type: string
+        - description: instance id of Venafi CA history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: venafi ca history notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: venafi ca history notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Notes of Venafi CA history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Specified Venafi CA object does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Venafi CA history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Venafi CA history can not be saved
+      summary: |
+        Add specified Venafi CA Object Note
+      tags:
+        - venafi-preview
       x-required-privileges:
         - Update PKI
-components:
-  schemas:
-    VenafiCaRecord:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-          example: 4
-        name:
-          type: string
-          example: Venafi Certificate Authority
-        proxyAddress:
-          type: string
-          example: localhost:9443
-        revocationEnabled:
-          type: boolean
-          example: true
-        clientId:
-          type: string
-          example: jamf-pro
-        refreshToken:
-          type: string
-          writeOnly: true
-          example: qdkP4SrCFKd7tefAVM6N
-        refreshTokenConfigured:
-          type: boolean
-          readOnly: true
-          example: true
-    VenafiServiceStatus:
-      type: object
-      properties:
-        status:
-          type: string
-          readOnly: true
-          example: Successfully connected
-    VenafiPkiPayloadRecordSearchResults:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 3
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/VenafiPkiPayloadRecord'
-    VenafiPkiPayloadRecord:
-      type: object
-      properties:
-        urlPath:
-          type: string
-          example: OSXConfigurationProfile.html?id=1
-        name:
-          type: string
-          example: Configuration Profile Name
+  /v1/pki/venafi/{id}/jamf-public-key:
+    get:
+      description: |
+        Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      parameters:
+        - description: ID of the Venafi configuration
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/pem-certificate-chain:
+              schema:
+                format: binary
+                type: string
+          description: Successful response downloads the certificate
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Keystore not found for Certificate Authority
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate not found for Id
+      summary: |
+        Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
+      x-required-privileges:
+        - Read PKI
+  /v1/pki/venafi/{id}/jamf-public-key/regenerate:
+    post:
+      description: |
+        Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      parameters:
+        - description: ID of the Venafi configuration
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful response regenerates the certificate
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate Authority not found for Id
+      summary: |
+        Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
+      x-action: true
+      x-required-privileges:
+        - Update PKI
+  /v1/pki/venafi/{id}/proxy-trust-store:
+    delete:
+      description: |
+        Removes the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
+      parameters:
+        - description: ID of the Venafi configuration
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful removes public key
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate Authority not found for Id
+      summary: |
+        Removes the PKI Proxy Server public key used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
+      x-required-privileges:
+        - Update PKI
+    get:
+      description: |
+        Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
+      parameters:
+        - description: ID of the Venafi configuration
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/pem-certificate-chain:
+              schema:
+                format: binary
+                type: string
+          description: Successful response downloads the certificate
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Keystore not found for Certificate Authority
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate not found for Certificate Authority
+      summary: |
+        Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
+      x-required-privileges:
+        - Read PKI
+    post:
+      description: |
+        Uploads the PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server
+      parameters:
+        - description: ID of the Venafi configuration
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/pem-certificate-chain:
+            schema:
+              format: binary
+              type: string
+        required: true
+      responses:
+        204:
+          description: Successful response replaces or removes public key
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Keystore not found for Certificate Authority
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Certificate not found for Certificate Authority
+      summary: |
+        Uploads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server
+      tags:
+        - venafi-preview
+      x-required-privileges:
+        - Update PKI
+servers:
+  - url: /api

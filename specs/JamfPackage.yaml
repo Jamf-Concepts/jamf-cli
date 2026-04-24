@@ -1,101 +1,106 @@
-openapi: 3.0.1
+components:
+  schemas:
+    JamfApplicationResponse:
+      properties:
+        artifacts:
+          items:
+            $ref: '#/components/schemas/JamfPackageResponse'
+          type: array
+        displayName:
+          example: Jamf Connect
+          type: string
+        releaseHistoryUrl:
+          example: https://docs.jamf.com/jamf-connect/administrator-guide/Release_History.html
+          type: string
+      type: object
+    JamfPackageResponse:
+      properties:
+        created:
+          example: "1970-01-01T00:00:00Z"
+          type: string
+        filename:
+          example: JamfProtect-1.2.2.pkg
+          type: string
+        id:
+          example: B84F9904-868B-4862-A8F5-33706AADED71
+          type: string
+        url:
+          example: https://example.jamf.com/path/to/JamfProtect-1.2.2.pkg
+          type: string
+        version:
+          example: 1.2.2
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Jamf Packages
+  title: Jamf Pro API - JamfPackage
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/jamf-package:
     get:
-      tags:
-        - jamf-package
-      summary: |
-        Get the packages for a given Jamf application
       description: Get the packages for a given Jamf application.
       parameters:
-        - name: application
-          in: query
-          required: true
-          description: The Jamf Application key. The only supported values are protect and connect.
+        - description: The Jamf Application key. The only supported values are protect and connect.
           example: protect
+          explode: true
+          in: query
+          name: application
+          required: true
           schema:
             type: string
+          style: form
       responses:
         200:
-          description: List of packages for the given application.
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/JamfPackageResponse'
+                type: array
+          description: List of packages for the given application.
         400:
-          description: Invalid Content. It is possible that there is no application with the given application id. Or Cloud Services Connection has not been established.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Content. It is possible that there is no application with the given application id. Or Cloud Services Connection has not been established.
+      summary: |
+        Get the packages for a given Jamf application
+      tags:
+        - jamf-package
       x-required-privileges:
         - Jamf Packages Action
   /v2/jamf-package:
     get:
-      tags:
-        - jamf-package
-      summary: |
-        Get the packages for a given Jamf application
       description: Get the packages for a given Jamf application.
       parameters:
-        - name: application
-          in: query
-          required: true
-          description: The Jamf Application key. The only supported values are protect and connect.
+        - description: The Jamf Application key. The only supported values are protect and connect.
           example: protect
+          explode: true
+          in: query
+          name: application
+          required: true
           schema:
             type: string
+          style: form
       responses:
         200:
-          description: Properties for the given application.
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/JamfApplicationResponse'
+          description: Properties for the given application.
         400:
-          description: Invalid Content. It is possible that there is no application with the given application id. Or Cloud Services Connection has not been established.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Content. It is possible that there is no application with the given application id. Or Cloud Services Connection has not been established.
+      summary: |
+        Get the packages for a given Jamf application
+      tags:
+        - jamf-package
       x-required-privileges:
         - Jamf Packages Action
-
-components:
-  schemas:
-    JamfApplicationResponse:
-      type: object
-      properties:
-        displayName:
-          type: string
-          example: Jamf Connect
-        releaseHistoryUrl:
-          type: string
-          example: "https://docs.jamf.com/jamf-connect/administrator-guide/Release_History.html"
-        artifacts:
-          type: array
-          items:
-            $ref: '#/components/schemas/JamfPackageResponse'
-    JamfPackageResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          example: B84F9904-868B-4862-A8F5-33706AADED71
-        filename:
-          type: string
-          example: JamfProtect-1.2.2.pkg
-        version:
-          type: string
-          example: 1.2.2
-        created:
-          type: string
-          example: "1970-01-01T00:00:00Z"
-        url:
-          type: string
-          example: "https://example.jamf.com/path/to/JamfProtect-1.2.2.pkg"
+servers:
+  - url: /api

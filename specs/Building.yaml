@@ -1,459 +1,470 @@
-openapi: 3.0.1
+components:
+  schemas:
+    Building:
+      properties:
+        city:
+          example: Cupertino
+          nullable: true
+          type: string
+        country:
+          example: The United States of America
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          example: Apple Park
+          type: string
+        stateProvince:
+          example: California
+          nullable: true
+          type: string
+        streetAddress1:
+          example: The McIntosh Tree
+          nullable: true
+          type: string
+        streetAddress2:
+          example: One Apple Park Way
+          nullable: true
+          type: string
+        zipPostalCode:
+          example: "95014"
+          nullable: true
+          type: string
+      required:
+        - name
+      type: object
+    BuildingSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/Building'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - buildings
+  title: Jamf Pro API - Building
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/buildings:
     get:
-      tags:
-      - buildings
-      summary: |
-         Search for sorted and paged Buildings
       description: Search for sorted and paged buildings
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is id:asc. Multiple sort criteria are supported and must be separated with
-          a comma. Example: sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter buildings collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: name, streetAddress1, streetAddress2, city, stateProvince, zipPostalCode, country. This param can be combined with paging and sorting. Example: filter=city=="Chicago" and name=="*build*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
             type: string
-          default: [id:asc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter buildings collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: name, streetAddress1, streetAddress2, city, stateProvince, zipPostalCode, country.
-                      This param can be combined with paging and sorting.
-                      Example: filter=city=="Chicago" and name=="*build*"'
-        schema:
-          type: string
-          default: ''
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/BuildingSearchResults'
-      x-required-privileges:
-      - Read Buildings
-    post:
-      tags:
-      - buildings
+          description: Successful response
       summary: |
-        Create Building record
+        Search for sorted and paged Buildings
+      tags:
+        - buildings
+      x-required-privileges:
+        - Read Buildings
+    post:
       description: |
         Create building record
       requestBody:
-        description: building object to create. ids defined in this body will be ignored
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/Building'
+        description: building object to create. ids defined in this body will be ignored
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Building record was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-      - Create Buildings
-  /v1/buildings/{id}:
-    get:
-      tags:
-      - buildings
       summary: |
-        Get specified Building object
-      description: |
-        Gets specified Building object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of building record
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Details of building were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Building'
-        404:
-          description: Specified building object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Buildings
-    put:
-      tags:
-      - buildings
-      summary: |
-        Update specified Building object
-      description: |
-        Update specified building object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of building record
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: building object to update. ids defined in this body will be ignored
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/Building'
-        required: true
-      responses:
-        200:
-          description: Building update
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Building'
-      x-required-privileges:
-      - Update Buildings
-    delete:
-      tags:
-      - buildings
-      summary: |
-        Remove specified Building record
-      description: |
-        Removes specified building record
-      parameters:
-      - name: id
-        in: path
-        description: instance id of building record
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Building record was deleted
-      x-required-privileges:
-      - Delete Buildings
-  /v1/buildings/delete-multiple:
-    post:
+        Create Building record
       tags:
         - buildings
-      summary: |
-        Delete multiple Buildings by their ids
+      x-required-privileges:
+        - Create Buildings
+  /v1/buildings/delete-multiple:
+    post:
       description: multiple many Buildings by their ids
       requestBody:
-        description: ids of the building to be deleted
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: ids of the building to be deleted
         required: true
       responses:
         204:
           description: All building ids passed in request sucessfully deleted.
         400:
-          description: 'Request processed.  Returns ids and error codes of any buildings
-                unable to be deleted.  Expected error codes: INVALID_ID - id does not
-                exist SYSTEM_EXCEPTION - a system exception occurred trying to delete
-                the building.'
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: 'Request processed.  Returns ids and error codes of any buildings unable to be deleted.  Expected error codes: INVALID_ID - id does not exist SYSTEM_EXCEPTION - a system exception occurred trying to delete the building.'
+      summary: |
+        Delete multiple Buildings by their ids
+      tags:
+        - buildings
+      x-action: true
       x-required-privileges:
         - Delete Buildings
-      x-action: true
-  /v1/buildings/{id}/history:
-    get:
-      tags:
-      - buildings
-      summary: |
-        Get specified Building History object
-      description: |
-        Gets specified Building history object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of building history record
-        required: true
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
-            type: string
-          default: [date:desc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter history notes collection.
-          Default filter is empty query - returning all results for the requested page.
-          Fields allowed in the query: username, date, note, details.
-          This param can be combined with paging and sorting.
-          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-        schema:
-          type: string
-          default: ''
-      responses:
-        200:
-          description: Details of building history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-        404:
-          description: Specified building object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Buildings
-    post:
-      tags:
-      - buildings
-      summary: |
-        Add specified Building history object notes
-      description: |
-        Adds specified Building history object notes
-      parameters:
-      - name: id
-        in: path
-        description: instance id of building history record
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: history notes to create
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Notes of building history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
-        404:
-          description: Specified building object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        503:
-          description: Building history can not be saved
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Buildings
-  /v1/buildings/{id}/history/export:
-    post:
-      tags:
-        - buildings
-      summary: |
-        Export history object collection in specified format for specified Buildings
-      description: |
-        Export history object collection in specified format for specified Buildings
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
-        - name: id
-          in: path
-          description: instance id of buildings
-          required: true
-          schema:
-            type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-             is date:desc. Multiple sort criteria are supported and must be separated
-             with a comma. Example: sort=date:desc,name:asc '
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ date:desc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-             Default filter is empty query - returning all results for the requested page.
-             Fields allowed in the query: username, date, note, details.
-             This param can be combined with paging and sorting.
-             Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-          schema:
-            type: string
-            default: ''
-      requestBody:
-        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
-        required: false
-      responses:
-        200:
-          description: Export successful
-          content:
-            text/csv:
-              schema:
-                format: binary
-                example: |
-                  id,username,date,note,details
-                  1,admin,2019-02-04 21:09:31,Buildings update,Some details
-        400:
-          description: Export fields specified incorrectly - non-existing column or duplicate on the list.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        503:
-          description: Export currently unavailable, all export-related resources are in use. Try again later.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Buildings
-      x-action: true
   /v1/buildings/export:
     post:
-      tags:
-        - buildings
-      summary: |
-        Export Buildings collection
       description: |
         Export Buildings collection
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-              is id:desc. Multiple sort criteria are supported and must be separated
-              with a comma. Example: sort=id:desc,name:asc '
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-fields
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-labels
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc '
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name=="*buildings*"'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-              Default filter is empty query - returning all results for the requested page.
-              Fields allowed in the query: id, name.
-              This param can be combined with paging and sorting.
-              Example: name=="*buildings*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       requestBody:
-        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ExportParameters
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         required: false
       responses:
         200:
-          description: Export successful
           content:
             text/csv:
               schema:
-                format: binary
                 example: |
                   id,name
                   1,Marketing
                   2,Accounting
+                format: binary
+          description: Export successful
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Export fields specified incorrectly - non-existing column or duplicate on the list.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Export currently unavailable, all export-related resources are in use. Try again later.
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: |
+        Export Buildings collection
+      tags:
+        - buildings
+      x-action: true
       x-required-privileges:
         - Read Buildings
+  /v1/buildings/{id}:
+    delete:
+      description: |
+        Removes specified building record
+      parameters:
+        - description: instance id of building record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Building record was deleted
+      summary: |
+        Remove specified Building record
+      tags:
+        - buildings
+      x-required-privileges:
+        - Delete Buildings
+    get:
+      description: |
+        Gets specified Building object
+      parameters:
+        - description: instance id of building record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+          description: Details of building were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified building object does not exist.
+      summary: |
+        Get specified Building object
+      tags:
+        - buildings
+      x-required-privileges:
+        - Read Buildings
+    put:
+      description: |
+        Update specified building object
+      parameters:
+        - description: instance id of building record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Building'
+        description: building object to update. ids defined in this body will be ignored
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+          description: Building update
+      summary: |
+        Update specified Building object
+      tags:
+        - buildings
+      x-required-privileges:
+        - Update Buildings
+  /v1/buildings/{id}/history:
+    get:
+      description: |
+        Gets specified Building history object
+      parameters:
+        - description: instance id of building history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of building history were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified building object does not exist.
+      summary: |
+        Get specified Building History object
+      tags:
+        - buildings
+      x-required-privileges:
+        - Read Buildings
+    post:
+      description: |
+        Adds specified Building history object notes
+      parameters:
+        - description: instance id of building history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
+          description: Notes of building history were added
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified building object does not exist.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Building history can not be saved
+      summary: |
+        Add specified Building history object notes
+      tags:
+        - buildings
+      x-required-privileges:
+        - Update Buildings
+  /v1/buildings/{id}/history/export:
+    post:
+      description: |
+        Export history object collection in specified format for specified Buildings
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-fields
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-labels
+        - description: instance id of buildings
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ExportParameters
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
+        required: false
+      responses:
+        200:
+          content:
+            text/csv:
+              schema:
+                example: |
+                  id,username,date,note,details
+                  1,admin,2019-02-04 21:09:31,Buildings update,Some details
+                format: binary
+          description: Export successful
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: |
+        Export history object collection in specified format for specified Buildings
+      tags:
+        - buildings
       x-action: true
-components:
-  schemas:
-    Building:
-      required:
-      - name
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          readOnly: true
-        name:
-          type: string
-          example: Apple Park
-        streetAddress1:
-          type: string
-          nullable: true
-          example: The McIntosh Tree
-        streetAddress2:
-          type: string
-          nullable: true
-          example: One Apple Park Way
-        city:
-          type: string
-          nullable: true
-          example: Cupertino
-        stateProvince:
-          type: string
-          nullable: true
-          example: California
-        zipPostalCode:
-          type: string
-          nullable: true
-          example: 95014
-        country:
-          type: string
-          nullable: true
-          example: The United States of America
-    BuildingSearchResults:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 3
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/Building'
+      x-required-privileges:
+        - Read Buildings
+servers:
+  - url: /api

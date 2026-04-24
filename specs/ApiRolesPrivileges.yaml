@@ -1,66 +1,70 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ApiRolePrivileges:
+      properties:
+        privileges:
+          items:
+            example: Flush MDM Commands
+            type: string
+          minItems: 0
+          type: array
+      required:
+        - privileges
+      type: object
 info:
-  title: API Role Privileges
-  description: This endpoint is used to get API role privileges
+  title: Jamf Pro API - ApiRolesPrivileges
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/api-role-privileges:
     get:
-      tags:
-        - api-role-privileges
       description: Get role privileges
-      summary: Get the current Jamf API Role Privileges
       responses:
         200:
-          description: A sorted list of the current Jamf API Roles Privileges
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ApiRolePrivileges'
+          description: A sorted list of the current Jamf API Roles Privileges
+      summary: Get the current Jamf API Role Privileges
+      tags:
+        - api-role-privileges
       x-required-privileges:
         - Read API Roles
   /v1/api-role-privileges/search:
     get:
-      tags:
-        - api-role-privileges
       description: Search role privileges
-      summary: Search the current Jamf API Role Privileges
       parameters:
-        - name: name
+        - description: The partial or complete privilege name we are searching for
+          explode: true
           in: query
-          description: The partial or complete privilege name we are searching for
+          name: name
           required: true
           schema:
+            example: Flush
             type: string
-            example: "Flush"
-        - name: limit
+          style: form
+        - description: Limit the query results, defaults to 15
+          explode: true
           in: query
-          description: Limit the query results, defaults to 15
+          name: limit
           required: false
           schema:
-              type: string
-              default: "15"
-              example: "50"
+            default: "15"
+            example: "50"
+            type: string
+          style: form
       responses:
         200:
-          description: A list of matches Jamf API Roles Privileges
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ApiRolePrivileges'
+          description: A list of matches Jamf API Roles Privileges
+      summary: Search the current Jamf API Role Privileges
+      tags:
+        - api-role-privileges
       x-required-privileges:
-          - Read API Roles
-
-components:
-  schemas:
-    ApiRolePrivileges:
-      required:
-        - privileges
-      type: object
-      properties:
-        privileges:
-          type: array
-          minItems: 0
-          items:
-            type: string
-            example: "Flush MDM Commands"
+        - Read API Roles
+servers:
+  - url: /api

@@ -1,504 +1,519 @@
-openapi: "3.0.1"
+components:
+  schemas:
+    AdcsCertificate:
+      properties:
+        data:
+          description: Must be base-64 encoded data obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods.
+          example: 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
+          items:
+            format: byte
+            type: string
+          type: array
+        filename:
+          description: Server certificate filename should extend .cer or .pem, and client certificate filename should extend .p12 or .pfx.
+          example: example.cer
+          maxLength: 255
+          minLength: 1
+          type: string
+        password:
+          example: password-example
+          format: password
+          maxLength: 255
+          minLength: 1
+          nullable: true
+          type: string
+          writeOnly: true
+      required:
+        - data
+        - filename
+      type: object
+    AdcsCertificateResponse:
+      properties:
+        expirationDate:
+          example: "2018-10-15T16:39:56Z"
+          format: date-time
+          readOnly: true
+          type: string
+        filename:
+          description: Server certificate filename should extend .cer or .pem, and client certificate filename should extend .p12 or .pfx.
+          example: example.cer
+          maxLength: 255
+          readOnly: true
+          type: string
+        issuer:
+          example: IssuerName
+          readOnly: true
+          type: string
+        serialNumber:
+          example: "123456789456123"
+          readOnly: true
+          type: string
+        subject:
+          example: CN=SubjectName, OU=OrganizationalUnit, O=Organization, L=Location, ST=State, C=Country
+          readOnly: true
+          type: string
+      type: object
+    AdcsDependencies:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/AdcsDependency'
+          type: array
+        totalCount:
+          example: 1
+          nullable: false
+          type: integer
+      type: object
+    AdcsDependency:
+      properties:
+        configProfileId:
+          example: 1
+          nullable: false
+          type: integer
+        configProfileName:
+          example: name
+          type: string
+        configProfileType:
+          enum:
+            - OSX_CONFIGURATION_PROFILE
+            - IOS_CONFIGURATION_PROFILE
+          example: OSX_CONFIGURATION_PROFILE
+          nullable: false
+          readOnly: true
+          type: string
+      type: object
+    AdcsSettings:
+      description: AD CS Settings object to create, or update with a merge-patch strategy. Certificate data must be provided in full, or not at all for update with merge-patch strategy.
+      properties:
+        adcsUrl:
+          example: https://<host-name>.example.com
+          maxLength: 255
+          minLength: 1
+          type: string
+        apiClientId:
+          example: A11B43D6-9ED4-4B29-B726-E2DE747D2410
+          type: string
+        caName:
+          example: EXAMPLE-SUBCA02-CA
+          maxLength: 255
+          minLength: 1
+          type: string
+        clientCert:
+          $ref: '#/components/schemas/AdcsCertificate'
+        displayName:
+          example: Example Display Name
+          maxLength: 255
+          minLength: 1
+          type: string
+        fqdn:
+          example: example-subca02.example.com
+          maxLength: 255
+          minLength: 1
+          type: string
+        outbound:
+          example: true
+          type: boolean
+        revocationEnabled:
+          example: true
+          type: boolean
+        serverCert:
+          $ref: '#/components/schemas/AdcsCertificate'
+      type: object
+    AdcsSettingsResponse:
+      properties:
+        adcsUrl:
+          example: https://<host-name>.example.com
+          maxLength: 255
+          minLength: 1
+          readOnly: true
+          type: string
+        apiClientId:
+          example: A11B43D6-9ED4-4B29-B726-E2DE747D2410
+          readOnly: true
+          type: string
+        caName:
+          example: EXAMPLE-SUBCA02-CA
+          maxLength: 255
+          minLength: 1
+          readOnly: true
+          type: string
+        clientCert:
+          $ref: '#/components/schemas/AdcsCertificateResponse'
+        connectorLastCheckInTimestamp:
+          example: "2018-10-15T16:39:56Z"
+          format: date-time
+          readOnly: true
+          type: string
+        displayName:
+          example: Example Display Name
+          maxLength: 255
+          minLength: 1
+          readOnly: true
+          type: string
+        fqdn:
+          example: example-subca02.example.com
+          maxLength: 255
+          minLength: 1
+          readOnly: true
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        outbound:
+          example: true
+          readOnly: true
+          type: boolean
+        revocationEnabled:
+          example: true
+          readOnly: true
+          type: boolean
+        serverCert:
+          $ref: '#/components/schemas/AdcsCertificateResponse'
+      type: object
 info:
-  title: "Jamf Pro API - AD CS Settings"
-  description: "API for configuring the AD CS Settings in Jamf Pro using either inbound or outbound mode."
-  version: "1.0.0"
+  title: Jamf Pro API - AdcsSettings
+  version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/pki/adcs-settings/{id}:
-    get:
-      tags:
-        - adcs-settings
-      summary: |
-        Get AD CS Settings configuration for the ID value
-      description: Get AD CS Settings configuration for the ID value including public key information, but not including any password information.
-      parameters:
-        - name: "id"
-          in: "path"
-          description: ID of the AD CS Settings configuration.
-          required: true
-          schema:
-            type: "string"
-      responses:
-        200:
-          description: "OK"
-          content:
-            'application/json':
-              schema:
-                $ref: "#/components/schemas/AdcsSettingsResponse"
-      x-required-privileges:
-        - Read AD CS Settings
-    delete:
-      tags:
-        - adcs-settings
-      summary: |
-        Delete AD CS Settings configuration by ID
-      description: Delete AD CS Settings configuration, only if reassignment of Certificate Authority succeeds and no config profiles are using the configuration.
-      parameters:
-        - name: "id"
-          in: "path"
-          description: ID of the AD CS Settings configuration.
-          required: true
-          schema:
-            type: "string"
-      responses:
-        204:
-          description: "No Content"
-        404:
-          description: "Not Found"
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        409:
-          description: "Conflict"
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Delete AD CS Settings
-    patch:
-      tags:
-        - adcs-settings
-      summary: |
-        Update AD CS Settings configuration
-      description: Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.
-      parameters:
-        - name: "id"
-          in: "path"
-          description: ID of the AD CS Settings configuration.
-          required: true
-          schema:
-            type: "string"
+  /v1/pki/adcs-settings:
+    post:
+      description: Create AD CS Settings configuration and initialize renewal monitor. Once set, the configuration cannot change between inbound and outbound modes.
       requestBody:
         content:
-          'application/merge-patch+json':
+          application/json:
+            examples:
+              sample1:
+                value:
+                  adcsUrl: null
+                  apiClientId: A11B43D6-9ED4-4B29-B726-E2DE747D2410
+                  caName: EXAMPLE-SUBCA02-CA
+                  clientCert: null
+                  displayName: Example Display Name - 1
+                  fqdn: example-subca02.example.com
+                  outbound: true
+                  revocationEnabled: true
+                  serverCert: null
+              sample2:
+                value:
+                  adcsUrl: https://<host-name>.example.com
+                  apiClientId: null
+                  caName: EXAMPLE-SUBCA02-CA
+                  clientCert:
+                    data: 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
+                    filename: client-cert.pfx
+                    password: password-example
+                  fqdn: example-subca02.example.com
+                  outbound: false
+                  revocationEnabled: true
+                  serverCert:
+                    data: TUlJRFZEQ0NBanlnQXdJQkFnSVFVS1ZramVieXZxUk1XTzRnazR6SVlUQU5CZ2txaGtpRzl3MEJBUXNGQURBb01TWXdKQVlEVlFRRERCMXJkRzV6ZG0wdGQybHVNakF4Tmk1bGJucHBZVzUwWldOb0xtTnZiVEFlRncweU1qQXpNVFV4TWpJd01ETmFGdzB6TWpBek1UVXhNakk1TlRoYU1DZ3hKakFrQmdOVkJBTU1IV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFvZGxoSTVaNVdOKzhqTFFZVFdQOXF2eklNZTRVaVRLVy9iQ3VCMlAwYm53ZEtKY2xjQU9MQ2h0UGhFZmNKd3ZtNjVFL0FnMnBwODNndnNlVHNwMmZFR2orNXRMVUVpd2lhM3lmUkdxVkVvQS8wMmIrMlBxbDUxWVNPYkVxU2x6TGRJUEVna0JNNzB1WGJDOHBjT2xSRFpZYnhGRWhaWDQzR1c2d3JCMElLaEdvV2o1Y2M5akJ0K1ZGSkFVc0dxMHl0dU44TFE3MGw0Z1laZ0hsa0x6UXlhcVZKUzhTalpyd0ZrczQzNlRuUkRQb2tSMzl6YVlkc0tra2prdXRWMUNlZVh3dEZDQURJOHhwUkdLU2EzZTl6eVU4cGN1V1VCaEt3OElNaTF2MExZdXVZNEVTNFBIRERRNmdVazhFTUtOTkVyek9lQkJUcHEwRC9aNnYwcTVaRndJREFRQUJvM293ZURBT0JnTlZIUThCQWY4RUJBTUNBYll3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQk1DZ0dBMVVkRVFRaE1CK0NIV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUIwR0ExVWREZ1FXQkJRK2h2aU5ONnFuZlVYZFZBa2pNdkZzYzdZUnV6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFUZVRhd3BXOFdPQUhUbFVtdzk5ZmJQUUtSc000UU8xUjlxKzkwSXRPMUxVTEpTMUZoNHplZysvR1ZQNjVhbUViQmVNamlOMmNYS2V5bGZhM3psWW9DVHpWRDFQY0VIdEdqNXoxTXVLaEJuZEJ5YVY1cG8vTGRlNWYvb0xWZWlORmJOSFh2am1OVDVJMzNMeFN6RG40d00yeHRsY1R3cHRKQzlTWGZPbSt0TGY0b21oTnBkSDhaKzFIMVhyYVVXU3pXVmRWL1g4QWZxMmxLamRpQzRiRXUyeGNJOXp3NmN6TVAvYWk0LzRZaE92dlVKTEVxUTRaQ0NRNDFPUEJvaHJaSW5VYUFFeXZxV2p0TWJLTjV6eXpZdWJQZ21PVGFheFhxb3M4cGs4emwvQXlYSTdTRFUxTmdpK05aT3h0Sy83TGI5V0lBVUF3ZTBjSU9tOGNrM3pldkE9PQ==
+                    filename: adcs-proxy-ca.cer
+                    password: ""
+              sample3:
+                value:
+                  adcsUrl: https://<host-name>.example.com
+                  apiClientId: null
+                  caName: EXAMPLE-SUBCA02-CA
+                  clientCert:
+                    data: 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
+                    filename: client-cert.p12
+                    password: password-example
+                  displayName: Example Display Name - 2
+                  fqdn: example-subca02.example.com
+                  outbound: false
+                  revocationEnabled: true
+                  serverCert:
+                    data: TUlJRFZEQ0NBanlnQXdJQkFnSVFVS1ZramVieXZxUk1XTzRnazR6SVlUQU5CZ2txaGtpRzl3MEJBUXNGQURBb01TWXdKQVlEVlFRRERCMXJkRzV6ZG0wdGQybHVNakF4Tmk1bGJucHBZVzUwWldOb0xtTnZiVEFlRncweU1qQXpNVFV4TWpJd01ETmFGdzB6TWpBek1UVXhNakk1TlRoYU1DZ3hKakFrQmdOVkJBTU1IV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFvZGxoSTVaNVdOKzhqTFFZVFdQOXF2eklNZTRVaVRLVy9iQ3VCMlAwYm53ZEtKY2xjQU9MQ2h0UGhFZmNKd3ZtNjVFL0FnMnBwODNndnNlVHNwMmZFR2orNXRMVUVpd2lhM3lmUkdxVkVvQS8wMmIrMlBxbDUxWVNPYkVxU2x6TGRJUEVna0JNNzB1WGJDOHBjT2xSRFpZYnhGRWhaWDQzR1c2d3JCMElLaEdvV2o1Y2M5akJ0K1ZGSkFVc0dxMHl0dU44TFE3MGw0Z1laZ0hsa0x6UXlhcVZKUzhTalpyd0ZrczQzNlRuUkRQb2tSMzl6YVlkc0tra2prdXRWMUNlZVh3dEZDQURJOHhwUkdLU2EzZTl6eVU4cGN1V1VCaEt3OElNaTF2MExZdXVZNEVTNFBIRERRNmdVazhFTUtOTkVyek9lQkJUcHEwRC9aNnYwcTVaRndJREFRQUJvM293ZURBT0JnTlZIUThCQWY4RUJBTUNBYll3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQk1DZ0dBMVVkRVFRaE1CK0NIV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUIwR0ExVWREZ1FXQkJRK2h2aU5ONnFuZlVYZFZBa2pNdkZzYzdZUnV6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFUZVRhd3BXOFdPQUhUbFVtdzk5ZmJQUUtSc000UU8xUjlxKzkwSXRPMUxVTEpTMUZoNHplZysvR1ZQNjVhbUViQmVNamlOMmNYS2V5bGZhM3psWW9DVHpWRDFQY0VIdEdqNXoxTXVLaEJuZEJ5YVY1cG8vTGRlNWYvb0xWZWlORmJOSFh2am1OVDVJMzNMeFN6RG40d00yeHRsY1R3cHRKQzlTWGZPbSt0TGY0b21oTnBkSDhaKzFIMVhyYVVXU3pXVmRWL1g4QWZxMmxLamRpQzRiRXUyeGNJOXp3NmN6TVAvYWk0LzRZaE92dlVKTEVxUTRaQ0NRNDFPUEJvaHJaSW5VYUFFeXZxV2p0TWJLTjV6eXpZdWJQZ21PVGFheFhxb3M4cGs4emwvQXlYSTdTRFUxTmdpK05aT3h0Sy83TGI5V0lBVUF3ZTBjSU9tOGNrM3pldkE9PQ==
+                    filename: adcs-proxy-ca.pem
+                    password: ""
+            schema:
+              $ref: '#/components/schemas/AdcsSettings'
+        required: true
+      responses:
+        201:
+          content:
+            '*/*':
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Created
+      summary: |
+        Create AD CS Settings configuration for either inbound or outbound mode
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Create AD CS Settings
+  /v1/pki/adcs-settings/validate-certificate:
+    post:
+      description: Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods.
+      requestBody:
+        content:
+          application/json:
+            examples:
+              sample1:
+                value:
+                  data: MIIDVDCCAjygAwIBAgIQUKVkjebyvqRMWO4gk4zIYTANBgkqhkiG9w0BAQsFADAoMSYwJAYDVQQDDB1rdG5zdm0td2luMjAxNi5lbnppYW50ZWNoLmNvbTAeFw0yMjAzMTUxMjIwMDNaFw0zMjAzMTUxMjI5NThaMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodlhI5Z5WN+8jLQYTWP9qvzIMe4UiTKW/bCuB2P0bnwdKJclcAOLChtPhEfcJwvm65E/Ag2pp83gvseTsp2fEGj+5tLUEiwia3yfRGqVEoA/02b+2Pql51YSObEqSlzLdIPEgkBM70uXbC8pcOlRDZYbxFEhZX43GW6wrB0IKhGoWj5cc9jBt+VFJAUsGq0ytuN8LQ70l4gYZgHlkLzQyaqVJS8SjZrwFks436TnRDPokR39zaYdsKkkjkutV1CeeXwtFCADI8xpRGKSa3e9zyU8pcuWUBhKw8IMi1v0LYuuY4ES4PHDDQ6gUk8EMKNNErzOeBBTpq0D/Z6v0q5ZFwIDAQABo3oweDAOBgNVHQ8BAf8EBAMCAbYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMCgGA1UdEQQhMB+CHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB0GA1UdDgQWBBQ+hviNN6qnfUXdVAkjMvFsc7YRuzANBgkqhkiG9w0BAQsFAAOCAQEATeTawpW8WOAHTlUmw99fbPQKRsM4QO1R9q+90ItO1LULJS1Fh4zeg+/GVP65amEbBeMjiN2cXKeylfa3zlYoCTzVD1PcEHtGj5z1MuKhBndByaV5po/Lde5f/oLVeiNFbNHXvjmNT5I33LxSzDn4wM2xtlcTwptJC9SXfOm+tLf4omhNpdH8Z+1H1XraUWSzWVdV/X8Afq2lKjdiC4bEu2xcI9zw6czMP/ai4/4YhOvvUJLEqQ4ZCCQ41OPBohrZInUaAEyvqWjtMbKN5tupKssPgmOTaaxXqos8pk8zl/AyXI7SDU1Ngi+NZOxtK/7Lb9WIAUAwe0cIOm8ck3zevA==
+                  filename: adcs-proxy-ca.cer
+                  password: ""
+              sample2:
+                value:
+                  data: MIIDVDCCAjygAwIBAgIQUKVkjebyvqRMWO4gk4zIYTANBgkqhkiG9w0BAQsFADAoMSYwJAYDVQQDDB1rdG5zdm0td2luMjAxNi5lbnppYW50ZWNoLmNvbTAeFw0yMjAzMTUxMjIwMDNaFw0zMjAzMTUxMjI5NThaMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodlhI5Z5WN+8jLQYTWP9qvzIMe4UiTKW/bCuB2P0bnwdKJclcAOLChtPhEfcJwvm65E/Ag2pp83gvseTsp2fEGj+5tLUEiwia3yfRGqVEoA/02b+2Pql51YSObEqSlzLdIPEgkBM70uXbC8pcOlRDZYbxFEhZX43GW6wrB0IKhGoWj5cc9jBt+VFJAUsGq0ytuN8LQ70l4gYZgHlkLzQyaqVJS8SjZrwFks436TnRDPokR39zaYdsKkkjkutV1CeeXwtFCADI8xpRGKSa3e9zyU8pcuWUBhKw8IMi1v0LYuuY4ES4PHDDQ6gUk8EMKNNErzOeBBTpq0D/Z6v0q5ZFwIDAQABo3oweDAOBgNVHQ8BAf8EBAMCAbYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMCgGA1UdEQQhMB+CHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB0GA1UdDgQWBBQ+hviNN6qnfUXdVAkjMvFsc7YRuzANBgkqhkiG9w0BAQsFAAOCAQEATeTawpW8WOAHTlUmw99fbPQKRsM4QO1R9q+90ItO1LULJS1Fh4zeg+/GVP65amEbBeMjiN2cXKeylfa3zlYoCTzVD1PcEHtGj5z1MuKhBndByaV5po/Lde5f/oLVeiNFbNHXvjmNT5I33LxSzDn4wM2xtlcTwptJC9SXfOm+tLf4omhNpdH8Z+1H1XraUWSzWVdV/X8Afq2lKjdiC4bEu2xcI9zw6czMP/ai4/4YhOvvUJLEqQ4ZCCQ41OPBohrZInUaAEyvqWjtMbKN5tupKssPgmOTaaxXqos8pk8zl/AyXI7SDU1Ngi+NZOxtK/7Lb9WIAUAwe0cIOm8ck3zevA==
+                  filename: adcs-proxy-ca.pem
+                  password: ""
+            schema:
+              $ref: '#/components/schemas/AdcsCertificate'
+      responses:
+        204:
+          description: AD CS Settings certificate for the Jamf Pro server is of valid file format.
+      summary: |
+        Validate AD CS Settings server certificate
+      tags:
+        - adcs-settings
+      x-action: true
+      x-required-privileges:
+        - Update AD CS Settings
+        - Create AD CS Settings
+  /v1/pki/adcs-settings/validate-client-certificate:
+    post:
+      description: Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.
+      requestBody:
+        content:
+          application/json:
+            examples:
+              sample1:
+                value:
+                  data: MIINvwIBAzCCDXsGCSqGSIb3DQEHAaCCDWwEgg1oMIINZDCCBg8GCSqGSIb3DQEHAaCCBgAEggX8MIIF+DCCBfQGCyqGSIb3DQEMCgECoIIE/jCCBPowHAYKKoZIhvcNAQwBAzAOBAhIPjJB7Ls2fAICB9AEggTY3EKQVRtYWdwsisoMtXWIYJXvLTLm3WtBULqFdkVIXiMg0Y6cKtMdYHoLKEhyZwcsFxiUSfM4QkGpo4woshiwjFBEwc7Iu3waIGe5CVmAsZ9ynvqBirCfelmt5mLn6iU+AjR/xcYqwV2MJNO+lo8K3gVGDHvE0caJQB2blFioW7QOsGb+8GWpNNdWkbTHB6zH3XRB1lVm+9rsr1BF1l3lzEQOlc4P1nBtNumf2TVBoU6cM4lgiWA0as896nUilj1w9AAXiQcdhIT4zaaJFP4AnXqL94bDDlfceA60HNpzCYRIGOhohnxBtquUoDw6uHBnmo6PMkB2KkYNVoxk+/+egF3arCdjbj4OkWhZ/wzNGa0uHTA6nG8bNWRXULWZ/QfvQi424vKfuLSGQty1AP0VHOeoY4SkWvDz+gCEfP29C8vk4kWcnl/0dsE1wmmowuydJvL6WhGRAPii1y/BOJW0FTXav03o7SP5aYZXnr8qLKKUkmSziV1toY7YFl7lUCKYj5j/1I+5uaGlEqbjEsQs6GwL6S9M6ggpbGSBT4fp4xH1FSXeRoWbbVKuB3+Sin8lwP4ZrSTarufWpYCnnLNfYgTFiatpbP9u9BS4PaBVZTFygyvl4Gj4QtVMtZy39tRqiN82RkG61DiTeLFI0xXGqMctQLpOHU8Rn07tBZBKWI6U5wc2nDKWr60ohQPVEglt5MEqYgPuPcoUvj2GOG536pHR6HeWiX3nszv3KCNxOog8hkvs1JKoJuByhgzeUR6ylHTBOq+jNrbTJvzWGXEK6+I5rUmViITmMksumg96kUgP2ZPYzGbaJLt0lE1zD+rI05EWroZh4GQpcwfX8PQkbadR10MXbhnPe039TwhbgtDecxgNZQd0Fs4WTZqzpZOkUpcvWxHmPm1iSCd860EvNKwJos4kAlgE2tMtPpAiNqhxOzzgMiSFdxOnTV3khJ2xTL4J8UsObbn2K6qp9EhXcUUl+0Xn7C8+T4PIYkW4G5LNkIjv/3Df7VGjaTwk0rJtFwJh8k09BPA4ETNaxC/C7JFwkW9eJYtYi/UxStMSrVj1HGmnsG036C+IYDjKeUWvNK7QV2mq+Pas5WncgRU8BwgU5D2fLffRjtnP1UnnTkHsk9wocUqIaEpylIDnmUzA6mgM/4vfibF2BHDgkLjo5w2kgSjoSsRp7z23RudESgIyax21aWtmBZvDLTCn7KXGwXPELxLoU3lvOow7G8XTwAymaV/ymn6aQDp9tEwMHL0slRc3okRtAkHvhwUWpy7wXHup/aGhciA0fpkZhU1UECxGybhjPANsBzB9gUoBo2QWmKI7pjAovDWTbqHMylEi0Xumj+FxJgrdSHm9IbkX92ShJKLoD/flGfMS9pNVaqoCSsa66lPSCNqnDEF85/rr1vDBwDHSPChZri7748VWXxNzoCnbp2wYlRTUn8DOvuMDdO5W/tWnxmHgaiOxOKgoiRsl0Rm2N9E9sse5VLkXnQG4/Ybgzdq9xsxB9RdL5pnXsvBjCc+ruH3/XW4ufEq10PvdruBSz7jFqMfXJZ0APqNcRAm6UVsLSIqYbDuaDXMIJATUzy+EGVLdUcLfcMpWWxXgtUr+mJLvWTTlHTdoF57mJoY0XiFe2lz/xsumI0CgA2z0AyUmvDGB4jANBgkrBgEEAYI3EQIxADATBgkqhkiG9w0BCRUxBgQEAQAAADBdBgkqhkiG9w0BCRQxUB5OAHQAZQAtADEANgAxADMANgAxADQANAAtADYAMQA4ADQALQA0ADYAYwAwAC0AOAA3ADIAMgAtAGEAZQBmADgAMgBkADkANABmAGUAZgBkMF0GCSsGAQQBgjcRATFQHk4ATQBpAGMAcgBvAHMAbwBmAHQAIABTAG8AZgB0AHcAYQByAGUAIABLAGUAeQAgAFMAdABvAHIAYQBnAGUAIABQAHIAbwB2AGkAZABlAHIwggdNBgkqhkiG9w0BBwGgggc+BIIHOjCCBzYwggODBgsqhkiG9w0BDAoBA6CCA3AwggNsBgoqhkiG9w0BCRYBoIIDXASCA1gwggNUMIICPKADAgECAhBQpWSN5vK+pExY7iCTjMhhMA0GCSqGSIb3DQEBCwUAMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB4XDTIyMDMxNTEyMjAwM1oXDTMyMDMxNTEyMjk1OFowKDEmMCQGA1UEAwwda3Ruc3ZtLXdpbjIwMTYuZW56aWFudGVjaC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCh2WEjlnlY37yMtBhNY/2q/Mgx7hSJMpb9sK4HY/RufB0olyVwA4sKG0+ER9wnC+brkT8CDamnzeC+x5OynZ8QaP7m0tQSLCJrfJ9EapUSgD/TZv7Y+qXnVhI5sSpKXMt0g8SCQEzvS5dsLylw6VENlhvEUSFlfjcZbrCsHQgqEahaPlxz2MG35UUkBSwarTK243wtDvSXiBhmAeWQvNDJqpUlLxKNmvAWSzjfpOdEM+iRHf3Nph2wqSSOS61XUJ55fC0UIAMjzGlEYpJrd73PJTyly5ZQGErDwgyLW/Qti65jgRLg8cMNDqBSTwQwo00SvM54EFOmrQP9nq/SrlkXAgMBAAGjejB4MA4GA1UdDwEB/wQEAwIBtjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwKAYDVR0RBCEwH4Ida3Ruc3ZtLXdpbjIwMTYuZW56aWFudGVjaC5jb20wHQYDVR0OBBYEFD6G+I03qqd9Rd1UCSMy8WxzthG7MA0GCSqGSIb3DQEBCwUAA4IBAQBN5NrClbxY4AdOVSbD319s9ApGwzhA7VH2r73Qi07UtQslLUWHjN6D78ZU/rlqYRsF4yOI3Zxcp7KV9rfOVigJPNUPU9wQe0aPnPUy4qEGd0HJpXmmj8t17l/+gtV6I0Vs0de+OY1PkjfcvFLMOfjAzbG2VxPCm0kL1Jd86b60t/iiaE2l0fxn7UfVetpRZLNZV1X9fwB+raUqN2ILhsS7bFwj3PDpzMw/9qLj/hiE6+9QksSpDhkIJDjU48GiGtkidRoATK+paO0xso3nPLNi5s+CY5NprFeqizymTzOX8DJcjtINTU2CL41k7G0r/stv1YgBQDB7Rwg6bxyTfN68MQAwggOrBgsqhkiG9w0BDAoBA6CCA4MwggN/BgoqhkiG9w0BCRYBoIIDbwSCA2swggNnMIICT6ADAgECAhAaVZcv8KdtjUbjDGvLd3toMA0GCSqGSIb3DQEBCwUAMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB4XDTIyMDMxNTEyMjAwM1oXDTMyMDMxNTEyMzAwM1owIDEeMBwGA1UEAwwVaDY4aGNnLnF1aWNrLmphbWYubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvBD1C4tR8vWZeSDdQ6AhynzMB47plvkqrXnmhcavlsDnu8Zfanr6gjUND0NK2Ufm0BBhH86kIcYMwehLYVNNfC3RTCT+QLo3wIn7VxUnsAPTqD23QjNwYnDTBQDkBrQIrFYaPc0RxO0MYexg/EqgEiAF1nJAZ3tndev1LBSEO5iN+8patoyV7jE3JlgF9qN0T0XCELrRpEi/pxKaVpAupXp38NBWVAJ6yqWuTCP2gcvnvo8KHHUTpJhwUcxr1aKUjX0LBnJ/mStQ8Cfckr7sLaHXyt4ei5uiQID69d/6JNoqpfoWW0EcHW8V3fiLX5fzsMBGjmRa/R8//zVM/ebpSwIDAQABo4GUMIGRMA4GA1UdDwEB/wQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwIAYDVR0RBBkwF4IVaDY4aGNnLnF1aWNrLmphbWYubmV0MB8GA1UdIwQYMBaAFD6G+I03qqd9Rd1UCSMy8WxzthG7MB0GA1UdDgQWBBT1Gk6lWWBdrF1z7n/FMgxT5Hb5YjANBgkqhkiG9w0BAQsFAAOCAQEAj0UtZ118booksRr7kDg47IhlhSlkhZVnZfkRUHY2QSYBkHNyilcb9rWJIAzrSI5q+RV+FDXDEc0at9CmH2yIb+dYSojxj1ebSCloZb5QiHfAZTFN5+AicESWb0PMGiiz1HeU8Bm2bjHIRx4OLKSm4agMck/6iBDJhduiidrEZkmz8MRFr04GE/9MAg3JG149JeCSS54seKx7tBx+dJjzHJg2HeqZtOKjaKLOnstquEVhwgGXIqH51lQd5SOfYJH1cQyi6xe7SBZ5YYYF1iubhMUqvYnbugskm35nYWk9XObw4QRnfTQNIuW6p1cz2Nk+yaDheraycaxbBGYaXMgIJzEVMBMGCSqGSIb3DQEJFTEGBAQBAAAAMDswHzAHBgUrDgMCGgQUA/Hryi7gjlbKpKpGVlTvAnjevyAEFFhGKjlcFPkz5+bUOnz1OcWq/3zPAgIH0A==
+                  filename: client-cert.pfx
+                  password: password-example
+              sample2:
+                value:
+                  data: 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
+                  filename: client-cert.p12
+                  password: password-example
+            schema:
+              $ref: '#/components/schemas/AdcsCertificate'
+      responses:
+        204:
+          description: AD CS Settings certificate for client server is of valid file format and has correct password.
+      summary: |
+        Validate AD CS Settings client certificate
+      tags:
+        - adcs-settings
+      x-action: true
+      x-required-privileges:
+        - Update AD CS Settings
+        - Create AD CS Settings
+  /v1/pki/adcs-settings/{id}:
+    delete:
+      description: Delete AD CS Settings configuration, only if reassignment of Certificate Authority succeeds and no config profiles are using the configuration.
+      parameters:
+        - description: ID of the AD CS Settings configuration.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: No Content
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Not Found
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Conflict
+      summary: |
+        Delete AD CS Settings configuration by ID
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Delete AD CS Settings
+    get:
+      description: Get AD CS Settings configuration for the ID value including public key information, but not including any password information.
+      parameters:
+        - description: ID of the AD CS Settings configuration.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdcsSettingsResponse'
+          description: OK
+      summary: |
+        Get AD CS Settings configuration for the ID value
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Read AD CS Settings
+    patch:
+      description: Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.
+      parameters:
+        - description: ID of the AD CS Settings configuration.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/merge-patch+json:
             schema:
               $ref: '#/components/schemas/AdcsSettings'
         required: true
       responses:
         204:
-          description: "No Content"
+          description: No Content
         400:
-          description: "Bad Request"
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update AD CS Settings
-  /v1/pki/adcs-settings:
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: |
+        Update AD CS Settings configuration
       tags:
         - adcs-settings
-      summary: |
-        Create AD CS Settings configuration for either inbound or outbound mode
-      description: Create AD CS Settings configuration and initialize renewal monitor. Once set, the configuration cannot change between inbound and outbound modes.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdcsSettings"
-            examples:
-              sample1:
-                value:
-                  displayName: "Example Display Name - 1"
-                  caName: "EXAMPLE-SUBCA02-CA"
-                  fqdn: "example-subca02.example.com"
-                  adcsUrl: null
-                  serverCert: null
-                  clientCert: null
-                  revocationEnabled: true
-                  outbound: true
-                  apiClientId: "A11B43D6-9ED4-4B29-B726-E2DE747D2410"
-              sample2:
-                value:
-                  caName: "EXAMPLE-SUBCA02-CA"
-                  fqdn: "example-subca02.example.com"
-                  adcsUrl: "https://<host-name>.example.com"
-                  serverCert:
-                    filename: "adcs-proxy-ca.cer"
-                    data: "TUlJRFZEQ0NBanlnQXdJQkFnSVFVS1ZramVieXZxUk1XTzRnazR6SVlUQU5CZ2txaGtpRzl3MEJBUXNGQURBb01TWXdKQVlEVlFRRERCMXJkRzV6ZG0wdGQybHVNakF4Tmk1bGJucHBZVzUwWldOb0xtTnZiVEFlRncweU1qQXpNVFV4TWpJd01ETmFGdzB6TWpBek1UVXhNakk1TlRoYU1DZ3hKakFrQmdOVkJBTU1IV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFvZGxoSTVaNVdOKzhqTFFZVFdQOXF2eklNZTRVaVRLVy9iQ3VCMlAwYm53ZEtKY2xjQU9MQ2h0UGhFZmNKd3ZtNjVFL0FnMnBwODNndnNlVHNwMmZFR2orNXRMVUVpd2lhM3lmUkdxVkVvQS8wMmIrMlBxbDUxWVNPYkVxU2x6TGRJUEVna0JNNzB1WGJDOHBjT2xSRFpZYnhGRWhaWDQzR1c2d3JCMElLaEdvV2o1Y2M5akJ0K1ZGSkFVc0dxMHl0dU44TFE3MGw0Z1laZ0hsa0x6UXlhcVZKUzhTalpyd0ZrczQzNlRuUkRQb2tSMzl6YVlkc0tra2prdXRWMUNlZVh3dEZDQURJOHhwUkdLU2EzZTl6eVU4cGN1V1VCaEt3OElNaTF2MExZdXVZNEVTNFBIRERRNmdVazhFTUtOTkVyek9lQkJUcHEwRC9aNnYwcTVaRndJREFRQUJvM293ZURBT0JnTlZIUThCQWY4RUJBTUNBYll3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQk1DZ0dBMVVkRVFRaE1CK0NIV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUIwR0ExVWREZ1FXQkJRK2h2aU5ONnFuZlVYZFZBa2pNdkZzYzdZUnV6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFUZVRhd3BXOFdPQUhUbFVtdzk5ZmJQUUtSc000UU8xUjlxKzkwSXRPMUxVTEpTMUZoNHplZysvR1ZQNjVhbUViQmVNamlOMmNYS2V5bGZhM3psWW9DVHpWRDFQY0VIdEdqNXoxTXVLaEJuZEJ5YVY1cG8vTGRlNWYvb0xWZWlORmJOSFh2am1OVDVJMzNMeFN6RG40d00yeHRsY1R3cHRKQzlTWGZPbSt0TGY0b21oTnBkSDhaKzFIMVhyYVVXU3pXVmRWL1g4QWZxMmxLamRpQzRiRXUyeGNJOXp3NmN6TVAvYWk0LzRZaE92dlVKTEVxUTRaQ0NRNDFPUEJvaHJaSW5VYUFFeXZxV2p0TWJLTjV6eXpZdWJQZ21PVGFheFhxb3M4cGs4emwvQXlYSTdTRFUxTmdpK05aT3h0Sy83TGI5V0lBVUF3ZTBjSU9tOGNrM3pldkE9PQ=="
-                    password: ""
-                  clientCert:
-                    filename: "client-cert.pfx"
-                    data: "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"
-                    password: "password-example"
-                  revocationEnabled: true
-                  outbound: false
-                  apiClientId: null
-              sample3:
-                value:
-                  displayName: "Example Display Name - 2"
-                  caName: "EXAMPLE-SUBCA02-CA"
-                  fqdn: "example-subca02.example.com"
-                  adcsUrl: "https://<host-name>.example.com"
-                  serverCert:
-                    filename: "adcs-proxy-ca.pem"
-                    data: "TUlJRFZEQ0NBanlnQXdJQkFnSVFVS1ZramVieXZxUk1XTzRnazR6SVlUQU5CZ2txaGtpRzl3MEJBUXNGQURBb01TWXdKQVlEVlFRRERCMXJkRzV6ZG0wdGQybHVNakF4Tmk1bGJucHBZVzUwWldOb0xtTnZiVEFlRncweU1qQXpNVFV4TWpJd01ETmFGdzB6TWpBek1UVXhNakk1TlRoYU1DZ3hKakFrQmdOVkJBTU1IV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFvZGxoSTVaNVdOKzhqTFFZVFdQOXF2eklNZTRVaVRLVy9iQ3VCMlAwYm53ZEtKY2xjQU9MQ2h0UGhFZmNKd3ZtNjVFL0FnMnBwODNndnNlVHNwMmZFR2orNXRMVUVpd2lhM3lmUkdxVkVvQS8wMmIrMlBxbDUxWVNPYkVxU2x6TGRJUEVna0JNNzB1WGJDOHBjT2xSRFpZYnhGRWhaWDQzR1c2d3JCMElLaEdvV2o1Y2M5akJ0K1ZGSkFVc0dxMHl0dU44TFE3MGw0Z1laZ0hsa0x6UXlhcVZKUzhTalpyd0ZrczQzNlRuUkRQb2tSMzl6YVlkc0tra2prdXRWMUNlZVh3dEZDQURJOHhwUkdLU2EzZTl6eVU4cGN1V1VCaEt3OElNaTF2MExZdXVZNEVTNFBIRERRNmdVazhFTUtOTkVyek9lQkJUcHEwRC9aNnYwcTVaRndJREFRQUJvM293ZURBT0JnTlZIUThCQWY4RUJBTUNBYll3SFFZRFZSMGxCQll3RkFZSUt3WUJCUVVIQXdJR0NDc0dBUVVGQndNQk1DZ0dBMVVkRVFRaE1CK0NIV3QwYm5OMmJTMTNhVzR5TURFMkxtVnVlbWxoYm5SbFkyZ3VZMjl0TUIwR0ExVWREZ1FXQkJRK2h2aU5ONnFuZlVYZFZBa2pNdkZzYzdZUnV6QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFUZVRhd3BXOFdPQUhUbFVtdzk5ZmJQUUtSc000UU8xUjlxKzkwSXRPMUxVTEpTMUZoNHplZysvR1ZQNjVhbUViQmVNamlOMmNYS2V5bGZhM3psWW9DVHpWRDFQY0VIdEdqNXoxTXVLaEJuZEJ5YVY1cG8vTGRlNWYvb0xWZWlORmJOSFh2am1OVDVJMzNMeFN6RG40d00yeHRsY1R3cHRKQzlTWGZPbSt0TGY0b21oTnBkSDhaKzFIMVhyYVVXU3pXVmRWL1g4QWZxMmxLamRpQzRiRXUyeGNJOXp3NmN6TVAvYWk0LzRZaE92dlVKTEVxUTRaQ0NRNDFPUEJvaHJaSW5VYUFFeXZxV2p0TWJLTjV6eXpZdWJQZ21PVGFheFhxb3M4cGs4emwvQXlYSTdTRFUxTmdpK05aT3h0Sy83TGI5V0lBVUF3ZTBjSU9tOGNrM3pldkE9PQ=="
-                    password: ""
-                  clientCert:
-                    filename: "client-cert.p12"
-                    data: "MIINvwIBAzCCDXsGCSqGSIb3DQEHAaCCDWwEgg1oMIINZDCCBg8GCSqGSIb3DQEHAaCCBgAEggX8MIIF+DCCBfQGCyqGSIb3DQEMCgECoIIE/jCCBPowHAYKKoZIhvcNAQwBAzAOBAhIPjJB7Ls2fAICB9AEggTY3EKQVRtYWdwsisoMtXWIYJXvLTLm3WtBULqFdkVIXiMg0Y6cKtMdYHoLKEhyZwcsFxiUSfM4QkGpo4woshiwjFBEwc7Iu3waIGe5CVmAsZ9ynvqBirCfelmt5mLn6iU+AjR/xcYqwV2MJNO+lo8K3gVGDHvE0caJQB2blFioW7QOsGb+8GWpNNdWkbTHB6zH3XRB1lVm+9rsr1BF1l3lzEQOlc4P1nBtNumf2TVBoU6cM4lgiWA0as896nUilj1w9AAXiQcdhIT4zaaJFP4AnXqL94bDDlfceA60HNpzCYRIGOhohnxBtquUoDw6uHBnmo6PMkB2KkYNVoxk+/+egF3arCdjbj4OkWhZ/wzNGa0uHTA6nG8bNWRXULWZ/QfvQi424vKfuLSGQty1AP0VHOeoY4SkWvDz+gCEfP29C8vk4kWcnl/0dsE1wmmowuydJvL6WhGRAPii1y/BOJW0FTXav03o7SP5aYZXnr8qLKKUkmSziV1toY7YFl7lUCKYj5j/1I+5uaGlEqbjEsQs6GwL6S9M6ggpbGSBT4fp4xH1FSXeRoWbbVKuB3+Sin8lwP4ZrSTarufWpYCnnLNfYgTFiatpbP9u9BS4PaBVZTFygyvl4Gj4QtVMtZy39tRqiN82RkG61DiTeLFI0xXGqMctQLpOHU8Rn07tBZBKWI6U5wc2nDKWr60ohQPVEglt5MEqYgPuPcoUvj2GOG536pHR6HeWiX3nszv3KCNxOog8hkvs1JKoJuByhgzeUR6ylHTBOq+jNrbTJvzWGXEK6+I5rUmViITmMksumg96kUgP2ZPYzGbaJLt0lE1zD+rI05EWroZh4GQpcwfX8PQkbadR10MXbhnPe039TwhbgtDecxgNZQd0Fs4WTZqzpZOkUpcvWxHmPm1iSCd860EvNKwJos4kAlgE2tMtPpAiNqhxOzzgMiSFdxOnTV3khJ2xTL4J8UsObbn2K6qp9EhXcUUl+0Xn7C8+T4PIYkW4G5LNkIjv/3Df7VGjaTwk0rJtFwJh8k09BPA4ETNaxC/C7JFwkW9eJYtYi/UxStMSrVj1HGmnsG036C+IYDjKeUWvNK7QV2mq+Pas5WncgRU8BwgU5D2fLffRjtnP1UnnTkHsk9wocUqIaEpylIDnmUzA6mgM/4vfibF2BHDgkLjo5w2kgSjoSsRp7z23RudESgIyax21aWtmBZvDLTCn7KXGwXPELxLoU3lvOow7G8XTwAymaV/ymn6aQDp9tEwMHL0slRc3okRtAkHvhwUWpy7wXHup/aGhciA0fpkZhU1UECxGybhjPANsBzB9gUoBo2QWmKI7pjAovDWTbqHMylEi0Xumj+FxJgrdSHm9IbkX92ShJKLoD/flGfMS9pNVaqoCSsa66lPSCNqnDEF85/rr1vDBwDHSPChZri7748VWXxNzoCnbp2wYlRTUn8DOvuMDdO5W/tWnxmHgaiOxOKgoiRsl0Rm2N9E9sse5VLkXnQG4/Ybgzdq9xsxB9RdL5pnXsvBjCc+ruH3/XW4ufEq10PvdruBSz7jFqMfXJZ0APqNcRAm6UVsLSIqYbDuaDXMIJATUzy+EGVLdUcLfcMpWWxXgtUr+mJLvWTTlHTdoF57mJoY0XiFe2lz/xsumI0CgA2z0AyUmvDGB4jANBgkrBgEEAYI3EQIxADATBgkqhkiG9w0BCRUxBgQEAQAAADBdBgkqhkiG9w0BCRQxUB5OAHQAZQAtADEANgAxADMANgAxADQANAAtADYAMQA4ADQALQA0ADYAYwAwAC0AOAA3ADIAMgAtAGEAZQBmADgAMgBkADkANABmAGUAZgBkMF0GCSsGAQQBgjcRATFQHk4ATQBpAGMAcgBvAHMAbwBmAHQAIABTAG8AZgB0AHcAYQByAGUAIABLAGUAeQAgAFMAdABvAHIAYQBnAGUAIABQAHIAbwB2AGkAZABlAHIwggdNBgkqhkiG9w0BBwGgggc+BIIHOjCCBzYwggODBgsqhkiG9w0BDAoBA6CCA3AwggNsBgoqhkiG9w0BCRYBoIIDXASCA1gwggNUMIICPKADAgECAhBQpWSN5vK+pExY7iCTjMhhMA0GCSqGSIb3DQEBCwUAMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB4XDTIyMDMxNTEyMjAwM1oXDTMyMDMxNTEyMjk1OFowKDEmMCQGA1UEAwwda3Ruc3ZtLXdpbjIwMTYuZW56aWFudGVjaC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCh2WEjlnlY37yMtBhNY/2q/Mgx7hSJMpb9sK4HY/RufB0olyVwA4sKG0+ER9wnC+brkT8CDamnzeC+x5OynZ8QaP7m0tQSLCJrfJ9EapUSgD/TZv7Y+qXnVhI5sSpKXMt0g8SCQEzvS5dsLylw6VENlhvEUSFlfjcZbrCsHQgqEahaPlxz2MG35UUkBSwarTK243wtDvSXiBhmAeWQvNDJqpUlLxKNmvAWSzjfpOdEM+iRHf3Nph2wqSSOS61XUJ55fC0UIAMjzGlEYpJrd73PJTyly5ZQGErDwgyLW/Qti65jgRLg8cMNDqBSTwQwo00SvM54EFOmrQP9nq/SrlkXAgMBAAGjejB4MA4GA1UdDwEB/wQEAwIBtjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwKAYDVR0RBCEwH4Ida3Ruc3ZtLXdpbjIwMTYuZW56aWFudGVjaC5jb20wHQYDVR0OBBYEFD6G+I03qqd9Rd1UCSMy8WxzthG7MA0GCSqGSIb3DQEBCwUAA4IBAQBN5NrClbxY4AdOVSbD319s9ApGwzhA7VH2r73Qi07UtQslLUWHjN6D78ZU/rlqYRsF4yOI3Zxcp7KV9rfOVigJPNUPU9wQe0aPnPUy4qEGd0HJpXmmj8t17l/+gtV6I0Vs0de+OY1PkjfcvFLMOfjAzbG2VxPCm0kL1Jd86b60t/iiaE2l0fxn7UfVetpRZLNZV1X9fwB+raUqN2ILhsS7bFwj3PDpzMw/9qLj/hiE6+9QksSpDhkIJDjU48GiGtkidRoATK+paO0xso3nPLNi5s+CY5NprFeqizymTzOX8DJcjtINTU2CL41k7G0r/stv1YgBQDB7Rwg6bxyTfN68MQAwggOrBgsqhkiG9w0BDAoBA6CCA4MwggN/BgoqhkiG9w0BCRYBoIIDbwSCA2swggNnMIICT6ADAgECAhAaVZcv8KdtjUbjDGvLd3toMA0GCSqGSIb3DQEBCwUAMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB4XDTIyMDMxNTEyMjAwM1oXDTMyMDMxNTEyMzAwM1owIDEeMBwGA1UEAwwVaDY4aGNnLnF1aWNrLmphbWYubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvBD1C4tR8vWZeSDdQ6AhynzMB47plvkqrXnmhcavlsDnu8Zfanr6gjUND0NK2Ufm0BBhH86kIcYMwehLYVNNfC3RTCT+QLo3wIn7VxUnsAPTqD23QjNwYnDTBQDkBrQIrFYaPc0RxO0MYexg/EqgEiAF1nJAZ3tndev1LBSEO5iN+8patoyV7jE3JlgF9qN0T0XCELrRpEi/pxKaVpAupXp38NBWVAJ6yqWuTCP2gcvnvo8KHHUTpJhwUcxr1aKUjX0LBnJ/mStQ8Cfckr7sLaHXyt4ei5uiQID69d/6JNoqpfoWW0EcHW8V3fiLX5fzsMBGjmRa/R8//zVM/ebpSwIDAQABo4GUMIGRMA4GA1UdDwEB/wQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwIAYDVR0RBBkwF4IVaDY4aGNnLnF1aWNrLmphbWYubmV0MB8GA1UdIwQYMBaAFD6G+I03qqd9Rd1UCSMy8WxzthG7MB0GA1UdDgQWBBT1Gk6lWWBdrF1z7n/FMgxT5Hb5YjANBgkqhkiG9w0BAQsFAAOCAQEAj0UtZ118booksRr7kDg47IhlhSlkhZVnZfkRUHY2QSYBkHNyilcb9rWJIAzrSI5q+RV+FDXDEc0at9CmH2yIb+dYSojxj1ebSCloZb5QiHfAZTFN5+AicESWb0PMGiiz1HeU8Bm2bjHIRx4OLKSm4agMck/6iBDJhduiidrEZkmz8MRFr04GE/9MAg3JG149JeCSS54seKx7tBx+dJjzHJg2HeqZtOKjaKLOnstquEVhwgGXIqH51lQd5SOfYJH1cQyi6xe7SBZ5YYYF1iubhMUqvYnbugskm35nYWk9XObw4QRnfTQNIuW6p1cz2Nk+yaDheraycaxbBGYaXMgIJzEVMBMGCSqGSIb3DQEJFTEGBAQBAAAAMDswHzAHBgUrDgMCGgQUA/Hryi7gjlbKpKpGVlTvAnjevyAEFFhGKjlcFPkz5+bUOnz1OcWq/3zPAgIH0A=="
-                    password: "password-example"
-                  revocationEnabled: true
-                  outbound: false
-                  apiClientId: null
-        required: true
-      responses:
-        201:
-          description: "Created"
-          content:
-            '*/*':
-              schema:
-                $ref: "DefinitionsLibrary.yaml#/components/schemas/HrefResponse"
-      x-required-privileges:
-        - Create AD CS Settings
-  /v1/pki/adcs-settings/validate-client-certificate:
-    post:
-      tags:
-        - adcs-settings
-      summary: |
-        Validate AD CS Settings client certificate
-      description: Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdcsCertificate"
-            examples:
-                sample1:
-                    value:
-                        filename: "client-cert.pfx"
-                        data: "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"
-                        password: "password-example"
-                sample2:
-                    value:
-                        filename: "client-cert.p12"
-                        data: "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"
-                        password: "password-example"
-      responses:
-        204:
-          description: AD CS Settings certificate for client server is of valid file format and has correct password.
-      x-required-privileges:
-        - Update AD CS Settings
-        - Create AD CS Settings
-      x-action: true
-  /v1/pki/adcs-settings/validate-certificate:
-    post:
-      tags:
-        - adcs-settings
-      summary: |
-          Validate AD CS Settings server certificate
-      description: Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdcsCertificate"
-            examples:
-                sample1:
-                    value:
-                        filename: "adcs-proxy-ca.cer"
-                        data: "MIIDVDCCAjygAwIBAgIQUKVkjebyvqRMWO4gk4zIYTANBgkqhkiG9w0BAQsFADAoMSYwJAYDVQQDDB1rdG5zdm0td2luMjAxNi5lbnppYW50ZWNoLmNvbTAeFw0yMjAzMTUxMjIwMDNaFw0zMjAzMTUxMjI5NThaMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodlhI5Z5WN+8jLQYTWP9qvzIMe4UiTKW/bCuB2P0bnwdKJclcAOLChtPhEfcJwvm65E/Ag2pp83gvseTsp2fEGj+5tLUEiwia3yfRGqVEoA/02b+2Pql51YSObEqSlzLdIPEgkBM70uXbC8pcOlRDZYbxFEhZX43GW6wrB0IKhGoWj5cc9jBt+VFJAUsGq0ytuN8LQ70l4gYZgHlkLzQyaqVJS8SjZrwFks436TnRDPokR39zaYdsKkkjkutV1CeeXwtFCADI8xpRGKSa3e9zyU8pcuWUBhKw8IMi1v0LYuuY4ES4PHDDQ6gUk8EMKNNErzOeBBTpq0D/Z6v0q5ZFwIDAQABo3oweDAOBgNVHQ8BAf8EBAMCAbYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMCgGA1UdEQQhMB+CHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB0GA1UdDgQWBBQ+hviNN6qnfUXdVAkjMvFsc7YRuzANBgkqhkiG9w0BAQsFAAOCAQEATeTawpW8WOAHTlUmw99fbPQKRsM4QO1R9q+90ItO1LULJS1Fh4zeg+/GVP65amEbBeMjiN2cXKeylfa3zlYoCTzVD1PcEHtGj5z1MuKhBndByaV5po/Lde5f/oLVeiNFbNHXvjmNT5I33LxSzDn4wM2xtlcTwptJC9SXfOm+tLf4omhNpdH8Z+1H1XraUWSzWVdV/X8Afq2lKjdiC4bEu2xcI9zw6czMP/ai4/4YhOvvUJLEqQ4ZCCQ41OPBohrZInUaAEyvqWjtMbKN5tupKssPgmOTaaxXqos8pk8zl/AyXI7SDU1Ngi+NZOxtK/7Lb9WIAUAwe0cIOm8ck3zevA=="
-                        password: ""
-                sample2:
-                    value:
-                        filename: "adcs-proxy-ca.pem"
-                        data: "MIIDVDCCAjygAwIBAgIQUKVkjebyvqRMWO4gk4zIYTANBgkqhkiG9w0BAQsFADAoMSYwJAYDVQQDDB1rdG5zdm0td2luMjAxNi5lbnppYW50ZWNoLmNvbTAeFw0yMjAzMTUxMjIwMDNaFw0zMjAzMTUxMjI5NThaMCgxJjAkBgNVBAMMHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodlhI5Z5WN+8jLQYTWP9qvzIMe4UiTKW/bCuB2P0bnwdKJclcAOLChtPhEfcJwvm65E/Ag2pp83gvseTsp2fEGj+5tLUEiwia3yfRGqVEoA/02b+2Pql51YSObEqSlzLdIPEgkBM70uXbC8pcOlRDZYbxFEhZX43GW6wrB0IKhGoWj5cc9jBt+VFJAUsGq0ytuN8LQ70l4gYZgHlkLzQyaqVJS8SjZrwFks436TnRDPokR39zaYdsKkkjkutV1CeeXwtFCADI8xpRGKSa3e9zyU8pcuWUBhKw8IMi1v0LYuuY4ES4PHDDQ6gUk8EMKNNErzOeBBTpq0D/Z6v0q5ZFwIDAQABo3oweDAOBgNVHQ8BAf8EBAMCAbYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMCgGA1UdEQQhMB+CHWt0bnN2bS13aW4yMDE2LmVuemlhbnRlY2guY29tMB0GA1UdDgQWBBQ+hviNN6qnfUXdVAkjMvFsc7YRuzANBgkqhkiG9w0BAQsFAAOCAQEATeTawpW8WOAHTlUmw99fbPQKRsM4QO1R9q+90ItO1LULJS1Fh4zeg+/GVP65amEbBeMjiN2cXKeylfa3zlYoCTzVD1PcEHtGj5z1MuKhBndByaV5po/Lde5f/oLVeiNFbNHXvjmNT5I33LxSzDn4wM2xtlcTwptJC9SXfOm+tLf4omhNpdH8Z+1H1XraUWSzWVdV/X8Afq2lKjdiC4bEu2xcI9zw6czMP/ai4/4YhOvvUJLEqQ4ZCCQ41OPBohrZInUaAEyvqWjtMbKN5tupKssPgmOTaaxXqos8pk8zl/AyXI7SDU1Ngi+NZOxtK/7Lb9WIAUAwe0cIOm8ck3zevA=="
-                        password: ""
-      responses:
-        204:
-          description: AD CS Settings certificate for the Jamf Pro server is of valid file format.
-      x-required-privileges:
-        - Update AD CS Settings
-        - Create AD CS Settings
-      x-action: true
-  /v1/pki/adcs-settings/{id}/history:
-    get:
-      tags:
-        - adcs-settings
-      summary: |
-        Get specified AD CS Settings history object
-      description: |
-        Get specified AD CS Settings history object.
-      parameters:
-        - name: id
-          in: path
-          description: ID of the AD CS Settings configuration.
-          required: true
-          schema:
-            type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [date:desc]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: username, date, note, details.
-            This param can be combined with paging and sorting.
-            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Details of AD CS Settings history was found.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-        404:
-          description: Specified AD CS Settings object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read AD CS Settings
-    post:
-      tags:
-        - adcs-settings
-      summary: |
-        Add specified AD CS Settings object note
-      description: |
-        Adds specified AD CS Settings object note.
-      parameters:
-      - name: id
-        in: path
-        description: Instance ID of AD CS Settings history record.
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: AD CS Settings history notes to create.
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Notes of AD CS Settings history were added.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        404:
-          description: Specified AD CS Settings object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        503:
-          description: AD CS Settings history cannot be saved.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
       x-required-privileges:
         - Update AD CS Settings
   /v1/pki/adcs-settings/{id}/dependencies:
     get:
-      tags:
-        - adcs-settings
-      summary: Retrieve list of AD CS Settings dependencies
       description: Retrieve list of AD CS Settings dependencies
-      x-required-privileges:
-        - Read AD CS Settings
       parameters:
-        - name: id
+        - description: AD CS Settings ID
+          explode: false
           in: path
+          name: id
           required: true
-          description: AD CS Settings ID
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/AdcsDependencies'
-components:
-  schemas:
-    AdcsCertificate:
-      type: "object"
-      required:
-        - filename
-        - data
-      properties:
-        filename:
-          type: "string"
-          description: "Server certificate filename should extend .cer or .pem, and client certificate filename should extend .p12 or .pfx."
-          minLength: 1
-          maxLength: 255
-          example: "example.cer"
-        data:
-          description: Must be base-64 encoded data obtainable by `openssl base64 < /file/path/filename.pfx | tr -d '\n' | pbcopy` in linux terminal, or similar parsing methods.
-          type: "array"
-          items:
-            type: "string"
-            format: "byte"
-          example: "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"
-        password:
-          writeOnly: true
-          nullable: true
-          minLength: 1
-          maxLength: 255
-          type: "string"
-          format: password
-          example: "password-example"
-    AdcsCertificateResponse:
-      type: "object"
-      properties:
-        filename:
-          type: "string"
-          description: "Server certificate filename should extend .cer or .pem, and client certificate filename should extend .p12 or .pfx."
-          readOnly: true
-          maxLength: 255
-          example: "example.cer"
-        serialNumber:
-          type: "string"
-          readOnly: true
-          example: "123456789456123"
-        subject:
-          type: "string"
-          readOnly: true
-          example: "CN=SubjectName, OU=OrganizationalUnit, O=Organization, L=Location, ST=State, C=Country"
-        issuer:
-          type: "string"
-          readOnly: true
-          example: "IssuerName"
-        expirationDate:
-          type: "string"
-          readOnly: true
-          format: date-time
-          example: 2018-10-15T16:39:56Z
-    AdcsSettingsResponse:
-      type: "object"
-      properties:
-        id:
-          type: "string"
-          readOnly: true
-          example: "1"
-        displayName:
-          type: "string"
-          readOnly: true
-          minLength: 1
-          maxLength: 255
-          example: "Example Display Name"
-        caName:
-          type: "string"
-          readOnly: true
-          minLength: 1
-          maxLength: 255
-          example: "EXAMPLE-SUBCA02-CA"
-        fqdn:
-          type: "string"
-          readOnly: true
-          minLength: 1
-          maxLength: 255
-          example: "example-subca02.example.com"
-        adcsUrl:
-          type: "string"
-          readOnly: true
-          minLength: 1
-          maxLength: 255
-          example: "https://<host-name>.example.com"
-        serverCert:
-          $ref: "#/components/schemas/AdcsCertificateResponse"
-        clientCert:
-          $ref: "#/components/schemas/AdcsCertificateResponse"
-        revocationEnabled:
-          type: "boolean"
-          readOnly: true
-          example: true
-        apiClientId:
-          type: "string"
-          readOnly: true
-          example: A11B43D6-9ED4-4B29-B726-E2DE747D2410
-        outbound:
-          type: "boolean"
-          readOnly: true
-          example: true
-        connectorLastCheckInTimestamp:
-          type: "string"
-          readOnly: true
-          format: date-time
-          example: 2018-10-15T16:39:56Z
-    AdcsSettings:
-      type: "object"
-      description: "AD CS Settings object to create, or update with a merge-patch strategy. Certificate data must be provided in full, or not at all for update with merge-patch strategy."
-      properties:
-        displayName:
-          type: "string"
-          minLength: 1
-          maxLength: 255
-          example: "Example Display Name"
-        caName:
-          type: "string"
-          minLength: 1
-          maxLength: 255
-          example: "EXAMPLE-SUBCA02-CA"
-        fqdn:
-          type: "string"
-          minLength: 1
-          maxLength: 255
-          example: "example-subca02.example.com"
-        adcsUrl:
-          type: "string"
-          minLength: 1
-          maxLength: 255
-          example: "https://<host-name>.example.com"
-        serverCert:
-          $ref: "#/components/schemas/AdcsCertificate"
-        clientCert:
-          $ref: "#/components/schemas/AdcsCertificate"
-        revocationEnabled:
-          type: "boolean"
-          example: true
-        apiClientId:
-          type: "string"
-          example: A11B43D6-9ED4-4B29-B726-E2DE747D2410
-        outbound:
-          type: "boolean"
-          example: true
-    AdcsDependencies:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-          nullable: false
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdcsDependency'
-    AdcsDependency:
-      type: object
-      properties:
-        configProfileId:
-          type: integer
-          example: 1
-          nullable: false
-        configProfileName:
-          type: string
-          example: 'name'
-        configProfileType:
-          type: string
-          enum: [ "OSX_CONFIGURATION_PROFILE", "IOS_CONFIGURATION_PROFILE" ]
-          example: "OSX_CONFIGURATION_PROFILE"
-          readOnly: true
-          nullable: false
+          description: Success
+      summary: Retrieve list of AD CS Settings dependencies
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Read AD CS Settings
+  /v1/pki/adcs-settings/{id}/history:
+    get:
+      description: |
+        Get specified AD CS Settings history object.
+      parameters:
+        - description: ID of the AD CS Settings configuration.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of AD CS Settings history was found.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified AD CS Settings object does not exist.
+      summary: |
+        Get specified AD CS Settings history object
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Read AD CS Settings
+    post:
+      description: |
+        Adds specified AD CS Settings object note.
+      parameters:
+        - description: Instance ID of AD CS Settings history record.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: AD CS Settings history notes to create.
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of AD CS Settings history were added.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified AD CS Settings object does not exist.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: AD CS Settings history cannot be saved.
+      summary: |
+        Add specified AD CS Settings object note
+      tags:
+        - adcs-settings
+      x-required-privileges:
+        - Update AD CS Settings
+servers:
+  - url: /api

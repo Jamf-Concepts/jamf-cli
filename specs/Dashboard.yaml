@@ -1,169 +1,60 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Dashboard
-  version: 1.0.0
-paths:
-  /v1/dashboard:
-    get:
-      tags:
-        - dashboard
-      summary: |
-        Get all the dashboard setup information
-      description: |
-        Get all the dashboard information for widgets and setup tasks
-      responses:
-        200:
-          description: OK
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DashboardSetup'
-        503:
-          description: Dashboard service is unavailable
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiErrorCause'
-      x-authentication-required: true
-  /v1/dashboard/toggle:
-    post:
-      tags:
-        - dashboard
-      summary: |
-        Add or remove an object to the Jamf Pro dashboard
-      description: |
-        Add or remove dashboard detail by the type of object, and the object's ID. Duplicates will not be added again.
-      requestBody:
-        description: Dashboard object with the associated type and ID with a toggle to add or remove the object
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/DashboardObject'
-        required: true
-      responses:
-        202:
-          description: Object toggled on/off for the Jamf Pro dashboard
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-authentication-required: true
-      x-action: true
 components:
   schemas:
-    DashboardSetup:
-      description: Response object that has lists of information for widgets, and what setup tasks to display.
-      type: object
+    DashboardApiError:
       properties:
-        setupTaskOptions:
-          type: object
-          properties:
-            setupTask:
-              type: string
-              enum:
-                - TYPE_LDAP_SERVER_SETUP_TASK
-                - TYPE_PUSH_NOTIFICATION_SETTINGS_SETUP_TASK
-                - TYPE_SMTP_SERVER_SETUP_TASK
-                - TYPE_SSL_SETUP_TASK
-              example: TYPE_SSL_SETUP_TASK
-          additionalProperties:
-            $ref: '#/components/schemas/DashboardSetupTask'
-          example:
-            TYPE_SSL_SETUP_TASK:
-              available: true
-              error:
-                httpStatusCode: "500"
-                description: "Null pointer exception example error"
-                id: ""
-        featureOptions:
-          type: object
-          properties:
-            feature:
-              type: string
-              enum:
-                - TYPE_IOS_CONFIGURATION_PROFILE
-                - TYPE_MACOS_CONFIGURATION_PROFILE
-                - TYPE_USER_GROUP
-                - TYPE_LICENSED_SOFTWARE
-                - TYPE_PATCH_SOFTWARE_TITLE_CONFIGURATION
-                - TYPE_PATCH_POLICY
-                - TYPE_POLICY
-                - TYPE_COMPUTER_GROUP
-                - TYPE_MOBILE_DEVICE_GROUP
-                - TYPE_DIGICERT_PKI_MANAGER_SETTINGS
-              example: TYPE_POLICY
-          additionalProperties:
-            type: array
-            items:
-              $ref: '#/components/schemas/DashboardItem'
-          example:
-            TYPE_PATCH_SOFTWARE_TITLE_CONFIGURATION:
-              - id: "1"
-                title: "Patch Report"
-                subtitle: "Adobe Patch Policy"
-                info: "3"
-                enabled: true
-                metrics:
-                  - value: "2"
-                    enabled: true
-                    tag: "Completed"
-                details:
-                  - label: "10.2.001.4"
-                    value: "24"
-                error:
-                  httpStatusCode: "500"
-                  description: "Null pointer exception example error"
-                  id: "3"
-    DashboardSetupTask:
-      type: object
-      properties:
-        available:
-          type: boolean
-          default: false
+        description:
+          default: ""
+          example: Could not collect dashboard data for licensed software
           nullable: false
-          example: true
+          type: string
+        httpStatusCode:
+          default: 500
+          example: 500
+          nullable: false
+          type: integer
+        id:
+          default: ""
+          example: "3"
+          nullable: false
+          type: string
+      type: object
+    DashboardItem:
+      properties:
+        details:
+          items:
+            description: Additional details that will be found in a legend of the widgets on the dashboard
+            properties:
+              label:
+                example: 10.2.001.4
+                type: string
+              value:
+                example: "24"
+                type: string
+            title: DashboardDetail
+            type: object
+          type: array
+        enabled:
+          default: true
+          description: Logical to decide whether widget should be enabled or disabled; i.e. Policy
+          type: boolean
         error:
           $ref: '#/components/schemas/DashboardApiError'
-    DashboardItem:
-      type: object
-      properties:
         id:
-          type: string
           example: "1"
-        title:
           type: string
-          nullable: true
-          example: "Patch Report"
-        subtitle:
-          type: string
-          nullable: true
-          example: "Adobe Patch Policy"
         info:
-          type: string
           description: Additional information such as identifiers for a specific policy within a software patch
-          nullable: true
           example: "3"
-        enabled:
-          type: boolean
-          description: Logical to decide whether widget should be enabled or disabled; i.e. Policy
-          default: true
+          nullable: true
+          type: string
         metrics:
-          type: array
           items:
-            title: DashboardMetric
-            type: object
             properties:
-              value:
-                type: string
-                description: Usually a number associated with the tag; i.e. 23 Pending Computers
-                example: "2"
               enabled:
-                type: boolean
-                description: Logical to decide whether metric should be enabled or disabled; i.e. Policy can be at Retrying-Disabled status
                 default: true
+                description: Logical to decide whether metric should be enabled or disabled; i.e. Policy can be at Retrying-Disabled status
+                type: boolean
               tag:
-                type: string
-                example: "Completed"
                 enum:
                   - Completed
                   - Remaining
@@ -184,54 +75,35 @@ components:
                   - N/A
                   - Latest Version
                   - Other Versions
-        details:
-          type: array
-          items:
-            title: DashboardDetail
-            type: object
-            description: Additional details that will be found in a legend of the widgets on the dashboard
-            properties:
-              label:
+                example: Completed
                 type: string
-                example: "10.2.001.4"
               value:
+                description: Usually a number associated with the tag; i.e. 23 Pending Computers
+                example: "2"
                 type: string
-                example: "24"
-        error:
-          $ref: '#/components/schemas/DashboardApiError'
-    DashboardApiError:
-        type: object
-        properties:
-            httpStatusCode:
-                type: integer
-                default: 500
-                nullable: false
-                example: 500
-            id:
-                type: string
-                default: ""
-                nullable: false
-                example: 3
-            description:
-                type: string
-                default: ""
-                nullable: false
-                example: Could not collect dashboard data for licensed software
+            title: DashboardMetric
+            type: object
+          type: array
+        subtitle:
+          example: Adobe Patch Policy
+          nullable: true
+          type: string
+        title:
+          example: Patch Report
+          nullable: true
+          type: string
+      type: object
     DashboardObject:
       description: Dashboard object consisting of object type, object's ID, and whether it should display on the Jamf Pro dashboard
       nullable: false
-      type: object
-      required:
-        - objectId
-        - objectType
-        - enabled
       properties:
+        enabled:
+          example: true
+          type: boolean
         objectId:
+          example: "1"
           type: string
-          example: 1
         objectType:
-          type: string
-          example: TYPE_IOS_CONFIGURATION_PROFILE
           enum:
             - TYPE_IOS_CONFIGURATION_PROFILE
             - TYPE_MACOS_CONFIGURATION_PROFILE
@@ -243,6 +115,136 @@ components:
             - TYPE_COMPUTER_GROUP
             - TYPE_MOBILE_DEVICE_GROUP
             - TYPE_DIGICERT_PKI_MANAGER_SETTINGS
-        enabled:
-          type: boolean
+          example: TYPE_IOS_CONFIGURATION_PROFILE
+          type: string
+      required:
+        - enabled
+        - objectId
+        - objectType
+      type: object
+    DashboardSetup:
+      description: Response object that has lists of information for widgets, and what setup tasks to display.
+      properties:
+        featureOptions:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/DashboardItem'
+            type: array
+          example:
+            TYPE_PATCH_SOFTWARE_TITLE_CONFIGURATION:
+              - details:
+                  - label: 10.2.001.4
+                    value: "24"
+                enabled: true
+                error:
+                  description: Null pointer exception example error
+                  httpStatusCode: "500"
+                  id: "3"
+                id: "1"
+                info: "3"
+                metrics:
+                  - enabled: true
+                    tag: Completed
+                    value: "2"
+                subtitle: Adobe Patch Policy
+                title: Patch Report
+          properties:
+            feature:
+              enum:
+                - TYPE_IOS_CONFIGURATION_PROFILE
+                - TYPE_MACOS_CONFIGURATION_PROFILE
+                - TYPE_USER_GROUP
+                - TYPE_LICENSED_SOFTWARE
+                - TYPE_PATCH_SOFTWARE_TITLE_CONFIGURATION
+                - TYPE_PATCH_POLICY
+                - TYPE_POLICY
+                - TYPE_COMPUTER_GROUP
+                - TYPE_MOBILE_DEVICE_GROUP
+                - TYPE_DIGICERT_PKI_MANAGER_SETTINGS
+              example: TYPE_POLICY
+              type: string
+          type: object
+        setupTaskOptions:
+          additionalProperties:
+            $ref: '#/components/schemas/DashboardSetupTask'
+          example:
+            TYPE_SSL_SETUP_TASK:
+              available: true
+              error:
+                description: Null pointer exception example error
+                httpStatusCode: "500"
+                id: ""
+          properties:
+            setupTask:
+              enum:
+                - TYPE_LDAP_SERVER_SETUP_TASK
+                - TYPE_PUSH_NOTIFICATION_SETTINGS_SETUP_TASK
+                - TYPE_SMTP_SERVER_SETUP_TASK
+                - TYPE_SSL_SETUP_TASK
+              example: TYPE_SSL_SETUP_TASK
+              type: string
+          type: object
+      type: object
+    DashboardSetupTask:
+      properties:
+        available:
+          default: false
           example: true
+          nullable: false
+          type: boolean
+        error:
+          $ref: '#/components/schemas/DashboardApiError'
+      type: object
+info:
+  title: Jamf Pro API - Dashboard
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/dashboard:
+    get:
+      description: |
+        Get all the dashboard information for widgets and setup tasks
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSetup'
+          description: OK
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiErrorCause
+          description: Dashboard service is unavailable
+      summary: |
+        Get all the dashboard setup information
+      tags:
+        - dashboard
+      x-authentication-required: true
+  /v1/dashboard/toggle:
+    post:
+      description: |
+        Add or remove dashboard detail by the type of object, and the object's ID. Duplicates will not be added again.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardObject'
+        description: Dashboard object with the associated type and ID with a toggle to add or remove the object
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Object toggled on/off for the Jamf Pro dashboard
+      summary: |
+        Add or remove an object to the Jamf Pro dashboard
+      tags:
+        - dashboard
+      x-action: true
+      x-authentication-required: true
+servers:
+  - url: /api

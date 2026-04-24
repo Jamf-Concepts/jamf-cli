@@ -1,292 +1,296 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AppRequestFormInputField:
+      properties:
+        description:
+          example: How many of these would you like?
+          nullable: true
+          type: string
+        id:
+          example: 1
+          readOnly: true
+          type: integer
+        priority:
+          description: Highest priority is 1, lowest is 255
+          example: 1
+          maximum: 255
+          minimum: 1
+          type: integer
+        title:
+          example: Quantity
+          minLength: 1
+          type: string
+      required:
+        - priority
+        - title
+      type: object
+    AppRequestFormInputFieldSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/AppRequestFormInputField'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    AppRequestSettings:
+      properties:
+        appStoreLocale:
+          description: Can be any of the country codes from /v1/app-store-country-codes or "deviceLocale" to use each individual device's locale
+          example: deviceLocale
+          type: string
+        approverEmails:
+          items:
+            example: jane.doe@company.com, john.doe@company.com
+            type: string
+          type: array
+        isEnabled:
+          example: true
+          type: boolean
+        requesterUserGroupId:
+          example: 1
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - App Request
-  version: 1.0.0
+  title: Jamf Pro API - AppRequest
+  version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/app-request/settings:
-    get:
-      tags:
-      - app-request-preview
-      summary: |
-        Get Applicastion Request Settings
-      description: |
-        Get app request settings
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppRequestSettings'
-      x-required-privileges:
-      - Read App Request Settings
-    put:
-      tags:
-      - app-request-preview
-      summary: |
-        Update Application Request Settings
-      description: |
-        Update app request settings
-      requestBody:
-        description: App request settings object
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AppRequestSettings'
-        required: true
-      responses:
-        200:
-          description: App request settings updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppRequestSettings'
-        400:
-          description: Invalid data response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update App Request Settings
   /v1/app-request/form-input-fields:
     get:
-      tags:
-      - app-request-preview
-      summary: |
-         Search for Form Input Fields
       description: Search for form input fields
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/AppRequestFormInputFieldSearchResults'
-      x-required-privileges:
-      - Read App Request Settings
-    put:
-      tags:
-      - app-request-preview
+          description: Successful response
       summary: |
-        Replace all Form Input Fields
-      description: |
-        Replace all form input fields. Will delete, update, and create all input fields accordingly.
-      requestBody:
-        description: list of form input fields to replace all existing fields. Will
-          delete, update, and create all input fields accordingly.
-        content:
-          'application/json':
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/AppRequestFormInputField'
-        required: true
-      responses:
-        200:
-          description: form input fields were replaced
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AppRequestFormInputField'
-        400:
-          description: Invalid data response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified form input field object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        Search for Form Input Fields
+      tags:
+        - app-request-preview
       x-required-privileges:
-      - Update App Request Settings
+        - Read App Request Settings
     post:
-      tags:
-      - app-request-preview
-      summary: |
-        Create Form Input Field record
       description: |
         Create form input field record
       requestBody:
-        description: form input field object to create. ids defined in this body will
-          be ignored
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/AppRequestFormInputField'
+        description: form input field object to create. ids defined in this body will be ignored
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppRequestFormInputField'
           description: form input field record was created
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppRequestFormInputField'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Invalid data response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update App Request Settings
-  /v1/app-request/form-input-fields/{id}:
-    get:
-      tags:
-      - app-request-preview
       summary: |
-        Get specified Form Input Field object
-      description: |
-        Gets specified form input field object
-      parameters:
-      - name: id
-        in: path
-        description: Instance id of form input field record
-        required: true
-        schema:
-          type: integer
-      responses:
-        200:
-          description: Details of form input field were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppRequestFormInputField'
-        404:
-          description: Specified form input field object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        Create Form Input Field record
+      tags:
+        - app-request-preview
       x-required-privileges:
-      - Read App Request Settings
+        - Update App Request Settings
     put:
-      tags:
-      - app-request-preview
-      summary: |
-        Update specified Form Input Field object
       description: |
-        Update specified form input field object
-      parameters:
-      - name: id
-        in: path
-        description: Instance id of form input field record
-        required: true
-        schema:
-          type: integer
+        Replace all form input fields. Will delete, update, and create all input fields accordingly.
       requestBody:
-        description: form input field object to create. ids defined in this body will
-          be ignored
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: '#/components/schemas/AppRequestFormInputField'
+              items:
+                $ref: '#/components/schemas/AppRequestFormInputField'
+              type: array
+        description: list of form input fields to replace all existing fields. Will delete, update, and create all input fields accordingly.
         required: true
       responses:
         200:
-          description: form input field update
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppRequestFormInputField'
+                items:
+                  $ref: '#/components/schemas/AppRequestFormInputField'
+                type: array
+          description: form input fields were replaced
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Invalid data response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Specified form input field object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update App Request Settings
-    delete:
-      tags:
-      - app-request-preview
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified form input field object does not exist.
       summary: |
-        Remove specified Form Input Field record
+        Replace all Form Input Fields
+      tags:
+        - app-request-preview
+      x-required-privileges:
+        - Update App Request Settings
+  /v1/app-request/form-input-fields/{id}:
+    delete:
       description: |
         Removes specified form input field record
       parameters:
-      - name: id
-        in: path
-        description: Instance id of form input field record
-        required: true
-        schema:
-          type: integer
+        - description: Instance id of form input field record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         204:
           description: form input field record was deleted
         404:
-          description: Specified form input field object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified form input field object does not exist.
+      summary: |
+        Remove specified Form Input Field record
+      tags:
+        - app-request-preview
       x-required-privileges:
-      - Update App Request Settings
-components:
-  schemas:
-    AppRequestSettings:
-      type: object
-      properties:
-        isEnabled:
-          type: boolean
-          example: true
-        appStoreLocale:
-          type: string
-          description: Can be any of the country codes from /v1/app-store-country-codes
-            or "deviceLocale" to use each individual device's locale
-          example: deviceLocale
-        requesterUserGroupId:
-          type: integer
-          example: 1
-        approverEmails:
-          type: array
-          items:
-            type: string
-            example: jane.doe@company.com, john.doe@company.com
-    AppRequestFormInputField:
-      required:
-      - priority
-      - title
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-          readOnly: true
-        title:
-          type: string
-          minLength: 1
-          example: Quantity
-        description:
-          type: string
-          nullable: true
-          example: How many of these would you like?
-        priority:
-          maximum: 255
-          minimum: 1
-          type: integer
-          description: Highest priority is 1, lowest is 255
-          example: 1
-    AppRequestFormInputFieldSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          minimum: 0
-          example: 3
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/AppRequestFormInputField'
+        - Update App Request Settings
+    get:
+      description: |
+        Gets specified form input field object
+      parameters:
+        - description: Instance id of form input field record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppRequestFormInputField'
+          description: Details of form input field were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified form input field object does not exist.
+      summary: |
+        Get specified Form Input Field object
+      tags:
+        - app-request-preview
+      x-required-privileges:
+        - Read App Request Settings
+    put:
+      description: |
+        Update specified form input field object
+      parameters:
+        - description: Instance id of form input field record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppRequestFormInputField'
+        description: form input field object to create. ids defined in this body will be ignored
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppRequestFormInputField'
+          description: form input field update
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified form input field object does not exist.
+      summary: |
+        Update specified Form Input Field object
+      tags:
+        - app-request-preview
+      x-required-privileges:
+        - Update App Request Settings
+  /v1/app-request/settings:
+    get:
+      description: |
+        Get app request settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppRequestSettings'
+          description: Successful response
+      summary: |
+        Get Applicastion Request Settings
+      tags:
+        - app-request-preview
+      x-required-privileges:
+        - Read App Request Settings
+    put:
+      description: |
+        Update app request settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppRequestSettings'
+        description: App request settings object
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppRequestSettings'
+          description: App request settings updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: |
+        Update Application Request Settings
+      tags:
+        - app-request-preview
+      x-required-privileges:
+        - Update App Request Settings
+servers:
+  - url: /api

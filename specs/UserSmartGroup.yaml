@@ -1,69 +1,75 @@
-openapi: 3.0.1
 info:
-  title: Universal API - smart-user-groups
+  title: Jamf Pro API - UserSmartGroup
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/smart-user-groups/{id}/recalculate:
     post:
-      tags:
-      - smart-user-groups-preview
-      summary: |
-        Recalculate the smart group for the given id and then return the ids for the users in the smart group
       description: |
         Recalculates the smart group for the given id and then
         returns the ids for the users in the smart group
       parameters:
-      - name: id
-        in: path
-        description: instance id of smart group
-        required: true
-        schema:
-          type: integer
+        - description: instance id of smart group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/RecalculationResults
           description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
         400:
-          description: smart group not found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: smart group not found
+      summary: |
+        Recalculate the smart group for the given id and then return the ids for the users in the smart group
+      tags:
+        - smart-user-groups-preview
       x-action: true
       x-required-privileges:
-      - Update Smart User Groups
+        - Update Smart User Groups
   /v1/users/{id}/recalculate-smart-groups:
     post:
-      tags:
-      - smart-user-groups-preview
-      summary: |
-        Recalculate a smart group for the given user id and then return the count of smart groups the user falls into
       description: |
         Recalculates a smart group for the given user id and then
         returns the count of smart groups the user falls into
       parameters:
-      - name: id
-        in: path
-        description: id of user
-        required: true
-        schema:
-          type: integer
+        - description: id of user
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/RecalculationResults
           description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/RecalculationResults'
         400:
-          description: smart group not found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: smart group not found
+      summary: |
+        Recalculate a smart group for the given user id and then return the count of smart groups the user falls into
+      tags:
+        - smart-user-groups-preview
       x-action: true
       x-required-privileges:
-      - Update Smart User Groups
+        - Update Smart User Groups
+servers:
+  - url: /api

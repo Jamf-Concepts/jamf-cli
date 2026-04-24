@@ -1,62 +1,75 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CloudLdapConnectionPoolStatistics:
+      description: Ldap Cloud Identity Provider conection pool statistics
+      properties:
+        maximumAvailableConnections:
+          example: 1
+          format: int64
+          type: integer
+        numAvailableConnections:
+          example: 1
+          format: int64
+          type: integer
+        numConnectionsClosedDefunct:
+          example: 1
+          format: int64
+          type: integer
+        numConnectionsClosedExpired:
+          example: 1
+          format: int64
+          type: integer
+        numConnectionsClosedUnneeded:
+          example: 1
+          format: int64
+          type: integer
+        numFailedCheckouts:
+          example: 1
+          format: int64
+          type: integer
+        numFailedConnectionAttempts:
+          example: 1
+          format: int64
+          type: integer
+        numReleasedValid:
+          example: 1
+          format: int64
+          type: integer
+        numSuccessfulCheckouts:
+          example: 1
+          format: int64
+          type: integer
+        numSuccessfulCheckoutsAfterWaiting:
+          example: 1
+          format: int64
+          type: integer
+        numSuccessfulCheckoutsNewConnection:
+          example: 1
+          format: int64
+          type: integer
+        numSuccessfulCheckoutsWithoutWaiting:
+          example: 1
+          format: int64
+          type: integer
+        numSuccessfulConnectionAttempts:
+          example: 1
+          format: int64
+          type: integer
+      type: object
+    CloudLdapConnectionStatus:
+      description: Status of tested Cloud Ldap connection
+      properties:
+        status:
+          example: Successfully connected
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - Connection details for Cloud Identity Provider
+  title: Jamf Pro API - CloudLdapConnection
   version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v2/cloud-ldaps/{id}/connection/search:
-    get:
-      tags:
-        - cloud-ldap
-      summary: Get search connection pool statistics
-      description: |
-        Get all search connection pool for chosen Cloud Identity Provider.
-        numConnectionsClosedDefunct - The number of connections that have been closed as defunct.
-        numConnectionsClosedExpired - The number of connections that have been closed because they were expired.
-        numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed.
-        numFailedCheckouts - The number of failed attempts to check out a connection from the pool.
-        numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool.
-        numReleasedValid - The number of valid connections released back to the pool.
-        numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool.
-        numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available.
-        numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool.
-        maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time.
-        numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting.
-        numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available.
-        numAvailableConnections - The number of connections currently available for use in the pool.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Cloud Identity Provider identifier
-          schema:
-            type: string
-      responses:
-        200:
-          description: Cloud Identity Provider search connection pool statistics returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionPoolStatistics'
-        400:
-          description: Search connection pool statistics data is not available.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Cloud Identity Provider search connection pool statistics does not
-            exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read LDAP Servers
   /v2/cloud-ldaps/{id}/connection/bind:
     get:
-      tags:
-        - cloud-ldap
-      summary: Get bind connection pool statistics
       description: |
         Get all search connection pool for chosen Cloud Identity Provider.
         numConnectionsClosedDefunct - The number of connections that have been closed as defunct.
@@ -73,69 +86,125 @@ paths:
         numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available.
         numAvailableConnections - The number of connections currently available for use in the pool.
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudLdapConnectionPoolStatistics'
           description: Cloud Identity Provider bind connection pool statistics returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionPoolStatistics'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Bind connection pool statistics data is not available.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Cloud Identity Provider bind connection pool statistics does not
-            exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider bind connection pool statistics does not exist.
+      summary: Get bind connection pool statistics
+      tags:
+        - cloud-ldap
+      x-required-privileges:
+        - Read LDAP Servers
+  /v2/cloud-ldaps/{id}/connection/search:
+    get:
+      description: |
+        Get all search connection pool for chosen Cloud Identity Provider.
+        numConnectionsClosedDefunct - The number of connections that have been closed as defunct.
+        numConnectionsClosedExpired - The number of connections that have been closed because they were expired.
+        numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed.
+        numFailedCheckouts - The number of failed attempts to check out a connection from the pool.
+        numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool.
+        numReleasedValid - The number of valid connections released back to the pool.
+        numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool.
+        numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available.
+        numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool.
+        maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time.
+        numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting.
+        numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available.
+        numAvailableConnections - The number of connections currently available for use in the pool.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudLdapConnectionPoolStatistics'
+          description: Cloud Identity Provider search connection pool statistics returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Search connection pool statistics data is not available.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider search connection pool statistics does not exist.
+      summary: Get search connection pool statistics
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Read LDAP Servers
   /v2/cloud-ldaps/{id}/connection/status:
     get:
-      tags:
-        - cloud-ldap
-      summary: |
-        Tests the communication with the specified cloud connection
       description: |
         Tests the communication with the specified cloud connection
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudLdapConnectionStatus'
           description: Successfully connected to the specified cloud connection
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapConnectionStatus'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Cloud Identity Provider does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider does not exist.
+      summary: |
+        Tests the communication with the specified cloud connection
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Read LDAP Servers
-components:
-  schemas: {}
+servers:
+  - url: /api
