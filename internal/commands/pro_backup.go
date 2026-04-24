@@ -115,7 +115,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		if u, ok := data["url"].(string); ok {
 			jamfProURL = strings.TrimSuffix(u, "/")
 		}
-	} else if verbose {
+	} else if verboseLevel >= 1 {
 		fmt.Fprintf(os.Stderr, "WARNING: could not resolve Jamf Pro URL for _meta: %v\n", err)
 	}
 

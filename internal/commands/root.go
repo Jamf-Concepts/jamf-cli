@@ -36,7 +36,7 @@ var (
 	profile      string
 	outputFmt    string
 	quiet        bool
-	verbose      bool
+	verboseLevel int
 	noInput      bool
 	noColor      bool
 	dryRun       bool
@@ -486,7 +486,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			type jarProvider interface {
 				Jar() http.CookieJar
 			}
-			clientOpts := []client.Option{client.WithVerbose(verbose)}
+			clientOpts := []client.Option{client.WithVerbose(verboseLevel)}
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
 			}
@@ -499,7 +499,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}
-			if !quiet && !verbose {
+			if !quiet && verboseLevel == 0 {
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
@@ -527,7 +527,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				cliCtx.PlatformClient = newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
-					!quiet && !verbose,
+					!quiet && verboseLevel == 0,
 				)
 			}
 
@@ -548,7 +548,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
-	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show debug info")
+	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
 	cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "never prompt; fail if input required")
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
@@ -913,7 +913,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.HTTPClient.Jar = jar
 
 	stdClient := rc.StandardClient()
-	if !quiet && !verbose {
+	if !quiet && verboseLevel == 0 {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
 
@@ -1020,7 +1020,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	rc.HTTPClient.Jar = jar
 
 	stdClient := rc.StandardClient()
-	if !quiet && !verbose {
+	if !quiet && verboseLevel == 0 {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
 
@@ -1035,7 +1035,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
 		cliCtx.PlatformClient = newPlatformSDKClient(
 			platformURL, cid, csecret, tid,
-			!quiet && !verbose,
+			!quiet && verboseLevel == 0,
 		)
 	}
 
