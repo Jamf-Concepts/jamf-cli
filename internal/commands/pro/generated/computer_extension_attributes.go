@@ -258,14 +258,14 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "dataType": "",
-  "description": "Computer Extension Attribute",
+  "description": "Mobile Device Extension Attribute",
   "enabled": true,
   "inputType": "",
   "inventoryDisplayType": "GENERAL",
   "ldapAttributeMapping": "ldapAttributeMapping",
   "ldapExtensionAttributeAllowed": false,
   "manageExistingData": "RETAIN",
-  "name": "ComputerExtensionAttribute",
+  "name": "MobileDeviceExtensionAttribute",
   "popupMenuChoices": [
     "Test",
     "Popup"
@@ -354,14 +354,14 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "dataType": "",
-  "description": "Computer Extension Attribute",
+  "description": "Mobile Device Extension Attribute",
   "enabled": true,
   "inputType": "",
   "inventoryDisplayType": "GENERAL",
   "ldapAttributeMapping": "ldapAttributeMapping",
   "ldapExtensionAttributeAllowed": false,
   "manageExistingData": "RETAIN",
-  "name": "ComputerExtensionAttribute",
+  "name": "MobileDeviceExtensionAttribute",
   "popupMenuChoices": [
     "Test",
     "Popup"
@@ -986,23 +986,16 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 
 func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSaveTo string
-		flagName   string
+		flagName string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "download [<id>]",
 		Short: "Download the specified Computer Extension Attribute.",
 		Long:  "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
-		Example: `  # Save to file
-  jamf-cli pro computer-extension-attributes download <id> -O output.bin
-
-  # Pipe to stdout
-  jamf-cli pro computer-extension-attributes download <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -1035,25 +1028,10 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 			}
 			defer resp.Body.Close()
 
-			if flagSaveTo != "" {
-				f, err := os.Create(flagSaveTo)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				defer f.Close()
-				n, err := io.Copy(f, resp.Body)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
-				return nil
-			}
-			_, err = io.Copy(os.Stdout, resp.Body)
-			return err
+			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-extension-attribute by name")
 
 	return cmd
@@ -1095,14 +1073,14 @@ If not, a new resource is created.`,
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "dataType": "",
-  "description": "Computer Extension Attribute",
+  "description": "Mobile Device Extension Attribute",
   "enabled": true,
   "inputType": "",
   "inventoryDisplayType": "GENERAL",
   "ldapAttributeMapping": "ldapAttributeMapping",
   "ldapExtensionAttributeAllowed": false,
   "manageExistingData": "RETAIN",
-  "name": "ComputerExtensionAttribute",
+  "name": "MobileDeviceExtensionAttribute",
   "popupMenuChoices": [
     "Test",
     "Popup"

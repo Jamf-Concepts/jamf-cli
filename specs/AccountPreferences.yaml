@@ -1,131 +1,379 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AccountPreferencesSearchType:
+      enum:
+        - EXACT_MATCH
+        - STARTS_WITH
+        - CONTAINS
+      example: EXACT_MATCH
+      nullable: false
+      type: string
+    AccountPreferencesUserInterfaceDisplayTheme:
+      enum:
+        - MATCH_SYSTEM
+        - LIGHT
+        - DARK
+      example: MATCH_SYSTEM
+      nullable: false
+      type: string
+    AccountPreferencesV5:
+      properties:
+        computerApplicationSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerApplicationUsageSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerFontSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerLocalUserAccountSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPackageReceiptSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPeripheralSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPluginSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPrinterSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerServiceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerSoftwareUpdateSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        configProfilesSortingMethod:
+          example: ALPHABETICALLY
+          nullable: false
+          type: string
+        dateFormat:
+          example: MM/dd/yyyy
+          nullable: false
+          type: string
+        disablePageLeaveCheck:
+          example: true
+          nullable: false
+          type: boolean
+        disableRelativeDates:
+          example: false
+          nullable: false
+          type: boolean
+        disableShortcutsTooltips:
+          example: true
+          nullable: false
+          type: boolean
+        disableTablePagination:
+          example: true
+          nullable: false
+          type: boolean
+        language:
+          default: en
+          description: Language codes supported by Jamf Pro
+          enum:
+            - en
+            - de
+            - fr
+            - es
+            - ja
+            - zh-hant
+          nullable: false
+          type: string
+        mobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        mobileDeviceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        resultsPerPage:
+          default: 100
+          example: 50
+          type: integer
+        timezone:
+          example: America/Chicago
+          nullable: false
+          type: string
+        userAllContentSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userEbookSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userInterfaceDisplayTheme:
+          $ref: '#/components/schemas/AccountPreferencesUserInterfaceDisplayTheme'
+        userMacAppStoreAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userMobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+      required:
+        - computerApplicationSearchMethod
+        - computerApplicationUsageSearchMethod
+        - computerLocalUserAccountSearchMethod
+        - computerPackageReceiptSearchMethod
+        - computerPrinterSearchMethod
+        - computerSearchMethod
+        - computerServiceSearchMethod
+        - configProfilesSortingMethod
+        - dateFormat
+        - disablePageLeaveCheck
+        - disableRelativeDates
+        - disableShortcutsTooltips
+        - disableTablePagination
+        - language
+        - mobileDeviceAppSearchMethod
+        - mobileDeviceSearchMethod
+        - resultsPerPage
+        - timezone
+        - userAllContentSearchMethod
+        - userEbookSearchMethod
+        - userInterfaceDisplayTheme
+        - userMacAppStoreAppSearchMethod
+        - userMobileDeviceAppSearchMethod
+        - userSearchMethod
+      type: object
+    AccountPreferencesV6:
+      properties:
+        computerApplicationSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerApplicationUsageSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerLocalUserAccountSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPackageReceiptSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPeripheralSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerPrinterSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerServiceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        computerSoftwareUpdateSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        configProfilesSortingMethod:
+          example: ALPHABETICALLY
+          nullable: false
+          type: string
+        dateFormat:
+          example: MM/dd/yyyy
+          nullable: false
+          type: string
+        disablePageLeaveCheck:
+          example: true
+          nullable: false
+          type: boolean
+        disableRelativeDates:
+          example: false
+          nullable: false
+          type: boolean
+        disableShortcutsTooltips:
+          example: true
+          nullable: false
+          type: boolean
+        disableTablePagination:
+          example: true
+          nullable: false
+          type: boolean
+        language:
+          default: en
+          description: Language codes supported by Jamf Pro
+          enum:
+            - en
+            - de
+            - fr
+            - es
+            - ja
+            - zh-hant
+          nullable: false
+          type: string
+        mobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        mobileDeviceSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        resultsPerPage:
+          default: 100
+          example: 50
+          type: integer
+        timezone:
+          example: America/Chicago
+          nullable: false
+          type: string
+        userAllContentSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userEbookSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userInterfaceDisplayTheme:
+          $ref: '#/components/schemas/AccountPreferencesUserInterfaceDisplayTheme'
+        userMacAppStoreAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userMobileDeviceAppSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+        userSearchMethod:
+          $ref: '#/components/schemas/AccountPreferencesSearchType'
+      required:
+        - computerApplicationSearchMethod
+        - computerApplicationUsageSearchMethod
+        - computerLocalUserAccountSearchMethod
+        - computerPackageReceiptSearchMethod
+        - computerPrinterSearchMethod
+        - computerSearchMethod
+        - computerServiceSearchMethod
+        - configProfilesSortingMethod
+        - dateFormat
+        - disablePageLeaveCheck
+        - disableRelativeDates
+        - disableShortcutsTooltips
+        - disableTablePagination
+        - language
+        - mobileDeviceAppSearchMethod
+        - mobileDeviceSearchMethod
+        - resultsPerPage
+        - timezone
+        - userAllContentSearchMethod
+        - userEbookSearchMethod
+        - userInterfaceDisplayTheme
+        - userMacAppStoreAppSearchMethod
+        - userMobileDeviceAppSearchMethod
+        - userSearchMethod
+      type: object
 info:
-  title: Jamf Pro API - Account Preferences
+  title: Jamf Pro API - AccountPreferences
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/account-preferences:
-      get:
-          tags:
-              - jamf-pro-account-preferences
-          summary: |
-              Get Jamf Pro account preferences
-          description: |
-              Get Jamf Pro account preferences
-          deprecated: true
-          x-deprecation-date: 2025-06-30
-          parameters:
-              - name: Accept-Language
-                in: header
-                description: Locale to be used.
-                required: false
-                schema:
-                    type: string
-          responses:
-              200:
-                  description: Successful response - Jamf Pro Account Preferences retrieved
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
-          x-authentication-required: true
-      patch:
-          tags:
-              - jamf-pro-account-preferences
-          summary: |
-              Update Jamf Pro account preferences
-          description: |
-              Update Jamf Pro account preferences
-          deprecated: true
-          x-deprecation-date: 2025-06-30
-          requestBody:
-              content:
-                  'application/json':
-                      schema:
-                          $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
-          parameters:
-              - name: Accept-Language
-                in: header
-                description: Locale to be used, when user has not defined preferred language.
-                required: false
-                schema:
-                    type: string
-              - name: JSESSIONID
-                in: cookie
-                description: Session cookie, that's used to determine user session where account preferences should be refreshed
-                required: false
-                schema:
-                    type: string
-                    default: 'null'
-          responses:
-              200:
-                  description: Successful response - Jamf Pro Account Preferences updated
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV5'
-              400:
-                  description: Jamf Pro account preferences not valid
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-          x-authentication-required: true
-  /v3/account-preferences:
     get:
-      tags:
-        - jamf-pro-account-preferences
-      summary: |
-        Get Jamf Pro account preferences
+      deprecated: true
       description: |
         Get Jamf Pro account preferences
       parameters:
-        - name: Accept-Language
+        - description: Locale to be used.
+          explode: false
           in: header
-          description: Locale to be used.
+          name: Accept-Language
           required: false
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Successful response - Jamf Pro Account Preferences retrieved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV6'
-      x-authentication-required: true
-    patch:
+                $ref: '#/components/schemas/AccountPreferencesV5'
+          description: Successful response - Jamf Pro Account Preferences retrieved
+      summary: |
+        Get Jamf Pro account preferences
       tags:
         - jamf-pro-account-preferences
-      summary: |
-        Update Jamf Pro account preferences
+      x-authentication-required: true
+      x-deprecation-date: "2025-06-30"
+    patch:
+      deprecated: true
       description: |
         Update Jamf Pro account preferences
+      parameters:
+        - description: Locale to be used, when user has not defined preferred language.
+          explode: false
+          in: header
+          name: Accept-Language
+          required: false
+          schema:
+            type: string
+          style: simple
+        - description: Session cookie, that's used to determine user session where account preferences should be refreshed
+          explode: true
+          in: cookie
+          name: JSESSIONID
+          required: false
+          schema:
+            default: "null"
+            type: string
+          style: form
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/AccountPreferencesV6'
+              $ref: '#/components/schemas/AccountPreferencesV5'
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountPreferencesV5'
+          description: Successful response - Jamf Pro Account Preferences updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Jamf Pro account preferences not valid
+      summary: |
+        Update Jamf Pro account preferences
+      tags:
+        - jamf-pro-account-preferences
+      x-authentication-required: true
+      x-deprecation-date: "2025-06-30"
+  /v3/account-preferences:
+    get:
+      description: |
+        Get Jamf Pro account preferences
       parameters:
-        - name: Accept-Language
+        - description: Locale to be used.
+          explode: false
           in: header
-          description: Locale to be used, when user has not defined preferred language.
+          name: Accept-Language
           required: false
           schema:
             type: string
-        - name: JSESSIONID
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountPreferencesV6'
+          description: Successful response - Jamf Pro Account Preferences retrieved
+      summary: |
+        Get Jamf Pro account preferences
+      tags:
+        - jamf-pro-account-preferences
+      x-authentication-required: true
+    patch:
+      description: |
+        Update Jamf Pro account preferences
+      parameters:
+        - description: Locale to be used, when user has not defined preferred language.
+          explode: false
+          in: header
+          name: Accept-Language
+          required: false
+          schema:
+            type: string
+          style: simple
+        - description: Session cookie, that's used to determine user session where account preferences should be refreshed
+          explode: true
           in: cookie
-          description: Session cookie, that's used to determine user session where account preferences should be refreshed
+          name: JSESSIONID
           required: false
           schema:
+            default: "null"
             type: string
-            default: 'null'
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPreferencesV6'
       responses:
         204:
           description: Successful response - Jamf Pro Account Preferences updated
         400:
-          description: Jamf Pro account preferences not valid
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Jamf Pro account preferences not valid
+      summary: |
+        Update Jamf Pro account preferences
+      tags:
+        - jamf-pro-account-preferences
       x-authentication-required: true
+servers:
+  - url: /api

@@ -1,305 +1,314 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CategoriesSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/Category'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    Category:
+      properties:
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        name:
+          example: The Best
+          type: string
+        priority:
+          example: 9
+          format: int32
+          type: integer
+      required:
+        - name
+        - priority
+      type: object
 info:
-  title: Jamf Pro API - categories
+  title: Jamf Pro API - Category
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/categories:
     get:
-      tags:
-      - categories
-      summary: |
-        Get Category objects
       description: |
         Gets `Category` objects.
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is id:asc. Multiple sort criteria are supported and must be separated with
-          a comma. Example: sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter categories collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: name, priority. This param can be combined with paging and sorting. Example: filter=name=="Apps*" and priority>=5'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
             type: string
-          default: [id:asc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter categories collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: name, priority.
-                      This param can be combined with paging and sorting.
-                      Example: filter=name=="Apps*" and priority>=5'
-        schema:
-          type: string
-          default: ''
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/CategoriesSearchResults'
-      x-required-privileges:
-      - Read Categories
-      - Read Self Service
-    post:
-      tags:
-      - categories
+          description: Successful response
       summary: |
-        Create Category record
+        Get Category objects
+      tags:
+        - categories
+      x-required-privileges:
+        - Read Categories
+        - Read Self Service
+    post:
       description: |
         Create category record
       requestBody:
-        description: category object to create. IDs defined in this body will be ignored
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/Category'
+        description: category object to create. IDs defined in this body will be ignored
         required: true
       responses:
         201:
-          description: Category record was created
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-      - Create Categories
-  /v1/categories/delete-multiple:
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Category record was created
+      summary: |
+        Create Category record
       tags:
         - categories
-      summary: |
-        Delete multiple Categories by their IDs
+      x-required-privileges:
+        - Create Categories
+  /v1/categories/delete-multiple:
+    post:
       description: Delete multiple Categories by their IDs
       requestBody:
-        description: IDs of the categories to be deleted
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: IDs of the categories to be deleted
         required: true
       responses:
         204:
           description: All Category IDs passed in request sucessfully deleted.
         400:
-          description: 'Request processed.  Returns IDs and error codes of any categories
-                unable to be deleted.  Expected error codes: INVALID_ID - id does not
-                exist SYSTEM_EXCEPTION - a system exception occurred trying to delete
-                the category.'
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: 'Request processed.  Returns IDs and error codes of any categories unable to be deleted.  Expected error codes: INVALID_ID - id does not exist SYSTEM_EXCEPTION - a system exception occurred trying to delete the category.'
+      summary: |
+        Delete multiple Categories by their IDs
+      tags:
+        - categories
+      x-action: true
       x-required-privileges:
         - Delete Categories
-      x-action: true
   /v1/categories/{id}:
-    get:
-      tags:
-      - categories
-      summary: |
-        Get specified Category object
-      description: |
-        Gets specified Category object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of category record
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Details of category were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Category'
-        404:
-          description: Specified category object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Categories
-    put:
-      tags:
-      - categories
-      summary: |
-        Update specified Category object
-      description: |
-        Update specified category object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of category record
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: category object to create. id defined in this body will be ignored
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/Category'
-        required: true
-      responses:
-        200:
-          description: Category record was updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Category'
-      x-required-privileges:
-      - Update Categories
     delete:
-      tags:
-      - categories
-      summary: |
-        Remove specified Category record
       description: |
         Removes specified category record
       parameters:
-      - name: id
-        in: path
-        description: instance id of category record
-        required: true
-        schema:
-          type: string
+        - description: instance id of category record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         204:
           description: Category record was deleted
+      summary: |
+        Remove specified Category record
+      tags:
+        - categories
       x-required-privileges:
-      - Delete Categories
+        - Delete Categories
+    get:
+      description: |
+        Gets specified Category object
+      parameters:
+        - description: instance id of category record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: Details of category were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified category object does not exist.
+      summary: |
+        Get specified Category object
+      tags:
+        - categories
+      x-required-privileges:
+        - Read Categories
+    put:
+      description: |
+        Update specified category object
+      parameters:
+        - description: instance id of category record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Category'
+        description: category object to create. id defined in this body will be ignored
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: Category record was updated
+      summary: |
+        Update specified Category object
+      tags:
+        - categories
+      x-required-privileges:
+        - Update Categories
   /v1/categories/{id}/history:
     get:
-      tags:
-      - categories
-      summary: |
-        Get specified Category history object
       description: |
         Gets specified Category history object
       parameters:
-      - name: id
-        in: path
-        description: instance id of category history record
-        required: true
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is id:asc. Multiple sort criteria are supported and must be separated with
-          a comma. Example: sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: instance id of category history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default: [date:desc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter history notes collection.
-          Default filter is empty query - returning all results for the requested page.
-          Fields allowed in the query: username, date, note, details.
-          This param can be combined with paging and sorting.
-          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-        schema:
-          type: string
-          default: ''
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
           description: Details of category history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
         404:
-          description: Specified category object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Categories
-    post:
-      tags:
-      - categories
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified category object does not exist.
       summary: |
-        Add specified Category history object notes
+        Get specified Category history object
+      tags:
+        - categories
+      x-required-privileges:
+        - Read Categories
+    post:
       description: |
         Adds specified Category history object notes
       parameters:
-      - name: id
-        in: path
-        description: instance id of category history record
-        required: true
-        schema:
-          type: string
+        - description: instance id of category history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: history notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
           description: Notes of category history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Specified category object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Category history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Category history can not be saved
+      summary: |
+        Add specified Category history object notes
+      tags:
+        - categories
       x-required-privileges:
-      - Update Categories
-components:
-  schemas:
-    Category:
-      required:
-      - name
-      - priority
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          minLength: 1
-          readOnly: true
-        name:
-          type: string
-          example: The Best
-        priority:
-          type: integer
-          format: int32
-          example: 9
-    CategoriesSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          minimum: 0
-          example: 3
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/Category'
+        - Update Categories
+servers:
+  - url: /api

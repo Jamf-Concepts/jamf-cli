@@ -1,19 +1,27 @@
-openapi: 3.0.1
+components:
+  schemas:
+    DatabasePassword:
+      properties:
+        password:
+          example: "12345"
+          format: password
+          minLength: 1
+          type: string
+          writeOnly: true
+      required:
+        - password
+      type: object
 info:
-  title: Jamf Pro API - Database Connection
-  version: 0.1.0
+  title: Jamf Pro API - DatabaseConnection
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/system/initialize-database-connection:
     post:
-      tags:
-        - jamf-pro-initialization
-      summary: |
-        Provide Database Password during startup
-      description: Provide database password during startup. Endpoint is accessible when database password was not configured
-        and Jamf Pro server has not been initialized yet.
+      description: Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/DatabasePassword'
         required: true
@@ -21,29 +29,22 @@ paths:
         202:
           description: OK
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Incorrect database password.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         429:
-          description: Limit of requests per second was exceeded
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-authentication-required: false
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Limit of requests per second was exceeded
+      summary: |
+        Provide Database Password during startup
+      tags:
+        - jamf-pro-initialization
       x-action: true
-components:
-  schemas:
-    DatabasePassword:
-      type: object
-      properties:
-        password:
-          type: string
-          example: 12345
-          format: password
-          minLength: 1
-          writeOnly: true
-      required:
-        - password
+      x-authentication-required: false
+servers:
+  - url: /api

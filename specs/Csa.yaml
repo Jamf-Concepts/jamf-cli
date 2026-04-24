@@ -1,77 +1,109 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CsaTenantIdInfo:
+      properties:
+        tenantId:
+          description: The tenant ID
+          example: "123"
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+    CsaToken:
+      properties:
+        legacyJamfSalesforceIds:
+          example:
+            - 001C000000wkzXXXXX
+            - 001C000000wkzYYYYY
+          items:
+            type: string
+          type: array
+        refreshExpiration:
+          example: 1584544108
+          format: int64
+          type: integer
+        scopes:
+          example:
+            - read mobile_device
+            - write mobile_device
+          items:
+            type: string
+          type: array
+        subject:
+          description: Salesforce CRM account ID
+          example: 001C000000wkzDLIAY
+          type: string
+        tenantId:
+          description: The tenant ID
+          example: "12345678"
+          nullable: true
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - CSA Endpoints
+  title: Jamf Pro API - Csa
   version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/csa/token:
+  /v1/csa/tenant-id:
     get:
-      tags:
-      - csa
-      summary: |
-        Get details regarding the CSA token exchange
-      description: |
-        Get details regarding the CSA token exchange
+      description: Returns the CSA tenant ID.
       responses:
         200:
-          description: Success
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/CsaToken'
-        404:
-          description: CSA token exchange has not been initialized
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Cloud Services Settings
-    delete:
+                $ref: '#/components/schemas/CsaTenantIdInfo'
+          description: CSA tenant ID is returned.
+      summary: Returns the CSA tenant ID.
       tags:
-      - csa
-      summary: |
-        Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services
+        - csa
+      x-authentication-required: true
+  /v1/csa/token:
+    delete:
       description: |
         Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services
       responses:
         204:
           description: CSA Token Exchange successfully deleted
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: CSA Token Exchange has not been initialized
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
-          description: CSA manual enablement feature toggle is disabled
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Cloud Services Settings
-  /v1/csa/tenant-id:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: CSA manual enablement feature toggle is disabled
+      summary: |
+        Delete the CSA token exchange - This will disable Jamf Pro's ability to authenticate with cloud-hosted services
       tags:
         - csa
-      summary: Returns the CSA tenant ID.
-      description: Returns the CSA tenant ID.
-      x-authentication-required: true
+      x-required-privileges:
+        - Update Cloud Services Settings
+    get:
+      description: |
+        Get details regarding the CSA token exchange
       responses:
         200:
-          description: CSA tenant ID is returned.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/CsaTenantIdInfo'
-components:
-    schemas:
-        CsaTenantIdInfo:
-            type: object
-            properties:
-                tenantId:
-                    readOnly: true
-                    type: string
-                    nullable: true
-                    example: '123'
-                    description: The tenant ID
+                $ref: '#/components/schemas/CsaToken'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: CSA token exchange has not been initialized
+      summary: |
+        Get details regarding the CSA token exchange
+      tags:
+        - csa
+      x-required-privileges:
+        - Read Cloud Services Settings
+servers:
+  - url: /api

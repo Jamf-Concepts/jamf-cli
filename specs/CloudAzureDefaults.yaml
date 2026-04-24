@@ -1,63 +1,63 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Defaults for Azure Identity Provider
+  title: Jamf Pro API - CloudAzureDefaults
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/cloud-azure/defaults/mappings:
     get:
       deprecated: true
-      x-deprecation-date: 2025-05-21
-      tags:
-        - cloud-azure
-      summary: Get default mappings
       description: This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/AzureMappings
           description: Default mappings returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureMappings'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Files cannot be loaded.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: This endpoint is not available for your environment.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment.
+      summary: Get default mappings
+      tags:
+        - cloud-azure
+      x-deprecation-date: "2025-05-21"
       x-required-privileges:
         - Read LDAP Servers
   /v1/cloud-azure/defaults/server-configuration:
     get:
-      tags:
-        - cloud-azure
-      summary: Get default server configuration
       description: This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/AzureServerConfiguration
           description: Default server configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureServerConfiguration'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Default server configuration cannot be loaded.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: This endpoint is not available for your environment.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment.
+      summary: Get default server configuration
+      tags:
+        - cloud-azure
       x-required-privileges:
         - Read LDAP Servers
-components:
-  schemas: {}
+servers:
+  - url: /api

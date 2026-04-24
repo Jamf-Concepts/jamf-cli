@@ -1,65 +1,65 @@
-openapi: 3.0.1
+components:
+  schemas:
+    SelfServicePlusSettings:
+      properties:
+        enabled:
+          description: Whether Self Service Plus is enabled
+          example: true
+          nullable: false
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - Self Service Plus
+  title: Jamf Pro API - SelfServicePlus
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/self-service-plus/feature-toggle/enabled:
     get:
-      tags:
-        - self-service-plus
-      summary: Determines if Self Service Plus feature toggle is enabled.
       description: |
-          This endpoint is used to determine if the Self Service Plus feature toggle is enabled.
+        This endpoint is used to determine if the Self Service Plus feature toggle is enabled.
       operationId: getSelfServicePlusFeatureToggleEnabled
       responses:
-        '204':
+        204:
           description: Feature toggle is enabled
-        '404':
+        404:
           description: Feature toggle is disabled
-      x-authentication-required: true
-
-  /v1/self-service-plus/settings:
-    get:
+      summary: Determines if Self Service Plus feature toggle is enabled.
       tags:
         - self-service-plus
-      summary: Get Self Service Plus settings.
+      x-authentication-required: true
+  /v1/self-service-plus/settings:
+    get:
       description: Get Self Service Plus settings.
       operationId: getSelfServicePlusSettings
       responses:
-        '200':
-          description: Self Service Plus settings
+        200:
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SelfServicePlusSettings'
+          description: Self Service Plus settings
+      summary: Get Self Service Plus settings.
+      tags:
+        - self-service-plus
       x-required-privileges:
         - Read Self Service
     put:
-      tags:
-        - self-service-plus
-      summary: Save Self Service Plus settings.
       description: Save Self Service Plus settings.
       operationId: putSelfServicePlusSettings
       requestBody:
-        description: Self Service Plus settings
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SelfServicePlusSettings'
+        description: Self Service Plus settings
         required: true
       responses:
         204:
           description: Successful PUT
+      summary: Save Self Service Plus settings.
+      tags:
+        - self-service-plus
       x-required-privileges:
         - Update Self Service
-
-components:
-  schemas:
-    SelfServicePlusSettings:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-          description: Whether Self Service Plus is enabled
-          nullable: false
-          example: true
+servers:
+  - url: /api

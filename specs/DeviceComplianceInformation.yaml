@@ -1,152 +1,158 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Conditional Access Device Compliance Information
-  version: 1.0.0
-paths:
-  /v1/conditional-access/device-compliance-information/mobile/{deviceId}:
-    get:
-      tags:
-        - conditional-access
-      summary: Get compliance information for a single mobile device
-      description: Return basic compliance information for the given mobile device
-      parameters:
-        - name: deviceId
-          description: ID of the device the query pertains
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Array of device compliance information records
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceComplianceInformation'
-                example:
-                  - deviceId: '1'
-                    applicable: true
-                    complianceState: 'COMPLIANT'
-                    complianceVendor: 'Vendor A'
-                    complianceVendorDeviceInformation:
-                      - deviceIds: ['device-id-1', 'device-id-2']
-                  - deviceId: '1'
-                    applicable: false
-                    complianceState: 'NON_COMPLIANT'
-                    complianceVendor: 'Vendor B'
-                    complianceVendorDeviceInformation:
-                      - deviceIds: []
-      x-required-privileges:
-        - Read Device Compliance Information
-
-  /v1/conditional-access/device-compliance-information/computer/{deviceId}:
-    get:
-      tags:
-        - conditional-access
-      summary: Get compliance information for a single computer device
-      description: Return basic compliance information for the given computer device
-      parameters:
-        - name: deviceId
-          description: ID of the device the query pertains
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Array of device compliance information records
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceComplianceInformation'
-                example:
-                  - deviceId: '1'
-                    applicable: true
-                    complianceState: 'COMPLIANT'
-                    complianceVendor: 'Vendor A'
-                    complianceVendorDeviceInformation:
-                      - deviceIds: [ 'device-id-1', 'device-id-2' ]
-                  - deviceId: '1'
-                    applicable: false
-                    complianceState: 'NON_COMPLIANT'
-                    complianceVendor: 'Vendor B'
-                    complianceVendorDeviceInformation:
-                      - deviceIds: []
-      x-required-privileges:
-        - Read Device Compliance Information
-  /v1/conditional-access/device-compliance/feature-toggle:
-      get:
-          tags:
-              - conditional-access
-          summary: Retrieves Status of the Feature Toggle
-          description: Retrieves Status of the Feature Toggle
-          responses:
-              200:
-                  description: Success
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: '#/components/schemas/SharedDeviceComplianceFeatureToggle'
-          x-required-privileges:
-              - Read Conditional Access
-
 components:
   schemas:
-    DeviceComplianceInformation:
+    ComplianceVendorDeviceInformation:
+      description: Additional, compliance vendor specific device details.
+      properties:
+        deviceIds:
+          description: Vendor's device IDs. Currently provided only for Intune.
+          example:
+            - device-id-1
+            - device-id-2
+          items:
+            type: string
+          type: array
       type: object
+    DeviceComplianceInformation:
       description: Device compliance information record
       properties:
-        deviceId:
-          type: string
-          description: ID of the device
-          example: '1'
         applicable:
-          type: boolean
           description: If device is applicable for compliance calculation
           example: true
+          type: boolean
         complianceState:
-          type: string
-          enum:
-            - 'UNKNOWN'
-            - 'NON_COMPLIANT'
-            - 'COMPLIANT'
           description: |
             Device compliance state. Possible values are:
             * `UNKNOWN` for unknow compliance state, this usually means that the compliance state is being calculated,
             * `NON_COMPLIANT` for non compliant state,
             * `COMPLIANT` for compliant state
-          example: 'COMPLIANT'
-        complianceVendor:
+          enum:
+            - UNKNOWN
+            - NON_COMPLIANT
+            - COMPLIANT
+          example: COMPLIANT
           type: string
+        complianceVendor:
           description: Name of the compliance vendor
-          example: 'Vendor A'
+          example: Vendor A
+          type: string
         complianceVendorDeviceInformation:
           $ref: '#/components/schemas/ComplianceVendorDeviceInformation'
-
-    ComplianceVendorDeviceInformation:
+        deviceId:
+          description: ID of the device
+          example: "1"
+          type: string
       type: object
-      description: Additional, compliance vendor specific device details.
-      properties:
-        deviceIds:
-          type: array
-          items:
-            type: string
-          description: Vendor's device IDs. Currently provided only for Intune.
-          example:
-            - 'device-id-1'
-            - 'device-id-2'
-
     SharedDeviceComplianceFeatureToggle:
-        type: object
-        nullable: false
-        required:
-            - sharedDeviceFeatureEnabled
-        properties:
-            sharedDeviceFeatureEnabled:
-                type: boolean
-                example: false
-                nullable: false
+      nullable: false
+      properties:
+        sharedDeviceFeatureEnabled:
+          example: false
+          nullable: false
+          type: boolean
+      required:
+        - sharedDeviceFeatureEnabled
+      type: object
+info:
+  title: Jamf Pro API - DeviceComplianceInformation
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/conditional-access/device-compliance-information/computer/{deviceId}:
+    get:
+      description: Return basic compliance information for the given computer device
+      parameters:
+        - description: ID of the device the query pertains
+          explode: false
+          in: path
+          name: deviceId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                example:
+                  - applicable: true
+                    complianceState: COMPLIANT
+                    complianceVendor: Vendor A
+                    complianceVendorDeviceInformation:
+                      - deviceIds:
+                          - device-id-1
+                          - device-id-2
+                    deviceId: "1"
+                  - applicable: false
+                    complianceState: NON_COMPLIANT
+                    complianceVendor: Vendor B
+                    complianceVendorDeviceInformation:
+                      - deviceIds: []
+                    deviceId: "1"
+                items:
+                  $ref: '#/components/schemas/DeviceComplianceInformation'
+                type: array
+          description: Array of device compliance information records
+      summary: Get compliance information for a single computer device
+      tags:
+        - conditional-access
+      x-required-privileges:
+        - Read Device Compliance Information
+  /v1/conditional-access/device-compliance-information/mobile/{deviceId}:
+    get:
+      description: Return basic compliance information for the given mobile device
+      parameters:
+        - description: ID of the device the query pertains
+          explode: false
+          in: path
+          name: deviceId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                example:
+                  - applicable: true
+                    complianceState: COMPLIANT
+                    complianceVendor: Vendor A
+                    complianceVendorDeviceInformation:
+                      - deviceIds:
+                          - device-id-1
+                          - device-id-2
+                    deviceId: "1"
+                  - applicable: false
+                    complianceState: NON_COMPLIANT
+                    complianceVendor: Vendor B
+                    complianceVendorDeviceInformation:
+                      - deviceIds: []
+                    deviceId: "1"
+                items:
+                  $ref: '#/components/schemas/DeviceComplianceInformation'
+                type: array
+          description: Array of device compliance information records
+      summary: Get compliance information for a single mobile device
+      tags:
+        - conditional-access
+      x-required-privileges:
+        - Read Device Compliance Information
+  /v1/conditional-access/device-compliance/feature-toggle:
+    get:
+      description: Retrieves Status of the Feature Toggle
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedDeviceComplianceFeatureToggle'
+          description: Success
+      summary: Retrieves Status of the Feature Toggle
+      tags:
+        - conditional-access
+      x-required-privileges:
+        - Read Conditional Access
+servers:
+  - url: /api

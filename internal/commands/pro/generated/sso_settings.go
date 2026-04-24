@@ -23,13 +23,51 @@ func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage sso-settings in Jamf Pro.`,
 	}
 
+	cmd.AddCommand(newSsoSettingsGetCmd(ctx))
 	cmd.AddCommand(newSsoSettingsUpdateCmd(ctx))
 	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
 	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newSsoSettingsSsoCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
 	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
+
+	return cmd
+}
+
+func newSsoSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Retrieve the current Single Sign On configuration settings",
+		Long:  "Retrieves the current Single Sign On configuration settings",
+		Example: `  # Get sso-settings
+  jamf-cli pro sso-settings get
+
+  # Get sso-settings and output as YAML
+  jamf-cli pro sso-settings get -o yaml`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v3/sso"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -293,39 +331,6 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
-	return cmd
-}
-
-func newSsoSettingsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "sso",
-		Short: "Retrieve the current Single Sign On configuration settings",
-		Long:  "Retrieves the current Single Sign On configuration settings",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v3/sso"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
 
 	return cmd
 }

@@ -1,90 +1,91 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Mappings for Cloud Identity Provider
+  title: Jamf Pro API - CloudLdapMapping
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/cloud-ldaps/{id}/mappings:
     get:
-      tags:
-        - cloud-ldap
-      summary: Get mappings configurations for Cloud Identity Providers server configuration.
       description: Get all mappings configurations for Cloud Identity Providers server configuration.
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsResponse
           description: Cloud Identity Provider mappings configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Id can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Specified mappings settings for Cloud Identity Provider configuration
-            do not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified mappings settings for Cloud Identity Provider configuration do not exist.
+      summary: Get mappings configurations for Cloud Identity Providers server configuration.
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Read LDAP Servers
     put:
-      tags:
-        - cloud-ldap
-      summary: Update Cloud Identity Provider mappings configuration.
-      description: Update Cloud Identity Provider mappings configuration.
-        Cannot be used for partial updates, all content body must be sent.
+      description: Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       requestBody:
-        description: Cloud Identity Provider mappings to update.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsRequest'
+              $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsRequest
+        description: Cloud Identity Provider mappings to update.
         required: true
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsResponse
           description: Cloud Identity Provider mappings configuration updated.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Specified Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         409:
-          description: Cloud Identity Provider id from request path do not match id
-            in request body.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider id from request path do not match id in request body.
+      summary: Update Cloud Identity Provider mappings configuration.
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Update LDAP Servers
-components:
-  schemas: {}
+servers:
+  - url: /api

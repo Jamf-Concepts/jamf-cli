@@ -1,178 +1,175 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Jamf Connect Settings
-  version: 0.0.1
-paths:
-  /v1/jamf-connect:
-    get:
-      tags:
-        - jamf-connect
-      summary: |
-        Get the Jamf Connect settings that you have access to see
-      description: Get the Jamf Connect settings that you have access to see.
-      responses:
-        204:
-          description: Success, no content.
-        403:
-          description: Cloud Services Connection has not been established.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Jamf Connect Settings
-        - Read Jamf Connect Deployments
-
-  /v1/jamf-connect/config-profiles:
-    get:
-      tags:
-        - jamf-connect
-      summary: |
-        Search for config profiles linked to Jamf Connect
-      description: Search for config profiles linked to Jamf Connect
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
-      responses:
-        200:
-          description: Success.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/LinkedConnectProfileSearchResults'
-      x-required-privileges:
-        - Read Jamf Connect Deployments
-
-  /v1/jamf-connect/config-profiles/{id}:
-    put:
-      tags:
-        - jamf-connect
-      summary: |
-        Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.
-      description: Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: the UUID of the profile to update
-          example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
-          schema:
-            type: string
-      requestBody:
-        description: Updatable Jamf Connect Settings
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/LinkedConnectProfile'
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/LinkedConnectProfile'
-      x-required-privileges:
-        - Update Jamf Connect Deployments
-  /v1/jamf-connect/history:
-    get:
-      tags:
-        - jamf-connect
-      summary: |
-        Get Jamf Connect history
-      description: |
-        Get Jamf Connect history
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
-      responses:
-        200:
-          description: Details of Jamf Connect history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-        - Read Jamf Connect Settings
-    post:
-      tags:
-        - jamf-connect
-      summary: |
-        Add Jamf Connect history notes
-      description: |
-        Add Jamf Connect history notes
-      requestBody:
-        description: history notes to create
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Notes to Jamf Connect history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        503:
-          description: Jamf Connect history can not be saved
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Jamf Connect Settings
-
 components:
   schemas:
     LinkedConnectProfile:
-      type: object
       properties:
-        uuid:
-          readOnly: true
-          type: string
-          example: d265dfd3-8fde-4bf2-aa56-b167c8b68069
-        profileId:
-          readOnly: true
-          type: string
-          example: d265dfd3-8fde-4bf2-aa56-b167c8b68069
-        profileName:
-          readOnly: true
-          type: string
-          example: Best Plans of Mice
-        profileScopeDescription:
-          readOnly: true
-          type: string
-          example: Plan for all of the mouse computers at our org
-        version:
-          type: string
-          example: 2.3.0
-          description: Must be a valid Jamf Connect version 2.3.0 or higher. Versions are listed here `https://www.jamf.com/resources/product-documentation/jamf-connect-administrators-guide/`
         autoDeploymentType:
-          type: string
+          default: NONE
+          description: |
+            Determines how the server will behave regarding application updates and installs on the devices that have the configuration profile installed. * `PATCH_UPDATES` - Server handles initial installation of the application and any patch updates. * `MINOR_AND_PATCH_UPDATES` - Server handles initial installation of the application and any patch and minor updates. * `INITIAL_INSTALLATION_ONLY` - Server only handles initial installation of the application. Updates will have to be done manually. * `NONE` - Server does not handle any installations or updates for the application. Version is ignored for this type.
           enum:
             - PATCH_UPDATES
             - MINOR_AND_PATCH_UPDATES
             - INITIAL_INSTALLATION_ONLY
             - NONE
-          description: >
-            Determines how the server will behave regarding application updates and installs on the devices that have the configuration profile installed.
-            * `PATCH_UPDATES` - Server handles initial installation of the application and any patch updates.
-            * `MINOR_AND_PATCH_UPDATES` - Server handles initial installation of the application and any patch and minor updates.
-            * `INITIAL_INSTALLATION_ONLY` - Server only handles initial installation of the application. Updates will have to be done manually.
-            * `NONE` - Server does not handle any installations or updates for the application. Version is ignored for this type.
-          default: NONE
-    LinkedConnectProfileSearchResults:
+          type: string
+        profileId:
+          example: d265dfd3-8fde-4bf2-aa56-b167c8b68069
+          readOnly: true
+          type: string
+        profileName:
+          example: Best Plans of Mice
+          readOnly: true
+          type: string
+        profileScopeDescription:
+          example: Plan for all of the mouse computers at our org
+          readOnly: true
+          type: string
+        uuid:
+          example: d265dfd3-8fde-4bf2-aa56-b167c8b68069
+          readOnly: true
+          type: string
+        version:
+          description: Must be a valid Jamf Connect version 2.3.0 or higher. Versions are listed here `https://www.jamf.com/resources/product-documentation/jamf-connect-administrators-guide/`
+          example: 2.3.0
+          type: string
       type: object
+    LinkedConnectProfileSearchResults:
       properties:
-        totalCount:
-          type: integer
-          example: 13
         results:
-          type: array
           items:
             $ref: '#/components/schemas/LinkedConnectProfile'
+          type: array
+        totalCount:
+          example: 13
+          type: integer
+      type: object
+info:
+  title: Jamf Pro API - JamfConnect
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/jamf-connect:
+    get:
+      description: Get the Jamf Connect settings that you have access to see.
+      responses:
+        204:
+          description: Success, no content.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Services Connection has not been established.
+      summary: |
+        Get the Jamf Connect settings that you have access to see
+      tags:
+        - jamf-connect
+      x-required-privileges:
+        - Read Jamf Connect Settings
+        - Read Jamf Connect Deployments
+  /v1/jamf-connect/config-profiles:
+    get:
+      description: Search for config profiles linked to Jamf Connect
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/filter
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedConnectProfileSearchResults'
+          description: Success.
+      summary: |
+        Search for config profiles linked to Jamf Connect
+      tags:
+        - jamf-connect
+      x-required-privileges:
+        - Read Jamf Connect Deployments
+  /v1/jamf-connect/config-profiles/{id}:
+    put:
+      description: Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.
+      parameters:
+        - description: the UUID of the profile to update
+          example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkedConnectProfile'
+        description: Updatable Jamf Connect Settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedConnectProfile'
+          description: Success
+      summary: |
+        Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.
+      tags:
+        - jamf-connect
+      x-required-privileges:
+        - Update Jamf Connect Deployments
+  /v1/jamf-connect/history:
+    get:
+      description: |
+        Get Jamf Connect history
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/filter
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of Jamf Connect history were found
+      summary: |
+        Get Jamf Connect history
+      tags:
+        - jamf-connect
+      x-required-privileges:
+        - Read Jamf Connect Settings
+    post:
+      description: |
+        Add Jamf Connect history notes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes to Jamf Connect history were added
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Jamf Connect history can not be saved
+      summary: |
+        Add Jamf Connect history notes
+      tags:
+        - jamf-connect
+      x-required-privileges:
+        - Update Jamf Connect Settings
+servers:
+  - url: /api

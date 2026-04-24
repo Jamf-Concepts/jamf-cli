@@ -40,7 +40,7 @@ func newCloudLdapKeyStoresVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fileBytes": "ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==",
+  "fileBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
   "fileName": "keystore.p12",
   "password": "***"
 }`, ctx.Output.Format())

@@ -1,247 +1,246 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - OIDC
-    version: 0.0.1
-paths:
-    /v1/oidc/generate-certificate:
-        post:
-            tags:
-                - oidc
-            summary: |
-                Generate a new keystore used for signing OIDC messages
-            description: Generates a new certificate used for signing OIDC messages
-            responses:
-                201:
-                    description: Successful response
-                503:
-                    description: OIDC is disabled
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update SSO Settings
-            x-action: true
-    /v1/oidc/public-key:
-        get:
-            tags:
-                - oidc
-            summary: |
-                Get the public key of the keystore used for signing OIDC messages as a JWT
-            description: Gets the public key of the keystore used for signing OIDC messages as a JWT
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/OidcJwksResponse'
-                404:
-                    description: Unable to retrieve OIDC certificate public key
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                503:
-                    description: OIDC is disabled
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-authentication-required: false
-    /v1/oidc/dispatch:
-        post:
-            deprecated: true
-            x-deprecation-date: 2026-02-17
-            tags:
-                - oidc
-            summary: Provide the url to redirect for OIDC login
-            description: Provide the url to redirect for OIDC login based on email
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/OidcLoginDispatchRequest'
-                required: true
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/OidcLoginDispatchResponse'
-                400:
-                    description: Email address or original URL parameter is invalid
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-
-                500:
-                    description: Unexpected error
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-action: true
-            x-authentication-required: false
-    /v2/oidc/dispatch:
-        post:
-            tags:
-                - oidc
-            summary: Provide the url to redirect for OIDC login
-            description: Provide the url to redirect for OIDC login based on email
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/OidcLoginDispatchRequest'
-                required: true
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/OidcLoginDispatchResponseV2'
-                400:
-                    description: Email address or original URL parameter is invalid
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-
-                500:
-                    description: Unexpected error
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-action: true
-            x-authentication-required: false
-    /v1/oidc/public-features:
-        get:
-            tags:
-                - oidc
-            summary: Get the public features of the OIDC configuration
-            description: Retrieves public OIDC configuration features.
-            responses:
-              200:
-                description: Successful response
-                content:
-                  application/json:
-                    schema:
-                      $ref: '#/components/schemas/OidcPublicFeaturesResponse'
-            x-authentication-required: false
-    /v1/oidc/direct-idp-login-url:
-        get:
-            tags:
-                - oidc
-            summary: |
-                Retrieve the URL to directly login to the IdP
-            description: Retrieve the URL to directly login to the IdP
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/OidcDirectIdpLoginSkipUrl'
-                404:
-                    description: OIDC is disabled or no authorization registration ID found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-authentication-required: true
 components:
-    schemas:
-        OidcJwksResponse:
-            type: object
+  schemas:
+    OidcDirectIdpLoginSkipUrl:
+      properties:
+        url:
+          description: Direct IdP login URL to skip unified login page.
+          example: https://jamf-pro-server/oauth2/authorization/idp-region-domain.com
+          type: string
+      required:
+        - url
+      type: object
+    OidcJwksResponse:
+      properties:
+        keys:
+          items:
             properties:
-                keys:
-                    type: array
-                    items:
-                        type: object
-                        properties:
-                            kty:
-                                type: string
-                                example: "RSA"
-                            e:
-                                type: string
-                                example: "AQAB"
-                            use:
-                                type: string
-                                example: "sig"
-                            kid:
-                                type: string
-                                example: "695eccd8c1918105c0f57fcac412651245d778cd301fca44a5ee6f7e0c5320ce"
-                            alg:
-                                type: string
-                                example: "RS256"
-                            iat:
-                                type: integer
-                                example: 1717518913
-                            n:
-                                type: string
-                                example: "yvoRJjwm_JR3z0_MQS5zU8RQCav82PbdZOG8DYcDzRrbklVJZXAGOH16m6egW5B-hb_zxncsSCZTvwmXYiUsWcYE8Lu-CZ0-O2WmpOsk-rc5mklQlEGlD2N3u6MZWIpOofyrbM2AhVssmzgFRHR_22O05KDsNKMKy7ZQaUvvIbqBrnvGRKJMZ4GqzeWyo3rmBpdhmY1wLoPQBAQgwO-TTy5xLhTmLLimAV6ckkLtxjUUdwu4pSKiiJGkJAlDEFXJA5-Y9GE3CZOywj1sJsuHvfHGcgWbEDYVVqdD6PB4NRKmuvj_yJ1BACObaFSLNzfw693FBvuyH1s9D-zGT58Kvw"
-        OidcLoginDispatchRequest:
-            required:
-                - originalUrl
-                - emailAddress
+              alg:
+                example: RS256
+                type: string
+              e:
+                example: AQAB
+                type: string
+              iat:
+                example: 1717518913
+                type: integer
+              kid:
+                example: 695eccd8c1918105c0f57fcac412651245d778cd301fca44a5ee6f7e0c5320ce
+                type: string
+              kty:
+                example: RSA
+                type: string
+              n:
+                example: yvoRJjwm_JR3z0_MQS5zU8RQCav82PbdZOG8DYcDzRrbklVJZXAGOH16m6egW5B-hb_zxncsSCZTvwmXYiUsWcYE8Lu-CZ0-O2WmpOsk-rc5mklQlEGlD2N3u6MZWIpOofyrbM2AhVssmzgFRHR_22O05KDsNKMKy7ZQaUvvIbqBrnvGRKJMZ4GqzeWyo3rmBpdhmY1wLoPQBAQgwO-TTy5xLhTmLLimAV6ckkLtxjUUdwu4pSKiiJGkJAlDEFXJA5-Y9GE3CZOywj1sJsuHvfHGcgWbEDYVVqdD6PB4NRKmuvj_yJ1BACObaFSLNzfw693FBvuyH1s9D-zGT58Kvw
+                type: string
+              use:
+                example: sig
+                type: string
             type: object
+          type: array
+      type: object
+    OidcLoginDispatchRequest:
+      properties:
+        emailAddress:
+          description: User email address
+          example: admin@domain.name
+          type: string
+        originalUrl:
+          description: Original Url
+          example: aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==
+          type: string
+      required:
+        - emailAddress
+        - originalUrl
+      type: object
+    OidcLoginDispatchResponse:
+      properties:
+        redirectUrl:
+          example: /oauth2/authorization/jamf-account-domain.name?original_url=aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==&login_hint=YWRtaW5AZG9tYWluLm5hbWU=
+          type: string
+      required:
+        - redirectUrl
+      type: object
+    OidcLoginDispatchResponseV2:
+      properties:
+        idpRedirects:
+          items:
             properties:
-                originalUrl:
-                    type: string
-                    example: "aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA=="
-                    description: 'Original Url'
-                emailAddress:
-                    type: string
-                    example: "admin@domain.name"
-                    description: 'User email address'
-        OidcLoginDispatchResponse:
-            required:
-                - redirectUrl
+              idpName:
+                example: SomeIdp
+                type: string
+              idpType:
+                example: GENERIC_OIDC
+                type: string
+              redirectUrl:
+                example: /oauth2/authorization/jamf-account-domain.name?original_url=aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==&login_hint=YWRtaW5AZG9tYWluLm5hbWU=
+                type: string
             type: object
-            properties:
-                redirectUrl:
-                    type: string
-                    example: "/oauth2/authorization/jamf-account-domain.name?original_url=aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==&login_hint=YWRtaW5AZG9tYWluLm5hbWU="
-        OidcLoginDispatchResponseV2:
-            required:
-                - redirectUrl
-            type: object
-            properties:
-                idpRedirects:
-                    type: array
-                    items:
-                        type: object
-                        properties:
-                            redirectUrl:
-                                type: string
-                                example: "/oauth2/authorization/jamf-account-domain.name?original_url=aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==&login_hint=YWRtaW5AZG9tYWluLm5hbWU="
-                            idpName:
-                                type: string
-                                example: "SomeIdp"
-                            idpType:
-                                type: string
-                                example: "GENERIC_OIDC"
-        OidcPublicFeaturesResponse:
-            required:
-                - jamfIdAuthenticationEnabled
-            type: object
-            properties:
-              jamfIdAuthenticationEnabled:
-                    type: boolean
-                    example: true
-                    description: "Indicates whether Jamf ID authentication is enabled for this instance. When true, users can authenticate using Jamf ID credentials. When false, Jamf ID login option is not available."
-        OidcDirectIdpLoginSkipUrl:
-            required:
-                - url
-            type: object
-            properties:
-                url:
-                    type: string
-                    example: "https://jamf-pro-server/oauth2/authorization/idp-region-domain.com"
-                    description: 'Direct IdP login URL to skip unified login page.'
-
+          type: array
+      required:
+        - redirectUrl
+      type: object
+    OidcPublicFeaturesResponse:
+      properties:
+        jamfIdAuthenticationEnabled:
+          description: Indicates whether Jamf ID authentication is enabled for this instance. When true, users can authenticate using Jamf ID credentials. When false, Jamf ID login option is not available.
+          example: true
+          type: boolean
+      required:
+        - jamfIdAuthenticationEnabled
+      type: object
+info:
+  title: Jamf Pro API - Oidc
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/oidc/direct-idp-login-url:
+    get:
+      description: Retrieve the URL to directly login to the IdP
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcDirectIdpLoginSkipUrl'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: OIDC is disabled or no authorization registration ID found
+      summary: |
+        Retrieve the URL to directly login to the IdP
+      tags:
+        - oidc
+      x-authentication-required: true
+  /v1/oidc/dispatch:
+    post:
+      deprecated: true
+      description: Provide the url to redirect for OIDC login based on email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcLoginDispatchRequest'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcLoginDispatchResponse'
+          description: Successful response
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Email address or original URL parameter is invalid
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Unexpected error
+      summary: Provide the url to redirect for OIDC login
+      tags:
+        - oidc
+      x-action: true
+      x-authentication-required: false
+      x-deprecation-date: "2026-02-17"
+  /v1/oidc/generate-certificate:
+    post:
+      description: Generates a new certificate used for signing OIDC messages
+      responses:
+        201:
+          description: Successful response
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: OIDC is disabled
+      summary: |
+        Generate a new keystore used for signing OIDC messages
+      tags:
+        - oidc
+      x-action: true
+      x-required-privileges:
+        - Update SSO Settings
+  /v1/oidc/public-features:
+    get:
+      description: Retrieves public OIDC configuration features.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcPublicFeaturesResponse'
+          description: Successful response
+      summary: Get the public features of the OIDC configuration
+      tags:
+        - oidc
+      x-authentication-required: false
+  /v1/oidc/public-key:
+    get:
+      description: Gets the public key of the keystore used for signing OIDC messages as a JWT
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcJwksResponse'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Unable to retrieve OIDC certificate public key
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: OIDC is disabled
+      summary: |
+        Get the public key of the keystore used for signing OIDC messages as a JWT
+      tags:
+        - oidc
+      x-authentication-required: false
+  /v2/oidc/dispatch:
+    post:
+      description: Provide the url to redirect for OIDC login based on email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcLoginDispatchRequest'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcLoginDispatchResponseV2'
+          description: Successful response
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Email address or original URL parameter is invalid
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Unexpected error
+      summary: Provide the url to redirect for OIDC login
+      tags:
+        - oidc
+      x-action: true
+      x-authentication-required: false
+servers:
+  - url: /api

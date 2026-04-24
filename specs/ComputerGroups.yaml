@@ -1,43 +1,45 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ComputerGroup:
+      properties:
+        description:
+          example: A group containing all managed computers
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+        name:
+          example: All Managed Computers
+          type: string
+        smartGroup:
+          example: true
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - computer-groups
-  version: 1.0.0
+  title: Jamf Pro API - ComputerGroups
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/computer-groups:
     get:
-      tags:
-        - computer-groups
-      summary: |
-        Returns the list of all computer groups
       description: |
         Use it to get the list of all computer groups.
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/ComputerGroup'
+                type: array
+          description: Success
+      summary: |
+        Returns the list of all computer groups
+      tags:
+        - computer-groups
       x-required-privileges:
         - Read Smart Computer Groups
         - Read Static Computer Groups
-components:
-  schemas:
-    ComputerGroup:
-      type: object
-      properties:
-        id:
-          type: string
-          minLength: 1
-          example: 1
-        name:
-          type: string
-          example: All Managed Computers
-        description:
-          type: string
-          example: A group containing all managed computers
-        smartGroup:
-          type: boolean
-          example: true
+servers:
+  - url: /api

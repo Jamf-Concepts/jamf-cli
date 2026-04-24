@@ -21,50 +21,12 @@ func NewCertificateAuthoritiesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage certificate-authorities in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newCertificateAuthoritiesListCmd(ctx))
 	cmd.AddCommand(newCertificateAuthoritiesGetCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesActiveDerCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesActivePemCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesActiveCmd(ctx))
 	cmd.AddCommand(newCertificateAuthoritiesDerCmd(ctx))
 	cmd.AddCommand(newCertificateAuthoritiesPemCmd(ctx))
-
-	return cmd
-}
-
-func newCertificateAuthoritiesListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
-
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns X.509 details of the active Certificate Authority (CA)",
-		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
-		Example: `  # List all certificate-authorities
-  jamf-cli pro certificate-authorities list
-
-  # List certificate-authorities and extract IDs
-  jamf-cli pro certificate-authorities list --field id`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Build request path
-			path := "/v1/pki/certificate-authority/active"
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
+	cmd.AddCommand(newCertificateAuthoritiesDerByIdCmd(ctx))
+	cmd.AddCommand(newCertificateAuthoritiesPemByIdCmd(ctx))
 
 	return cmd
 }
@@ -130,20 +92,53 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCertificateAuthoritiesActiveDerCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthoritiesActiveCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "active",
+		Short: "Returns X.509 details of the active Certificate Authority (CA)",
+		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/certificate-authority/active"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "active-der",
+		Use:   "der",
 		Short: "Returns X.509 of active Certificate Authority (CA) in DER format",
 		Long:  "Returns X.509 of active Certificate Authority (CA) in DER format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities active-der -O output.bin
+  jamf-cli pro certificate-authorities der -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities active-der > output.bin`,
+  jamf-cli pro certificate-authorities der > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -187,20 +182,20 @@ func newCertificateAuthoritiesActiveDerCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newCertificateAuthoritiesActivePemCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "active-pem",
+		Use:   "pem",
 		Short: "Returns active Certificate Authority (CA) in PEM format",
 		Long:  "Returns active Certificate Authority (CA) in PEM format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities active-pem -O output.bin
+  jamf-cli pro certificate-authorities pem -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities active-pem > output.bin`,
+  jamf-cli pro certificate-authorities pem > output.bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -244,21 +239,21 @@ func newCertificateAuthoritiesActivePemCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "der [<id>]",
+		Use:   "der-by-id [<id>]",
 		Short: "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Long:  "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities der <id> -O output.bin
+  jamf-cli pro certificate-authorities der-by-id <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities der <id> > output.bin`,
+  jamf-cli pro certificate-authorities der-by-id <id> > output.bin`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -319,21 +314,21 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "pem [<id>]",
+		Use:   "pem-by-id [<id>]",
 		Short: "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Long:  "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities pem <id> -O output.bin
+  jamf-cli pro certificate-authorities pem-by-id <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities pem <id> > output.bin`,
+  jamf-cli pro certificate-authorities pem-by-id <id> > output.bin`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

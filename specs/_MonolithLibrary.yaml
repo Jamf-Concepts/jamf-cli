@@ -1,0 +1,3568 @@
+components:
+  parameters:
+    export-fields:
+      description: 'Export fields parameter, used to change default order or ignore some of the response properties. Default is empty array, which means that all fields of the response entity will be serialized. Example: export-fields=id,username'
+      explode: true
+      in: query
+      name: export-fields
+      required: false
+      schema:
+        default: []
+        items:
+          type: string
+        type: array
+      style: form
+    export-labels:
+      description: 'Export labels parameter, used to customize fieldnames/columns in the exported file. Default is empty array, which means that response properties names will be used. Number of the provided labels must match the number of export-fields Example: export-labels=identifier,name with matching: export-fields=id,username'
+      explode: true
+      in: query
+      name: export-labels
+      required: false
+      schema:
+        default: []
+        items:
+          type: string
+        type: array
+      style: form
+    filter:
+      description: 'Query in the RSQL format, allowing to filter results. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: status, updated, version This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+      explode: true
+      in: query
+      name: filter
+      required: false
+      schema:
+        default: ""
+        type: string
+      style: form
+    page:
+      explode: true
+      in: query
+      name: page
+      required: false
+      schema:
+        default: 0
+        type: integer
+      style: form
+    page-size:
+      explode: true
+      in: query
+      name: page-size
+      required: false
+      schema:
+        default: 100
+        type: integer
+      style: form
+    pagesize:
+      deprecated: true
+      explode: true
+      in: query
+      name: pagesize
+      required: false
+      schema:
+        default: 100
+        type: integer
+      style: form
+    size:
+      deprecated: true
+      explode: true
+      in: query
+      name: size
+      required: false
+      schema:
+        default: 100
+        type: integer
+      style: form
+    sort:
+      description: 'Sorting criteria in the format: property:asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the ''sort'' query param is not duplicated for each sort criterion, e.g., ...&sort=name:asc,date:desc. Fields that can be sorted: status, updated'
+      explode: true
+      in: query
+      name: sort
+      required: false
+      schema:
+        default: []
+        items:
+          type: string
+        type: array
+      style: form
+  schemas:
+    ApiError:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ApiErrorCause'
+          type: array
+        httpStatus:
+          description: HTTP status of the response
+          example: 400
+          type: integer
+      type: object
+    ApiErrorCause:
+      properties:
+        code:
+          description: Error-specific code that can be used to identify localization string, etc.
+          example: "8675309"
+          type: string
+        description:
+          description: A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours
+          type: string
+        field:
+          description: Name of the field that caused the error.
+          example: Name
+          type: string
+        id:
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+          type: string
+      required:
+        - field
+      type: object
+    AzureMappings:
+      description: Azure Cloud Identity Provider mappings
+      properties:
+        building:
+          example: companyName
+          type: string
+        department:
+          example: department
+          type: string
+        email:
+          example: mail
+          type: string
+        groupId:
+          example: id
+          type: string
+        groupName:
+          example: displayName
+          type: string
+        phone:
+          example: mobilePhone
+          type: string
+        position:
+          example: jobTitle
+          type: string
+        realName:
+          example: displayName
+          type: string
+        room:
+          example: officeLocation
+          type: string
+        userId:
+          example: id
+          type: string
+        userName:
+          example: userPrincipalName
+          type: string
+      required:
+        - building
+        - department
+        - email
+        - groupId
+        - groupName
+        - phone
+        - position
+        - realName
+        - room
+        - userId
+        - userName
+      type: object
+    AzureServerConfiguration:
+      description: Azure Cloud Identity Provider configuration
+      properties:
+        deprecatedConsent:
+          example: true
+          type: boolean
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: "1001"
+          type: string
+        mappings:
+          $ref: '#/components/schemas/AzureMappings'
+        membershipCalculationOptimizationEnabled:
+          description: Use this field to enable membership calculation optimization. This setting would not apply to Single Sign On
+          example: true
+          type: boolean
+        migrated:
+          example: true
+          type: boolean
+        searchTimeout:
+          example: 30
+          maximum: 600
+          minimum: 5
+          type: integer
+        tenantId:
+          example: db65d325-0350-4a17-9af9-b302d0fc386b
+          type: string
+        transitiveDirectoryMembershipEnabled:
+          description: Use this field to enable transitive membership lookup. This setting would not apply to Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipEnabled:
+          description: Use this field to enable transitive membership lookup with Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipUserField:
+          description: Use this field to set user field mapping for transitive membership lookup with Single Sign On
+          example: userPrincipalName
+          type: string
+        type:
+          description: Type of Entra ID connection
+          enum:
+            - PUBLIC
+            - GCC_HIGH
+          example: PUBLIC
+          type: string
+      required:
+        - deprecatedConsent
+        - enabled
+        - id
+        - mappings
+        - migrated
+        - searchTimeout
+        - tenantId
+        - transitiveDirectoryMembershipEnabled
+        - transitiveMembershipEnabled
+        - transitiveMembershipUserField
+      type: object
+    BrandingImageUrl:
+      properties:
+        url:
+          example: https://jamfpro.jamf/image?1
+          type: string
+      type: object
+    CloudIdPCommon:
+      description: A Cloud Identity Provider information
+      properties:
+        displayName:
+          example: Cloud Identity Provider
+          type: string
+        id:
+          example: "1001"
+          type: string
+        providerName:
+          enum:
+            - GOOGLE
+            - AZURE
+          example: PROVIDER
+          type: string
+      required:
+        - displayName
+        - id
+        - providerName
+      type: object
+    CloudIdPCommonRequest:
+      description: A Cloud Identity Provider information for request
+      properties:
+        displayName:
+          example: Cloud Identity Provider
+          type: string
+        providerName:
+          enum:
+            - GOOGLE
+            - AZURE
+          example: PROVIDER
+          type: string
+      required:
+        - displayName
+        - providerName
+      type: object
+    CloudLdapKeystore:
+      description: Response with keystore information
+      properties:
+        expirationDate:
+          example: "2030-02-21T12:05:47.244Z"
+          format: date-time
+          type: string
+        fileName:
+          example: keystore.p12
+          type: string
+        subject:
+          example: ST=California, C=US, OU=GSuite, CN=LDAP Client, L=Mountain View, O=Google Inc.
+          type: string
+        type:
+          example: PKCS12
+          type: string
+      type: object
+    CloudLdapKeystoreFile:
+      description: Request with the Base64-encoded keystore file
+      properties:
+        fileBytes:
+          example: WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09
+          format: byte
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+        fileName:
+          example: keystore.p12
+          type: string
+        password:
+          example: '***'
+          format: password
+          type: string
+          writeOnly: true
+      required:
+        - fileBytes
+        - fileName
+        - password
+      type: object
+    CloudLdapMappingsRequest:
+      description: Mappings configurations request for Ldap Cloud Identity Provider configuration
+      properties:
+        groupMappings:
+          $ref: '#/components/schemas/GroupMappings'
+        membershipMappings:
+          $ref: '#/components/schemas/MembershipMappings'
+        userMappings:
+          $ref: '#/components/schemas/UserMappings'
+      required:
+        - groupMappings
+        - membershipMappings
+        - userMappings
+      type: object
+    CloudLdapMappingsResponse:
+      description: Mappings configuration response for Ldap Cloud Identity Provider configuration
+      properties:
+        groupMappings:
+          $ref: '#/components/schemas/GroupMappings'
+        membershipMappings:
+          $ref: '#/components/schemas/MembershipMappings'
+        userMappings:
+          $ref: '#/components/schemas/UserMappings'
+      type: object
+    CloudLdapServerResponse:
+      description: A Cloud Identity Provider LDAP server configuration for responses
+      properties:
+        connectionTimeout:
+          example: 15
+          minimum: 5
+          type: integer
+        connectionType:
+          enum:
+            - LDAPS
+            - START_TLS
+          example: LDAPS
+          type: string
+        domainName:
+          example: jamf.com
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: "1001"
+          type: string
+        keystore:
+          $ref: '#/components/schemas/CloudLdapKeystore'
+        membershipCalculationOptimizationEnabled:
+          example: true
+          type: boolean
+        port:
+          example: 636
+          maximum: 65535
+          minimum: 1
+          type: integer
+        searchTimeout:
+          example: 60
+          minimum: 5
+          type: integer
+        serverUrl:
+          example: ldap.google.com
+          type: string
+        useWildcards:
+          example: true
+          type: boolean
+      type: object
+    ComputerApplication:
+      properties:
+        bundleId:
+          example: "1"
+          type: string
+        externalVersionId:
+          description: The app's external version ID. It can be used in the iTunes Search API to decide if the app needs to be updated
+          example: "1"
+          type: string
+        macAppStore:
+          example: true
+          type: boolean
+        name:
+          example: Microsoft Word
+          type: string
+        path:
+          example: /usr/local/app
+          type: string
+        sizeMegabytes:
+          example: 25
+          type: integer
+        updateAvailable:
+          example: false
+          type: boolean
+        version:
+          example: 1.0.0
+          type: string
+      type: object
+    ComputerApplicationCreate:
+      properties:
+        name:
+          example: Microsoft Word
+          nullable: true
+          type: string
+        path:
+          example: /usr/local/app
+          nullable: true
+          type: string
+        version:
+          example: 1.0.0
+          nullable: true
+          type: string
+      type: object
+    ComputerAttachment:
+      properties:
+        fileType:
+          example: application/pdf
+          type: string
+        id:
+          example: "1"
+          type: string
+        name:
+          example: Attachment.pdf
+          type: string
+        sizeBytes:
+          description: File size in bytes
+          example: 1024
+          format: int64
+          type: integer
+      type: object
+    ComputerCertificate:
+      properties:
+        certificateStatus:
+          enum:
+            - EXPIRING
+            - EXPIRED
+            - REVOKED
+            - PENDING_REVOKE
+            - ISSUED
+          example: ISSUED
+          type: string
+        commonName:
+          example: jamf.com
+          type: string
+        expirationDate:
+          example: "2030-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        identity:
+          example: true
+          type: boolean
+        issuedDate:
+          example: "2022-05-23T14:54:10Z"
+          type: string
+        lifecycleStatus:
+          enum:
+            - ACTIVE
+            - INACTIVE
+          example: ACTIVE
+          type: string
+        serialNumber:
+          example: 40f3d9fb
+          type: string
+        sha1Fingerprint:
+          example: ed361458724d06082b2314acdb82e1f586f085f5
+          type: string
+        subjectName:
+          example: CN=jamf.com
+          type: string
+        username:
+          example: test
+          type: string
+      type: object
+    ComputerCertificateCreate:
+      properties:
+        commonName:
+          example: jamf.com
+          nullable: true
+          type: string
+        identity:
+          example: true
+          nullable: true
+          type: boolean
+        username:
+          example: test
+          nullable: true
+          type: string
+      type: object
+    ComputerConfigurationProfile:
+      properties:
+        displayName:
+          example: Displayed profile
+          readOnly: true
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        lastInstalled:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        profileIdentifier:
+          example: 0ae590fe-9b30-11ea-bb37-0242ac130002
+          readOnly: true
+          type: string
+        removable:
+          example: true
+          readOnly: true
+          type: boolean
+        username:
+          example: username
+          readOnly: true
+          type: string
+      type: object
+    ComputerConfigurationProfileCreate:
+      properties:
+        displayName:
+          example: Displayed profile
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          nullable: true
+          type: string
+        lastInstalled:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        profileIdentifier:
+          example: 0ae590fe-9b30-11ea-bb37-0242ac130002
+          nullable: true
+          type: string
+        removable:
+          example: true
+          nullable: true
+          type: boolean
+        username:
+          example: username
+          nullable: true
+          type: string
+      type: object
+    ComputerContentCaching:
+      properties:
+        activated:
+          example: false
+          readOnly: true
+          type: boolean
+        active:
+          example: false
+          readOnly: true
+          type: boolean
+        actualCacheBytesUsed:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        alerts:
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingAlert'
+          readOnly: true
+          type: array
+        cacheBytesFree:
+          example: 23353884672
+          format: int64
+          readOnly: true
+          type: integer
+        cacheBytesLimit:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        cacheBytesUsed:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        cacheDetails:
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingCacheDetail'
+          readOnly: true
+          type: array
+        cacheStatus:
+          example: OK
+          readOnly: true
+          type: string
+        computerContentCachingInformationId:
+          example: "1"
+          readOnly: true
+          type: string
+        dataMigrationCompleted:
+          example: false
+          readOnly: true
+          type: boolean
+        dataMigrationError:
+          $ref: '#/components/schemas/ComputerContentCachingDataMigrationError'
+        dataMigrationProgressPercentage:
+          example: 0
+          readOnly: true
+          type: integer
+        maxCachePressureLast1HourPercentage:
+          example: 0
+          readOnly: true
+          type: integer
+        parents:
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingParent'
+          readOnly: true
+          type: array
+        personalCacheBytesFree:
+          example: 23353884672
+          format: int64
+          readOnly: true
+          type: integer
+        personalCacheBytesLimit:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        personalCacheBytesUsed:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        port:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        publicAddress:
+          example: SomeAddress
+          readOnly: true
+          type: string
+        registrationError:
+          example: NOT_ACTIVATED
+          readOnly: true
+          type: string
+        registrationResponseCode:
+          example: 403
+          format: int64
+          readOnly: true
+          type: integer
+        registrationStarted:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          readOnly: true
+          type: string
+        registrationStatus:
+          enum:
+            - CONTENT_CACHING_FAILED
+            - CONTENT_CACHING_PENDING
+            - CONTENT_CACHING_SUCCEEDED
+          example: CONTENT_CACHING_FAILED
+          readOnly: true
+          type: string
+        restrictedMedia:
+          example: false
+          readOnly: true
+          type: boolean
+        serverGuid:
+          example: CD1E1291-4AF9-4468-B5D5-0F780C13DB2F
+          readOnly: true
+          type: string
+        startupStatus:
+          example: FAILED
+          readOnly: true
+          type: string
+        tetheratorStatus:
+          enum:
+            - CONTENT_CACHING_UNKNOWN
+            - CONTENT_CACHING_DISABLED
+            - CONTENT_CACHING_ENABLED
+          example: CONTENT_CACHING_DISABLED
+          readOnly: true
+          type: string
+        totalBytesAreSince:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          readOnly: true
+          type: string
+        totalBytesDropped:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesImported:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesReturnedToChildren:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesReturnedToClients:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesReturnedToPeers:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesStoredFromOrigin:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesStoredFromParents:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        totalBytesStoredFromPeers:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+      type: object
+    ComputerContentCachingAlert:
+      properties:
+        cacheBytesLimit:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        className:
+          example: SomeClass
+          readOnly: true
+          type: string
+        pathPreventingAccess:
+          example: /some/path
+          readOnly: true
+          type: string
+        postDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          readOnly: true
+          type: string
+        reservedVolumeBytes:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        resource:
+          example: SomeResource
+          readOnly: true
+          type: string
+      type: object
+    ComputerContentCachingCacheDetail:
+      properties:
+        categoryName:
+          example: SomeCategory
+          readOnly: true
+          type: string
+        computerContentCachingCacheDetailsId:
+          example: "1"
+          readOnly: true
+          type: string
+        diskSpaceBytesUsed:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+      type: object
+    ComputerContentCachingDataMigrationError:
+      properties:
+        code:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        domain:
+          example: SomeDomain
+          readOnly: true
+          type: string
+        userInfo:
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingDataMigrationErrorUserInfo'
+          readOnly: true
+          type: array
+      type: object
+    ComputerContentCachingDataMigrationErrorUserInfo:
+      properties:
+        key:
+          example: foo
+          readOnly: true
+          type: string
+        value:
+          example: bar
+          readOnly: true
+          type: string
+      type: object
+    ComputerContentCachingParent:
+      properties:
+        address:
+          example: SomeAddress
+          readOnly: true
+          type: string
+        alerts:
+          $ref: '#/components/schemas/ComputerContentCachingParentAlert'
+        contentCachingParentId:
+          example: "1"
+          readOnly: true
+          type: string
+        details:
+          $ref: '#/components/schemas/ComputerContentCachingParentDetails'
+        guid:
+          example: CD1E1291-4AF9-4468-B5D5-0F780C13DB2F
+          readOnly: true
+          type: string
+        healthy:
+          example: true
+          readOnly: true
+          type: boolean
+        port:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        version:
+          example: "1"
+          readOnly: true
+          type: string
+      type: object
+    ComputerContentCachingParentAlert:
+      properties:
+        addresses:
+          example: []
+          items:
+            type: string
+          readOnly: true
+          type: array
+        className:
+          example: SomeClass
+          readOnly: true
+          type: string
+        contentCachingParentAlertId:
+          example: "1"
+          readOnly: true
+          type: string
+        postDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          readOnly: true
+          type: string
+      type: object
+    ComputerContentCachingParentCapabilities:
+      properties:
+        contentCachingParentCapabilitiesId:
+          example: "1"
+          readOnly: true
+          type: string
+        imports:
+          example: true
+          readOnly: true
+          type: boolean
+        namespaces:
+          example: true
+          readOnly: true
+          type: boolean
+        personalContent:
+          example: true
+          readOnly: true
+          type: boolean
+        prioritization:
+          example: true
+          readOnly: true
+          type: boolean
+        queryParameters:
+          example: true
+          readOnly: true
+          type: boolean
+        sharedContent:
+          example: true
+          readOnly: true
+          type: boolean
+      type: object
+    ComputerContentCachingParentDetails:
+      properties:
+        acPower:
+          example: true
+          readOnly: true
+          type: boolean
+        cacheSizeBytes:
+          example: 0
+          format: int64
+          readOnly: true
+          type: integer
+        capabilities:
+          $ref: '#/components/schemas/ComputerContentCachingParentCapabilities'
+        contentCachingParentDetailsId:
+          example: "1"
+          readOnly: true
+          type: string
+        localNetwork:
+          items:
+            $ref: '#/components/schemas/ComputerContentCachingParentLocalNetwork'
+          type: array
+        portable:
+          example: true
+          readOnly: true
+          type: boolean
+      type: object
+    ComputerContentCachingParentLocalNetwork:
+      properties:
+        contentCachingParentLocalNetworkId:
+          example: "1"
+          readOnly: true
+          type: string
+        speed:
+          example: 5000
+          format: int64
+          readOnly: true
+          type: integer
+        wired:
+          example: true
+          readOnly: true
+          type: boolean
+      type: object
+    ComputerDisk:
+      properties:
+        device:
+          example: disk0
+          readOnly: true
+          type: string
+        id:
+          example: "170"
+          readOnly: true
+          type: string
+        model:
+          example: APPLE HDD TOSHIBA MK5065GSXF
+          readOnly: true
+          type: string
+        partitions:
+          items:
+            $ref: '#/components/schemas/ComputerPartition'
+          type: array
+        revision:
+          example: "5"
+          readOnly: true
+          type: string
+        serialNumber:
+          example: a8598f013366
+          readOnly: true
+          type: string
+        sizeMegabytes:
+          description: Disk Size in MB.
+          example: 262144
+          format: int64
+          readOnly: true
+          type: integer
+        smartStatus:
+          description: S.M.A.R.T Status
+          example: OK
+          readOnly: true
+          type: string
+        type:
+          description: Connection type attribute.
+          example: "false"
+          readOnly: true
+          type: string
+      type: object
+    ComputerDiskCreate:
+      properties:
+        device:
+          example: disk0
+          nullable: true
+          type: string
+        model:
+          example: APPLE HDD TOSHIBA MK5065GSXF
+          nullable: true
+          type: string
+        partitions:
+          items:
+            $ref: '#/components/schemas/ComputerPartitionCreate'
+          nullable: true
+          type: array
+        revision:
+          example: "5"
+          nullable: true
+          type: string
+        serialNumber:
+          example: a8598f013366
+          nullable: true
+          type: string
+        sizeMegabytes:
+          description: Disk Size in MB.
+          example: 262144
+          format: int64
+          nullable: true
+          type: integer
+        smartStatus:
+          description: S.M.A.R.T Status
+          example: OK
+          nullable: true
+          type: string
+        type:
+          description: Connection type attribute.
+          example: "false"
+          nullable: true
+          type: string
+      type: object
+    ComputerDiskEncryption:
+      properties:
+        bootPartitionEncryptionDetails:
+          $ref: '#/components/schemas/ComputerPartitionEncryption'
+        diskEncryptionConfigurationName:
+          example: Test configuration
+          type: string
+        fileVault2EligibilityMessage:
+          example: Not a boot partition
+          type: string
+        fileVault2Enabled:
+          example: true
+          readOnly: true
+          type: boolean
+        fileVault2EnabledUserNames:
+          example:
+            - admin
+          items:
+            type: string
+          type: array
+        individualRecoveryKeyValidityStatus:
+          enum:
+            - VALID
+            - INVALID
+            - UNKNOWN
+            - NOT_APPLICABLE
+          example: VALID
+          type: string
+        institutionalRecoveryKeyPresent:
+          example: true
+          type: boolean
+      type: object
+    ComputerExtensionAttribute:
+      properties:
+        dataType:
+          description: A data type of extension attribute.
+          enum:
+            - STRING
+            - INTEGER
+            - DATE_TIME
+          example: STRING
+          nullable: true
+          readOnly: true
+          type: string
+        definitionId:
+          description: An identifier of extension attribute definition.
+          example: "23"
+          nullable: false
+          type: string
+        description:
+          description: An additional explanation of exact attribute meaning, possible values, etc.
+          example: Some Attribute defines how much Foo impacts Bar.
+          nullable: true
+          readOnly: true
+          type: string
+        enabled:
+          example: true
+          nullable: false
+          readOnly: true
+          type: boolean
+        inputType:
+          description: |
+            The input method. `text` is most common and means simply free text, `popup` i a closed list of values from
+            which one or many can be selected and `script` value is calculated and can never be set directly.
+          enum:
+            - TEXT
+            - POPUP
+            - SCRIPT
+            - LDAP
+          example: TEXT
+          nullable: true
+          readOnly: true
+          type: string
+        multiValue:
+          example: true
+          nullable: false
+          readOnly: true
+          type: boolean
+        name:
+          description: A human-readable name by which attribute can be referred to.
+          example: Some Attribute
+          nullable: false
+          readOnly: true
+          type: string
+        options:
+          description: |
+            A closed list of possible values (applies to `popup` input type).
+          example:
+            - foo
+            - bar
+          items:
+            type: string
+          nullable: true
+          readOnly: true
+          type: array
+        values:
+          description: |
+            A value of extension attribute, in some rare cases there may be multiple values present, hence the array.
+          example:
+            - foo
+            - bar
+          items:
+            type: string
+          nullable: true
+          readOnly: false
+          type: array
+      type: object
+    ComputerGeneral:
+      properties:
+        assetTag:
+          example: "304822"
+          type: string
+        barcode1:
+          example: 5 12345 678900
+          type: string
+        barcode2:
+          example: 5 12345 678900
+          type: string
+        declarativeDeviceManagementEnabled:
+          example: true
+          type: boolean
+        distributionPoint:
+          example: distribution point name
+          type: string
+        enrolledViaAutomatedDeviceEnrollment:
+          example: true
+          type: boolean
+        enrollmentMethod:
+          $ref: '#/components/schemas/EnrollmentMethod'
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        initialEntryDate:
+          example: "2018-10-31"
+          format: date
+          type: string
+        itunesStoreAccountActive:
+          example: true
+          type: boolean
+        jamfBinaryVersion:
+          example: "9.27"
+          type: string
+        lastCloudBackupDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastContactTime:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastEnrolledDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastIpAddress:
+          example: 247.185.82.186
+          type: string
+        lastLoggedInUsernameBinary:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameBinaryTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        lastLoggedInUsernameSelfService:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameSelfServiceTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        lastReportedIp:
+          deprecated: true
+          description: Last reported IPv4 address (Deprecated. Use lastReportedIpV4 instead.)
+          example: 247.185.82.186
+          type: string
+        lastReportedIpV4:
+          description: Last reported IPv4 address
+          example: 247.185.82.186
+          type: string
+        lastReportedIpV6:
+          example: 2001:0db8:85a3:0000:0000:8a2e:0370:7335
+          type: string
+        managementId:
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+          type: string
+        mdmCapable:
+          $ref: '#/components/schemas/ComputerMdmCapability'
+        mdmProfileExpiration:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        name:
+          example: Boalime
+          minLength: 1
+          type: string
+        platform:
+          example: Mac
+          type: string
+        remoteManagement:
+          $ref: '#/components/schemas/ComputerRemoteManagement'
+        reportDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        site:
+          $ref: '#/components/schemas/V1SiteBase'
+        supervised:
+          example: true
+          type: boolean
+        userApprovedMdm:
+          example: true
+          type: boolean
+      type: object
+    ComputerGeneralCreate:
+      properties:
+        assetTag:
+          example: "304822"
+          type: string
+        barcode1:
+          example: 5 12345 678900
+          type: string
+        barcode2:
+          example: 5 12345 678900
+          type: string
+        declarativeDeviceManagementEnabled:
+          example: true
+          type: boolean
+        distributionPointId:
+          example: "1"
+          type: string
+        enrolledViaAutomatedDeviceEnrollment:
+          example: true
+          type: boolean
+        itunesStoreAccountActive:
+          example: true
+          type: boolean
+        jamfBinaryVersion:
+          example: "9.27"
+          type: string
+        lastCloudBackupDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastContactTime:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastEnrolledDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastIpAddress:
+          example: 247.185.82.186
+          type: string
+        lastReportedIp:
+          example: 247.185.82.186
+          type: string
+        mdmCapable:
+          example: true
+          type: boolean
+        name:
+          example: Boalime
+          minLength: 1
+          type: string
+        platform:
+          enum:
+            - WINDOWS
+            - MAC
+            - NONE
+          example: MAC
+          type: string
+        remoteManagement:
+          $ref: '#/components/schemas/ComputerRemoteManagementCreate'
+        reportDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        siteId:
+          example: "1"
+          type: string
+        supervised:
+          example: true
+          type: boolean
+        userApprovedMdm:
+          example: true
+          type: boolean
+      required:
+        - name
+      type: object
+    ComputerGeneralUpdate:
+      properties:
+        assetTag:
+          example: "304822"
+          type: string
+        barcode1:
+          example: 5 12345 678900
+          type: string
+        barcode2:
+          example: 5 12345 678900
+          type: string
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        lastIpAddress:
+          example: 247.185.82.186
+          type: string
+        managed:
+          example: true
+          type: boolean
+        name:
+          example: Boalime
+          type: string
+        siteId:
+          example: "1"
+          type: string
+      type: object
+    ComputerHardware:
+      properties:
+        altMacAddress:
+          example: 82:45:58:44:dc:01
+          type: string
+        altNetworkAdapterType:
+          example: Bar
+          type: string
+        appleSilicon:
+          example: false
+          readOnly: true
+          type: boolean
+        batteryCapacityPercent:
+          description: Remaining percentage of battery power.
+          example: 85
+          maximum: 100
+          minimum: 0
+          readOnly: true
+          type: integer
+        batteryHealth:
+          default: UNKNOWN
+          description: |
+            - NON_GENUINE: The battery isn’t a genuine Apple battery.
+            - NORMAL: The battery is operating normally.
+            - SERVICE_RECOMMENDED: The system recommends battery service.
+            - UNKNOWN: The system couldn’t determine battery health information.
+            - UNSUPPORTED: The device doesn’t support battery health reporting.
+          enum:
+            - NON_GENUINE
+            - NORMAL
+            - SERVICE_RECOMMENDED
+            - UNKNOWN
+            - UNSUPPORTED
+          readOnly: true
+          type: string
+        bleCapable:
+          example: false
+          readOnly: true
+          type: boolean
+        bootRom:
+          example: MBP91.00D3.B08
+          readOnly: true
+          type: string
+        busSpeedMhz:
+          example: 2133
+          format: int64
+          readOnly: true
+          type: integer
+        cacheSizeKilobytes:
+          description: Cache Size in KB.
+          example: 3072
+          format: int64
+          readOnly: true
+          type: integer
+        coreCount:
+          example: 2
+          readOnly: true
+          type: integer
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        macAddress:
+          example: 6A:2C:4B:B7:65:B5
+          type: string
+        make:
+          example: Apple
+          readOnly: true
+          type: string
+        model:
+          example: 13-inch MacBook Pro (Mid 2012)
+          readOnly: true
+          type: string
+        modelIdentifier:
+          example: MacBookPro9,2
+          readOnly: true
+          type: string
+        networkAdapterType:
+          example: Foo
+          type: string
+        nicSpeed:
+          example: N/A
+          readOnly: true
+          type: string
+        openRamSlots:
+          description: Available RAM slots.
+          example: 0
+          readOnly: true
+          type: integer
+        opticalDrive:
+          example: MATSHITA DVD-R UJ-8A8
+          readOnly: true
+          type: string
+        processorArchitecture:
+          example: i386
+          readOnly: true
+          type: string
+        processorCount:
+          example: 2
+          readOnly: true
+          type: integer
+        processorSpeedMhz:
+          description: Processor Speed in MHz.
+          example: 2100
+          format: int64
+          readOnly: true
+          type: integer
+        processorType:
+          example: Intel Core i5
+          readOnly: true
+          type: string
+        provisioningUdid:
+          example: 00000AAA888-IH866799UUJD991
+          readOnly: true
+          type: string
+        serialNumber:
+          example: C02ZC2QYLVDL
+          readOnly: true
+          type: string
+        smcVersion:
+          example: 2.2f38
+          readOnly: true
+          type: string
+        supportsIosAppInstalls:
+          example: false
+          readOnly: true
+          type: boolean
+        totalRamMegabytes:
+          description: Total RAM Size in MB.
+          example: 4096
+          format: int64
+          readOnly: true
+          type: integer
+      type: object
+    ComputerHardwareCreate:
+      properties:
+        altMacAddress:
+          example: 82:45:58:44:dc:01
+          type: string
+        altNetworkAdapterType:
+          example: Bar
+          type: string
+        appleSilicon:
+          example: false
+          type: boolean
+        batteryCapacityPercent:
+          description: Remaining percentage of battery power.
+          example: 85
+          maximum: 100
+          minimum: 0
+          type: integer
+        batteryHealth:
+          default: UNKNOWN
+          description: |
+            - NON_GENUINE: The battery isn’t a genuine Apple battery.
+            - NORMAL: The battery is operating normally.
+            - SERVICE_RECOMMENDED: The system recommends battery service.
+            - UNKNOWN: The system couldn’t determine battery health information.
+            - UNSUPPORTED: The device doesn’t support battery health reporting.
+          enum:
+            - NON_GENUINE
+            - NORMAL
+            - SERVICE_RECOMMENDED
+            - UNKNOWN
+            - UNSUPPORTED
+          type: string
+        bleCapable:
+          example: false
+          type: boolean
+        bootRom:
+          example: MBP91.00D3.B08
+          type: string
+        busSpeedMhz:
+          example: 2133
+          format: int64
+          type: integer
+        cacheSizeKilobytes:
+          description: Cache Size in KB.
+          example: 3072
+          format: int64
+          type: integer
+        coreCount:
+          example: 2
+          type: integer
+        macAddress:
+          example: 6A:2C:4B:B7:65:B5
+          type: string
+        make:
+          example: Apple
+          type: string
+        model:
+          example: 13-inch MacBook Pro (Mid 2012)
+          type: string
+        modelIdentifier:
+          example: MacBookPro9,2
+          type: string
+        networkAdapterType:
+          example: Foo
+          type: string
+        nicSpeed:
+          example: N/A
+          type: string
+        openRamSlots:
+          description: Available RAM slots.
+          example: 0
+          type: integer
+        opticalDrive:
+          example: MATSHITA DVD-R UJ-8A8
+          type: string
+        processorArchitecture:
+          example: i386
+          type: string
+        processorCount:
+          example: 2
+          type: integer
+        processorSpeedMhz:
+          description: Processor Speed in MHz.
+          example: 2100
+          format: int64
+          type: integer
+        processorType:
+          example: Intel Core i5
+          type: string
+        serialNumber:
+          example: C02ZC2QYLVDL
+          type: string
+        smcVersion:
+          example: 2.2f38
+          type: string
+        supportsIosAppInstalls:
+          example: false
+          type: boolean
+        totalRamMegabytes:
+          description: Total RAM Size in MB.
+          example: 4096
+          format: int64
+          type: integer
+      type: object
+    ComputerHardwareUpdate:
+      properties:
+        altMacAddress:
+          example: 82:45:58:44:dc:01
+          type: string
+        altNetworkAdapterType:
+          example: Bar
+          type: string
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        macAddress:
+          example: 6A:2C:4B:B7:65:B5
+          type: string
+        networkAdapterType:
+          example: Foo
+          type: string
+      type: object
+    ComputerIbeacon:
+      properties:
+        name:
+          example: room A
+          type: string
+      type: object
+    ComputerInventoryCreateRequestV2:
+      properties:
+        applications:
+          items:
+            $ref: '#/components/schemas/ComputerApplicationCreate'
+          nullable: true
+          type: array
+        certificates:
+          items:
+            $ref: '#/components/schemas/ComputerCertificateCreate'
+          nullable: true
+          type: array
+        configurationProfiles:
+          items:
+            $ref: '#/components/schemas/ComputerConfigurationProfileCreate'
+          nullable: true
+          type: array
+        general:
+          $ref: '#/components/schemas/ComputerGeneralCreate'
+        hardware:
+          $ref: '#/components/schemas/ComputerHardwareCreate'
+        localUserAccounts:
+          items:
+            $ref: '#/components/schemas/ComputerLocalUserAccountCreate'
+          nullable: true
+          type: array
+        operatingSystem:
+          $ref: '#/components/schemas/ComputerOperatingSystemCreate'
+        packageReceipts:
+          $ref: '#/components/schemas/ComputerPackageReceiptsCreate'
+        printers:
+          items:
+            $ref: '#/components/schemas/ComputerPrinterCreate'
+          nullable: true
+          type: array
+        purchasing:
+          $ref: '#/components/schemas/ComputerPurchaseCreate'
+        security:
+          $ref: '#/components/schemas/ComputerSecurityCreate'
+        services:
+          items:
+            $ref: '#/components/schemas/ComputerServiceCreate'
+          nullable: true
+          type: array
+        softwareUpdates:
+          items:
+            $ref: '#/components/schemas/ComputerSoftwareUpdateCreate'
+          nullable: true
+          type: array
+        storage:
+          $ref: '#/components/schemas/ComputerStorageCreate'
+        udid:
+          example: 45436edf-864e-4364-982a-330b01d39e65
+          nullable: true
+          type: string
+        userAndLocation:
+          $ref: '#/components/schemas/ComputerUserAndLocationCreate'
+      type: object
+    ComputerInventoryDeviceLockPinResponse:
+      properties:
+        pin:
+          example: "123456"
+          maxLength: 6
+          minLength: 6
+          readOnly: true
+          type: string
+      type: object
+    ComputerInventoryFileVault:
+      properties:
+        bootPartitionEncryptionDetails:
+          $ref: '#/components/schemas/ComputerPartitionEncryption'
+        computerId:
+          example: "1"
+          readOnly: true
+          type: string
+        diskEncryptionConfigurationName:
+          example: Test configuration
+          type: string
+        individualRecoveryKeyValidityStatus:
+          enum:
+            - VALID
+            - INVALID
+            - UNKNOWN
+            - NOT_APPLICABLE
+          example: VALID
+          type: string
+        institutionalRecoveryKeyPresent:
+          example: true
+          type: boolean
+        name:
+          example: Boalime
+          type: string
+        personalRecoveryKey:
+          example: Z4A6-ONF8-KUHD-AVTG-C3ER-6A8G
+          type: string
+      type: object
+    ComputerInventoryFileVaultSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ComputerInventoryFileVault'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    ComputerInventoryRecoveryLockPasswordResponse:
+      properties:
+        recoveryLockPassword:
+          example: password123
+          format: password
+          readOnly: true
+          type: string
+      type: object
+    ComputerInventoryUpdateRequest:
+      properties:
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        general:
+          $ref: '#/components/schemas/ComputerGeneralUpdate'
+        hardware:
+          $ref: '#/components/schemas/ComputerHardwareUpdate'
+        operatingSystem:
+          $ref: '#/components/schemas/ComputerOperatingSystemUpdate'
+        purchasing:
+          $ref: '#/components/schemas/ComputerPurchase'
+        udid:
+          example: 45436edf-864e-4364-982a-330b01d39e65
+          type: string
+        userAndLocation:
+          $ref: '#/components/schemas/ComputerUserAndLocation'
+      type: object
+    ComputerLicensedSoftware:
+      properties:
+        id:
+          example: "1"
+          type: string
+        name:
+          example: Microsoft Word
+          type: string
+      type: object
+    ComputerLocalUserAccount:
+      properties:
+        admin:
+          example: true
+          type: boolean
+        azureActiveDirectoryId:
+          enum:
+            - ACTIVATED
+            - DEACTIVATED
+            - UNRESPONSIVE
+            - UNKNOWN
+          example: ACTIVATED
+          type: string
+        computerAzureActiveDirectoryId:
+          example: "1"
+          type: string
+        fileVault2Enabled:
+          example: true
+          type: boolean
+        fullName:
+          example: John Jamf
+          type: string
+        homeDirectory:
+          example: /Users/jamf
+          type: string
+        homeDirectorySizeMb:
+          description: Home directory size in MB.
+          example: 131072
+          format: int64
+          readOnly: true
+          type: integer
+        passwordHistoryDepth:
+          example: 5
+          type: integer
+        passwordMaxAge:
+          example: 5
+          type: integer
+        passwordMinComplexCharacters:
+          example: 5
+          type: integer
+        passwordMinLength:
+          example: 4
+          type: integer
+        passwordRequireAlphanumeric:
+          example: true
+          type: boolean
+        uid:
+          example: "501"
+          type: string
+        userAccountType:
+          enum:
+            - LOCAL
+            - MOBILE
+            - UNKNOWN
+          example: LOCAL
+          type: string
+        userAzureActiveDirectoryId:
+          example: "1"
+          type: string
+        userGuid:
+          example: 844F1177-0CF5-40C6-901F-38EDD9969C1C
+          readOnly: true
+          type: string
+        username:
+          example: jamf
+          type: string
+      type: object
+    ComputerLocalUserAccountCreate:
+      properties:
+        admin:
+          example: true
+          nullable: true
+          type: boolean
+        computerAzureActiveDirectoryId:
+          example: "1"
+          nullable: true
+          type: string
+        fileVault2Enabled:
+          example: true
+          nullable: true
+          type: boolean
+        fullName:
+          example: John Jamf
+          nullable: true
+          type: string
+        homeDirectory:
+          example: /Users/jamf
+          nullable: true
+          type: string
+        homeDirectorySizeMb:
+          description: Home directory size in MB.
+          example: 131072
+          format: int64
+          nullable: true
+          type: integer
+        passwordHistoryDepth:
+          example: 5
+          nullable: true
+          type: integer
+        passwordMaxAge:
+          example: 5
+          nullable: true
+          type: integer
+        passwordMinComplexCharacters:
+          example: 5
+          nullable: true
+          type: integer
+        passwordMinLength:
+          example: 4
+          nullable: true
+          type: integer
+        passwordRequireAlphanumeric:
+          example: true
+          nullable: true
+          type: boolean
+        uid:
+          example: "501"
+          nullable: true
+          type: string
+        userAccountType:
+          enum:
+            - LOCAL
+            - MOBILE
+            - UNKNOWN
+          example: LOCAL
+          nullable: true
+          type: string
+        userAzureActiveDirectoryId:
+          example: "1"
+          nullable: true
+          type: string
+        userGuid:
+          example: 844F1177-0CF5-40C6-901F-38EDD9969C1C
+          nullable: true
+          type: string
+        username:
+          example: jamf
+          nullable: true
+          type: string
+      type: object
+    ComputerMdmCapability:
+      properties:
+        capable:
+          example: true
+          type: boolean
+        capableUsers:
+          deprecated: true
+          description: Deprecated. Use userManagementInfo instead.
+          example:
+            - admin
+            - rootadmin
+          items:
+            type: string
+          type: array
+        userManagementInfo:
+          items:
+            $ref: '#/components/schemas/ComputerUserManagementInfo'
+          type: array
+      type: object
+    ComputerOperatingSystem:
+      properties:
+        activeDirectoryStatus:
+          example: Not Bound
+          readOnly: true
+          type: string
+        build:
+          example: 13A603
+          readOnly: true
+          type: string
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        fileVault2Status:
+          enum:
+            - NOT_APPLICABLE
+            - NOT_ENCRYPTED
+            - BOOT_ENCRYPTED
+            - SOME_ENCRYPTED
+            - ALL_ENCRYPTED
+          example: ALL_ENCRYPTED
+          type: string
+        name:
+          example: Mac OS X
+          readOnly: true
+          type: string
+        rapidSecurityResponse:
+          description: Collected for macOS 13.0 or later
+          example: (a)
+          readOnly: true
+          type: string
+        softwareUpdateDeviceId:
+          example: J132AP
+          readOnly: true
+          type: string
+        supplementalBuildVersion:
+          description: Collected for macOS 13.0 or later
+          example: 13A953
+          readOnly: true
+          type: string
+        version:
+          example: 10.9.5
+          readOnly: true
+          type: string
+      type: object
+    ComputerOperatingSystemCreate:
+      properties:
+        activeDirectoryStatus:
+          example: Not Bound
+          nullable: true
+          type: string
+        build:
+          example: 13A603
+          nullable: true
+          type: string
+        name:
+          example: Mac OS X
+          nullable: true
+          type: string
+        rapidSecurityResponse:
+          example: (a)
+          nullable: true
+          type: string
+        softwareUpdateDeviceId:
+          example: J132AP
+          nullable: true
+          type: string
+        supplementalBuildVersion:
+          example: 13A953
+          nullable: true
+          type: string
+        version:
+          example: 10.9.5
+          nullable: true
+          type: string
+      type: object
+    ComputerOperatingSystemUpdate:
+      properties:
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+      type: object
+    ComputerPackageReceipts:
+      description: All package receipts are listed by their package name
+      properties:
+        cached:
+          items:
+            example: com.jamf.protect.JamfProtect
+            type: string
+          type: array
+        installedByInstallerSwu:
+          items:
+            example: com.apple.pkg.Core
+            type: string
+          type: array
+        installedByJamfPro:
+          items:
+            example: com.jamf.protect.JamfProtect
+            type: string
+          type: array
+      type: object
+    ComputerPackageReceiptsCreate:
+      description: All package receipts are listed by their package name
+      properties:
+        cached:
+          items:
+            example: com.jamf.protect.JamfProtect
+            type: string
+          nullable: true
+          type: array
+        installedByInstallerSwu:
+          items:
+            example: com.apple.pkg.Core
+            type: string
+          nullable: true
+          type: array
+        installedByJamfPro:
+          items:
+            example: com.jamf.protect.JamfProtect
+            type: string
+          nullable: true
+          type: array
+      type: object
+    ComputerPartition:
+      properties:
+        availableMegabytes:
+          description: Available space in MB.
+          example: 131072
+          format: int64
+          readOnly: true
+          type: integer
+        fileVault2ProgressPercent:
+          description: Percentage progress of current FileVault 2 operation.
+          example: 45
+          nullable: true
+          type: integer
+        fileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        lvmManaged:
+          example: true
+          readOnly: true
+          type: boolean
+        name:
+          example: Foo
+          readOnly: true
+          type: string
+        partitionType:
+          enum:
+            - BOOT
+            - RECOVERY
+            - OTHER
+          example: BOOT
+          readOnly: true
+          type: string
+        percentUsed:
+          description: Percentage of space used.
+          example: 25
+          maximum: 100
+          minimum: 0
+          readOnly: true
+          type: integer
+        sizeMegabytes:
+          description: Partition Size in MB.
+          example: 262144
+          format: int64
+          readOnly: true
+          type: integer
+      type: object
+    ComputerPartitionCreate:
+      properties:
+        availableMegabytes:
+          description: Available space in MB.
+          example: 131072
+          format: int64
+          nullable: true
+          type: integer
+        fileVault2ProgressPercent:
+          description: Percentage progress of current FileVault 2 operation.
+          example: 45
+          nullable: true
+          type: integer
+        fileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        lvmManaged:
+          example: true
+          nullable: true
+          type: boolean
+        name:
+          example: Foo
+          nullable: true
+          type: string
+        partitionType:
+          enum:
+            - BOOT
+            - RECOVERY
+            - OTHER
+          example: BOOT
+          nullable: true
+          type: string
+        percentUsed:
+          description: Percentage of space used.
+          example: 25
+          maximum: 100
+          minimum: 0
+          nullable: true
+          type: integer
+        sizeMegabytes:
+          description: Partition Size in MB.
+          example: 262144
+          format: int64
+          nullable: true
+          type: integer
+      type: object
+    ComputerPartitionEncryption:
+      properties:
+        partitionFileVault2Percent:
+          example: 100
+          type: integer
+        partitionFileVault2State:
+          $ref: '#/components/schemas/ComputerPartitionFileVault2State'
+        partitionName:
+          example: main
+          type: string
+      type: object
+    ComputerPartitionFileVault2State:
+      enum:
+        - UNKNOWN
+        - UNENCRYPTED
+        - INELIGIBLE
+        - DECRYPTED
+        - DECRYPTING
+        - ENCRYPTED
+        - ENCRYPTING
+        - RESTART_NEEDED
+        - OPTIMIZING
+        - DECRYPTING_PAUSED
+        - ENCRYPTING_PAUSED
+      example: ENCRYPTING
+      type: string
+    ComputerPrinter:
+      properties:
+        location:
+          example: 7th floor
+          type: string
+        name:
+          example: My Printer
+          type: string
+        type:
+          example: XYZ 1122
+          type: string
+        uri:
+          example: ipp://10.0.0.5
+          type: string
+      type: object
+    ComputerPrinterCreate:
+      properties:
+        location:
+          example: 7th floor
+          nullable: true
+          type: string
+        name:
+          example: My Printer
+          nullable: true
+          type: string
+        type:
+          example: XYZ 1122
+          nullable: true
+          type: string
+        uri:
+          example: ipp://10.0.0.5
+          nullable: true
+          type: string
+      type: object
+    ComputerPurchase:
+      properties:
+        appleCareId:
+          example: abcd
+          type: string
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        leaseDate:
+          example: "2019-01-01"
+          format: date
+          type: string
+        leased:
+          example: true
+          type: boolean
+        lifeExpectancy:
+          example: 5
+          type: integer
+        poDate:
+          example: "2019-01-01"
+          format: date
+          type: string
+        poNumber:
+          example: 53-1
+          type: string
+        purchasePrice:
+          example: $500
+          type: string
+        purchased:
+          example: true
+          type: boolean
+        purchasingAccount:
+          example: admin
+          type: string
+        purchasingContact:
+          example: "true"
+          type: string
+        vendor:
+          example: Example Vendor
+          type: string
+        warrantyDate:
+          example: "2019-01-01"
+          format: date
+          type: string
+      type: object
+    ComputerPurchaseCreate:
+      properties:
+        appleCareId:
+          example: abcd
+          nullable: true
+          type: string
+        leaseDate:
+          example: "2019-01-01"
+          format: date
+          nullable: true
+          type: string
+        leased:
+          example: true
+          nullable: true
+          type: boolean
+        lifeExpectancy:
+          example: 5
+          nullable: true
+          type: integer
+        poDate:
+          example: "2019-01-01"
+          format: date
+          nullable: true
+          type: string
+        poNumber:
+          example: 53-1
+          nullable: true
+          type: string
+        purchasePrice:
+          example: $500
+          nullable: true
+          type: string
+        purchased:
+          example: true
+          nullable: true
+          type: boolean
+        purchasingAccount:
+          example: admin
+          nullable: true
+          type: string
+        purchasingContact:
+          example: "true"
+          nullable: true
+          type: string
+        vendor:
+          example: Example Vendor
+          nullable: true
+          type: string
+        warrantyDate:
+          example: "2019-01-01"
+          format: date
+          nullable: true
+          type: string
+      type: object
+    ComputerRemoteManagement:
+      properties:
+        managed:
+          example: true
+          type: boolean
+        managementUsername:
+          deprecated: true
+          description: This field always returns null, please use /local-admin-password/ endpoint instead.
+          example: rootname
+          type: string
+      type: object
+    ComputerRemoteManagementCreate:
+      properties:
+        managed:
+          example: true
+          nullable: true
+          type: boolean
+      type: object
+    ComputerSecurity:
+      properties:
+        activationLockEnabled:
+          description: Collected for macOS 10.15.0 or later
+          example: true
+          type: boolean
+        attestationStatus:
+          enum:
+            - PENDING
+            - SUCCESS
+            - CERTIFICATE_INVALID
+            - DEVICE_PROPERTIES_MISMATCH
+            - MDA_UNSUPPORTED_DUE_TO_HARDWARE
+            - MDA_UNSUPPORTED_DUE_TO_SOFTWARE
+          example: PENDING
+          readOnly: true
+          type: string
+        autoLoginDisabled:
+          example: false
+          type: boolean
+        bootstrapTokenAllowed:
+          description: Collected for macOS 11 or later
+          example: true
+          type: boolean
+        bootstrapTokenEscrowedStatus:
+          description: Collected for macOS 11 or later
+          enum:
+            - ESCROWED
+            - NOT_ESCROWED
+            - NOT_SUPPORTED
+          example: ESCROWED
+          type: string
+        externalBootLevel:
+          description: Collected for macOS 10.15.0 or later
+          enum:
+            - ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - DISALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - NOT_SUPPORTED
+            - UNKNOWN
+          example: ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+          type: string
+        firewallEnabled:
+          example: true
+          type: boolean
+        gatekeeperStatus:
+          enum:
+            - NOT_COLLECTED
+            - DISABLED
+            - APP_STORE_AND_IDENTIFIED_DEVELOPERS
+            - APP_STORE
+          example: APP_STORE_AND_IDENTIFIED_DEVELOPERS
+          type: string
+        lastAttestationAttempt:
+          example: "1970-01-01T00:00:00Z"
+          readOnly: true
+          type: string
+        lastSuccessfulAttestation:
+          example: "1970-01-01T00:00:00Z"
+          readOnly: true
+          type: string
+        recoveryLockEnabled:
+          example: true
+          type: boolean
+        remoteDesktopEnabled:
+          description: Collected for macOS 10.14.4 or later
+          example: true
+          type: boolean
+        secureBootLevel:
+          description: Collected for macOS 10.15.0 or later
+          enum:
+            - NO_SECURITY
+            - MEDIUM_SECURITY
+            - FULL_SECURITY
+            - NOT_SUPPORTED
+            - UNKNOWN
+          example: FULL_SECURITY
+          type: string
+        sipStatus:
+          enum:
+            - NOT_COLLECTED
+            - NOT_AVAILABLE
+            - DISABLED
+            - ENABLED
+          example: ENABLED
+          type: string
+        xprotectVersion:
+          example: 1.2.3
+          type: string
+      type: object
+    ComputerSecurityCreate:
+      properties:
+        activationLockEnabled:
+          example: true
+          nullable: true
+          type: boolean
+        externalBootLevel:
+          enum:
+            - ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - DISALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+            - NOT_SUPPORTED
+            - UNKNOWN
+          example: ALLOW_BOOTING_FROM_EXTERNAL_MEDIA
+          nullable: true
+          type: string
+        firewallEnabled:
+          example: true
+          nullable: true
+          type: boolean
+        gatekeeperStatus:
+          enum:
+            - NOT_COLLECTED
+            - DISABLED
+            - APP_STORE_AND_IDENTIFIED_DEVELOPERS
+            - APP_STORE
+          example: APP_STORE_AND_IDENTIFIED_DEVELOPERS
+          nullable: true
+          type: string
+        recoveryLockEnabled:
+          example: true
+          nullable: true
+          type: boolean
+        secureBootLevel:
+          enum:
+            - NO_SECURITY
+            - MEDIUM_SECURITY
+            - FULL_SECURITY
+            - NOT_SUPPORTED
+            - UNKNOWN
+          example: FULL_SECURITY
+          nullable: true
+          type: string
+        sipStatus:
+          enum:
+            - NOT_COLLECTED
+            - NOT_AVAILABLE
+            - DISABLED
+            - ENABLED
+          example: ENABLED
+          nullable: true
+          type: string
+        xprotectVersion:
+          example: 1.2.3
+          nullable: true
+          type: string
+      type: object
+    ComputerService:
+      properties:
+        name:
+          example: SomeService
+          type: string
+      type: object
+    ComputerServiceCreate:
+      properties:
+        name:
+          example: SomeService
+          nullable: true
+          type: string
+      type: object
+    ComputerSoftwareUpdate:
+      properties:
+        name:
+          example: BEdit
+          type: string
+        packageName:
+          example: com.apple.pkg.AdditionalEssentials
+          type: string
+        version:
+          example: 1.15.2
+          type: string
+      type: object
+    ComputerSoftwareUpdateCreate:
+      properties:
+        name:
+          example: BEdit
+          nullable: true
+          type: string
+        packageName:
+          example: com.apple.pkg.AdditionalEssentials
+          nullable: true
+          type: string
+        version:
+          example: 1.15.2
+          nullable: true
+          type: string
+      type: object
+    ComputerStorage:
+      properties:
+        bootDriveAvailableSpaceMegabytes:
+          example: 3072
+          format: int64
+          readOnly: true
+          type: integer
+        disks:
+          items:
+            $ref: '#/components/schemas/ComputerDisk'
+          type: array
+      type: object
+    ComputerStorageCreate:
+      properties:
+        disks:
+          items:
+            $ref: '#/components/schemas/ComputerDiskCreate'
+          nullable: true
+          type: array
+      type: object
+    ComputerUserAndLocation:
+      properties:
+        buildingId:
+          example: "1"
+          type: string
+        departmentId:
+          example: "1"
+          type: string
+        email:
+          example: email@com.pl
+          type: string
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ComputerExtensionAttribute'
+          type: array
+        phone:
+          example: 123-456-789
+          type: string
+        position:
+          example: IT Team Lead
+          type: string
+        realname:
+          example: 13-inch MacBook
+          type: string
+        room:
+          example: "5"
+          type: string
+        username:
+          example: Madison Anderson
+          type: string
+      type: object
+    ComputerUserAndLocationCreate:
+      properties:
+        buildingId:
+          example: "1"
+          nullable: true
+          type: string
+        departmentId:
+          example: "1"
+          nullable: true
+          type: string
+        email:
+          example: email@com.pl
+          nullable: true
+          type: string
+        phone:
+          example: 123-456-789
+          nullable: true
+          type: string
+        position:
+          example: IT Team Lead
+          nullable: true
+          type: string
+        realname:
+          example: 13-inch MacBook
+          nullable: true
+          type: string
+        room:
+          example: "5"
+          nullable: true
+          type: string
+        username:
+          example: Madison Anderson
+          nullable: true
+          type: string
+      type: object
+    ComputerUserManagementInfo:
+      example:
+        - capableUser: admin
+          managementId: 123e4567-e89b-42d3-a456-426614174000
+        - capableUser: rootadmin
+          managementId: 123e4567-e89b-42d3-a456-426614174001
+      properties:
+        capableUser:
+          example: admin
+          type: string
+        managementId:
+          example: 123e4567-e89b-12d3-a456-426614174000
+          type: string
+      required:
+        - capableUser
+        - managementId
+      type: object
+    DependencyObjectResults:
+      properties:
+        results:
+          items:
+            properties:
+              hyperlink:
+                description: Link to dependent object or to page with list of dependent objects.
+                example: /smartMobileDeviceGroups.html
+                type: string
+              id:
+                description: Unique Id for Dependency Object.
+                example: 1
+                type: integer
+              identifiableName:
+                description: Name of the dependent object.
+                example: identifiableName
+                type: string
+              nameLocalization:
+                description: Name of localization which display dependent object.
+                example: SMART_COMPUTER_GROUPS
+                type: string
+              objectId:
+                description: Object Type Id of the dependency object.
+                example: 1
+                type: integer
+            type: object
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    DeploymentTask:
+      properties:
+        computerId:
+          example: "111"
+          readOnly: true
+          type: string
+        computerName:
+          example: Polka dot Stratocaster
+          readOnly: true
+          type: string
+        id:
+          example: "82"
+          readOnly: true
+          type: string
+        status:
+          description: |
+            Status of this Jamf Connect deployment task. "Command" below refers to an `InstallEnterpriseApplication` command. Tasks that are not finished (i.e., `COMPLETE` or `GAVE_UP`) are evaluated once every thirty minutes, so the status value for a device may lag behind a successful Jamf Connect package install up to thirty minutes. * `COMMAND_QUEUED` - command has been queued * `NO_COMMAND` - command has not yet been queued * `PENDING_MANIFEST` - task is waiting to obtain a valid package manifest before a command can be queued * `COMPLETE` - command has been completed successfully * `GAVE_UP` - the command failed with an error or the device did not process it in a reasonable amount of time * `UNKNOWN` - unknown; tasks in this state will be evaluated
+          enum:
+            - COMMAND_QUEUED
+            - NO_COMMAND
+            - PENDING_MANIFEST
+            - COMPLETE
+            - GAVE_UP
+            - UNKNOWN
+          example: COMPLETE
+          type: string
+        updated:
+          example: "2021-05-07T21:20:34.35Z"
+          format: date-time
+          readOnly: true
+          type: string
+        version:
+          example: 2.3.4
+          readOnly: true
+          type: string
+      type: object
+    DeploymentTaskSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/DeploymentTask'
+          type: array
+        totalCount:
+          example: 13
+          type: integer
+      type: object
+    DeviceEnrollmentPrestageV2:
+      properties:
+        anchorCertificates:
+          description: The Base64 encoded PEM Certificate
+          items:
+            example: xNE5HRgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+            type: string
+          type: array
+        authenticationPrompt:
+          example: LDAP authentication prompt
+          type: string
+        autoAdvanceSetup:
+          example: true
+          type: boolean
+        defaultPrestage:
+          example: false
+          type: boolean
+        department:
+          example: Oxbow
+          type: string
+        deviceEnrollmentProgramInstanceId:
+          example: "5"
+          type: string
+        displayName:
+          example: Example Mobile Prestage Name
+          type: string
+        enableDeviceBasedActivationLock:
+          example: true
+          type: boolean
+        enrollmentCustomizationId:
+          example: "2"
+          type: string
+        enrollmentSiteId:
+          example: "-1"
+          type: string
+        keepExistingLocationInformation:
+          example: true
+          type: boolean
+        keepExistingSiteMembership:
+          example: true
+          type: boolean
+        language:
+          example: en
+          type: string
+        locationInformation:
+          $ref: '#/components/schemas/LocationInformationV2'
+        mandatory:
+          example: false
+          type: boolean
+        mdmRemovable:
+          example: true
+          type: boolean
+        preventActivationLock:
+          example: true
+          type: boolean
+        purchasingInformation:
+          $ref: '#/components/schemas/PrestagePurchasingInformationV2'
+        region:
+          example: US
+          type: string
+        requireAuthentication:
+          example: true
+          type: boolean
+        skipSetupItems:
+          additionalProperties:
+            type: boolean
+          example:
+            Location: true
+            Privacy: false
+          type: object
+        supportEmailAddress:
+          example: example@example.com
+          type: string
+        supportPhoneNumber:
+          example: "5555555555"
+          type: string
+      required:
+        - authenticationPrompt
+        - autoAdvanceSetup
+        - defaultPrestage
+        - department
+        - deviceEnrollmentProgramInstanceId
+        - displayName
+        - enableDeviceBasedActivationLock
+        - enrollmentSiteId
+        - keepExistingLocationInformation
+        - keepExistingSiteMembership
+        - locationInformation
+        - mandatory
+        - mdmRemovable
+        - preventActivationLock
+        - purchasingInformation
+        - requireAuthentication
+        - supportEmailAddress
+        - supportPhoneNumber
+      type: object
+    DssDeclaration:
+      properties:
+        group:
+          enum:
+            - ACTIVATION
+            - ASSET
+            - CONFIGURATION
+            - MANAGEMENT
+          example: activation
+          nullable: true
+          type: string
+        payloadJson:
+          example: '{}'
+          nullable: true
+          type: string
+        type:
+          example: com.apple.configuration.management.status-subscriptions
+          nullable: true
+          readOnly: true
+          type: string
+        uuid:
+          example: 72676372-af55-432f-acd8-12984522e472
+          nullable: false
+          type: string
+      type: object
+    DssDeclarations:
+      properties:
+        declarations:
+          default: []
+          items:
+            $ref: '#/components/schemas/DssDeclaration'
+          nullable: false
+          type: array
+      type: object
+    EnrollmentMethod:
+      properties:
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        objectName:
+          example: user@domain.com
+          readOnly: true
+          type: string
+        objectType:
+          example: User-initiated - no invitation
+          readOnly: true
+          type: string
+      type: object
+    ExportField:
+      description: Field to be included in the export operation.
+      properties:
+        fieldLabelOverride:
+          description: Name which should be used for the label in the response - can be in any language. When null the fieldName itself will be used as the label.
+          example: identiteit
+          nullable: true
+          type: string
+        fieldName:
+          description: English name of the field to be exported.
+          example: id
+          type: string
+      type: object
+    ExportParameters:
+      properties:
+        fields:
+          description: Used to change default order or ignore some of the fields. When null or empty array, all fields will be exported.
+          items:
+            $ref: '#/components/schemas/ExportField'
+          nullable: true
+          type: array
+        filter:
+          example: id>=100
+          nullable: true
+          type: string
+        page:
+          default: 0
+          example: 0
+          nullable: true
+          type: integer
+        pageSize:
+          default: 100
+          example: 100
+          nullable: true
+          type: integer
+        sort:
+          default:
+            - id:desc
+          description: 'Sorting criteria in the format: [<property>[:asc/desc]. Default direction when not stated is ascending.'
+          example:
+            - id:asc
+          items:
+            type: string
+          nullable: true
+          type: array
+      type: object
+    ExtensionAttributes:
+      properties:
+        dataType:
+          default: STRING
+          description: Type of data being collected.
+          enum:
+            - INTEGER
+            - STRING
+            - DATE
+          type: string
+        description:
+          description: Description for the extension attribute.
+          example: Mobile Device Extension Attribute
+          type: string
+        id:
+          description: Unique Id for Mobile Device Extension Attribute.
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          description: Display name for the extension attribute.
+          example: MobileDeviceExtensionAttribute
+          type: string
+      required:
+        - dataType
+        - name
+      type: object
+    FileTransferItem:
+      properties:
+        filePath:
+          example: /SomeFilePath/ToFile.xml
+          nullable: false
+          type: string
+        fileTransferType:
+          enum:
+            - DOWNLOAD
+            - UPLOAD
+          example: DOWNLOAD
+          nullable: false
+          type: string
+        transferTimestamp:
+          example: "2023-11-07T10:25:27.49Z"
+          format: date-time
+          nullable: false
+          type: string
+      type: object
+    GroupMappings:
+      description: Cloud Identity Provider user group mappings configuration
+      properties:
+        groupID:
+          example: cn
+          type: string
+        groupName:
+          example: cn
+          type: string
+        groupUuid:
+          example: gidNumber
+          type: string
+        objectClassLimitation:
+          enum:
+            - ANY_OBJECT_CLASSES
+            - ALL_OBJECT_CLASSES
+          example: ANY_OBJECT_CLASSES
+          type: string
+        objectClasses:
+          example: groupOfNames
+          type: string
+        searchBase:
+          example: ou=Groups
+          type: string
+        searchScope:
+          enum:
+            - ALL_SUBTREES
+            - FIRST_LEVEL_ONLY
+          example: ALL_SUBTREES
+          type: string
+      required:
+        - groupID
+        - groupName
+        - groupUuid
+        - objectClassLimitation
+        - objectClasses
+        - searchBase
+        - searchScope
+      type: object
+    GroupMembership:
+      properties:
+        groupDescription:
+          example: groupOne description
+          type: string
+        groupId:
+          example: "1"
+          type: string
+        groupName:
+          example: groupOne
+          type: string
+        smartGroup:
+          description: Indicates that group is smart group
+          example: true
+          type: boolean
+      type: object
+    HistorySearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ObjectHistory'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    HistorySearchResultsV1:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ObjectHistoryV1'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    HrefResponse:
+      properties:
+        href:
+          example: https://yourJamfProUrl.jamf/api/v1/resource/1
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+      type: object
+    Ids:
+      properties:
+        ids:
+          items:
+            example: "1"
+            type: string
+          type: array
+      type: object
+    InventoryPreloadCsvValidationSuccess:
+      properties:
+        recordCount:
+          example: 10
+          type: integer
+      type: object
+    InventoryPreloadExtensionAttribute:
+      properties:
+        name:
+          example: foo
+          type: string
+        value:
+          example: "42"
+          type: string
+      required:
+        - name
+      type: object
+    LocationInformationV2:
+      properties:
+        buildingId:
+          example: "1"
+          type: string
+        departmentId:
+          example: "1"
+          type: string
+        email:
+          example: test@jamf.com
+          type: string
+        id:
+          example: "-1"
+          type: string
+        phone:
+          example: 123-456-7890
+          type: string
+        position:
+          example: postion
+          type: string
+        realname:
+          example: realName
+          type: string
+        room:
+          example: room
+          type: string
+        username:
+          example: name
+          type: string
+        versionLock:
+          example: 1
+          type: integer
+      required:
+        - buildingId
+        - departmentId
+        - email
+        - id
+        - phone
+        - position
+        - realname
+        - room
+        - username
+        - versionLock
+      type: object
+    MembershipMappings:
+      description: Cloud Identity Provider user group membership mappings configuration
+      properties:
+        groupMembershipMapping:
+          example: memberOf
+          type: string
+      required:
+        - groupMembershipMapping
+      type: object
+    MobileDeviceInventoryGroup:
+      properties:
+        groupDescription:
+          example: Test Group Description
+          minLength: 0
+          type: string
+        groupId:
+          example: "1"
+          type: string
+        groupName:
+          example: Test Group
+          minLength: 1
+          type: string
+        smart:
+          example: false
+          type: boolean
+      type: object
+    MobileDeviceProvisioningProfiles:
+      properties:
+        displayName:
+          example: jamfnation
+          type: string
+        expirationDate:
+          example: "2018-10-24T21:57:37Z"
+          format: date-time
+          type: string
+        uuid:
+          example: 89AF33FC-123C-1231-AEFD-9C3ED123AFCC
+          type: string
+      type: object
+    MobileDeviceServiceSubscriptions:
+      properties:
+        carrierSettingsVersion:
+          example: "47.1"
+          type: string
+        currentCarrierNetwork:
+          example: T-Mobile Wi-Fi
+          type: string
+        currentMobileCountryCode:
+          example: "310"
+          type: string
+        currentMobileNetworkCode:
+          example: "260"
+          type: string
+        dataPreferred:
+          example: true
+          type: boolean
+        eid:
+          example: "89049032007008882600085727376656"
+          type: string
+        iccid:
+          example: 8901 2605 7071 8002 130
+          type: string
+        imei:
+          example: 35 882334 083223 0
+          type: string
+        label:
+          example: Primary
+          type: string
+        labelId:
+          description: The unique identifier for this subscription.
+          example: D1F4AEC5-2FCD-4A6D-A09E-A940F60F856B
+          type: string
+        meid:
+          example: "35882334083223"
+          type: string
+        phoneNumber:
+          example: "+15128145868"
+          type: string
+        roaming:
+          example: true
+          type: boolean
+        slot:
+          description: The description of the slot that contains the SIM representing this subscription.
+          example: CTSubscriptionSlotOne
+          type: string
+        subscriberCarrierNetwork:
+          example: T-Mobile Wi-Fi
+          type: string
+        voicePreferred:
+          example: true
+          type: boolean
+      type: object
+    ObjectHistory:
+      properties:
+        date:
+          example: "2019-02-04T21:09:31.661Z"
+          type: string
+        details:
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+          type: string
+        id:
+          example: 1
+          minimum: 1
+          type: integer
+        note:
+          example: Sso settings update
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    ObjectHistoryNote:
+      properties:
+        note:
+          example: A generic note can sometimes be useful, but generally not.
+          type: string
+      required:
+        - note
+      type: object
+    ObjectHistoryV1:
+      properties:
+        date:
+          example: "2019-02-04T21:09:31.661Z"
+          type: string
+        details:
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+        note:
+          example: Sso settings update
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    PrestagePurchasingInformationV2:
+      properties:
+        appleCareId:
+          example: abcd
+          type: string
+        id:
+          example: "-1"
+          type: string
+        leaseDate:
+          example: "2019-01-01"
+          type: string
+        leased:
+          example: true
+          type: boolean
+        lifeExpectancy:
+          example: 5
+          type: integer
+        poDate:
+          example: "2019-01-01"
+          type: string
+        poNumber:
+          example: 53-1
+          type: string
+        purchasePrice:
+          example: $500
+          type: string
+        purchased:
+          example: true
+          type: boolean
+        purchasingAccount:
+          example: admin
+          type: string
+        purchasingContact:
+          example: "true"
+          type: string
+        vendor:
+          example: Example Vendor
+          type: string
+        versionLock:
+          example: 1
+          type: integer
+        warrantyDate:
+          example: "2019-01-01"
+          type: string
+      required:
+        - appleCareId
+        - id
+        - leaseDate
+        - leased
+        - lifeExpectancy
+        - poDate
+        - poNumber
+        - purchasePrice
+        - purchased
+        - purchasingAccount
+        - purchasingContact
+        - vendor
+        - versionLock
+        - warrantyDate
+      type: object
+    PrestageScopeAssignmentV2:
+      properties:
+        assignmentDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
+          type: string
+        serialNumber:
+          example: XYZ
+          type: string
+        userAssigned:
+          example: admin
+          type: string
+      type: object
+    PrestageScopeResponseV2:
+      properties:
+        assignments:
+          items:
+            $ref: '#/components/schemas/PrestageScopeAssignmentV2'
+          type: array
+        prestageId:
+          example: "1"
+          type: string
+        versionLock:
+          example: 1
+          type: integer
+      type: object
+    PrestageScopeUpdate:
+      properties:
+        serialNumbers:
+          example:
+            - DMQVGC0DHLF0
+            - C02L29ECF8J1
+          items:
+            type: string
+          type: array
+        versionLock:
+          example: 1
+          type: integer
+      required:
+        - serialNumbers
+        - versionLock
+      type: object
+    PrestageScopeV2:
+      properties:
+        serialsByPrestageId:
+          additionalProperties:
+            type: string
+          example:
+            ABCD: 1
+            XYZ: 12
+          type: object
+      type: object
+    RecalculationResults:
+      properties:
+        count:
+          example: 3
+          type: integer
+      type: object
+    SafelistedApp:
+      properties:
+        bundleId:
+          example: com.jamf.parent
+          type: string
+        name:
+          example: Content Filter
+          type: string
+      type: object
+    SessionHistoryItem:
+      properties:
+        comment:
+          example: Example comment
+          type: string
+        deviceId:
+          example: aeafd2ff95c7e0b937a8dbf3121a8dcab7a70161cd4493af038fa9c784b61866
+          type: string
+        sessionAdminId:
+          example: sessionAdminId1
+          type: string
+        sessionEndedTimestamp:
+          example: "2023-11-07T10:25:27.49Z"
+          format: date-time
+          type: string
+        sessionId:
+          example: c4087bc8-cb48-4452-9bec-a3c50088a485
+          nullable: false
+          type: string
+        sessionStartedTimestamp:
+          example: "2023-11-07T10:25:27.49Z"
+          format: date-time
+          type: string
+        sessionType:
+          enum:
+            - ATTENDED
+            - UNATTENDED
+          example: ATTENDED
+          type: string
+        statusType:
+          enum:
+            - STARTED
+            - FINISHED
+            - ERROR
+          example: STARTED
+          type: string
+        tenantId:
+          example: ee5d0ffae49e675d32ba5bdb2ce25182e958b979afc8d210c924d725bbf45f8b
+          nullable: false
+          type: string
+      type: object
+    SessionHistoryItemDetails:
+      properties:
+        fileTransferItemList:
+          items:
+            $ref: '#/components/schemas/FileTransferItem'
+          nullable: false
+          type: array
+      type: object
+    SessionHistoryItemWithDetails:
+      properties:
+        comment:
+          example: Example comment
+          type: string
+        details:
+          $ref: '#/components/schemas/SessionHistoryItemDetails'
+        deviceId:
+          example: aeafd2ff95c7e0b937a8dbf3121a8dcab7a70161cd4493af038fa9c784b61866
+          type: string
+        sessionAdminId:
+          example: sessionAdminId1
+          type: string
+        sessionEndedTimestamp:
+          example: "2023-11-07T10:25:27.49Z"
+          format: date-time
+          type: string
+        sessionId:
+          example: c4087bc8-cb48-4452-9bec-a3c50088a485
+          nullable: false
+          type: string
+        sessionStartedTimestamp:
+          example: "2023-11-07T10:25:27.49Z"
+          format: date-time
+          type: string
+        sessionType:
+          enum:
+            - ATTENDED
+            - UNATTENDED
+          example: ATTENDED
+          type: string
+        statusType:
+          enum:
+            - STARTED
+            - FINISHED
+            - ERROR
+          example: STARTED
+          type: string
+        tenantId:
+          example: ee5d0ffae49e675d32ba5bdb2ce25182e958b979afc8d210c924d725bbf45f8b
+          nullable: false
+          type: string
+      type: object
+    SmartGroupCriteria:
+      properties:
+        andOr:
+          description: Whether this criterion should be ANDed or ORed with the previous criterion
+          example: and
+          minLength: 1
+          type: string
+        closingParen:
+          description: Whether to add a closing parenthesis after this criterion
+          example: false
+          type: boolean
+        name:
+          description: The field to search on (e.g., Model, OS Version, etc.)
+          example: Model
+          minLength: 1
+          type: string
+        openingParen:
+          description: Whether to add an opening parenthesis before this criterion
+          example: false
+          type: boolean
+        priority:
+          description: The priority order of this criterion
+          example: 1
+          minimum: 0
+          nullable: false
+          type: integer
+        searchType:
+          description: The type of search to perform (e.g., is, is not, like, etc.)
+          example: is
+          minLength: 1
+          type: string
+        value:
+          description: The value to search for
+          example: iPad
+          type: string
+      required:
+        - andOr
+        - name
+        - priority
+        - searchType
+        - value
+      type: object
+    SmartSearchCriterion:
+      properties:
+        andOr:
+          example: and
+          type: string
+        closingParen:
+          example: false
+          type: boolean
+        name:
+          example: Account
+          type: string
+        openingParen:
+          example: false
+          type: boolean
+        priority:
+          example: 0
+          type: integer
+        searchType:
+          example: is
+          type: string
+        value:
+          example: test
+          type: string
+      required:
+        - andOr
+        - name
+        - searchType
+        - value
+      type: object
+    UserMappings:
+      description: Cloud Identity Provider user mappings configuration
+      properties:
+        additionalSearchBase:
+          default: ""
+          type: string
+        building:
+          default: ""
+          type: string
+        department:
+          example: departmentNumber
+          type: string
+        emailAddress:
+          example: mail
+          type: string
+        objectClassLimitation:
+          enum:
+            - ANY_OBJECT_CLASSES
+            - ALL_OBJECT_CLASSES
+          example: ANY_OBJECT_CLASSES
+          type: string
+        objectClasses:
+          example: inetOrgPerson
+          type: string
+        phone:
+          default: ""
+          type: string
+        position:
+          example: title
+          type: string
+        realName:
+          example: displayName
+          type: string
+        room:
+          default: ""
+          type: string
+        searchBase:
+          example: ou=Users
+          type: string
+        searchScope:
+          enum:
+            - ALL_SUBTREES
+            - FIRST_LEVEL_ONLY
+          example: ALL_SUBTREES
+          type: string
+        userID:
+          example: mail
+          type: string
+        userUuid:
+          example: uid
+          type: string
+        username:
+          example: uid
+          type: string
+      required:
+        - building
+        - department
+        - emailAddress
+        - objectClassLimitation
+        - objectClasses
+        - phone
+        - position
+        - realName
+        - room
+        - searchBase
+        - searchScope
+        - userID
+        - userUuid
+        - username
+      type: object
+    V1SiteBase:
+      properties:
+        id:
+          example: "1"
+          type: string
+        name:
+          example: Eau Claire
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - Shared Components (monolith-derived)
+  version: 1.0.0
+openapi: 3.0.1

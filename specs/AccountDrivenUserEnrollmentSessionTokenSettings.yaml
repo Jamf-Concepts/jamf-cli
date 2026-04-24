@@ -1,71 +1,68 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Account Driven User Enrollment Session Token Setting
-  version: 0.0.1
-
-paths:
-  /v1/adue-session-token-settings:
-    get:
-      tags:
-        - enrollment
-      summary: |
-        Retrieve the Account Driven User Enrollment Session Token Settings
-      description: |
-        Retrieve the Account Driven User Enrollment Session Token Settings
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
-      x-required-privileges:
-        - Read User-Initiated Enrollment
-    put:
-      tags:
-        - enrollment
-      summary: |
-        Update Account Driven User Enrollment Session Token Settings.
-      description: |
-        Update the Account Driven User Enrollment Session Token Settings object.
-      requestBody:
-        description: Update Account Driven User Enrollment Session Token Settings.
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
-        required: true
-      responses:
-        200:
-          description: Successfully updated Account Driven User Enrollment Session Token Settings object
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
-        400:
-          description: Invalid data response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update User-Initiated Enrollment
-
 components:
   schemas:
     AccountDrivenUserEnrollmentSessionTokenSettings:
-      type: object
       description: Settings for Account Driven User Enrollment. Only 1 of expirationIntervalDays or expirationIntervalSeconds can be supplied.
       properties:
         enabled:
-          type: boolean
           example: false
+          type: boolean
         expirationIntervalDays:
-          type: integer
           example: 1
-        expirationIntervalSeconds:
           type: integer
+        expirationIntervalSeconds:
           example: 86400
-
-
-
+          type: integer
+      type: object
+info:
+  title: Jamf Pro API - AccountDrivenUserEnrollmentSessionTokenSettings
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/adue-session-token-settings:
+    get:
+      description: |
+        Retrieve the Account Driven User Enrollment Session Token Settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
+          description: Successful response
+      summary: |
+        Retrieve the Account Driven User Enrollment Session Token Settings
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Read User-Initiated Enrollment
+    put:
+      description: |
+        Update the Account Driven User Enrollment Session Token Settings object.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
+        description: Update Account Driven User Enrollment Session Token Settings.
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDrivenUserEnrollmentSessionTokenSettings'
+          description: Successfully updated Account Driven User Enrollment Session Token Settings object
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: |
+        Update Account Driven User Enrollment Session Token Settings.
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Update User-Initiated Enrollment
+servers:
+  - url: /api

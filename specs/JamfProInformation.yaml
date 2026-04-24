@@ -1,54 +1,56 @@
-openapi: 3.0.0
-info:
-  version: 0.0.1
-  title: Jamf Pro API - System Information
-paths:
-  /v2/jamf-pro-information:
-    get:
-      tags:
-        - jamf-pro-information
-      summary: |
-        Get basic information about the Jamf Pro Server
-      description: >
-        Get basic information about the Jamf Pro Server
-      responses:
-        '200':
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/JamfProInformationV2'
-      x-authentication-required: true
 components:
   schemas:
     JamfProInformationV2:
-      type: object
       properties:
-        vppTokenEnabled:
-          type: boolean
-          example: false
-        depAccountEnabled:
-          type: boolean
-          example: false
         byodEnabled:
-          type: boolean
           default: false
-          readOnly: true
           deprecated: true
-          description: >
+          description: |
             **Deprecated as of 11.25.** This field always returns false.
-        userMigrationEnabled:
+          readOnly: true
           type: boolean
-          example: false
         cloudDeploymentsEnabled:
-          type: boolean
           example: false
+          type: boolean
+        depAccountEnabled:
+          example: false
+          type: boolean
         patchEnabled:
-          type: boolean
           example: false
-        ssoSamlEnabled:
           type: boolean
-          example: false
         smtpEnabled:
-          type: boolean
           example: false
+          type: boolean
+        ssoSamlEnabled:
+          example: false
+          type: boolean
+        userMigrationEnabled:
+          example: false
+          type: boolean
+        vppTokenEnabled:
+          example: false
+          type: boolean
+      type: object
+info:
+  title: Jamf Pro API - JamfProInformation
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/jamf-pro-information:
+    get:
+      description: |
+        Get basic information about the Jamf Pro Server
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JamfProInformationV2'
+          description: Successful response
+      summary: |
+        Get basic information about the Jamf Pro Server
+      tags:
+        - jamf-pro-information
+      x-authentication-required: true
+servers:
+  - url: /api

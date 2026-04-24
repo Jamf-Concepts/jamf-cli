@@ -1,436 +1,424 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AppPath:
+      properties:
+        id:
+          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
+          example: "1"
+          type: string
+        path:
+          example: /Example/Path/To/App/
+          type: string
+      required:
+        - id
+        - path
+      type: object
+    ComputerInventoryCollectionPreferences:
+      properties:
+        allowChangingUserAndLocation:
+          default: true
+          example: true
+          type: boolean
+        calculateSizes:
+          default: false
+          example: false
+          type: boolean
+        collectSyncedMobileDeviceInfo:
+          default: false
+          example: false
+          type: boolean
+        collectUnmanagedCertificates:
+          default: true
+          example: true
+          type: boolean
+        includeAccounts:
+          default: false
+          example: true
+          type: boolean
+        includeFonts:
+          default: false
+          example: true
+          type: boolean
+        includeHiddenAccounts:
+          default: false
+          example: true
+          type: boolean
+        includePackages:
+          default: false
+          example: true
+          type: boolean
+        includePlugins:
+          default: false
+          example: true
+          type: boolean
+        includePrinters:
+          default: false
+          example: true
+          type: boolean
+        includeServices:
+          default: false
+          example: true
+          type: boolean
+        includeSoftwareId:
+          default: false
+          example: true
+          type: boolean
+        includeSoftwareUpdates:
+          default: false
+          example: true
+          type: boolean
+        monitorApplicationUsage:
+          default: false
+          example: true
+          type: boolean
+        monitorBeacons:
+          default: false
+          example: true
+          type: boolean
+        updateLdapInfoOnComputerInventorySubmissions:
+          default: false
+          example: false
+          type: boolean
+        useUnixUserPaths:
+          default: true
+          example: true
+          type: boolean
+      type: object
+    ComputerInventoryCollectionPreferencesV2:
+      properties:
+        allowChangingUserAndLocation:
+          default: true
+          example: true
+          type: boolean
+        calculateSizes:
+          default: false
+          example: false
+          type: boolean
+        collectSyncedMobileDeviceInfo:
+          default: false
+          example: false
+          type: boolean
+        collectUnmanagedCertificates:
+          default: true
+          example: true
+          type: boolean
+        includeAccounts:
+          default: false
+          example: true
+          type: boolean
+        includeHiddenAccounts:
+          default: false
+          example: true
+          type: boolean
+        includePackages:
+          default: false
+          example: true
+          type: boolean
+        includePrinters:
+          default: false
+          example: true
+          type: boolean
+        includeServices:
+          default: false
+          example: true
+          type: boolean
+        includeSoftwareId:
+          default: false
+          example: true
+          type: boolean
+        includeSoftwareUpdates:
+          default: false
+          example: true
+          type: boolean
+        monitorApplicationUsage:
+          default: false
+          example: true
+          nullable: false
+          type: boolean
+        monitorBeacons:
+          default: false
+          example: true
+          type: boolean
+        updateLdapInfoOnComputerInventorySubmissions:
+          default: false
+          example: false
+          type: boolean
+        useUnixUserPaths:
+          default: true
+          example: true
+          type: boolean
+      type: object
+    ComputerInventoryCollectionSettings:
+      properties:
+        applicationPaths:
+          items:
+            $ref: '#/components/schemas/AppPath'
+          type: array
+        computerInventoryCollectionPreferences:
+          $ref: '#/components/schemas/ComputerInventoryCollectionPreferences'
+        fontPaths:
+          items:
+            $ref: '#/components/schemas/FontPath'
+          type: array
+        pluginPaths:
+          items:
+            $ref: '#/components/schemas/PluginPath'
+          type: array
+      type: object
+    ComputerInventoryCollectionSettingsV2:
+      properties:
+        applicationPaths:
+          items:
+            $ref: '#/components/schemas/AppPath'
+          nullable: false
+          type: array
+        computerInventoryCollectionPreferences:
+          $ref: '#/components/schemas/ComputerInventoryCollectionPreferencesV2'
+      type: object
+    CreatePath:
+      properties:
+        path:
+          example: /Example/Path/
+          type: string
+        scope:
+          enum:
+            - APP
+            - FONT
+            - PLUGIN
+          example: APP
+          type: string
+      required:
+        - path
+        - scope
+      type: object
+    CreatePathV2:
+      properties:
+        path:
+          example: /Example/Path/
+          type: string
+        scope:
+          enum:
+            - APP
+          example: APP
+          type: string
+      required:
+        - path
+        - scope
+      type: object
+    FontPath:
+      properties:
+        id:
+          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
+          example: "2"
+          type: string
+        path:
+          example: /Example/Path/To/Font/
+          type: string
+      required:
+        - id
+        - path
+      type: object
+    PluginPath:
+      properties:
+        id:
+          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
+          example: "3"
+          type: string
+        path:
+          example: /Example/Path/To/Plugin/
+          type: string
+      required:
+        - id
+        - path
+      type: object
 info:
-  title: Jamf Pro API - Computer Inventory Collection Settings
+  title: Jamf Pro API - ComputerInventoryCollectionSettings
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/computer-inventory-collection-settings:
     get:
-      tags:
-        - computer-inventory-collection-settings
-      summary:
-        Returns computer inventory settings
-      description:
-        Returns computer inventory settings
+      deprecated: true
+      description: Returns computer inventory settings
       responses:
         200:
-          description: Successful response returns the computer inventory settings
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ComputerInventoryCollectionSettings'
-      x-required-privileges:
-        - Read Computer Inventory Collection Settings
-      deprecated: true
-      x-deprecation-date: '2025-06-30'
-    patch:
+          description: Successful response returns the computer inventory settings
+      summary: Returns computer inventory settings
       tags:
         - computer-inventory-collection-settings
-      summary:
-        Update computer inventory settings
-      description:
-        Update computer inventory settings
+      x-deprecation-date: "2025-06-30"
+      x-required-privileges:
+        - Read Computer Inventory Collection Settings
+    patch:
+      deprecated: true
+      description: Update computer inventory settings
       requestBody:
-        description: Computer inventory settings to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/ComputerInventoryCollectionSettings'
+        description: Computer inventory settings to update
         required: true
       responses:
         200:
-          description: Computer inventory settings updated
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ComputerInventoryCollectionSettings'
-      x-required-privileges:
-        - Update Computer Inventory Collection Settings
-      deprecated: true
-      x-deprecation-date: '2025-06-30'
-  /v1/computer-inventory-collection-settings/custom-path:
-    post:
+          description: Computer inventory settings updated
+      summary: Update computer inventory settings
       tags:
         - computer-inventory-collection-settings
-      summary:
-        Create Computer Inventory Collection Settings Custom Path
-      description:
-        Creates a custom search path to use when collecting applications, fonts, and plug-ins.
+      x-deprecation-date: "2025-06-30"
+      x-required-privileges:
+        - Update Computer Inventory Collection Settings
+  /v1/computer-inventory-collection-settings/custom-path:
+    post:
+      deprecated: true
+      description: Creates a custom search path to use when collecting applications, fonts, and plug-ins.
       requestBody:
-        description: Computer inventory settings to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/CreatePath'
+        description: Computer inventory settings to update
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Custom path created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
-          description: Invalid data response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Create Custom Paths
-      deprecated: true
-      x-deprecation-date: '2025-06-30'
-  /v1/computer-inventory-collection-settings/custom-path/{id}:
-    delete:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: Create Computer Inventory Collection Settings Custom Path
       tags:
         - computer-inventory-collection-settings
-      summary:
-        Delete Custom Path from Computer Inventory Collection Settings
-      description:
-        Delete Custom Path from Computer Inventory Collection Settings
+      x-deprecation-date: "2025-06-30"
+      x-required-privileges:
+        - Create Custom Paths
+  /v1/computer-inventory-collection-settings/custom-path/{id}:
+    delete:
+      deprecated: true
+      description: Delete Custom Path from Computer Inventory Collection Settings
       parameters:
-        - name: id
+        - description: id of Custom Path
+          explode: false
           in: path
-          description: id of Custom Path
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Custom path deleted
         404:
-          description: Invalid data response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Delete Custom Paths
-      deprecated: true
-      x-deprecation-date: '2025-06-30'
-  /v2/computer-inventory-collection-settings:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: Delete Custom Path from Computer Inventory Collection Settings
       tags:
         - computer-inventory-collection-settings
-      summary:
-        Returns computer inventory settings
-      description:
-        Returns computer inventory settings
+      x-deprecation-date: "2025-06-30"
+      x-required-privileges:
+        - Delete Custom Paths
+  /v2/computer-inventory-collection-settings:
+    get:
+      description: Returns computer inventory settings
       responses:
         200:
-          description: Successful response returns the computer inventory settings
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ComputerInventoryCollectionSettingsV2'
+          description: Successful response returns the computer inventory settings
+      summary: Returns computer inventory settings
+      tags:
+        - computer-inventory-collection-settings
       x-required-privileges:
         - Read Computer Inventory Collection Settings
     patch:
-      tags:
-        - computer-inventory-collection-settings
-      summary:
-        Update computer inventory settings
-      description:
-        Update computer inventory settings
+      description: Update computer inventory settings
       requestBody:
-        description: Computer inventory settings to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/ComputerInventoryCollectionSettingsV2'
+        description: Computer inventory settings to update
         required: true
       responses:
         204:
           description: Computer inventory settings updated
+      summary: Update computer inventory settings
+      tags:
+        - computer-inventory-collection-settings
       x-required-privileges:
         - Update Computer Inventory Collection Settings
   /v2/computer-inventory-collection-settings/custom-path:
     post:
-      tags:
-        - computer-inventory-collection-settings
-      summary:
-        Create Computer Inventory Collection Settings Custom Path
-      description:
-        Creates a custom search path to use when collecting applications.
+      description: Creates a custom search path to use when collecting applications.
       requestBody:
-        description: Computer inventory settings to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/CreatePathV2'
+        description: Computer inventory settings to update
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Custom path created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
-          description: Invalid data response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: Create Computer Inventory Collection Settings Custom Path
+      tags:
+        - computer-inventory-collection-settings
       x-required-privileges:
         - Create Custom Paths
   /v2/computer-inventory-collection-settings/custom-path/{id}:
     delete:
-      tags:
-        - computer-inventory-collection-settings
-      summary:
-        Delete Custom Path from Computer Inventory Collection Settings
-      description:
-        Delete Custom Path from Computer Inventory Collection Settings
+      description: Delete Custom Path from Computer Inventory Collection Settings
       parameters:
-        - name: id
+        - description: id of Custom Path
+          explode: false
           in: path
-          description: id of Custom Path
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Custom path deleted
         404:
-          description: Invalid data response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid data response
+      summary: Delete Custom Path from Computer Inventory Collection Settings
+      tags:
+        - computer-inventory-collection-settings
       x-required-privileges:
         - Delete Custom Paths
-
-components:
-  schemas:
-    ComputerInventoryCollectionSettingsV2:
-      type: object
-      properties:
-        computerInventoryCollectionPreferences:
-          $ref: '#/components/schemas/ComputerInventoryCollectionPreferencesV2'
-        applicationPaths:
-          nullable: false
-          type: array
-          items:
-            $ref: '#/components/schemas/AppPath'
-    ComputerInventoryCollectionPreferencesV2:
-      type: object
-      properties:
-        monitorApplicationUsage:
-          type: boolean
-          default: false
-          example: true
-          nullable: false
-        includePackages:
-          type: boolean
-          default: false
-          example: true
-        includeSoftwareUpdates:
-          type: boolean
-          default: false
-          example: true
-        includeSoftwareId:
-          type: boolean
-          default: false
-          example: true
-        includeAccounts:
-          type: boolean
-          default: false
-          example: true
-        calculateSizes:
-          type: boolean
-          default: false
-          example: false
-        includeHiddenAccounts:
-          type: boolean
-          default: false
-          example: true
-        includePrinters:
-          type: boolean
-          default: false
-          example: true
-        includeServices:
-          type: boolean
-          default: false
-          example: true
-        collectSyncedMobileDeviceInfo:
-          type: boolean
-          default: false
-          example: false
-        updateLdapInfoOnComputerInventorySubmissions:
-          type: boolean
-          default: false
-          example: false
-        monitorBeacons:
-          type: boolean
-          default: false
-          example: true
-        allowChangingUserAndLocation:
-          type: boolean
-          default: true
-          example: true
-        useUnixUserPaths:
-          type: boolean
-          default: true
-          example: true
-        collectUnmanagedCertificates:
-          type: boolean
-          default: true
-          example: true
-    CreatePathV2:
-      required:
-        - scope
-        - path
-      type: object
-      properties:
-        scope:
-          type: string
-          enum:
-            - APP
-          example: APP
-        path:
-          type: string
-          example: /Example/Path/
-
-    ComputerInventoryCollectionSettings:
-      type: object
-      properties:
-        computerInventoryCollectionPreferences:
-          $ref: '#/components/schemas/ComputerInventoryCollectionPreferences'
-        applicationPaths:
-          type: array
-          items:
-            $ref: '#/components/schemas/AppPath'
-        fontPaths:
-          type: array
-          items:
-            $ref: '#/components/schemas/FontPath'
-        pluginPaths:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginPath'
-    ComputerInventoryCollectionPreferences:
-      type: object
-      properties:
-        monitorApplicationUsage:
-          type: boolean
-          default: false
-          example: true
-        includeFonts:
-          type: boolean
-          default: false
-          example: true
-        includePlugins:
-          type: boolean
-          default: false
-          example: true
-        includePackages:
-          type: boolean
-          default: false
-          example: true
-        includeSoftwareUpdates:
-          type: boolean
-          default: false
-          example: true
-        includeSoftwareId:
-          type: boolean
-          default: false
-          example: true
-        includeAccounts:
-          type: boolean
-          default: false
-          example: true
-        calculateSizes:
-          type: boolean
-          default: false
-          example: false
-        includeHiddenAccounts:
-          type: boolean
-          default: false
-          example: true
-        includePrinters:
-          type: boolean
-          default: false
-          example: true
-        includeServices:
-          type: boolean
-          default: false
-          example: true
-        collectSyncedMobileDeviceInfo:
-          type: boolean
-          default: false
-          example: false
-        updateLdapInfoOnComputerInventorySubmissions:
-          type: boolean
-          default: false
-          example: false
-        monitorBeacons:
-          type: boolean
-          default: false
-          example: true
-        allowChangingUserAndLocation:
-          type: boolean
-          default: true
-          example: true
-        useUnixUserPaths:
-          type: boolean
-          default: true
-          example: true
-        collectUnmanagedCertificates:
-          type: boolean
-          default: true
-          example: true
-    AppPath:
-      required:
-        - id
-        - path
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
-        path:
-          type: string
-          example: /Example/Path/To/App/
-    FontPath:
-      required:
-        - id
-        - path
-      type: object
-      properties:
-        id:
-          type: string
-          example: 2
-          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
-        path:
-          type: string
-          example: /Example/Path/To/Font/
-    PluginPath:
-      required:
-        - id
-        - path
-      type: object
-      properties:
-        id:
-          type: string
-          example: 3
-          description: A "-1" id indicates a built-in path that cannot be deleted or modified.
-        path:
-          type: string
-          example: /Example/Path/To/Plugin/
-    CreatePath:
-      required:
-        - scope
-        - path
-      type: object
-      properties:
-        scope:
-          type: string
-          enum:
-          - APP
-          - FONT
-          - PLUGIN
-          example: APP
-        path:
-          type: string
-          example: /Example/Path/
+servers:
+  - url: /api

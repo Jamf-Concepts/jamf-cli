@@ -1,146 +1,293 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CloudLdapServerRequest:
+      description: A Cloud Identity Provider LDAP server configuration for requests
+      properties:
+        connectionTimeout:
+          example: 15
+          maximum: 600
+          minimum: 5
+          type: integer
+        connectionType:
+          enum:
+            - LDAPS
+            - START_TLS
+          example: LDAPS
+          type: string
+        domainName:
+          example: jamf.com
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        keystore:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapKeystoreFile
+        membershipCalculationOptimizationEnabled:
+          example: true
+          type: boolean
+        port:
+          example: 636
+          maximum: 65535
+          minimum: 1
+          type: integer
+        searchTimeout:
+          example: 60
+          maximum: 600
+          minimum: 5
+          type: integer
+        serverUrl:
+          example: ldap.google.com
+          type: string
+        useWildcards:
+          example: true
+          type: boolean
+      required:
+        - connectionTimeout
+        - connectionType
+        - domainName
+        - enabled
+        - keystore
+        - port
+        - searchTimeout
+        - serverUrl
+        - useWildcards
+      type: object
+    CloudLdapServerUpdate:
+      description: A Cloud Identity Provider LDAP server configuration for updates
+      properties:
+        connectionTimeout:
+          example: 15
+          minimum: 1
+          type: integer
+        connectionType:
+          enum:
+            - LDAPS
+            - START_TLS
+          example: LDAPS
+          type: string
+        domainName:
+          example: jamf.com
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        keystore:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapKeystoreFile
+        membershipCalculationOptimizationEnabled:
+          example: true
+          type: boolean
+        port:
+          example: 636
+          maximum: 65535
+          minimum: 1
+          type: integer
+        searchTimeout:
+          example: 60
+          minimum: 1
+          type: integer
+        serverUrl:
+          example: ldap.google.com
+          type: string
+        useWildcards:
+          example: true
+          type: boolean
+      required:
+        - connectionTimeout
+        - connectionType
+        - domainName
+        - enabled
+        - port
+        - providerName
+        - searchTimeout
+        - serverUrl
+        - useWildcards
+      type: object
+    LdapConfigurationRequest:
+      description: A Cloud Identity Provider LDAP configuration for requests
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommonRequest
+        mappings:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsRequest
+        server:
+          $ref: '#/components/schemas/CloudLdapServerRequest'
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
+    LdapConfigurationResponse:
+      description: A Cloud Identity Provider LDAP configuration for responses
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommon
+        mappings:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsResponse
+        server:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapServerResponse
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
+    LdapConfigurationUpdate:
+      description: A Cloud Identity Provider LDAP configuration for updates
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommon
+        mappings:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsRequest
+        server:
+          $ref: '#/components/schemas/CloudLdapServerUpdate'
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
 info:
-  title: Jamf Pro API - Cloud Identity Provider
+  title: Jamf Pro API - CloudLdap
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/cloud-ldaps:
     post:
-      tags:
-        - cloud-ldap
-      summary: Create Cloud Identity Provider configuration
-      description: Create new Cloud Identity Provider configuration with unique display
-        name. If mappings not provided, then defaults will be generated instead.
+      description: Create new Cloud Identity Provider configuration with unique display name. If mappings not provided, then defaults will be generated instead.
       requestBody:
-        description: Cloud Identity Provider configuration to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationRequest'
+              $ref: '#/components/schemas/LdapConfigurationRequest'
+        description: Cloud Identity Provider configuration to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Cloud Identity Provider configuration created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
-          description: Cloud Identity Provider configuration cannot be saved.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider configuration cannot be saved.
+      summary: Create Cloud Identity Provider configuration
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Create LDAP Servers
   /v2/cloud-ldaps/{id}:
-    get:
-      tags:
-        - cloud-ldap
-      summary: Get Cloud Identity Provider configuration with given id.
-      description: Get Cloud Identity Provider configuration with given id.
-      parameters:
-        - name: id
-          in: path
-          description: Cloud Identity Provider identifier
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Cloud Identity Provider configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationResponse'
-        400:
-          description: Id can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read LDAP Servers
-    put:
-      tags:
-        - cloud-ldap
-      summary: Update Cloud Identity Provider configuration
-      description: Update Cloud Identity Provider configuration. Cannot be used for
-        partial updates, all content body must be sent.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Cloud Identity Provider identifier
-          schema:
-            type: string
-      requestBody:
-        description: Cloud Identity Provider configuration to update
-        content:
-          'application/json':
-            schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationUpdate'
-        required: true
-      responses:
-        200:
-          description: Cloud Identity Provider configuration updated
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/LdapConfigurationResponse'
-        400:
-          description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        409:
-          description: The request URL configuration id value does not match the id value in the request body.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update LDAP Servers
     delete:
-      tags:
-        - cloud-ldap
-      summary: Delete Cloud Identity Provider configuration.
       description: Delete Cloud Identity Provider configuration.
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Cloud Identity Provider configuration deleted.
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Id can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Cloud Identity Provider configuration does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider configuration does not exist.
+      summary: Delete Cloud Identity Provider configuration.
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Delete LDAP Servers
-components:
-  schemas: {}
+    get:
+      description: Get Cloud Identity Provider configuration with given id.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LdapConfigurationResponse'
+          description: Cloud Identity Provider configuration returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Id can only be a number.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Cloud Identity Provider configuration does not exist.
+      summary: Get Cloud Identity Provider configuration with given id.
+      tags:
+        - cloud-ldap
+      x-required-privileges:
+        - Read LDAP Servers
+    put:
+      description: Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LdapConfigurationUpdate'
+        description: Cloud Identity Provider configuration to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LdapConfigurationResponse'
+          description: Cloud Identity Provider configuration updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: One or more parameters were invalid.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cloud Identity Provider configuration does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The request URL configuration id value does not match the id value in the request body.
+      summary: Update Cloud Identity Provider configuration
+      tags:
+        - cloud-ldap
+      x-required-privileges:
+        - Update LDAP Servers
+servers:
+  - url: /api

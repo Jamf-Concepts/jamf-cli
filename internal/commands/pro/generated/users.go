@@ -41,13 +41,14 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagPlatform bool
 		flagAll      bool
 		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Search for Users",
+		Short: "Retrieve users with pagination and filtering",
 		Long:  "Retrieves a paginated list of users with optional filtering and sorting.",
 		Example: `  # List all users
   jamf-cli pro users list
@@ -75,6 +76,9 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			if flagFilter != "" {
 				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if flagPlatform {
+				queryParts = append(queryParts, "platform=true")
 			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
@@ -156,10 +160,11 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(:asc|desc). Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=username:asc,realname:desc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter users collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, username, realname, email, phone, position. Example: filter=username==\"jsmith*\"")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Page to display. Uses zero-based indexing.")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Maximum of 1000.")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property(:asc|desc). Default sort order is ascending. Multiple sort criteria are supported.  Examples: - sort=username - sort=username:asc - sort=username:asc,realname:desc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "RSQL filter to limit results. Supports all user fields.  Examples: - filter=username==\"john*\" - filter=realname==\"John Smith\" - filter=email==\"*@jamf.com\" - filter=position==\"Manager\";id!=\"1\" - filter=id=in=(123,456,789)")
+	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 
@@ -168,13 +173,14 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagPlatform bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get specified User object",
-		Long:  "Gets the specified User object.",
+		Short: "Retrieve a user by ID",
+		Long:  "Retrieves a single user by their ID.",
 		Example: `  # Get a user by ID
   jamf-cli pro users get 1
 
@@ -207,6 +213,9 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build query string
 			var queryParts []string
+			if flagPlatform {
+				queryParts = append(queryParts, "platform=true")
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -222,6 +231,7 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Optional. Return platform identifiers instead of internal identifiers when set to true.")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user by name")
 
 	return cmd
@@ -229,13 +239,14 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		flagPlatform bool
 		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create User record",
-		Long:  "Creates a new user in inventory.",
+		Short: "Create a new user in inventory",
+		Long:  "Creates a new user in the inventory.",
 		Example: `  # Show the JSON template for creating a user
   jamf-cli pro users create --scaffold
 
@@ -249,12 +260,12 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "customPhotoUrl": "",
+  "customPhotoUrl": "https://example.com/photo.jpg",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
-  "managedAppleId": "",
+  "managedAppleId": "john@example.com",
   "phone": "555-123-4567",
-  "position": "IT Administrator",
+  "position": "IT Manager",
   "realname": "John Smith",
   "username": "jsmith"
 }`, ctx.Output.Format())
@@ -265,6 +276,9 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build query string
 			var queryParts []string
+			if flagPlatform {
+				queryParts = append(queryParts, "platform=true")
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -297,6 +311,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagPlatform, "platform", false, "Internal platform request indicator")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
@@ -310,8 +325,8 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update specified User object",
-		Long:  "Updates the specified User object.",
+		Short: "Update a user in inventory",
+		Long:  "Updates an existing user in the inventory by ID.",
 		Example: `  # Update a user from JSON
   echo '{"name":"Updated"}' | jamf-cli pro users update 1
 
@@ -326,12 +341,12 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "customPhotoUrl": "",
+  "customPhotoUrl": "https://example.com/photo.jpg",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
-  "managedAppleId": "",
+  "managedAppleId": "john@example.com",
   "phone": "555-123-4567",
-  "position": "IT Administrator",
+  "position": "IT Manager",
   "realname": "John Smith",
   "username": "jsmith"
 }`, ctx.Output.Format())
@@ -404,8 +419,8 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
-		Short: "Delete specified User object",
-		Long:  "Deletes the specified User object.",
+		Short: "Delete a user from inventory",
+		Long:  "Deletes a user from the inventory by ID.",
 		Example: `  # Delete a user (with confirmation)
   jamf-cli pro users delete 1
 
@@ -542,12 +557,12 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "customPhotoUrl": "",
+  "customPhotoUrl": "https://example.com/photo.jpg",
   "email": "john.smith@example.com",
   "enableCustomPhotoUrl": false,
-  "managedAppleId": "",
+  "managedAppleId": "john@example.com",
   "phone": "555-123-4567",
-  "position": "IT Administrator",
+  "position": "IT Manager",
   "realname": "John Smith",
   "username": "jsmith"
 }`, ctx.Output.Format())

@@ -1,301 +1,309 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - MDM Renewal
-  version: 0.0.1
-paths:
-  /v1/mdm-renewal/renewal-strategies/{clientManagementId}:
-    get:
-      tags:
-      - mdm-renewal
-      summary: |
-        Get MDM renewal errors and strategies for a client management ID
-      description: |
-        Retrieves all MDM renewal errors and their associated renewal strategies for a specific client management ID
-      parameters:
-      - name: clientManagementId
-        in: path
-        description: The client management ID to retrieve renewal strategies for
-        required: true
-        schema:
-          type: string
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Successfully retrieved MDM renewal errors and strategies
-          content:
-            'application/json':
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MdmRenewalErrorStrategiesResponse'
-        404:
-          description: No MDM renewal errors found for the specified client management ID
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        400:
-          description: Invalid client management ID format
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Send Command to Renew MDM Profile
-    delete:
-      tags:
-      - mdm-renewal
-      summary: |
-        Delete MDM renewal strategies for a client management ID
-      description: |
-        Deletes all MDM renewal strategies and errors associated with the specified client management ID
-      parameters:
-      - name: clientManagementId
-        in: path
-        description: The client management ID to delete renewal strategies for
-        required: true
-        schema:
-          type: string
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        204:
-          description: Successfully deleted MDM renewal strategies and errors
-        400:
-          description: Invalid client management ID format
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Send Command to Renew MDM Profile
-  /v1/mdm-renewal/device-common-details/{clientManagementId}:
-    get:
-      tags:
-      - mdm-renewal
-      summary: |
-        Get device common details for a client management ID
-      description: |
-        Retrieves device common details associated with a specific client management ID
-      parameters:
-      - name: clientManagementId
-        in: path
-        description: The client management ID to retrieve device common details for
-        required: true
-        schema:
-          type: string
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Successfully retrieved device common details
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DeviceCommonDetails'
-        404:
-          description: No device common details found for the specified client management ID
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        400:
-          description: Invalid client management ID format
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Send Command to Renew MDM Profile
-  /v1/mdm-renewal/device-common-details:
-    patch:
-      tags:
-      - mdm-renewal
-      summary: |
-        Update device common details (partial update)
-      description: |
-        Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.
-      requestBody:
-        required: true
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/DeviceCommonDetailsRequest'
-      responses:
-        204:
-          description: Successfully updated device common details
-        400:
-          description: Invalid request data (missing or invalid clientManagementId, etc.)
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: No existing device common details found for the specified clientManagementId
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Send Command to Renew MDM Profile
 components:
   schemas:
-    MdmRenewalErrorStrategiesResponse:
+    DeviceCommonDetails:
+      properties:
+        clientManagementId:
+          description: The client management ID associated with this device
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        id:
+          description: Unique identifier for the device common details record
+          example: "123"
+          type: string
+        mdmCheckinUrl:
+          description: URL for MDM check-in
+          example: https://example.jamfcloud.com/mdm/CheckInURL
+          nullable: true
+          type: string
+        mdmProfileNeedsRenewalDueToCaRenewed:
+          description: Whether the MDM profile needs renewal due to CA renewal
+          example: false
+          type: boolean
+        mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring:
+          description: Whether the MDM profile needs renewal due to expiring device identity certificate
+          example: true
+          type: boolean
+        mdmServerUrl:
+          description: URL for MDM server
+          example: https://example.jamfcloud.com/mdm/ServerURL
+          nullable: true
+          type: string
+        renewMdmProfileStartDate:
+          description: Timestamp when MDM profile renewal started (ISO 8601 format)
+          example: "2021-12-31T16:00:00Z"
+          format: date-time
+          nullable: true
+          type: string
+      required:
+        - clientManagementId
       type: object
+    DeviceCommonDetailsRequest:
+      properties:
+        clientManagementId:
+          description: The client management ID associated with this device (required)
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        mdmCheckinUrl:
+          description: URL for MDM check-in
+          example: https://example.jamfcloud.com/mdm/CheckInURL
+          nullable: true
+          type: string
+        mdmProfileNeedsRenewalDueToCaRenewed:
+          description: Whether the MDM profile needs renewal due to CA renewal
+          example: false
+          nullable: true
+          type: boolean
+        mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring:
+          description: Whether the MDM profile needs renewal due to expiring device identity certificate
+          example: true
+          nullable: true
+          type: boolean
+        mdmServerUrl:
+          description: URL for MDM server
+          example: https://example.jamfcloud.com/mdm/ServerURL
+          nullable: true
+          type: string
+        renewMdmProfileStartDate:
+          description: Timestamp when MDM profile renewal started (ISO 8601 format)
+          example: "2021-12-31T16:00:00Z"
+          format: date-time
+          nullable: true
+          type: string
+      required:
+        - clientManagementId
+      type: object
+    MdmRenewalError:
+      properties:
+        clientManagementId:
+          description: The client management ID associated with this error
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        errorTimeStamp:
+          description: Timestamp when the error occurred (ISO 8601 format)
+          example: "2021-12-31T22:00:00Z"
+          format: date-time
+          type: string
+        failureCount:
+          description: Number of times this error has occurred
+          example: 3
+          format: int32
+          type: integer
+        mdmRenewalErrorId:
+          description: Unique identifier for the MDM renewal error
+          example: "123"
+          type: string
+        mdmRenewalErrorType:
+          $ref: '#/components/schemas/MdmRenewalErrorType'
+      required:
+        - clientManagementId
+        - mdmRenewalErrorId
+        - mdmRenewalErrorType
+      type: object
+    MdmRenewalErrorStrategiesResponse:
       properties:
         error:
           $ref: '#/components/schemas/MdmRenewalError'
         strategies:
-          type: array
+          description: List of renewal strategies associated with this error
           items:
             $ref: '#/components/schemas/MdmRenewalStrategy'
-          description: List of renewal strategies associated with this error
+          type: array
       required:
-      - error
-      - strategies
-    MdmRenewalError:
+        - error
+        - strategies
       type: object
-      properties:
-        mdmRenewalErrorId:
-          type: string
-          description: Unique identifier for the MDM renewal error
-          example: "123"
-        clientManagementId:
-          type: string
-          description: The client management ID associated with this error
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        mdmRenewalErrorType:
-          $ref: '#/components/schemas/MdmRenewalErrorType'
-        errorTimeStamp:
-          type: string
-          format: date-time
-          description: Timestamp when the error occurred (ISO 8601 format)
-          example: "2021-12-31T22:00:00.000Z"
-        failureCount:
-          type: integer
-          format: int32
-          description: Number of times this error has occurred
-          example: 3
-      required:
-      - mdmRenewalErrorId
-      - clientManagementId
-      - mdmRenewalErrorType
+    MdmRenewalErrorType:
+      description: Type of MDM renewal error
+      enum:
+        - SERVER_ERROR
+        - CHECK_IN_ERROR
+        - OTHER
+      example: SERVER_ERROR
+      type: string
     MdmRenewalStrategy:
-      type: object
       properties:
         id:
-          type: string
           description: Unique identifier for the renewal strategy
           example: "456"
-        mdmRenewalErrorId:
           type: string
+        mdmRenewalCheckInUrl:
+          description: URL for MDM renewal check-in
+          example: https://example.jamfcloud.com/mdm/CheckInURL
+          type: string
+        mdmRenewalErrorId:
           description: The MDM renewal error ID this strategy is associated with
           example: "123"
+          type: string
+        mdmRenewalServerUrl:
+          description: URL for MDM renewal server
+          example: https://example.jamfcloud.com/mdm/ServerURL
+          type: string
         mdmRenewalStrategyType:
           $ref: '#/components/schemas/MdmRenewalStrategyType'
         strategyTimeStamp:
-          type: string
-          format: date-time
           description: Timestamp when this renewal strategy was created (ISO 8601 format)
-          example: "2021-12-31T22:00:00.000Z"
-        mdmRenewalCheckInUrl:
+          example: "2021-12-31T22:00:00Z"
+          format: date-time
           type: string
-          description: URL for MDM renewal check-in
-          example: "https://example.jamfcloud.com/mdm/CheckInURL"
-        mdmRenewalServerUrl:
-          type: string
-          description: URL for MDM renewal server
-          example: "https://example.jamfcloud.com/mdm/ServerURL"
       required:
-      - id
-      - mdmRenewalErrorId
-      - mdmRenewalStrategyType
-    MdmRenewalErrorType:
-      type: string
-      description: Type of MDM renewal error
-      enum:
-      - SERVER_ERROR
-      - CHECK_IN_ERROR
-      - OTHER
-      example: SERVER_ERROR
+        - id
+        - mdmRenewalErrorId
+        - mdmRenewalStrategyType
+      type: object
     MdmRenewalStrategyType:
-      type: string
       description: Type of MDM renewal strategy
       enum:
-      - RETURN_NO_CHECK_IN_INVITATION
-      - RETURN_CHECK_IN_INVITATION_FROM_MDM_INVITATION_TABLE
-      - RETURN_CHECK_IN_INVITATION_FROM_ENROLLMENT_USAGE_TABLE
-      - RETURN_CHECK_IN_INVITATION_FROM_MDM_PROFILE_PROTOTYPE_TABLE
-      - JSS_URL_OVERRIDE
-      - PAYLOAD_IDENTIFIER
+        - RETURN_NO_CHECK_IN_INVITATION
+        - RETURN_CHECK_IN_INVITATION_FROM_MDM_INVITATION_TABLE
+        - RETURN_CHECK_IN_INVITATION_FROM_ENROLLMENT_USAGE_TABLE
+        - RETURN_CHECK_IN_INVITATION_FROM_MDM_PROFILE_PROTOTYPE_TABLE
+        - JSS_URL_OVERRIDE
+        - PAYLOAD_IDENTIFIER
       example: JSS_URL_OVERRIDE
-    DeviceCommonDetails:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the device common details record
-          example: "123"
-        clientManagementId:
-          type: string
-          description: The client management ID associated with this device
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        renewMdmProfileStartDate:
-          type: string
-          format: date-time
-          description: Timestamp when MDM profile renewal started (ISO 8601 format)
-          example: "2021-12-31T16:00:00Z"
-          nullable: true
-        mdmProfileNeedsRenewalDueToCaRenewed:
-          type: boolean
-          description: Whether the MDM profile needs renewal due to CA renewal
-          example: false
-        mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring:
-          type: boolean
-          description: Whether the MDM profile needs renewal due to expiring device identity certificate
-          example: true
-        mdmCheckinUrl:
-          type: string
-          description: URL for MDM check-in
-          example: "https://example.jamfcloud.com/mdm/CheckInURL"
-          nullable: true
-        mdmServerUrl:
-          type: string
-          description: URL for MDM server
-          example: "https://example.jamfcloud.com/mdm/ServerURL"
-          nullable: true
-      required:
-      - clientManagementId
-    DeviceCommonDetailsRequest:
-      type: object
-      properties:
-        clientManagementId:
-          type: string
-          description: The client management ID associated with this device (required)
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        renewMdmProfileStartDate:
-          type: string
-          format: date-time
-          description: Timestamp when MDM profile renewal started (ISO 8601 format)
-          example: "2021-12-31T16:00:00Z"
-          nullable: true
-        mdmProfileNeedsRenewalDueToCaRenewed:
-          type: boolean
-          description: Whether the MDM profile needs renewal due to CA renewal
-          example: false
-          nullable: true
-        mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring:
-          type: boolean
-          description: Whether the MDM profile needs renewal due to expiring device identity certificate
-          example: true
-          nullable: true
-        mdmCheckinUrl:
-          type: string
-          description: URL for MDM check-in
-          example: "https://example.jamfcloud.com/mdm/CheckInURL"
-          nullable: true
-        mdmServerUrl:
-          type: string
-          description: URL for MDM server
-          example: "https://example.jamfcloud.com/mdm/ServerURL"
-          nullable: true
-      required:
-      - clientManagementId
+      type: string
+info:
+  title: Jamf Pro API - MdmRenewal
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/mdm-renewal/device-common-details:
+    patch:
+      description: |
+        Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCommonDetailsRequest'
+        required: true
+      responses:
+        204:
+          description: Successfully updated device common details
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid request data (missing or invalid clientManagementId, etc.)
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No existing device common details found for the specified clientManagementId
+      summary: |
+        Update device common details (partial update)
+      tags:
+        - mdm-renewal
+      x-required-privileges:
+        - Send Command to Renew MDM Profile
+  /v1/mdm-renewal/device-common-details/{clientManagementId}:
+    get:
+      description: |
+        Retrieves device common details associated with a specific client management ID
+      parameters:
+        - description: The client management ID to retrieve device common details for
+          explode: false
+          in: path
+          name: clientManagementId
+          required: true
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCommonDetails'
+          description: Successfully retrieved device common details
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid client management ID format
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No device common details found for the specified client management ID
+      summary: |
+        Get device common details for a client management ID
+      tags:
+        - mdm-renewal
+      x-required-privileges:
+        - Send Command to Renew MDM Profile
+  /v1/mdm-renewal/renewal-strategies/{clientManagementId}:
+    delete:
+      description: |
+        Deletes all MDM renewal strategies and errors associated with the specified client management ID
+      parameters:
+        - description: The client management ID to delete renewal strategies for
+          explode: false
+          in: path
+          name: clientManagementId
+          required: true
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successfully deleted MDM renewal strategies and errors
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid client management ID format
+      summary: |
+        Delete MDM renewal strategies for a client management ID
+      tags:
+        - mdm-renewal
+      x-required-privileges:
+        - Send Command to Renew MDM Profile
+    get:
+      description: |
+        Retrieves all MDM renewal errors and their associated renewal strategies for a specific client management ID
+      parameters:
+        - description: The client management ID to retrieve renewal strategies for
+          explode: false
+          in: path
+          name: clientManagementId
+          required: true
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MdmRenewalErrorStrategiesResponse'
+                type: array
+          description: Successfully retrieved MDM renewal errors and strategies
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid client management ID format
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: No MDM renewal errors found for the specified client management ID
+      summary: |
+        Get MDM renewal errors and strategies for a client management ID
+      tags:
+        - mdm-renewal
+      x-required-privileges:
+        - Send Command to Renew MDM Profile
+servers:
+  - url: /api

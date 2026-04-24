@@ -1,44 +1,61 @@
-openapi: 3.0.1
+components:
+  schemas:
+    CloudResponse:
+      properties:
+        cloudInstance:
+          example: true
+          nullable: false
+          type: boolean
+        fedRampInstance:
+          description: Information whether this instance is a FedRAMP instance
+          example: false
+          nullable: false
+          type: boolean
+        fipsEnabled:
+          description: Information whether this instance has FIPS enabled
+          example: false
+          nullable: false
+          type: boolean
+        govCloudInstance:
+          example: true
+          nullable: false
+          type: boolean
+        highComplianceInstance:
+          description: Information whether this instance is a High Compliance instance
+          example: false
+          nullable: false
+          type: boolean
+        managedServiceProviderInstance:
+          description: Information whether this instance is managed by managed service provider
+          example: true
+          nullable: false
+          type: boolean
+        rampInstance:
+          example: true
+          nullable: false
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - Cloud information endpoints
-  version: 1.0.0
+  title: Jamf Pro API - CloudInformation
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/cloud-information:
     get:
-      tags:
-        - cloud-information
-      summary: |
-        Retrieve information related to cloud setup.
       description: |
         Retrieve information related to cloud setup.
         Retrieves information related to cloud setup. Provides details about cloud instance configuration.
       responses:
         200:
-          description: Result of verification for being cloud-based instance
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudResponse'
+          description: Result of verification for being cloud-based instance
+      summary: |
+        Retrieve information related to cloud setup.
+      tags:
+        - cloud-information
       x-authentication-required: false
-components:
-  schemas:
-    CloudResponse:
-      type: object
-      properties:
-        cloudInstance:
-          type: boolean
-          example: true
-          nullable: false
-        rampInstance:
-          type: boolean
-          example: true
-          nullable: false
-        govCloudInstance:
-          type: boolean
-          example: true
-          nullable: false
-        managedServiceProviderInstance:
-          type: boolean
-          example: true
-          nullable: false
-          description: Information whether this instance is managed by managed service provider
+servers:
+  - url: /api

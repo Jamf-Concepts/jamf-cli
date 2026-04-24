@@ -1,208 +1,211 @@
-openapi: 3.0.1
+components:
+  schemas:
+    Reenrollment:
+      properties:
+        flushMDMQueue:
+          enum:
+            - DELETE_NOTHING
+            - DELETE_ERRORS
+            - DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+            - DELETE_EVERYTHING
+          example: DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
+          type: string
+        isFlushExtensionAttributesEnabled:
+          default: false
+          type: boolean
+        isFlushLocationInformationEnabled:
+          default: false
+          type: boolean
+        isFlushLocationInformationHistoryEnabled:
+          default: false
+          type: boolean
+        isFlushPolicyHistoryEnabled:
+          default: false
+          type: boolean
+        isFlushSoftwareUpdatePlansEnabled:
+          default: false
+          type: boolean
+      required:
+        - flushMDMQueue
+      type: object
 info:
-  title: Jamf Pro API - re-enrollment
+  title: Jamf Pro API - Reenrollment
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/reenrollment:
     get:
-      tags:
-      - re-enrollment-preview
-      summary: |
-        Get Re-enrollment object
       description: |
         Gets Re-enrollment object
       responses:
         200:
-          description: Details of Re-enrollment object were found
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/Reenrollment'
+          description: Details of Re-enrollment object were found
         404:
-          description: Re-enrollment object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Re-enrollment
-    put:
-      tags:
-      - re-enrollment-preview
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Re-enrollment object does not exist.
       summary: |
-        Update the Re-enrollment object
+        Get Re-enrollment object
+      tags:
+        - re-enrollment-preview
+      x-required-privileges:
+        - Read Re-enrollment
+    put:
       description: |
         Update the Re-enrollment object
       requestBody:
-        description: Re-enrollment object to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/Reenrollment'
+        description: Re-enrollment object to update
         required: true
       responses:
         201:
-          description: Re-enrollment record was updated
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/Reenrollment'
+          description: Re-enrollment record was updated
+      summary: |
+        Update the Re-enrollment object
+      tags:
+        - re-enrollment-preview
       x-required-privileges:
-      - Update Re-enrollment
+        - Update Re-enrollment
   /v1/reenrollment/history:
     get:
-      tags:
-      - re-enrollment-preview
-      summary: |
-        Get Re-enrollment history object
       description: |
         Gets Re-enrollment history object
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/size'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/pagesize'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
-        schema:
-          type: string
-          default: date:desc
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/pagesize
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default: date:desc
+            type: string
+          style: form
       responses:
         200:
-          description: Details of re-enrollment history were found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-      - Read Re-enrollment
-    post:
-      tags:
-      - re-enrollment-preview
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of re-enrollment history were found
       summary: |
-        Add specified Re-enrollment history object notes
+        Get Re-enrollment history object
+      tags:
+        - re-enrollment-preview
+      x-required-privileges:
+        - Read Re-enrollment
+    post:
       description: |
         Adds specified Re-enrollment history object notes
       requestBody:
-        description: history notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
           description: Notes of re-enrollment history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
         503:
-          description: Re-enrollment history can not be saved.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Re-enrollment
-  /v1/reenrollment/history/export:
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Re-enrollment history can not be saved.
+      summary: |
+        Add specified Re-enrollment history object notes
       tags:
         - re-enrollment-preview
-      summary: |
-        Export reenrollment history collection
+      x-required-privileges:
+        - Update Re-enrollment
+  /v1/reenrollment/history/export:
+    post:
       description: |
         Export reenrollment history collection
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-fields'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/export-labels'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                      is id:desc. Multiple sort criteria are supported and must be separated
-                      with a comma. Example: sort=id:desc,name:asc '
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-fields
+        - $ref: _MonolithLibrary.yaml#/components/parameters/export-labels
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc '
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. This param can be combined with paging and sorting. Example: name=="*script*"'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: id, name.
-                      This param can be combined with paging and sorting.
-                      Example: name=="*script*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       requestBody:
-        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ExportParameters'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ExportParameters
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
         required: false
       responses:
         200:
-          description: Export successful
           content:
             text/csv,application/json:
               schema:
-                format: binary
                 example: |
                   Username,DATE,NOTES,Details
                   admin, 2022-02-04T11:56:26.343Z, Edited ,Re-enrollment Restricted true
+                format: binary
+          description: Export successful
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: |
             Export fields specified incorrectly - non-existing column or duplicate in the list.
             Supported columns: id,name,categoryName,categoryId,priority.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Export currently unavailable, all export-related resources are in use. Try again later.
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: |
+        Export reenrollment history collection
+      tags:
+        - re-enrollment-preview
+      x-action: true
       x-required-privileges:
         - Read Re-enrollment
-      x-action: true
-components:
-  schemas:
-    Reenrollment:
-      required:
-      - flushMDMQueue
-      type: object
-      properties:
-        isFlushPolicyHistoryEnabled:
-          type: boolean
-          default: false
-        isFlushLocationInformationEnabled:
-          type: boolean
-          default: false
-        isFlushLocationInformationHistoryEnabled:
-          type: boolean
-          default: false
-        isFlushExtensionAttributesEnabled:
-          type: boolean
-          default: false
-        isFlushSoftwareUpdatePlansEnabled:
-          type: boolean
-          default: false
-        flushMDMQueue:
-          type: string
-          example: DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
-          enum:
-          - DELETE_NOTHING
-          - DELETE_ERRORS
-          - DELETE_EVERYTHING_EXCEPT_ACKNOWLEDGED
-          - DELETE_EVERYTHING
+servers:
+  - url: /api

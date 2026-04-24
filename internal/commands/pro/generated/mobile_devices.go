@@ -295,7 +295,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   "ios": {},
   "location": {},
   "name": "Jan's Mobile Device",
-  "siteId": 1,
+  "siteId": "1",
   "timeZone": "Europe/Warsaw",
   "tvos": {},
   "updatedExtensionAttributes": []

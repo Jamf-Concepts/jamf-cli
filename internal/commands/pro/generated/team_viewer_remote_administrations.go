@@ -62,7 +62,7 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -199,12 +199,12 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no team-viewer-remote-administration found with name %q", flagName)
+					return fmt.Errorf("no team-viewer-remote-administration found with displayName %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -303,7 +303,7 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -368,7 +368,7 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -438,7 +438,7 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -508,7 +508,7 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -584,7 +584,7 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -676,7 +676,7 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -726,7 +726,7 @@ func newTeamViewerRemoteAdministrationsApplyCmd(ctx *registry.CLIContext) *cobra
 		Short: "Create or replace a team-viewer-remote-administration by name",
 		Long: `Create or replace a team-viewer-remote-administration. Reads JSON or YAML from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a team-viewer-remote-administration from a JSON file
@@ -769,14 +769,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "displayName")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}

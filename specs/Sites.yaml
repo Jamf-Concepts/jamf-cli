@@ -1,89 +1,176 @@
-openapi: 3.0.1
+components:
+  schemas:
+    SiteObject:
+      properties:
+        objectId:
+          example: "1"
+          type: string
+        objectType:
+          enum:
+            - Computer
+            - Peripheral
+            - Licensed Software
+            - Licensed Software Template
+            - Policy
+            - macOS Configuration Profile
+            - Restricted Software
+            - Managed Preference Profile
+            - Computer Group
+            - Mobile Device
+            - Apple TV
+            - User Group
+            - iOS Configuration Profile
+            - Mobile Device App
+            - E-book
+            - Mobile Device Group
+            - Classroom
+            - Advanced Computer Search
+            - Advanced Mobile Search
+            - Advanced User Search
+            - Advanced User Content Search
+            - Computer Invitation
+            - Mobile Device Invitation
+            - Mobile Device Enrollment Profile
+            - Device Enrollment Program Instance
+            - Mobile Device Prestage
+            - Computer DEP Prestage
+            - Enrollment Customization
+            - VPP Location
+            - VPP Subscription
+            - VPP Invitation
+            - VPP Assignment
+            - User
+            - Network Integration
+            - Mac App
+            - App Installer
+            - Self Service Plugin
+            - Software Title
+            - Patch Software Title Summary
+            - Patch Policy
+            - Patch Software Title Configuration
+            - Change Password
+            - Mobile Device Inventory
+            - Computer Inventory
+            - Change Management
+            - Licensed Software License
+            - Unknown
+          example: User
+          type: string
+        siteId:
+          example: "1"
+          type: string
+      required:
+        - objectId
+        - objectType
+        - siteId
+      type: object
+    V1Site:
+      properties:
+        divisionId:
+          description: Platform division identifier (UUID) for this site.
+          example: 550e8400-e29b-41d4-a716-446655440000
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          type: string
+        name:
+          example: Eau Claire
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - sites
+  title: Jamf Pro API - Sites
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/sites:
     get:
-      tags:
-      - sites
-      summary: |
-        Find all sites
       description: |
         Find all sites
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
-                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/V1Site'
+                  $ref: '#/components/schemas/V1Site'
+                type: array
+          description: Successful response
       security:
-      - Bearer: []
+        - Bearer: []
+      summary: |
+        Find all sites
+      tags:
+        - sites
       x-required-privileges:
-      - Read Sites
+        - Read Sites
   /v1/sites/{id}/objects:
     get:
-      tags:
-      - sites
-      summary: |
-        Find and filter site objects for a site ID
       description: |
         Find site objects for Site ID, with the ability to filter out different object types and object IDs for the site ID
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: |
-          Site ID to get objects for
-        schema:
-          type: string
-          example: 1
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: |
-          Sorting criteria in the format: `property:asc/desc`. Default sort
-          is `objectType:asc`. Multiple sort criteria are supported and must be separated
-          with a comma.
-
-          Example: `sort=objectId:asc,objectType:desc`.
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: |
+            Site ID to get objects for
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            example: "1"
             type: string
-          default: [objectType:asc]
-      - name: filter
-        in: query
-        description:  |
-          Query in the RSQL format, allowing filter of site object information.
-          Default filter returns all objects for the site ID.
-          
-          Fields allowed in the query: `objectType`, `objectId`
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `objectType:asc`. Multiple sort criteria are supported and must be separated
+            with a comma.
 
-          Example: `filter=objectType=="User"`
+            Example: `sort=objectId:asc,objectType:desc`.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - objectType:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: |
+            Query in the RSQL format, allowing filter of site object information.
+            Default filter returns all objects for the site ID.
 
-          List of `objectType` options (case-insensitive) ["Computer", "Peripheral", "Licensed Software", "Licensed Software Template", "Policy", "macOS Configuration Profile", "Restricted Software", "Managed Preference Profile", "Computer Group", "Mobile Device", "Apple TV", "Android Device", "User Group", "iOS Configuration Profile", "Mobile Device App", "E-book", "Mobile Device Group", "Classroom", "Advanced Computer Search", "Advanced Mobile Search", "Advanced User Search", "Advanced User Content Search", "Computer Invitation", "Mobile Device Invitation", "Mobile Device Enrollment Profile", "Device Enrollment Program Instance", "Mobile Device Prestage", "Computer DEP Prestage", "Enrollment Customization", "VPP Location", "VPP Subscription", "VPP Invitation", "VPP Assignment", "User", "Network Integration", "Mac App", "App Installer", "Self Service Plugin", "Software Title", "Patch Software Title Summary", "Patch Policy", "Patch Software Title Configuration", "Change Password", "Mobile Device Inventory", "Computer Inventory", "Change Management", "Licensed Software License"]
-        schema:
-          type: string
-          default: 'objectType=="User"'
+            Fields allowed in the query: `objectType`, `objectId`
+
+            Example: `filter=objectType=="User"`
+
+            List of `objectType` options (case-insensitive) ["Computer", "Peripheral", "Licensed Software", "Licensed Software Template", "Policy", "macOS Configuration Profile", "Restricted Software", "Managed Preference Profile", "Computer Group", "Mobile Device", "Apple TV", "Android Device", "User Group", "iOS Configuration Profile", "Mobile Device App", "E-book", "Mobile Device Group", "Classroom", "Advanced Computer Search", "Advanced Mobile Search", "Advanced User Search", "Advanced User Content Search", "Computer Invitation", "Mobile Device Invitation", "Mobile Device Enrollment Profile", "Device Enrollment Program Instance", "Mobile Device Prestage", "Computer DEP Prestage", "Enrollment Customization", "VPP Location", "VPP Subscription", "VPP Invitation", "VPP Assignment", "User", "Network Integration", "Mac App", "App Installer", "Self Service Plugin", "Software Title", "Patch Software Title Summary", "Patch Policy", "Patch Software Title Configuration", "Change Password", "Mobile Device Inventory", "Computer Inventory", "Change Management", "Licensed Software License"]
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: objectType=="User"
+            type: string
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
-                  $ref: 'DefinitionsLibrary.yaml#/components/schemas/SiteObject'
+                  $ref: '#/components/schemas/SiteObject'
+                type: array
+          description: Successful response
       security:
-      - Bearer: []
+        - Bearer: []
+      summary: |
+        Find and filter site objects for a site ID
+      tags:
+        - sites
       x-required-privileges:
-      - Read Sites
-components:
-  schemas: {}
+        - Read Sites
+servers:
+  - url: /api

@@ -1,282 +1,279 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - SSO Settings Certificate
-  version: 0.0.1
-paths:
-  /v2/sso/cert:
-    get:
-      tags:
-        - sso-certificate
-      summary: |
-        Retrieve the certificate currently configured for use with SSO
-      description: Retrieves the certificate currently configured for use with SSO.
-      responses:
-        200:
-          description: Successful operation.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
-      x-required-privileges:
-        - Read SSO Settings
-    put:
-      tags:
-        - sso-certificate
-      summary: |
-        Update the certificate used by Jamf Pro to sign SSO requests to the identify provider
-      description: Update the certificate used by Jamf Pro to sign SSO requests to
-        the identify provider.
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/SsoKeystore'
-        required: true
-      responses:
-        200:
-          description: Successfully changed the keystore.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
-        400:
-          description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update SSO Settings
-    post:
-      tags:
-        - sso-certificate
-      summary: |
-        Jamf Pro will generate a new certificate and use it to sign SSO
-      description: Jamf Pro will generate a new certificate and use it to sign SSO
-        requests to the identity provider.
-      responses:
-        200:
-          description: Newly generated will be set and returned.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
-      x-required-privileges:
-        - Update SSO Settings
-      x-action: true
-    delete:
-      tags:
-        - sso-certificate
-      summary: |
-        Delete the currently configured certificate used by SSO
-      description: Deletes the currently configured certificate used by SSO.
-      responses:
-        204:
-          description: Operation successful.
-      x-required-privileges:
-        - Update SSO Settings
-  /v2/sso/cert/download:
-    get:
-      tags:
-        - sso-certificate
-      summary: |
-        Download the certificate currently configured for use with Jamf Pro's SSO configuration
-      description: Downloads the certificate currently configured for use with Jamf
-        Pro's SSO configuration
-      responses:
-        200:
-          description: Request successful
-          content:
-            'text/plain':
-              schema:
-                type: string
-                format: binary
-      x-action: true
-      x-required-privileges:
-        - Read SSO Settings
-  /v2/sso/cert/parse:
-    post:
-      tags:
-        - sso-certificate
-      summary: |
-        Parse the certificate to get details about certificate type and keys needed to upload certificate file
-      description: Parse the certificate to get details about certificate type and
-        keys needed to upload certificate file.
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/SsoKeystoreParse'
-        required: true
-      responses:
-        200:
-          description: Successfully parsed the certificate.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/SsoKeystoreCertParseResponse'
-        400:
-          description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-action: true
-      x-required-privileges:
-        - Update SSO Settings
 components:
   schemas:
-    SsoKeystoreResponseWithDetails:
-      type: object
+    CertificateKey:
       properties:
-        keystore:
-          $ref: '#/components/schemas/SsoKeystoreResponse'
-        keystoreDetails:
-          $ref: '#/components/schemas/SsoKeystoreDetails'
+        id:
+          example: "1"
+          type: string
+        valid:
+          example: true
+          type: boolean
+      type: object
     SsoKeystore:
       allOf:
         - $ref: '#/components/schemas/SsoKeystoreParse'
-        - type: object
-          required:
-            - key
-            - password
-            - type
-          properties:
+        - properties:
+            key:
+              default: ' '
+              type: string
             keys:
-              type: array
               items:
                 $ref: '#/components/schemas/CertificateKey'
-            key:
-              type: string
-              default: ' '
-            password:
-              type: string
-              format: password
-              writeOnly: true
-              example: "***"
-            type:
-              type: string
-              example: PKCS12
-              enum:
-                - PKCS12
-                - JKS
-                - NONE
+              type: array
             keystoreSetupType:
-              type: string
-              example: UPLOADED
               enum:
                 - NONE
                 - UPLOADED
                 - GENERATED
-    SsoKeystoreResponse:
-      type: object
+              example: UPLOADED
+              type: string
+            password:
+              example: '***'
+              format: password
+              type: string
+              writeOnly: true
+            type:
+              enum:
+                - PKCS12
+                - JKS
+                - NONE
+              example: PKCS12
+              type: string
+          required:
+            - key
+            - password
+            - type
+          type: object
+    SsoKeystoreCertParseResponse:
       properties:
         key:
-          type: string
           default: ' '
+          type: string
         keys:
-          type: array
           items:
             $ref: '#/components/schemas/CertificateKey'
-        type:
+          type: array
+        keystoreFile:
+          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
+          items:
+            format: byte
+            pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+            type: string
+          type: array
+        keystoreFileName:
+          example: keystore.p12
           type: string
-          example: PKCS12
-          enum:
-            - PKCS12
-            - JKS
-            - NONE
         keystoreSetupType:
-          type: string
-          example: UPLOADED
           enum:
             - NONE
             - UPLOADED
             - GENERATED
-        keystoreFileName:
+          example: UPLOADED
           type: string
-          example: "keystore.p12"
+        type:
+          enum:
+            - PKCS12
+            - JKS
+            - NONE
+          example: PKCS12
+          type: string
+      type: object
+    SsoKeystoreDetails:
+      properties:
+        expiration:
+          example: 2030-02-24T12:18:32.000
+          type: string
+        issuer:
+          example: CN= Jamf Pro JSS Built-in Certificate Authority
+          type: string
+        keys:
+          items:
+            default: ""
+            type: string
+          type: array
+        serialNumber:
+          example: 2322472237
+          type: integer
+        subject:
+          example: CN=SSO:jamf.com, OU=JSS, O=JAMF Software, L=Minneapolis, ST=MN, C=US
+          type: string
+      type: object
     SsoKeystoreParse:
+      discriminator:
+        propertyName: certType
+      properties:
+        keystoreFile:
+          example: WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09
+          format: byte
+          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+          type: string
+        keystoreFileName:
+          example: keystore.p12
+          type: string
+        keystorePassword:
+          example: '***'
+          format: password
+          type: string
+          writeOnly: true
       required:
         - keystoreFile
         - keystoreFileName
         - keystorePassword
       type: object
-      properties:
-        keystorePassword:
-          type: string
-          format: password
-          writeOnly: true
-          example: "***"
-        keystoreFile:
-          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
-          pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
-          type: string
-          format: byte
-        keystoreFileName:
-          type: string
-          example: "keystore.p12"
-      discriminator:
-        propertyName: certType
-    SsoKeystoreDetails:
-      type: object
-      properties:
-        keys:
-          type: array
-          items:
-            type: string
-            default: ''
-        serialNumber:
-          type: integer
-          example: 2322472237
-        subject:
-          type: string
-          example: "CN=SSO:jamf.com, OU=JSS, O=JAMF Software, L=Minneapolis, ST=MN, C=US"
-        issuer:
-          type: string
-          example: "CN= Jamf Pro JSS Built-in Certificate Authority"
-        expiration:
-          type: string
-          example: 2030-02-24T12:18:32.000
-    CertificateKey:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        valid:
-          type: boolean
-          example: true
-    SsoKeystoreCertParseResponse:
-      type: object
+    SsoKeystoreResponse:
       properties:
         key:
-          type: string
           default: ' '
+          type: string
         keys:
-          type: array
           items:
             $ref: '#/components/schemas/CertificateKey'
-        type:
-          type: string
-          enum:
-          - PKCS12
-          - JKS
-          - NONE
-          example: PKCS12
-        keystoreSetupType:
-          type: string
-          enum:
-          - NONE
-          - UPLOADED
-          - GENERATED
-          example: UPLOADED
-        keystoreFile:
           type: array
-          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
-          items:
-            pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
-            type: string
-            format: byte
         keystoreFileName:
+          example: keystore.p12
           type: string
-          example: "keystore.p12"
+        keystoreSetupType:
+          enum:
+            - NONE
+            - UPLOADED
+            - GENERATED
+          example: UPLOADED
+          type: string
+        type:
+          enum:
+            - PKCS12
+            - JKS
+            - NONE
+          example: PKCS12
+          type: string
+      type: object
+    SsoKeystoreResponseWithDetails:
+      properties:
+        keystore:
+          $ref: '#/components/schemas/SsoKeystoreResponse'
+        keystoreDetails:
+          $ref: '#/components/schemas/SsoKeystoreDetails'
+      type: object
+info:
+  title: Jamf Pro API - SsoSettingsCert
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/sso/cert:
+    delete:
+      description: Deletes the currently configured certificate used by SSO.
+      responses:
+        204:
+          description: Operation successful.
+      summary: |
+        Delete the currently configured certificate used by SSO
+      tags:
+        - sso-certificate
+      x-required-privileges:
+        - Update SSO Settings
+    get:
+      description: Retrieves the certificate currently configured for use with SSO.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
+          description: Successful operation.
+      summary: |
+        Retrieve the certificate currently configured for use with SSO
+      tags:
+        - sso-certificate
+      x-required-privileges:
+        - Read SSO Settings
+    post:
+      description: Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
+          description: Newly generated will be set and returned.
+      summary: |
+        Jamf Pro will generate a new certificate and use it to sign SSO
+      tags:
+        - sso-certificate
+      x-action: true
+      x-required-privileges:
+        - Update SSO Settings
+    put:
+      description: Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SsoKeystore'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoKeystoreResponseWithDetails'
+          description: Successfully changed the keystore.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: One or more parameters were invalid.
+      summary: |
+        Update the certificate used by Jamf Pro to sign SSO requests to the identify provider
+      tags:
+        - sso-certificate
+      x-required-privileges:
+        - Update SSO Settings
+  /v2/sso/cert/download:
+    get:
+      description: Downloads the certificate currently configured for use with Jamf Pro's SSO configuration
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                format: binary
+                type: string
+          description: Request successful
+      summary: |
+        Download the certificate currently configured for use with Jamf Pro's SSO configuration
+      tags:
+        - sso-certificate
+      x-required-privileges:
+        - Read SSO Settings
+  /v2/sso/cert/parse:
+    post:
+      description: Parse the certificate to get details about certificate type and keys needed to upload certificate file.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SsoKeystoreParse'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SsoKeystoreCertParseResponse'
+          description: Successfully parsed the certificate.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: One or more parameters were invalid.
+      summary: |
+        Parse the certificate to get details about certificate type and keys needed to upload certificate file
+      tags:
+        - sso-certificate
+      x-action: true
+      x-required-privileges:
+        - Update SSO Settings
+servers:
+  - url: /api

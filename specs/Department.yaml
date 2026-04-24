@@ -1,303 +1,311 @@
-openapi: 3.0.1
+components:
+  schemas:
+    Department:
+      properties:
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        name:
+          example: Department of Redundancy Department
+          maxLength: 225
+          minLength: 1
+          type: string
+      required:
+        - name
+      type: object
+    DepartmentsSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/Department'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
 info:
-  title: Jamf Pro API - department
+  title: Jamf Pro API - Department
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/departments:
     get:
-      tags:
-      - departments
-      summary: |
-        Search for Departments
       description: |
         Search for Departments
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is id:asc. Multiple sort criteria are supported and must be separated with
-          a comma. Example: sort=date:desc,name:asc '
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [id:asc]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter department collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name. Example: name=="*department*"'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter department collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: id, name.
-                      Example: name=="*department*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/DepartmentsSearchResults'
-      x-required-privileges:
-      - Read Departments
-    post:
-      tags:
-      - departments
+          description: Successful response
       summary: |
-        Create department record
+        Search for Departments
+      tags:
+        - departments
+      x-required-privileges:
+        - Read Departments
+    post:
       description: |
         Create department record
       requestBody:
-        description: department object to create. ids defined in this body will be
-          ignored
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/Department'
+        description: department object to create. ids defined in this body will be ignored
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Department record was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-      - Create Departments
-  /v1/departments/{id}:
-    get:
-      tags:
-      - departments
       summary: |
-        Get specified Department object
-      description: |
-        Gets specified Department object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of department record
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Details of department were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Department'
-        404:
-          description: Specified department object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Departments
-    put:
+        Create department record
       tags:
-      - departments
-      summary: |
-        Update specified department object
-      description: |
-        Update specified department object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of department record
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: department object to create. ids defined in this body will be
-          ignored
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/Department'
-        required: true
-      responses:
-        200:
-          description: Department update
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/Department'
+        - departments
       x-required-privileges:
-      - Update Departments
-    delete:
-      tags:
-      - departments
-      summary: |
-        Remove specified department record
-      description: |
-        Removes specified department record
-      parameters:
-      - name: id
-        in: path
-        description: instance id of department record
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Department record was deleted
-      x-required-privileges:
-      - Delete Departments
+        - Create Departments
   /v1/departments/delete-multiple:
     post:
-      tags:
-      - departments
-      summary: |
-        Deletes all departments by ids passed in body
       description: |
         Deletes all departments by ids passed in body
       requestBody:
-        description: ids of departments to be deleted. pass in an array of ids
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: ids of departments to be deleted. pass in an array of ids
         required: true
       responses:
         204:
           description: All department ids passed in request sucessfully deleted.
         400:
-          description: 'Request processed.  Returns ids and error codes of any departments
-            unable to be deleted.  Expected error codes: INVALID_ID - id does not
-            exist SYSTEM_EXCEPTION - a system exception occured trying to delete the
-            department.'
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Delete Departments
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: 'Request processed.  Returns ids and error codes of any departments unable to be deleted.  Expected error codes: INVALID_ID - id does not exist SYSTEM_EXCEPTION - a system exception occured trying to delete the department.'
+      summary: |
+        Deletes all departments by ids passed in body
+      tags:
+        - departments
       x-action: true
+      x-required-privileges:
+        - Delete Departments
+  /v1/departments/{id}:
+    delete:
+      description: |
+        Removes specified department record
+      parameters:
+        - description: instance id of department record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Department record was deleted
+      summary: |
+        Remove specified department record
+      tags:
+        - departments
+      x-required-privileges:
+        - Delete Departments
+    get:
+      description: |
+        Gets specified Department object
+      parameters:
+        - description: instance id of department record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: Details of department were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified department object does not exist.
+      summary: |
+        Get specified Department object
+      tags:
+        - departments
+      x-required-privileges:
+        - Read Departments
+    put:
+      description: |
+        Update specified department object
+      parameters:
+        - description: instance id of department record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+        description: department object to create. ids defined in this body will be ignored
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: Department update
+      summary: |
+        Update specified department object
+      tags:
+        - departments
+      x-required-privileges:
+        - Update Departments
   /v1/departments/{id}/history:
     get:
-      tags:
-      - departments
-      summary: |
-        Get specified Department history object
       description: |
         Gets specified Department history object
       parameters:
-      - name: id
-        in: path
-        description: instance id of department history record
-        required: true
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort
-          is date:desc. Multiple sort criteria are supported and must be separated
-          with a comma. Example: sort=date:desc,name:asc '
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: instance id of department history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default: [date:desc]
-      - name: filter
-        in: query
-        description: 'Query in the RSQL format, allowing to filter history notes collection.
-          Default filter is empty query - returning all results for the requested page.
-          Fields allowed in the query: username, date, note, details.
-          This param can be combined with paging and sorting.
-          Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
-        schema:
-          type: string
-          default: ''
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
           description: Details of department history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
         404:
-          description: Specified department object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Departments
-    post:
-      tags:
-      - departments
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified department object does not exist.
       summary: |
-        Add specified Department history object notes
+        Get specified Department history object
+      tags:
+        - departments
+      x-required-privileges:
+        - Read Departments
+    post:
       description: |
         Adds specified Department history object notes
       parameters:
-      - name: id
-        in: path
-        description: instance id of department history record
-        required: true
-        schema:
-          type: string
+        - description: instance id of department history record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: history notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Notes of department history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Specified department object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Department history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Department history can not be saved
+      summary: |
+        Add specified Department history object notes
+      tags:
+        - departments
       x-required-privileges:
-      - Update Departments
-components:
-  schemas:
-    Department:
-      required:
-        - name
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          minLength: 1
-          readOnly: true
-        name:
-          type: string
-          minLength: 1
-          maxLength: 225
-          example: Department of Redundancy Department
-    DepartmentsSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          minimum: 0
-          example: 3
-        results:
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/Department'
+        - Update Departments
+servers:
+  - url: /api

@@ -1,300 +1,656 @@
-openapi: 3.0.3
+components:
+  schemas:
+    PatchSoftwareTitleConfiguration:
+      allOf:
+        - $ref: '#/components/schemas/PatchSoftwareTitleConfigurationBase'
+        - properties:
+            id:
+              example: "1"
+              nullable: false
+              type: string
+            packages:
+              items:
+                $ref: '#/components/schemas/PatchSoftwareTitlePackages'
+              type: array
+          type: object
+    PatchSoftwareTitleConfigurationBase:
+      properties:
+        categoryId:
+          default: "-1"
+          example: "-1"
+          type: string
+        displayName:
+          example: Google Chrome
+          nullable: false
+          type: string
+        emailNotifications:
+          default: false
+          example: false
+          type: boolean
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationExtensionAttributes'
+          type: array
+        jamfOfficial:
+          example: false
+          readOnly: true
+          type: boolean
+        patchSourceEnabled:
+          example: true
+          readOnly: true
+          type: boolean
+        patchSourceName:
+          example: Jamf
+          readOnly: true
+          type: string
+        siteId:
+          default: "-1"
+          example: "-1"
+          type: string
+        softwareTitleId:
+          example: "1"
+          nullable: false
+          type: string
+        softwareTitleName:
+          example: Safari
+          readOnly: true
+          type: string
+        softwareTitleNameId:
+          example: AppleSafari
+          readOnly: true
+          type: string
+        softwareTitlePublisher:
+          example: Apple
+          readOnly: true
+          type: string
+        uiNotifications:
+          default: false
+          example: false
+          type: boolean
+      required:
+        - displayName
+        - softwareTitleId
+      type: object
+    PatchSoftwareTitleConfigurationDefinitionKillApp:
+      properties:
+        appName:
+          example: Firefox
+          type: string
+      type: object
+    PatchSoftwareTitleConfigurationDependencies:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDependency'
+          type: array
+        totalCount:
+          example: 1
+          nullable: false
+          type: integer
+      type: object
+    PatchSoftwareTitleConfigurationDependency:
+      properties:
+        smartGroupId:
+          example: "1"
+          nullable: false
+          type: string
+        smartGroupName:
+          example: name
+          type: string
+      type: object
+    PatchSoftwareTitleConfigurationExtensionAttributes:
+      properties:
+        accepted:
+          default: false
+          description: Once an extension attribute is accepted, it cannot be reverted.
+          example: false
+          type: boolean
+        eaId:
+          example: google-chrome-ea
+          nullable: false
+          type: string
+      type: object
+    PatchSoftwareTitleConfigurationPatch:
+      properties:
+        categoryId:
+          example: "-1"
+          type: string
+        displayName:
+          example: Google Chrome
+          type: string
+        emailNotifications:
+          example: false
+          type: boolean
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationExtensionAttributes'
+          type: array
+        packages:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitlePackages'
+          type: array
+        siteId:
+          example: "-1"
+          type: string
+        softwareTitleId:
+          example: "1"
+          type: string
+        uiNotifications:
+          example: false
+          type: boolean
+      type: object
+    PatchSoftwareTitleDefinition:
+      properties:
+        absoluteOrderId:
+          example: "1"
+          type: string
+        killApps:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDefinitionKillApp'
+          type: array
+        minimumOperatingSystem:
+          default: "-1"
+          example: 12.0.1
+          type: string
+        rebootRequired:
+          default: false
+          example: false
+          type: boolean
+        releaseDate:
+          default: "-1"
+          example: "2010-12-10 13:36:04"
+          type: string
+        standalone:
+          default: false
+          example: false
+          type: boolean
+        version:
+          example: 10.37.0
+          nullable: false
+          type: string
+      type: object
+    PatchSoftwareTitleDefinitions:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleDefinition'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    PatchSoftwareTitleExtensionAttributes:
+      properties:
+        accepted:
+          example: true
+          type: boolean
+        displayName:
+          example: Google Chrome
+          type: string
+        eaId:
+          example: google-chrome-ea
+          nullable: false
+          type: string
+        scriptContents:
+          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
+          format: base64
+          type: string
+      type: object
+    PatchSoftwareTitlePackages:
+      properties:
+        displayName:
+          example: Firefox.pkg
+          readOnly: true
+          type: string
+        packageId:
+          example: "1"
+          nullable: false
+          type: string
+        version:
+          example: "1"
+          nullable: false
+          type: string
+      type: object
+    PatchSoftwareTitleReport:
+      properties:
+        buildingName:
+          example: Building
+          type: string
+        computerName:
+          example: MacBook
+          type: string
+        departmentName:
+          example: Department
+          type: string
+        deviceId:
+          example: "2"
+          type: string
+        lastContactTime:
+          example: "1970-01-01T00:00:00Z"
+          format: date-time
+          type: string
+        operatingSystemVersion:
+          example: "10.11"
+          type: string
+        siteName:
+          example: Site
+          type: string
+        username:
+          example: User
+          type: string
+        version:
+          example: "10.1"
+          type: string
+      type: object
+    PatchSoftwareTitleReportSearchResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/PatchSoftwareTitleReport'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    PatchSummary:
+      properties:
+        latestVersion:
+          example: "2"
+          type: string
+        onDashboard:
+          example: false
+          type: boolean
+        outOfDate:
+          example: 6
+          type: integer
+        releaseDate:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        softwareTitleConfigurationId:
+          example: "1"
+          type: string
+        softwareTitleId:
+          example: "1"
+          type: string
+        title:
+          example: Patch title
+          type: string
+        upToDate:
+          example: 3
+          type: integer
+      type: object
+    PatchSummaryVersion:
+      properties:
+        absoluteOrderId:
+          example: "1"
+          type: string
+        onVersion:
+          example: 1
+          type: integer
+        version:
+          example: "3"
+          type: string
+      type: object
+    SoftwareTitleConfigurationOnDashboard:
+      properties:
+        onDashboard:
+          example: true
+          nullable: false
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - Patch Software Title Configurations
+  title: Jamf Pro API - PatchSoftwareTitleConfigurations
   version: 0.0.1
-servers:
-  - url: 'https'
+openapi: 3.0.1
 paths:
   /v2/patch-software-title-configurations:
     get:
-      tags:
-        - patch-software-title-configurations
-      summary: Retrieve Patch Software Title Configurations
       description: Retrieves patch software title configurations
-      x-required-privileges:
-        - Read Patch Management Software Titles
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/PatchSoftwareTitleConfiguration'
-    post:
+                type: array
+          description: Success
+      summary: Retrieve Patch Software Title Configurations
       tags:
         - patch-software-title-configurations
-      summary: Create Patch Software Title Configurations
-      description: Creates Patch Software Title Configurations using sToken
       x-required-privileges:
-        - Create Patch Management Software Titles
+        - Read Patch Management Software Titles
+    post:
+      description: Creates Patch Software Title Configurations using sToken
       requestBody:
-        description: Software title configurations to create
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/PatchSoftwareTitleConfigurationBase'
+        description: Software title configurations to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Patch Software Title Configurations were created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
-          description: Bad Request
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-software-title-configurations/{id}/patch-report:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Create Patch Software Title Configurations
       tags:
         - patch-software-title-configurations
-      summary: Retrieve Patch Software Title Configuration Patch Report
-      description: Retrieve Patch Software Title Configuration Patch Report
       x-required-privileges:
-        - Read Patch Management Software Titles
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Patch Software Title Configurations identifier
-          schema:
-            type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                        is computerName:asc. Multiple sort criteria are supported and must be separated
-                        with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName,
-                        version'
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ computerName:asc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter Patch Report collection on version equality only.
-                        Default filter is empty query - returning all results for the requested page.
-                        Fields allowed in the query: version.
-                        Comparators allowed in the query: ==, !=
-                        This param can be combined with paging and sorting.'
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PatchSoftwareTitleReportSearchResult'
-        400:
-          description: Invalid Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Patch Software Title Configuration with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+        - Create Patch Management Software Titles
   /v2/patch-software-title-configurations/{id}:
-    get:
-      tags:
-        - patch-software-title-configurations
-      summary: Retrieve Patch Software Title Configurations with the supplied id
-      description: Retrieves Patch Software Title Configurations with the supplied id
-      x-required-privileges:
-        - Read Patch Management Software Titles
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Patch Software Title Configurations identifier
-          schema:
-            type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PatchSoftwareTitleConfiguration'
-        404:
-          description: Patch Software Title Configurations with that id do not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    patch:
-      tags:
-        - patch-software-title-configurations
-      summary: Update Patch Software Title Configurations
-      description: Updates Patch Software Title Configurations
-      x-required-privileges:
-        - Update Patch Management Software Titles
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Patch Software Title Configurations identifier
-          schema:
-            type: string
-      requestBody:
-        description: Patch Software Title Configurations to update
-        content:
-          'application/merge-patch+json':
-            schema:
-              $ref: '#/components/schemas/PatchSoftwareTitleConfigurationPatch'
-        required: true
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PatchSoftwareTitleConfiguration'
-        400:
-          description: Bad Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Software Title Configurations with that id do not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        422:
-          description: There was an error applying the patch
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
     delete:
-      tags:
-        - patch-software-title-configurations
-      summary: Delete Patch Software Title Configurations with the supplied id
       description: Deletes Patch Software Title Configurations with the supplied id
-      x-required-privileges:
-        - Delete Patch Management Software Titles
       parameters:
-        - name: id
+        - description: Patch Software Title Configurations identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Patch Software Title Configurations identifier
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Success
         404:
-          description: Specified Patch Software Title Configurations object does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-software-title-configurations/{id}/definitions:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Patch Software Title Configurations object does not exist.
+      summary: Delete Patch Software Title Configurations with the supplied id
       tags:
         - patch-software-title-configurations
-      summary: Retrieve Patch Software Title Definitions with the supplied id
-      description: Retrieves patch software title definitions with the supplied id
       x-required-privileges:
-        - Read Patch Management Software Titles
+        - Delete Patch Management Software Titles
+    get:
+      description: Retrieves Patch Software Title Configurations with the supplied id
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: id
+        - description: Patch Software Title Configurations identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Patch Software Title identifier
           schema:
             type: string
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort is absoluteOrderId:asc.
-              Multiple sort criteria are supported and must be separated with a comma.'
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ absoluteOrderId:asc ]
-        - name: filter
-          in: query
-          description: 'Query in the RSQL format, allowing to filter Patch Software Title Definition collection.
-                Default filter is empty query - returning all results for the requested page.
-                Fields allowed in the query: id, version, minimumOperatingSystem, releaseDate,
-                reboot, standalone and absoluteOrderId.
-                This param can be combined with paging and sorting.'
-          schema:
-            type: string
-            default: ''
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSoftwareTitleConfiguration'
           description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PatchSoftwareTitleDefinitions'
         404:
-          description: Patch Software Title Definitions with that id do not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-software-title-configurations/{id}/export-report:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Configurations with that id do not exist
+      summary: Retrieve Patch Software Title Configurations with the supplied id
       tags:
         - patch-software-title-configurations
-      summary: Export Patch Reporting Data
+      x-required-privileges:
+        - Read Patch Management Software Titles
+    patch:
+      description: Updates Patch Software Title Configurations
+      parameters:
+        - description: Patch Software Title Configurations identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/PatchSoftwareTitleConfigurationPatch'
+        description: Patch Software Title Configurations to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSoftwareTitleConfiguration'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Software Title Configurations with that id do not exist
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: There was an error applying the patch
+      summary: Update Patch Software Title Configurations
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Update Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/dashboard:
+    delete:
+      description: Removes a software title configuration from the dashboard.
+      parameters:
+        - description: software title configuration id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: OK
+      summary: |
+        Remove a software title configuration from the dashboard
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+    get:
+      description: Returns whether or not the requested software title configuration is on the dashboard
+      parameters:
+        - description: software title configuration id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftwareTitleConfigurationOnDashboard'
+          description: Whether the software title configuration is on the Dashboard.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested software title configuration does not exist
+      summary: |
+        Return whether or not the requested software title configuration is on the dashboard
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+    post:
+      description: Adds asoftware title configuration to the dashboard.
+      parameters:
+        - description: software title configuration id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: OK
+      summary: |
+        Add a software title configuration to the dashboard
+      tags:
+        - patch-software-title-configurations
+      x-action: true
+      x-required-privileges:
+        - Read Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/definitions:
+    get:
+      description: Retrieves patch software title definitions with the supplied id
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Patch Software Title identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is absoluteOrderId:asc. Multiple sort criteria are supported and must be separated with a comma.'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - absoluteOrderId:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter Patch Software Title Definition collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, version, minimumOperatingSystem, releaseDate, reboot, standalone and absoluteOrderId. This param can be combined with paging and sorting.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSoftwareTitleDefinitions'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Definitions with that id do not exist
+      summary: Retrieve Patch Software Title Definitions with the supplied id
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/dependencies:
+    get:
+      description: Retrieve list of Patch Software Title Configuration Dependencies
+      parameters:
+        - description: Patch Software Title Configuration Id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDependencies'
+          description: Success
+      summary: Retrieve list of Patch Software Title Configuration Dependencies
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/export-report:
+    get:
       description: Export Patch Reporting Data
       parameters:
-        -   name: filter
-            in: query
-            description: 'Query in the RSQL format, allowing to filter Patch Report collection on version equality only.
-                        Default filter is empty query - returning all results for the requested page.
-                        Fields allowed in the query: version.
-                        Comparators allowed in the query: ==, !=
-                        This param can be combined with paging and sorting.'
-            schema:
-                type: string
-                default: ''
-        - name: accept
+        - description: 'Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+        - description: File
+          explode: false
           in: header
-          description: File
+          name: accept
           required: false
           schema:
             type: string
-        - name: id
+          style: simple
+        - description: Patch Software Title Configurations identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Patch Software Title Configurations identifier
           schema:
             type: string
-        - name: columns-to-export
+          style: simple
+        - description: List of column names to export
+          explode: true
           in: query
-          description: List of column names to export
+          name: columns-to-export
           required: true
           schema:
-            type: array
+            default:
+              - computerName
+              - deviceId
+              - username
+              - operatingSystemVersion
+              - lastContactTime
+              - buildingName
+              - departmentName
+              - siteName
+              - version
             items:
               type: string
-            default: [ computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName, version ]
+            type: array
+          style: form
       responses:
         200:
-          description: Export successful
           content:
             text/csv:
               schema:
@@ -302,619 +658,305 @@ paths:
             text/tab:
               schema:
                 format: binary
+          description: Export successful
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Invalid Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Patch Software Title Extension Attributes with that id do not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         415:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Incorrect media type specified.
-          content:
-            application/json:
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         503:
-          description: Export currently unavailable, all export-related resources are in use. Try again later.
           content:
             application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: Export Patch Reporting Data
+      tags:
+        - patch-software-title-configurations
+      x-action: true
       x-required-privileges:
         - Read Patch Management Software Titles
-      x-action: true
   /v2/patch-software-title-configurations/{id}/extension-attributes:
     get:
-      tags:
-        - patch-software-title-configurations
-      summary: Retrieve Software Title Extension Attributes with the supplied id
       description: Retrieves software title extension attributes with the supplied id
-      x-required-privileges:
-        - Read Patch Management Software Titles
       parameters:
-        - name: id
+        - description: Patch Software Title identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Patch Software Title identifier
           schema:
             type: string
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/PatchSoftwareTitleExtensionAttributes'
-        404:
-          description: Patch Software Title Extension Attributes with that id do not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-software-title-configurations/{id}/patch-summary:
-    get:
-      tags:
-        - patch-software-title-configurations
-      summary: Return Active Patch Summary
-      description: Returns active patch summary.
-      parameters:
-        - name: id
-          in: path
-          description: Patch id
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Active Patch Summary
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatchSummary'
-        400:
-          description: Invalid Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Patch id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Patch Management Software Titles
-  /v2/patch-software-title-configurations/{id}/patch-summary/versions:
-    get:
-      tags:
-        - patch-software-title-configurations
-      summary: Returns patch versions
-      description: Returns patch versions
-      parameters:
-        - name: id
-          in: path
-          description: Patch id
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Patch versions
-          content:
-            application/json:
-              schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/PatchSummaryVersion'
-        400:
-          description: Invalid Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+          description: Success
         404:
-          description: Patch id does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Extension Attributes with that id do not exist
+      summary: Retrieve Software Title Extension Attributes with the supplied id
+      tags:
+        - patch-software-title-configurations
       x-required-privileges:
         - Read Patch Management Software Titles
   /v2/patch-software-title-configurations/{id}/history:
     get:
-      tags:
-        - patch-software-title-configurations
-      summary: |
-        Get specified Patch Software Title Configuration history object
       description: |
         Gets specified Patch Software Title Configuration history object
       parameters:
-        - name: id
+        - description: Patch Software Title Configuration Id
+          explode: false
           in: path
-          description: Patch Software Title Configuration Id
+          name: id
           required: true
           schema:
             type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-            is date:desc. Multiple sort criteria are supported and must be separated
-            with a comma. '
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. '
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - date:desc
             items:
               type: string
-            default: [ date:desc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: username, date, note, details.
-            This param can be combined with paging and sorting.
-            Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
-          description: Details of Patch Software Title Configuration history were found
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-        404:
-          description: Specified Patch Software Title Configuration object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Patch Management Software Titles
-    post:
-      tags:
-        - patch-software-title-configurations
-      summary: |
-        Add Patch Software Title Configuration history object notes
-      description: Adds Patch Software Title Configuration history object notes
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Patch Software Title Configuration Id
-          schema:
-            type: string
-      requestBody:
-        description: History notes to create
-        content:
-          'application/json':
-            schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-        required: true
-      responses:
-        201:
-          description: Notes of Patch Software Title Configuration history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        400:
-          description: Invalid Request
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Patch Software Title Configuration with that Id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        503:
-          description: Patch Software Title Configuration history can not be saved
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Patch Management Software Titles
-  /v2/patch-software-title-configurations/{id}/dashboard:
-    get:
-      tags:
-        - patch-software-title-configurations
-      summary: |
-        Return whether or not the requested software title configuration is on the dashboard
-      description: Returns whether or not the requested software title configuration is on the dashboard
-      parameters:
-        - name: id
-          in: path
-          description: software title configuration id
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Whether the software title configuration is on the Dashboard.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SoftwareTitleConfigurationOnDashboard'
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of Patch Software Title Configuration history were found
         404:
-          description: The requested software title configuration does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified Patch Software Title Configuration object does not exist.
+      summary: |
+        Get specified Patch Software Title Configuration history object
+      tags:
+        - patch-software-title-configurations
       x-required-privileges:
         - Read Patch Management Software Titles
     post:
-      tags:
-        - patch-software-title-configurations
-      summary: |
-        Add a software title configuration to the dashboard
-      description: Adds asoftware title configuration to the dashboard.
+      description: Adds Patch Software Title Configuration history object notes
       parameters:
-        - name: id
+        - description: Patch Software Title Configuration Id
+          explode: false
           in: path
-          description: software title configuration id
+          name: id
           required: true
           schema:
             type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History notes to create
+        required: true
       responses:
-        204:
-          description: OK
-      x-action: true
-      x-required-privileges:
-        - Read Patch Management Software Titles
-    delete:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of Patch Software Title Configuration history were added
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Configuration with that Id does not exist
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Configuration history can not be saved
+      summary: |
+        Add Patch Software Title Configuration history object notes
       tags:
         - patch-software-title-configurations
-      summary: |
-        Remove a software title configuration from the dashboard
-      description: Removes a software title configuration from the dashboard.
-      parameters:
-        - name: id
-          in: path
-          description: software title configuration id
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: OK
       x-required-privileges:
-        - Read Patch Management Software Titles
-  /v2/patch-software-title-configurations/{id}/dependencies:
+        - Update Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/patch-report:
     get:
-      tags:
-        - patch-software-title-configurations
-      summary: Retrieve list of Patch Software Title Configuration Dependencies
-      description: Retrieve list of Patch Software Title Configuration Dependencies
-      x-required-privileges:
-        - Read Patch Management Software Titles
+      description: Retrieve Patch Software Title Configuration Patch Report
       parameters:
-        - name: id
+        - description: Patch Software Title Configurations identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Patch Software Title Configuration Id
           schema:
             type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is computerName:asc. Multiple sort criteria are supported and must be separated with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName, version'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - computerName:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
       responses:
         200:
-            description: Success
-            content:
-              'application/json':
-                  schema:
-                      $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDependencies'
-components:
-  schemas:
-    PatchSoftwareTitleConfigurationBase:
-      type: object
-      required:
-        - displayName
-        - softwareTitleId
-      properties:
-        displayName:
-          type: string
-          example: 'Google Chrome'
-          nullable: false
-        categoryId:
-          type: string
-          example: '-1'
-          default: '-1'
-        siteId:
-          type: string
-          example: '-1'
-          default: '-1'
-        uiNotifications:
-          type: boolean
-          example: false
-          default: false
-        emailNotifications:
-          type: boolean
-          example: false
-          default: false
-        softwareTitleId:
-          type: string
-          example: '1'
-          nullable: false
-        jamfOfficial:
-          type: boolean
-          example: false
-          readOnly: true
-        extensionAttributes:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationExtensionAttributes'
-        softwareTitleName:
-          type: string
-          example: Safari
-          readOnly: true
-        softwareTitleNameId:
-          type: string
-          example: AppleSafari
-          readOnly: true
-        softwareTitlePublisher:
-          type: string
-          example: Apple
-          readOnly: true
-        patchSourceName:
-          type: string
-          example: Jamf
-          readOnly: true
-        patchSourceEnabled:
-          type: boolean
-          example: true
-          readOnly: true
-    PatchSoftwareTitleConfiguration:
-      allOf:
-        - $ref: '#/components/schemas/PatchSoftwareTitleConfigurationBase'
-        - type: object
-          properties:
-            id:
-              type: string
-              example: '1'
-              nullable: false
-            packages:
-              type: array
-              items:
-                $ref: '#/components/schemas/PatchSoftwareTitlePackages'
-    PatchSoftwareTitleConfigurationPatch:
-      type: object
-      properties:
-        displayName:
-          type: string
-          example: 'Google Chrome'
-        categoryId:
-          type: string
-          example: '-1'
-        siteId:
-          type: string
-          example: '-1'
-        uiNotifications:
-          type: boolean
-          example: false
-        emailNotifications:
-          type: boolean
-          example: false
-        softwareTitleId:
-          type: string
-          example: '1'
-        packages:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitlePackages'
-        extensionAttributes:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationExtensionAttributes'
-    PatchSoftwareTitleDefinitions:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitleDefinition'
-    PatchSoftwareTitleDefinition:
-      type: object
-      properties:
-        version:
-          type: string
-          example: '10.37.0'
-          nullable: false
-        minimumOperatingSystem:
-          type: string
-          example: '12.0.1'
-          default: '-1'
-        releaseDate:
-          type: string
-          example: '2010-12-10 13:36:04'
-          default: '-1'
-        rebootRequired:
-          type: boolean
-          example: false
-          default: false
-        killApps:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDefinitionKillApp'
-        standalone:
-          type: boolean
-          example: false
-          default: false
-        absoluteOrderId:
-          type: string
-          example: '1'
-    PatchSoftwareTitlePackages:
-      type: object
-      properties:
-        packageId:
-          type: string
-          example: '1'
-          nullable: false
-        version:
-          type: string
-          example: '1'
-          nullable: false
-        displayName:
-          type: string
-          example: "Firefox.pkg"
-          readOnly: true
-    PatchSoftwareTitleConfigurationDefinitionKillApp:
-      type: object
-      properties:
-        appName:
-          type: string
-          example: 'Firefox'
-    PatchSoftwareTitleConfigurationExtensionAttributes:
-      type: object
-      properties:
-        accepted:
-          type: boolean
-          description: 'Once an extension attribute is accepted, it cannot be reverted.'
-          example: false
-          default: false
-        eaId:
-          type: string
-          example: 'google-chrome-ea'
-          nullable: false
-    PatchSoftwareTitleExtensionAttributes:
-      type: object
-      properties:
-        eaId:
-          type: string
-          example: 'google-chrome-ea'
-          nullable: false
-        accepted:
-          type: boolean
-          example: true
-        displayName:
-          type: string
-          example: 'Google Chrome'
-        scriptContents:
-          type: string
-          format: base64
-          example: ZXhhbXBsZSBvZiBhIGJhc2U2NCBlbmNvZGVkIHZhbGlkIHAxMi4ga2V5c3RvcmUgZmlsZQ==
-    PatchSoftwareTitleReportSearchResult:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchSoftwareTitleReport'
-    PatchSoftwareTitleReport:
-      type: object
-      properties:
-        computerName:
-          type: string
-          example: 'MacBook'
-        deviceId:
-          type: string
-          example: "2"
-        username:
-          type: string
-          example: 'User'
-        operatingSystemVersion:
-          type: string
-          example: '10.11'
-        lastContactTime:
-          type: string
-          format: date-time
-          example: '1970-01-01T00:00Z'
-        buildingName:
-          type: string
-          example: 'Building'
-        departmentName:
-          type: string
-          example: 'Department'
-        siteName:
-          type: string
-          example: 'Site'
-        version:
-          type: string
-          example: "10.1"
-    PatchSummaryVersion:
-      type: object
-      properties:
-        absoluteOrderId:
-          type: string
-          example: 1
-        version:
-          type: string
-          example: 3
-        onVersion:
-          type: integer
-          example: 1
-    PatchSummary:
-      type: object
-      properties:
-        softwareTitleId:
-          type: string
-          example: 1
-        title:
-          type: string
-          example: Patch title
-        latestVersion:
-          type: string
-          example: 2
-        releaseDate:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        upToDate:
-          type: integer
-          example: 3
-        outOfDate:
-          type: integer
-          example: 6
-        onDashboard:
-          type: boolean
-          example: false
-        softwareTitleConfigurationId:
-          type: string
-          example: 1
-    SoftwareTitleConfigurationOnDashboard:
-      type: object
-      properties:
-        onDashboard:
-          type: boolean
-          example: true
-          nullable: false
-    PatchSoftwareTitleConfigurationDependencies:
-        type: object
-        properties:
-            totalCount:
-                type: integer
-                example: 1
-                nullable: false
-            results:
-                type: array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSoftwareTitleReportSearchResult'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch Software Title Configuration with that id does not exist
+      summary: Retrieve Patch Software Title Configuration Patch Report
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/patch-summary:
+    get:
+      description: Returns active patch summary.
+      parameters:
+        - description: Patch id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchSummary'
+          description: Active Patch Summary
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch id does not exist
+      summary: Return Active Patch Summary
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+  /v2/patch-software-title-configurations/{id}/patch-summary/versions:
+    get:
+      description: Returns patch versions
+      parameters:
+        - description: Patch id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
                 items:
-                    $ref: '#/components/schemas/PatchSoftwareTitleConfigurationDependency'
-    PatchSoftwareTitleConfigurationDependency:
-        type: object
-        properties:
-            smartGroupId:
-                type: string
-                example: "1"
-                nullable: false
-            smartGroupName:
-                type: string
-                example: 'name'
+                  $ref: '#/components/schemas/PatchSummaryVersion'
+                type: array
+          description: Patch versions
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Patch id does not exist
+      summary: Returns patch versions
+      tags:
+        - patch-software-title-configurations
+      x-required-privileges:
+        - Read Patch Management Software Titles
+servers:
+  - url: /api

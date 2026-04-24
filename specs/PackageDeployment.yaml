@@ -1,133 +1,141 @@
-openapi: 3.0.1
+components:
+  schemas:
+    InstallPackage:
+      description: Either devices or groupId must be provided
+      properties:
+        devices:
+          example:
+            - 1
+            - 2
+            - 3
+          items:
+            type: integer
+          type: array
+        groupId:
+          example: "1"
+          type: string
+        installAsManaged:
+          example: false
+          type: boolean
+        manifest:
+          $ref: '#/components/schemas/PackageManifest'
+      required:
+        - manifest
+      type: object
+    PackageManifest:
+      properties:
+        bundleId:
+          example: com.jamf.example
+          type: string
+        bundleVersion:
+          example: 0.1.0
+          type: string
+        displayImageUrl:
+          example: https://example.jamf.com/img/display/this/package.jpg
+          type: string
+        fullSizeImageUrl:
+          example: https://example.jamf.com/img/full/this/package.jpg
+          type: string
+        hash:
+          example: dcb02a41cd6d842943459a88c96a5f72
+          type: string
+        hashType:
+          enum:
+            - MD5
+            - SHA256
+          example: MD5
+          type: string
+        sizeInBytes:
+          example: 12345
+          type: integer
+        subtitle:
+          example: Subtitle
+          type: string
+        title:
+          example: Title
+          type: string
+        url:
+          example: https://example.jamf.com/this/package
+          type: string
+      required:
+        - bundleId
+        - bundleVersion
+        - hash
+        - hashType
+        - sizeInBytes
+        - title
+        - url
+      type: object
+    VerbosePackageDeploymentResponse:
+      properties:
+        errors:
+          items:
+            description: The error will contain either the 'device' or 'group' property
+            properties:
+              device:
+                example: 2
+                type: integer
+              group:
+                example: 3
+                type: integer
+              reason:
+                example: Device does not support the InstallEnterpriseApplication command
+                type: string
+            type: object
+          type: array
+        queuedCommands:
+          items:
+            properties:
+              commandUuid:
+                example: aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937
+                type: string
+              device:
+                example: 1
+                type: integer
+            type: object
+          type: array
+      type: object
 info:
-  title: Jamf Pro API - Package Deployment
+  title: Jamf Pro API - PackageDeployment
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/deploy-package:
     post:
-      tags:
-        - mdm
-      summary: Deploy packages using MDM
       description: Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.
+      parameters:
+        - description: Enables the 'verbose' response, which includes information about the commands queued as well as information about commands that failed to queue.
+          example: true
+          explode: true
+          in: query
+          name: verbose
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/InstallPackage'
         required: true
-      parameters:
-        - in: query
-          name: verbose
-          schema:
-            type: boolean
-            default: false
-          required: false
-          example: true
-          description: Enables the 'verbose' response, which includes information about the commands queued as
-            well as information about commands that failed to queue.
-      x-required-privileges:
-        - Send Computer Remote Command to Install Package
-      x-action: true
       responses:
         200:
-          description: Package deployment was successfully processed. See response body for further information.
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/VerbosePackageDeploymentResponse'
+          description: Package deployment was successfully processed. See response body for further information.
         202:
           description: Package deployment was queued up
         403:
           description: Insufficient privileges to perform this action or Package Deployment is not enabled.
-components:
-  schemas:
-    InstallPackage:
-      required:
-        - manifest
-      type: object
-      properties:
-        manifest:
-          $ref: '#/components/schemas/PackageManifest'
-        installAsManaged:
-          type: boolean
-          example: false
-        devices:
-          type: array
-          items:
-            type: integer
-          example: [ 1, 2, 3 ]
-        groupId:
-          type: string
-          example: '1'
-      description: Either devices or groupId must be provided
-    PackageManifest:
-      required:
-        - url
-        - hash
-        - hashType
-        - bundleId
-        - bundleVersion
-        - title
-        - sizeInBytes
-      type: object
-      properties:
-        url:
-          type: string
-          example: 'https://example.jamf.com/this/package'
-        hash:
-          type: string
-          example: 'dcb02a41cd6d842943459a88c96a5f72'
-        hashType:
-          type: string
-          enum: [MD5, SHA256]
-          example: 'MD5'
-        displayImageUrl:
-          type: string
-          example: 'https://example.jamf.com/img/display/this/package.jpg'
-        fullSizeImageUrl:
-          type: string
-          example: 'https://example.jamf.com/img/full/this/package.jpg'
-        bundleId:
-          type: string
-          example: 'com.jamf.example'
-        bundleVersion:
-          type: string
-          example: '0.1.0'
-        subtitle:
-          type: string
-          example: 'Subtitle'
-        title:
-          type: string
-          example: 'Title'
-        sizeInBytes:
-          type: integer
-          example: 12345
-    VerbosePackageDeploymentResponse:
-      type: object
-      properties:
-        queuedCommands:
-          type: array
-          items:
-            type: object
-            properties:
-              device:
-                type: integer
-                example: 1
-              commandUuid:
-                type: string
-                example: 'aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937'
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              device:
-                type: integer
-                example: 2
-              group:
-                type: integer
-                example: 3
-              reason:
-                type: string
-                example: 'Device does not support the InstallEnterpriseApplication command'
-            description: The error will contain either the 'device' or 'group' property
+      summary: Deploy packages using MDM
+      tags:
+        - mdm
+      x-action: true
+      x-required-privileges:
+        - Send Computer Remote Command to Install Package
+servers:
+  - url: /api

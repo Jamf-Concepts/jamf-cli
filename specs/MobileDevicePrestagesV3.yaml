@@ -1,529 +1,742 @@
-openapi: 3.0.1
+components:
+  schemas:
+    DeviceEnrollmentPrestageV3:
+      properties:
+        anchorCertificates:
+          description: The Base64 encoded PEM Certificate
+          items:
+            example: xNE5HRgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+            type: string
+          type: array
+        authenticationPrompt:
+          example: LDAP authentication prompt
+          type: string
+        autoAdvanceSetup:
+          example: true
+          type: boolean
+        defaultPrestage:
+          example: false
+          type: boolean
+        department:
+          example: Oxbow
+          type: string
+        deviceEnrollmentProgramInstanceId:
+          example: "5"
+          type: string
+        displayName:
+          example: Example Mobile Prestage Name
+          type: string
+        enableDeviceBasedActivationLock:
+          example: true
+          type: boolean
+        enrollmentCustomizationId:
+          example: "2"
+          type: string
+        enrollmentSiteId:
+          example: "-1"
+          type: string
+        keepExistingLocationInformation:
+          example: true
+          type: boolean
+        keepExistingSiteMembership:
+          example: true
+          type: boolean
+        language:
+          example: en
+          type: string
+        locationInformation:
+          $ref: '#/components/schemas/LocationInformationV3'
+        mandatory:
+          example: false
+          type: boolean
+        mdmRemovable:
+          example: true
+          type: boolean
+        preventActivationLock:
+          example: true
+          type: boolean
+        purchasingInformation:
+          $ref: '#/components/schemas/PrestagePurchasingInformationV3'
+        region:
+          example: US
+          type: string
+        requireAuthentication:
+          example: true
+          type: boolean
+        skipSetupItems:
+          additionalProperties:
+            type: boolean
+          example:
+            Location: true
+            Privacy: false
+          type: object
+        supportEmailAddress:
+          example: example@example.com
+          type: string
+        supportPhoneNumber:
+          example: "5555555555"
+          type: string
+      required:
+        - authenticationPrompt
+        - autoAdvanceSetup
+        - defaultPrestage
+        - department
+        - deviceEnrollmentProgramInstanceId
+        - displayName
+        - enableDeviceBasedActivationLock
+        - enrollmentSiteId
+        - keepExistingLocationInformation
+        - keepExistingSiteMembership
+        - locationInformation
+        - mandatory
+        - mdmRemovable
+        - preventActivationLock
+        - purchasingInformation
+        - requireAuthentication
+        - supportEmailAddress
+        - supportPhoneNumber
+      type: object
+    FileAttachmentV3:
+      properties:
+        id:
+          example: "1"
+          type: string
+        name:
+          example: receipt.pdf
+          type: string
+      type: object
+    GetMobileDevicePrestageV3:
+      allOf:
+        - $ref: '#/components/schemas/MobileDevicePrestageV3'
+        - properties:
+            id:
+              example: "1"
+              type: string
+            profileUuid:
+              example: 29d-a8d8f-b8sdjndf-dsa9
+              type: string
+            siteId:
+              example: "5"
+              type: string
+            versionLock:
+              example: 0
+              type: integer
+          type: object
+    LocationInformationV3:
+      properties:
+        buildingId:
+          example: "1"
+          type: string
+        departmentId:
+          example: "1"
+          type: string
+        email:
+          example: test@jamf.com
+          type: string
+        id:
+          example: "-1"
+          type: string
+        phone:
+          example: 123-456-7890
+          type: string
+        position:
+          example: postion
+          type: string
+        realname:
+          example: realName
+          type: string
+        room:
+          example: room
+          type: string
+        username:
+          example: name
+          type: string
+        versionLock:
+          example: 1
+          type: integer
+      required:
+        - buildingId
+        - departmentId
+        - email
+        - id
+        - phone
+        - position
+        - realname
+        - room
+        - username
+        - versionLock
+      type: object
+    MobileDevicePrestageNameV3:
+      properties:
+        deviceName:
+          example: iPad
+          type: string
+        id:
+          example: "1"
+          type: string
+        used:
+          example: false
+          type: boolean
+      type: object
+    MobileDevicePrestageNamesV3:
+      properties:
+        assignNamesUsing:
+          example: List of Names
+          type: string
+        deviceNamePrefix:
+          example: prefix
+          type: string
+        deviceNameSuffix:
+          example: suffix
+          type: string
+        deviceNamingConfigured:
+          example: true
+          type: boolean
+        manageNames:
+          example: true
+          type: boolean
+        prestageDeviceNames:
+          items:
+            $ref: '#/components/schemas/MobileDevicePrestageNameV3'
+          type: array
+        singleDeviceName:
+          example: name
+          type: string
+      type: object
+    MobileDevicePrestageSearchResultsV3:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    MobileDevicePrestageV3:
+      allOf:
+        - $ref: '#/components/schemas/DeviceEnrollmentPrestageV3'
+        - properties:
+            allowPairing:
+              example: true
+              type: boolean
+            configureDeviceBeforeSetupAssistant:
+              example: true
+              type: boolean
+            doNotUseProfileFromBackup:
+              description: If true, the device does not use the profile when it restores a backup. Default is false. Available in iOS 26 and later, and visionOS 26 and later; otherwise ignored by devices.
+              example: true
+              type: boolean
+            enforceTemporarySessionTimeout:
+              example: false
+              type: boolean
+            enforceUserSessionTimeout:
+              example: false
+              type: boolean
+            installAppsDuringEnrollment:
+              description: Controls whether apps are installed during the enrollment process.
+              example: true
+              type: boolean
+            maximumSharedAccounts:
+              example: 10
+              type: integer
+            minimumOsSpecificVersionIos:
+              example: "17.1"
+              minLength: 0
+              nullable: false
+              type: string
+            minimumOsSpecificVersionIpad:
+              example: "17.1"
+              minLength: 0
+              nullable: false
+              type: string
+            multiUser:
+              example: true
+              type: boolean
+            names:
+              $ref: '#/components/schemas/MobileDevicePrestageNamesV3'
+            preserveManagedApps:
+              description: Controls whether managed apps are preserved during Return to Service operations.
+              example: false
+              type: boolean
+            prestageMinimumOsTargetVersionTypeIos:
+              enum:
+                - NO_ENFORCEMENT
+                - MINIMUM_OS_LATEST_VERSION
+                - MINIMUM_OS_LATEST_MAJOR_VERSION
+                - MINIMUM_OS_LATEST_MINOR_VERSION
+                - MINIMUM_OS_SPECIFIC_VERSION
+              example: MINIMUM_OS_LATEST_VERSION
+              nullable: false
+              type: string
+            prestageMinimumOsTargetVersionTypeIpad:
+              enum:
+                - NO_ENFORCEMENT
+                - MINIMUM_OS_LATEST_VERSION
+                - MINIMUM_OS_LATEST_MAJOR_VERSION
+                - MINIMUM_OS_LATEST_MINOR_VERSION
+                - MINIMUM_OS_SPECIFIC_VERSION
+              example: MINIMUM_OS_LATEST_VERSION
+              nullable: false
+              type: string
+            rtsConfigProfileId:
+              example: "1"
+              type: string
+            rtsEnabled:
+              example: false
+              type: boolean
+            sendTimezone:
+              example: true
+              type: boolean
+            storageQuotaSizeMegabytes:
+              example: 4096
+              type: integer
+            supervised:
+              example: true
+              type: boolean
+            temporarySessionOnly:
+              example: false
+              type: boolean
+            temporarySessionTimeout:
+              example: 30
+              type: integer
+            timezone:
+              example: America/Chicago
+              type: string
+            useStorageQuotaSize:
+              example: true
+              type: boolean
+            userSessionTimeout:
+              example: 30
+              type: integer
+          required:
+            - allowPairing
+            - configureDeviceBeforeSetupAssistant
+            - maximumSharedAccounts
+            - multiUser
+            - sendTimezone
+            - storageQuotaSizeMegabytes
+            - supervised
+            - timezone
+            - useStorageQuotaSize
+          type: object
+    PrestageFileAttachmentV3:
+      properties:
+        fileType:
+          example: pdf
+          type: string
+        id:
+          example: "1"
+          type: string
+        name:
+          example: receipt.pdf
+          type: string
+      type: object
+    PrestagePurchasingInformationV3:
+      properties:
+        appleCareId:
+          example: abcd
+          type: string
+        id:
+          example: "-1"
+          type: string
+        leaseDate:
+          example: "2019-01-01"
+          type: string
+        leased:
+          example: true
+          type: boolean
+        lifeExpectancy:
+          example: 5
+          type: integer
+        poDate:
+          example: "2019-01-01"
+          type: string
+        poNumber:
+          example: 53-1
+          type: string
+        purchasePrice:
+          example: $500
+          type: string
+        purchased:
+          example: true
+          type: boolean
+        purchasingAccount:
+          example: admin
+          type: string
+        purchasingContact:
+          example: "true"
+          type: string
+        vendor:
+          example: Example Vendor
+          type: string
+        versionLock:
+          example: 1
+          type: integer
+        warrantyDate:
+          example: "2019-01-01"
+          type: string
+      required:
+        - appleCareId
+        - id
+        - leaseDate
+        - leased
+        - lifeExpectancy
+        - poDate
+        - poNumber
+        - purchasePrice
+        - purchased
+        - purchasingAccount
+        - purchasingContact
+        - vendor
+        - versionLock
+        - warrantyDate
+      type: object
+    PutMobileDevicePrestageV3:
+      allOf:
+        - $ref: '#/components/schemas/MobileDevicePrestageV3'
+        - properties:
+            versionLock:
+              example: 0
+              type: integer
+          type: object
 info:
-  title: Jamf Pro API - Mobile Device Prestage v3
+  title: Jamf Pro API - MobileDevicePrestagesV3
   version: 0.0.1
-  description: |
-    Mobile Device Prestage v3 API with Keep Managed Apps support. This API provides enhanced functionality for managing mobile device prestage enrollments including the ability to configure whether managed apps should be kept during Return to Service operations.
+openapi: 3.0.1
 paths:
   /v3/mobile-device-prestages:
     get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Get sorted and paged Mobile Device Prestages
       description: Gets sorted and paged mobile device prestages
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Multiple
-          sort criteria are supported and must be separated with a comma. Example:
-          sort=date:desc,name:asc '
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
-            type: string
-          default: [id:desc]
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:desc
+            items:
+              type: string
+            type: array
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/MobileDevicePrestageSearchResultsV3'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-    post:
-      tags:
-      - mobile-device-prestages
+          description: Successful response
       summary: |
-         Create a Mobile Device Prestage
+        Get sorted and paged Mobile Device Prestages
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+    post:
       description: Create a mobile device prestage
       requestBody:
-        description: Mobile Device Prestage to create. ids defined in this body will
-          be ignored
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/MobileDevicePrestageV3'
+        description: Mobile Device Prestage to create. ids defined in this body will be ignored
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Mobile Device Prestage was created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+      summary: |
+        Create a Mobile Device Prestage
+      tags:
+        - mobile-device-prestages
       x-required-privileges:
-      - Create Mobile Device PreStage Enrollments
+        - Create Mobile Device PreStage Enrollments
   /v3/mobile-device-prestages/{id}:
-    get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Retrieve a Mobile Device Prestage with the supplied id
-      description: Retrieves a Mobile Device Prestage with the supplied id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
-        404:
-          description: Mobile Device Prestage with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-    put:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Update a Mobile Device Prestage
-      description: Updates a Mobile Device Prestage
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
-      requestBody:
-        description: Mobile Device Prestage to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/PutMobileDevicePrestageV3'
-        required: true
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
-        404:
-          description: Mobile Device Prestage with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        409:
-          description: The Mobile Device Prestage was modified by another process.
-            Read the Mobile Device Prestage again for updated changes.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Mobile Device PreStage Enrollments
     delete:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Delete a Mobile Device Prestage with the supplied id
       description: Deletes a Mobile Device Prestage with the supplied id
       parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         204:
           description: Success
-      x-required-privileges:
-      - Delete Mobile Device PreStage Enrollments
-  /v3/mobile-device-prestages/{id}/history:
-    get:
-      tags:
-      - mobile-device-prestages
       summary: |
-         Get sorted and paged Mobile Device Prestage history objects
-      description: Gets sorted and paged mobile device prestage history objects
+        Delete a Mobile Device Prestage with the supplied id
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Delete Mobile Device PreStage Enrollments
+    get:
+      description: Retrieves a Mobile Device Prestage with the supplied id
       parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property,asc/desc. Default sort
-          order is descending. Multiple sort criteria are supported and must be entered
-          on separate lines in Swagger UI. In the URI the ''sort'' query param is
-          duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
-        style: form
-        explode: true
-        schema:
-          type: array
-          items:
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default: [date:desc]
+          style: simple
       responses:
         200:
-          description: Details of mobile device prestage history were found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-    post:
-      tags:
-      - mobile-device-prestages
+                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Mobile Device Prestage with that id does not exist
       summary: |
-         Add Mobile Device Prestage history object notes
-      description: Adds mobile device prestage history object notes
+        Retrieve a Mobile Device Prestage with the supplied id
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+    put:
+      description: Updates a Mobile Device Prestage
       parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
-        description: History notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: '#/components/schemas/PutMobileDevicePrestageV3'
+        description: Mobile Device Prestage to update
         required: true
       responses:
-        201:
-          description: Notes of mobile deivce prestage history were added
+        200:
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        503:
-          description: Mobile device prestage history can not be saved
+                $ref: '#/components/schemas/GetMobileDevicePrestageV3'
+          description: Success
+        404:
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Mobile Device Prestage with that id does not exist
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The Mobile Device Prestage was modified by another process. Read the Mobile Device Prestage again for updated changes.
+      summary: |
+        Update a Mobile Device Prestage
+      tags:
+        - mobile-device-prestages
       x-required-privileges:
-      - Update Mobile Device PreStage Enrollments
+        - Update Mobile Device PreStage Enrollments
   /v3/mobile-device-prestages/{id}/attachments:
     get:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Get attachments for a Mobile Device Prestage
       description: Get attachments for a Mobile Device Prestage
       parameters:
-      - name: id
-        in: path
-        required: true
-        description:  Mobile Device Prestage identifier
-        schema:
-          type: string
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/FileAttachmentV3'
+                type: array
+          description: Success
         404:
-          description: Mobile Device Prestage with that id does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Mobile Device PreStage Enrollments
-    post:
-      tags:
-      - mobile-device-prestages
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Mobile Device Prestage with that id does not exist
       summary: |
-         Add an attachment to a Mobile Device Prestage
+        Get attachments for a Mobile Device Prestage
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+    post:
       description: Add an attachment to a Mobile Device prestage
       parameters:
-      - name: id
-        in: path
-        description:  Identifier of the Mobile Device Prestage the attachment should be assigned to
-        required: true
-        schema:
-          type: string
+        - description: Identifier of the Mobile Device Prestage the attachment should be assigned to
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
         content:
           multipart/form-data:
             schema:
-              required:
-              - file
               properties:
                 file:
-                  type: string
                   description: The file to upload
                   format: binary
+                  type: string
+              required:
+                - file
         required: true
       responses:
         201:
-          description: Success
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/PrestageFileAttachmentV3'
+          description: Success
         404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Mobile Device Prestage with that id does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         413:
-          description: Payload Too Large
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Payload Too Large
+      summary: |
+        Add an attachment to a Mobile Device Prestage
+      tags:
+        - mobile-device-prestages
       x-required-privileges:
-      - Create Mobile Device PreStage Enrollments
+        - Create Mobile Device PreStage Enrollments
   /v3/mobile-device-prestages/{id}/attachments/delete-multiple:
     post:
-      tags:
-      - mobile-device-prestages
-      summary: |
-         Remove an attachment for a Mobile Device Prestage
       description: Remove an attachment for a Mobile Device Prestage
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: Mobile Device Prestage identifier
-        schema:
-          type: string
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       requestBody:
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
         required: true
       responses:
         204:
           description: Success
-      x-required-privileges:
-      - Delete Mobile Device PreStage Enrollments
+      summary: |
+        Remove an attachment for a Mobile Device Prestage
+      tags:
+        - mobile-device-prestages
       x-action: true
-components:
-  schemas:
-    MobileDevicePrestageV3:
-      allOf:
-      - $ref: 'DefinitionsLibrary.yaml#/components/schemas/DeviceEnrollmentPrestageV3'
-      - type: object
-        properties:
-          allowPairing:
-            type: boolean
-            example: true
-          multiUser:
-            type: boolean
-            example: true
-          supervised:
-            type: boolean
-            example: true
-          maximumSharedAccounts:
-            type: integer
-            example: 10
-          configureDeviceBeforeSetupAssistant:
-            type: boolean
-            example: true
-          names:
-            $ref: '#/components/schemas/MobileDevicePrestageNamesV3'
-          sendTimezone:
-            type: boolean
-            example: true
-          timezone:
+      x-required-privileges:
+        - Delete Mobile Device PreStage Enrollments
+  /v3/mobile-device-prestages/{id}/history:
+    get:
+      description: Gets sorted and paged mobile device prestage history objects
+      parameters:
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            example: America/Chicago
-          storageQuotaSizeMegabytes:
-            type: integer
-            example: 4096
-          useStorageQuotaSize:
-            type: boolean
-            example: true
-          temporarySessionOnly:
-            type: boolean
-            example: false
-          enforceTemporarySessionTimeout:
-            type: boolean
-            example: false
-          temporarySessionTimeout:
-            type: integer
-            example: 30
-          enforceUserSessionTimeout:
-            type: boolean
-            example: false
-          userSessionTimeout:
-            type: integer
-            example: 30
-          prestageMinimumOsTargetVersionTypeIos:
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property,asc/desc. Default sort order is descending. Multiple sort criteria are supported and must be entered on separate lines in Swagger UI. In the URI the ''sort'' query param is duplicated for each sort criterion, e.g., ...&sort=name%2Casc&sort=date%2Cdesc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
               type: string
-              enum:
-                  - NO_ENFORCEMENT
-                  - MINIMUM_OS_LATEST_VERSION
-                  - MINIMUM_OS_LATEST_MAJOR_VERSION
-                  - MINIMUM_OS_LATEST_MINOR_VERSION
-                  - MINIMUM_OS_SPECIFIC_VERSION
-              example: MINIMUM_OS_LATEST_VERSION
-              nullable: false
-          minimumOsSpecificVersionIos:
-              type: string
-              example: 17.1
-              nullable: false
-              minLength: 0
-          prestageMinimumOsTargetVersionTypeIpad:
-              type: string
-              enum:
-                  - NO_ENFORCEMENT
-                  - MINIMUM_OS_LATEST_VERSION
-                  - MINIMUM_OS_LATEST_MAJOR_VERSION
-                  - MINIMUM_OS_LATEST_MINOR_VERSION
-                  - MINIMUM_OS_SPECIFIC_VERSION
-              example: MINIMUM_OS_LATEST_VERSION
-              nullable: false
-          minimumOsSpecificVersionIpad:
-              type: string
-              example: 17.1
-              nullable: false
-              minLength: 0
-          rtsEnabled:
-            type: boolean
-            example: false
-          rtsConfigProfileId:
-              type: string
-              example: 1
-          preserveManagedApps:
-            type: boolean
-            example: false
-            description: "Controls whether managed apps are preserved during Return to Service operations."
-          installAppsDuringEnrollment:
-            type: boolean
-            example: true
-            description: "Controls whether apps are installed during the enrollment process."
-          doNotUseProfileFromBackup:
-            type: boolean
-            example: true
-            description: "If true, the device does not use the profile when it restores a backup. Default is false. Available in iOS 26 and later, and visionOS 26 and later; otherwise ignored by devices."
-        required:
-          - allowPairing
-          - multiUser
-          - supervised
-          - maximumSharedAccounts
-          - configureDeviceBeforeSetupAssistant
-          - sendTimezone
-          - timezone
-          - storageQuotaSizeMegabytes
-          - useStorageQuotaSize
-    GetMobileDevicePrestageV3:
-      allOf:
-      - $ref: '#/components/schemas/MobileDevicePrestageV3'
-      - type: object
-        properties:
-          id:
+            type: array
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of mobile device prestage history were found
+      summary: |
+        Get sorted and paged Mobile Device Prestage history objects
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Read Mobile Device PreStage Enrollments
+    post:
+      description: Adds mobile device prestage history object notes
+      parameters:
+        - description: Mobile Device Prestage identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            example: 1
-          profileUuid:
-            type: string
-            example: 29d-a8d8f-b8sdjndf-dsa9
-          siteId:
-            type: string
-            example: 5
-          versionLock:
-            type: integer
-            example: 0
-    PutMobileDevicePrestageV3:
-      allOf:
-      - $ref: '#/components/schemas/MobileDevicePrestageV3'
-      - type: object
-        properties:
-          versionLock:
-            type: integer
-            example: 0
-    MobileDevicePrestageSearchResultsV3:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/GetMobileDevicePrestageV3'
-    MobileDevicePrestageNamesV3:
-      type: object
-      properties:
-        assignNamesUsing:
-          type: string
-          example: List of Names
-        prestageDeviceNames:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDevicePrestageNameV3'
-        deviceNamePrefix:
-          type: string
-          example: prefix
-        deviceNameSuffix:
-          type: string
-          example: suffix
-        singleDeviceName:
-          type: string
-          example: name
-        manageNames:
-          type: boolean
-          example: true
-        deviceNamingConfigured:
-          type: boolean
-          example: true
-    MobileDevicePrestageNameV3:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        deviceName:
-          type: string
-          example: iPad
-        used:
-          type: boolean
-          example: false
-    FileAttachmentV3:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        name:
-          type: string
-          example: receipt.pdf
-    PrestageFileAttachmentV3:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        name:
-          type: string
-          example: receipt.pdf
-        fileType:
-          type: string
-          example: pdf
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History notes to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Notes of mobile deivce prestage history were added
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Mobile device prestage history can not be saved
+      summary: |
+        Add Mobile Device Prestage history object notes
+      tags:
+        - mobile-device-prestages
+      x-required-privileges:
+        - Update Mobile Device PreStage Enrollments
+servers:
+  - url: /api

@@ -1,293 +1,306 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - API Integrations
-  version: 0.0.1
-paths:
-  /v1/api-integrations:
-    post:
-      tags:
-          - api-integrations
-      summary: Create API integration object
-      operationId: postCreateApiIntegration
-      description: Create API integration object
-      requestBody:
-        description: api integration object to create
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/ApiIntegrationRequest'
-        required: true
-      responses:
-        201:
-          description: Api Integration object was created
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ApiIntegrationResponse'
-      x-required-privileges:
-          - Create API Integrations
-    get:
-        tags:
-            - api-integrations
-        description: Get Jamf|Pro API Integrations with Search Criteria
-        summary: Get the current API Integrations
-        parameters:
-            -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-            -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-            -   name: sort
-                in: query
-                description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                      is id:asc. Multiple sort criteria are supported and must be separated with
-                      a comma. Fields allowed in the query: id, displayName. Example: sort=displayName:desc'
-                explode: true
-                schema:
-                    type: array
-                    items:
-                        type: string
-                    default: [ id:asc ]
-            -   name: filter
-                in: query
-                description: 'Query in the RSQL format, allowing to filter app titles collection.
-                        Default filter is empty query - returning all results for the requested page.
-                        Fields allowed in the query: id, displayName.
-                        Example: displayName=="*IntegrationName*"'
-                schema:
-                    type: string
-                    default: ''
-        responses:
-            200:
-                description: A list of the current Jamf API Integrations
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/ApiIntegrationSearchResult'
-        x-required-privileges:
-            - Read API Integrations
-  /v1/api-integrations/{id}:
-    get:
-      tags:
-          - api-integrations
-      summary: Get specified API integration object
-      operationId: getOneApiIntegration
-      description: Gets specified API integration object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of api integration object
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Details of api integration object were found.
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ApiIntegrationResponse'
-        404:
-          description: Specified api integration object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read API Integrations
-    put:
-      tags:
-          - api-integrations
-      summary: Update specified API integration object
-      operationId: putUpdateApiIntegration
-      description: Update specified API integration object
-      parameters:
-      - name: id
-        in: path
-        description: instance id of api integration object
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: api object to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/ApiIntegrationRequest'
-        required: true
-      responses:
-        200:
-          description: Api Integration updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ApiIntegrationResponse'
-        400:
-          description: Api Integration could not be updated.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified api integration object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update API Integrations
-    delete:
-      tags:
-          - api-integrations
-      summary: Remove specified API integration
-      operationId: deleteApiIntegration
-      description: Removes specified API integration
-      parameters:
-      - name: id
-        in: path
-        description: instance id of api integration object
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Api Integration was deleted
-        404:
-          description: Specified api integration object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Delete API Integrations
-  /v1/api-integrations/{id}/client-credentials:
-    post:
-      tags:
-          - api-integrations
-      summary: Create client credentials for specified API integration
-      operationId: postCreateClientCredentials
-      description: Create client credentials for specified API integration
-      parameters:
-      - name: id
-        in: path
-        description: instance id of api integration object
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Client credentials have been created
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/OAuthClientCredentials'
-        400:
-          description: Client credentials could not be created for this api integration
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified api integration object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-          - Create API Integrations
-      x-action: true
 components:
   schemas:
-    ApiIntegrationResponse:
-      required:
-        - id
-        - displayName
-        - authorizationScopes
-        - enabled
-        - appType
-        - clientId
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        authorizationScopes:
-          type: array
-          example:
-            - Tootsie Roal
-            - Jamf Reset
-          items:
-              type: string
-        displayName:
-          type: string
-          example: My API Integration
-        enabled:
-          type: boolean
-          example: true
-        accessTokenLifetimeSeconds:
-          type: integer
-          example: 300
-        appType:
-            type: string
-            enum: [ "CLIENT_CREDENTIALS", "NATIVE_APP_OAUTH", "NONE" ]
-            example: "CLIENT_CREDENTIALS"
-            readOnly: true
-            description: >
-                Type of API Client:
-                    * `CLIENT_CREDENTIALS` - A client ID and secret have been generated for this integration.
-                    * `NATIVE_APP_OAUTH` - A native app (i.e., Jamf Reset) has been linked to this integration for auth code grant type via Managed App Config.
-                    * `NONE` - No client is currently associated with this integration.
-        clientId:
-            type: string
-            example: "538878d4-9744-43ed-8732-3df99d502bd6"
-            readOnly: true
     ApiIntegrationRequest:
-      required:
-        - displayName
-        - authorizationScopes
-      type: object
       properties:
+        accessTokenLifetimeSeconds:
+          example: 300
+          type: integer
         authorizationScopes:
-          type: array
-          items:
-              type: string
+          description: |
+            API Role display names.
           example:
             - Tootsie Roal
             - Jamf Reset
-          description: >
-              API Role display names.
+          items:
+            type: string
+          type: array
         displayName:
-          type: string
           example: My API Integration
+          type: string
         enabled:
-          type: boolean
           example: true
+          type: boolean
+      required:
+        - authorizationScopes
+        - displayName
+      type: object
+    ApiIntegrationResponse:
+      properties:
         accessTokenLifetimeSeconds:
-          type: integer
           example: 300
+          type: integer
+        appType:
+          description: |
+            Type of API Client:
+                * `CLIENT_CREDENTIALS` - A client ID and secret have been generated for this integration.
+                * `NATIVE_APP_OAUTH` - A native app (i.e., Jamf Reset) has been linked to this integration for auth code grant type via Managed App Config.
+                * `NONE` - No client is currently associated with this integration.
+          enum:
+            - CLIENT_CREDENTIALS
+            - NATIVE_APP_OAUTH
+            - NONE
+          example: CLIENT_CREDENTIALS
+          readOnly: true
+          type: string
+        authorizationScopes:
+          example:
+            - Tootsie Roal
+            - Jamf Reset
+          items:
+            type: string
+          type: array
+        clientId:
+          example: 538878d4-9744-43ed-8732-3df99d502bd6
+          readOnly: true
+          type: string
+        displayName:
+          example: My API Integration
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: 1
+          type: integer
+      required:
+        - appType
+        - authorizationScopes
+        - clientId
+        - displayName
+        - enabled
+        - id
+      type: object
+    ApiIntegrationSearchResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ApiIntegrationResponse'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          readOnly: true
+          type: integer
+      required:
+        - results
+        - totalCount
+      type: object
     OAuthClientCredentials:
+      properties:
+        clientId:
+          example: admin
+          type: string
+        clientSecret:
+          example: "12345"
+          type: string
       required:
         - clientId
         - clientSecret
       type: object
-      properties:
-        clientId:
-          type: string
-          example: admin
-        clientSecret:
-          type: string
-          example: 12345
-    ApiIntegrationSearchResult:
-        required:
-            - totalCount
-            - results
-        type: object
-        properties:
-            totalCount:
-                readOnly: true
-                type: integer
-                minimum: 0
-                example: 1
-            results:
-                type: array
-                minItems: 0
-                items:
-                    $ref: '#/components/schemas/ApiIntegrationResponse'
-
+info:
+  title: Jamf Pro API - ApiIntegrations
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/api-integrations:
+    get:
+      description: Get Jamf|Pro API Integrations with Search Criteria
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Fields allowed in the query: id, displayName. Example: sort=displayName:desc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, displayName. Example: displayName=="*IntegrationName*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationSearchResult'
+          description: A list of the current Jamf API Integrations
+      summary: Get the current API Integrations
+      tags:
+        - api-integrations
+      x-required-privileges:
+        - Read API Integrations
+    post:
+      description: Create API integration object
+      operationId: postCreateApiIntegration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiIntegrationRequest'
+        description: api integration object to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+          description: Api Integration object was created
+      summary: Create API integration object
+      tags:
+        - api-integrations
+      x-required-privileges:
+        - Create API Integrations
+  /v1/api-integrations/{id}:
+    delete:
+      description: Removes specified API integration
+      operationId: deleteApiIntegration
+      parameters:
+        - description: instance id of api integration object
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Api Integration was deleted
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified api integration object does not exist.
+      summary: Remove specified API integration
+      tags:
+        - api-integrations
+      x-required-privileges:
+        - Delete API Integrations
+    get:
+      description: Gets specified API integration object
+      operationId: getOneApiIntegration
+      parameters:
+        - description: instance id of api integration object
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+          description: Details of api integration object were found.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified api integration object does not exist.
+      summary: Get specified API integration object
+      tags:
+        - api-integrations
+      x-required-privileges:
+        - Read API Integrations
+    put:
+      description: Update specified API integration object
+      operationId: putUpdateApiIntegration
+      parameters:
+        - description: instance id of api integration object
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiIntegrationRequest'
+        description: api object to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiIntegrationResponse'
+          description: Api Integration updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Api Integration could not be updated.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified api integration object does not exist.
+      summary: Update specified API integration object
+      tags:
+        - api-integrations
+      x-required-privileges:
+        - Update API Integrations
+  /v1/api-integrations/{id}/client-credentials:
+    post:
+      description: Create client credentials for specified API integration
+      operationId: postCreateClientCredentials
+      parameters:
+        - description: instance id of api integration object
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthClientCredentials'
+          description: Client credentials have been created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Client credentials could not be created for this api integration
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified api integration object does not exist.
+      summary: Create client credentials for specified API integration
+      tags:
+        - api-integrations
+      x-action: true
+      x-required-privileges:
+        - Create API Integrations
+servers:
+  - url: /api

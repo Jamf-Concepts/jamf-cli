@@ -253,7 +253,7 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "categoryId": 1,
+  "categoryId": "1",
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
   "name": "Install Developer Utils Script",
@@ -351,7 +351,7 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "categoryId": 1,
+  "categoryId": "1",
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
   "name": "Install Developer Utils Script",
@@ -891,7 +891,7 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "categoryId": 1,
+  "categoryId": "1",
   "categoryName": "Developer Tools",
   "info": "Installs utilities for developers",
   "name": "Install Developer Utils Script",

@@ -1,440 +1,442 @@
-openapi: 3.0.3
-info:
-    title: Jamf Pro API - Distribution Points
-    version: 0.0.1
-servers:
-    - url: 'https'
-paths:
-    /v1/distribution-points:
-        get:
-            tags:
-                - distribution-point
-            summary: Finds all Distribution Points
-            description: Finds all Distribution Points
-            parameters:
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
-                    Default sort is id:asc.
-                    If using multiple criteria, separate with commas.
-                    Allows fields such as - name, serverName'
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ id:asc ]
-                -   name: filter
-                    in: query
-                    description: 'Filters results.
-                    Use RSQL format for query. Allows fields such as - name, serverName, 
-                    principal, fileSharingConnectionType, and httpsEnabled
-                    Can be combined with paging and sorting.
-                    Default filter is an empty query and returns all results from the requested page.'
-                    schema:
-                        type: string
-                        default: ''
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/DistributionPointSearchResults'
-            x-required-privileges:
-                - Read Distribution Points
-        post:
-            tags:
-                - distribution-point
-            summary: Create distribution point
-            description: Create distribution point
-            requestBody:
-                description: distribution point to be created
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/DistributionPoint'
-                required: true
-            responses:
-                201:
-                    description: distribution point was created
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-            x-required-privileges:
-                - Create Distribution Points
-
-    /v1/distribution-points/{id}:
-        get:
-            tags:
-                - distribution-point
-            summary: |
-                Get specified distribution point
-            description: |
-                Get specified distribution point
-            parameters:
-                - name: id
-                  in: path
-                  description: instance id of distribution point
-                  required: true
-                  schema:
-                      type:
-                          string
-            responses:
-                200:
-                    description: distribution point found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/DistributionPoint'
-                404:
-                    description: Specified distribution point could not be found
-                    content:
-                        'application/json':
-                             schema:
-                                 $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Distribution Points
-        put:
-            tags:
-                - distribution-point
-            summary: |
-                Update specified distribution point object
-            description: |
-                Update specified distribution point object
-            parameters:
-                -   name: id
-                    in: path
-                    description: Instance id of distribution point
-                    required: true
-                    schema:
-                        type: string
-            requestBody:
-                description: distribution point object to update. ids defined in this body will be ignored
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/DistributionPoint'
-                required: true
-            responses:
-                202:
-                    description: distribution point updated
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/DistributionPoint'
-            x-required-privileges:
-                - Read Distribution Points
-                - Update Distribution Points
-
-        patch:
-            tags:
-                - distribution-point
-            summary: |
-                Update specified distribution point object
-            description: |
-                Updates the specified object configuration of a File Share Distribution Point in Jamf Pro. ID path parameter is mandatory and other fields can be updated as a whole or with minimal object.
-            parameters:
-                - name: id
-                  in: path
-                  description: Instance id of distribution point
-                  required: true
-                  schema:
-                      type: string
-            requestBody:
-                description: distribution point object to update.
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/DistributionPoint'
-                required: true
-            responses:
-                202:
-                    description: distribution point updated
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/DistributionPoint'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: The specified distribution point id doesn't exist in database or invalid.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Distribution Points
-                - Update Distribution Points
-
-        delete:
-            tags:
-                - distribution-point
-            summary: |
-                Remove specified distribution point
-            description: |
-                Removes specified distribution point
-            parameters:
-                -   name: id
-                    in: path
-                    description: Instance id of distribution point
-                    required: true
-                    schema:
-                        type: string
-            responses:
-                204:
-                    description: distribution point deleted successfully
-            x-required-privileges:
-                - Delete Distribution Points
-    /v1/distribution-points/delete-multiple:
-        post:
-            tags:
-                - distribution-point
-            summary: Delete multiple distribution points at once
-            description: Delete multiple distribution points at once
-            requestBody:
-                description: ids of the distribution points to be deleted
-                content:
-                    'application/json':
-                        schema:
-                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
-                required: true
-            responses:
-                204:
-                    description: All specified distribution points deleted successfully
-                400:
-                    description: 'Returns error codes and ids for any distribution points that were unable to be deleted.
-                    Possible error codes include INVALID_ID (distribution point id does not exist) and SYSTEM_EXCEPTION (a system exception occurred while attempting to delete the distribution point).'
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Delete Distribution Points
-            x-action: true
-    /v1/distribution-points/{id}/history:
-        get:
-            tags:
-                - distribution-point
-            summary: |
-                Get specified distribution point History object
-            description: |
-                Gets specified distribution point history object
-            parameters:
-                -   name: id
-                    in: path
-                    description: Instance id of distribution point history
-                    required: true
-                    schema:
-                        type: string
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
-                    Default sort is id:asc.
-                    If using multiple criteria, separate with commas.'
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ date:desc ]
-                -   name: filter
-                    in: query
-                    description: 'Filters results.
-                    Use RSQL format for query.
-                    Allows for many fields, including id, name, etc.
-                    Can be combined with paging and sorting.
-                    Default filter is an empty query and returns all results from the requested page.'
-                    schema:
-                        type: string
-                        default: ''
-            responses:
-                200:
-                    description: Details of distribution point history were found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-                404:
-                    description: Specified distribution point history object could not be found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Distribution Points
-        post:
-            tags:
-                - distribution-point
-            summary: |
-                Add specified distribution point History object notes
-            description: |
-                Adds specified distribution point History object notes
-            parameters:
-                -   name: id
-                    in: path
-                    description: Instance id of distribution point history
-                    required: true
-                    schema:
-                        type: string
-            requestBody:
-                description: History note to be created
-                content:
-                    'application/json':
-                        schema:
-                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-                required: true
-            responses:
-                201:
-                    description: distribution point History note created successfully
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
-                404:
-                    description: distribution point History note could not be found
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                503:
-                    description: distribution point History note could not be saved
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Distribution Points
 components:
-    schemas:
-        DistributionPointSearchResults:
-            type: object
-            properties:
-                totalCount:
-                    type: integer
-                    example: 1
-                results:
-                    type: array
-                    minItems: 0
-                    items:
-                        $ref: '#/components/schemas/DistributionPoint'
-        DistributionPoint:
-            type: object
-            required:
-                - name
-                - serverName
-                - fileSharingConnectionType
-            properties:
-                id:
-                    type: string
-                    example: '1'
-                    readOnly: true
-                name:
-                    type: string
-                    example: 'My distribution point'
-                serverName:
-                    type: string
-                    example: 'My Server'
-                principal:
-                    type: boolean
-                    default: false
-                backupDistributionPointId:
-                    type: string
-                    default: '-1'
-                sshUsername:
-                    type: string
-                    example: 'john.doe'
-                sshPassword:
-                    type: string
-                    example: 'password'
-                    format: password
-                    writeOnly: true
-                localPathToShare:
-                    type: string
-                    example: '/'
-                fileSharingConnectionType:
-                    type: string
-                    description: Specify the type of connection , Either of  fileSharingConnectionType (or) https connection type needs to be enabled using httpsEnabled for a distribution point to be created.
-                    enum:
-                        - AFP
-                        - SMB
-                        - NONE
-                    example: AFP
-                    default: NONE
-                shareName:
-                    type: string
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    example: 'My Share'
-                workgroup:
-                    type: string
-                    example: 'WORKGROUP1'
-                port:
-                    type: integer
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    default: 139
-                readWriteUsername:
-                    type: string
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    example: 'john.doe'
-                readWritePassword:
-                    type: string
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    example: 'password'
-                    format: password
-                    writeOnly: true
-                readOnlyUsername:
-                    type: string
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    example: 'john.doe'
-                readOnlyPassword:
-                    type: string
-                    description: Required if fileSharingConnectionType is either AFP (or) SMB
-                    example: 'password'
-                    format: password
-                    writeOnly: true
-                httpsEnabled:
-                    type: boolean
-                    description: Allow downloads over HTTPS - requires installation of a valid SSL certificate
-                    default: false
-                httpsPort:
-                    type: integer
-                    description: Port number of the server - required if HTTPS enabled
-                    default: 443
-                httpsContext:
-                    type: string
-                    description: Path to the share (e.g. if the share is accessible at http://192.168.10.10/JamfShare, the context is "JamfShare") - required if HTTPS enabled
-                    example: 'JamfShare'
-                httpsSecurityType:
-                    type: string
-                    enum:
-                        - USERNAME_PASSWORD
-                        - NONE
-                    description: Type of authentication required to download files from the distribution point - required if HTTPS enabled
-                    default: NONE
-                httpsUsername:
-                    type: string
-                    description: Required if httpsSecurityType is USERNAME_PASSWORD
-                    example: 'admin'
-                httpsPassword:
-                    type: string
-                    format: password
-                    writeOnly: true
-                    description: Required if httpsSecurityType is USERNAME_PASSWORD
-                    example: 'password'
-                enableLoadBalancing:
-                    type: boolean
-                    default: false
-                    description: This is used to configure load balancing on the backup distribution point. Cannot be enabled when the backup distribution point configured is cloud.
-
-
-
-
+  schemas:
+    DistributionPoint:
+      properties:
+        backupDistributionPointId:
+          default: "-1"
+          type: string
+        enableLoadBalancing:
+          default: false
+          description: This is used to configure load balancing on the backup distribution point. Cannot be enabled when the backup distribution point configured is cloud.
+          type: boolean
+        fileSharingConnectionType:
+          default: NONE
+          description: Specify the type of connection , Either of  fileSharingConnectionType (or) https connection type needs to be enabled using httpsEnabled for a distribution point to be created.
+          enum:
+            - AFP
+            - SMB
+            - NONE
+          example: AFP
+          type: string
+        httpsContext:
+          description: Path to the share (e.g. if the share is accessible at http://192.168.10.10/JamfShare, the context is "JamfShare") - required if HTTPS enabled
+          example: JamfShare
+          type: string
+        httpsEnabled:
+          default: false
+          description: Allow downloads over HTTPS - requires installation of a valid SSL certificate
+          type: boolean
+        httpsPassword:
+          description: Required if httpsSecurityType is USERNAME_PASSWORD
+          example: password
+          format: password
+          type: string
+          writeOnly: true
+        httpsPort:
+          default: 443
+          description: Port number of the server - required if HTTPS enabled
+          type: integer
+        httpsSecurityType:
+          default: NONE
+          description: Type of authentication required to download files from the distribution point - required if HTTPS enabled
+          enum:
+            - USERNAME_PASSWORD
+            - NONE
+          type: string
+        httpsUsername:
+          description: Required if httpsSecurityType is USERNAME_PASSWORD
+          example: admin
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        localPathToShare:
+          example: /
+          type: string
+        name:
+          example: My distribution point
+          type: string
+        port:
+          default: 139
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          type: integer
+        principal:
+          default: false
+          type: boolean
+        readOnlyPassword:
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          example: password
+          format: password
+          type: string
+          writeOnly: true
+        readOnlyUsername:
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          example: john.doe
+          type: string
+        readWritePassword:
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          example: password
+          format: password
+          type: string
+          writeOnly: true
+        readWriteUsername:
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          example: john.doe
+          type: string
+        serverName:
+          example: My Server
+          type: string
+        shareName:
+          description: Required if fileSharingConnectionType is either AFP (or) SMB
+          example: My Share
+          type: string
+        sshPassword:
+          example: password
+          format: password
+          type: string
+          writeOnly: true
+        sshUsername:
+          example: john.doe
+          type: string
+        workgroup:
+          example: WORKGROUP1
+          type: string
+      required:
+        - fileSharingConnectionType
+        - name
+        - serverName
+      type: object
+    DistributionPointSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/DistributionPoint'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+info:
+  title: Jamf Pro API - DistributionPoint
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/distribution-points:
+    get:
+      description: Finds all Distribution Points
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc. Default sort is id:asc. If using multiple criteria, separate with commas. Allows fields such as - name, serverName
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: Filters results. Use RSQL format for query. Allows fields such as - name, serverName, principal, fileSharingConnectionType, and httpsEnabled Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionPointSearchResults'
+          description: Success
+      summary: Finds all Distribution Points
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Read Distribution Points
+    post:
+      description: Create distribution point
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistributionPoint'
+        description: distribution point to be created
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: distribution point was created
+      summary: Create distribution point
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Create Distribution Points
+  /v1/distribution-points/delete-multiple:
+    post:
+      description: Delete multiple distribution points at once
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: ids of the distribution points to be deleted
+        required: true
+      responses:
+        204:
+          description: All specified distribution points deleted successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Returns error codes and ids for any distribution points that were unable to be deleted. Possible error codes include INVALID_ID (distribution point id does not exist) and SYSTEM_EXCEPTION (a system exception occurred while attempting to delete the distribution point).
+      summary: Delete multiple distribution points at once
+      tags:
+        - distribution-point
+      x-action: true
+      x-required-privileges:
+        - Delete Distribution Points
+  /v1/distribution-points/{id}:
+    delete:
+      description: |
+        Removes specified distribution point
+      parameters:
+        - description: Instance id of distribution point
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: distribution point deleted successfully
+      summary: |
+        Remove specified distribution point
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Delete Distribution Points
+    get:
+      description: |
+        Get specified distribution point
+      parameters:
+        - description: instance id of distribution point
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionPoint'
+          description: distribution point found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified distribution point could not be found
+      summary: |
+        Get specified distribution point
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Read Distribution Points
+    patch:
+      description: |
+        Updates the specified object configuration of a File Share Distribution Point in Jamf Pro. ID path parameter is mandatory and other fields can be updated as a whole or with minimal object.
+      parameters:
+        - description: Instance id of distribution point
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistributionPoint'
+        description: distribution point object to update.
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionPoint'
+          description: distribution point updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The specified distribution point id doesn't exist in database or invalid.
+      summary: |
+        Update specified distribution point object
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Read Distribution Points
+        - Update Distribution Points
+    put:
+      description: |
+        Update specified distribution point object
+      parameters:
+        - description: Instance id of distribution point
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistributionPoint'
+        description: distribution point object to update. ids defined in this body will be ignored
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionPoint'
+          description: distribution point updated
+      summary: |
+        Update specified distribution point object
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Read Distribution Points
+        - Update Distribution Points
+  /v1/distribution-points/{id}/history:
+    get:
+      description: |
+        Gets specified distribution point history object
+      parameters:
+        - description: Instance id of distribution point history
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc. Default sort is id:asc. If using multiple criteria, separate with commas.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: Filters results. Use RSQL format for query. Allows for many fields, including id, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of distribution point history were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified distribution point history object could not be found
+      summary: |
+        Get specified distribution point History object
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Read Distribution Points
+    post:
+      description: |
+        Adds specified distribution point History object notes
+      parameters:
+        - description: Instance id of distribution point history
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History note to be created
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
+          description: distribution point History note created successfully
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: distribution point History note could not be found
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: distribution point History note could not be saved
+      summary: |
+        Add specified distribution point History object notes
+      tags:
+        - distribution-point
+      x-required-privileges:
+        - Update Distribution Points
+servers:
+  - url: /api

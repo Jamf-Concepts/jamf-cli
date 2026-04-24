@@ -1,36 +1,38 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - OAuth session tokens
-    version: 0.0.1
-paths:
-    /v1/oauth2/session-tokens:
-        get:
-            tags:
-                - sso-oauth-session-tokens
-            summary: |
-                Retrieve the access token and user information for the current session.
-            description: Retrieve the access token and user information for the current session.
-            responses:
-                200:
-                    description: Successful response
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/OauthTokens'
-                400:
-                    description: Unable to retrieve tokens
-            x-authentication-required: true
 components:
-    schemas:
-        OauthTokens:
-            type: object
-            nullable: false
-            properties:
-                accessToken:
-                    type: string
-                    nullable: false
-                    example: eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImEyNDc2MmUwOTc1NDllMzIzZTVlYzY5OGE2Zjk0NjZiIn0.eyJodHRwczovL2V4YW1wbGUuY29tL2xhbmd1YWdlIjoiZW5fVVMiLCJodHRwczovL2V4YW1wbGUuY29tL3RpbWV6b25lIjoiRXVyb3BlL1dhcnNhdyIsImh0dHBzOi8vZXhhbXBsZS5jb20vY29ubmVjdGlvbl9uYW1lIjoiVGVzdC1hc2ZhZGZzZ3NkZmh5NjV6dHgzd3BnM2xiY28iLCJodHRwczovL2V4YW1wbGUuY29tL2lzX2phbWZfZW1wbG95ZWUiOmZhbHNlLCJpc3MiOiJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS8iLCJzdWIiOiJvaWRjfFRlc3QtYXNmYWRmc2dzZGZoeTY1enR4M3dwZzNsYmNvfDRwM3ItRkl4THVBREZydGRnYTM0ZGZTU29Xc0hFRUhhayIsImF1ZCI6WyJodHRwOi8vZXhhbXBsZS5jb20iLCJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3MTUxOTM2NjYsImV4cCI6MTcxNTI4MDA2Niwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsImF6cCI6Ikh4ZVVqdDkxanFldHRXRXphck5nazBnbjdtWHYxbHBCUSJ9.D230129dYtmQLPYeZxKD2gBz9M3MA-8xpOg1IHMNpYgoK_zQLMwpNdWqdWO7xGPj2vc8xZOT6h0sY6pre15s_g
-                idToken:
-                    type: string
-                    nullable: false
-                    example: eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6Ijg2YmY4MzVkOWM2NWM5Yzg3YzY0MmEyMGIzZjQzYzdkIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9jb250YWN0X2lkIjoiMDAzVkUwMDAwMEF2VFFvWUFOIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9hY2NvdW50X2lkIjoiMDAxOEowMDAwMEZCbzF1UUFEIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9zdXBwb3J0X3BsYW4iOiJTdGFuZGFyZCIsImh0dHBzOi8vZXhhbXBsZS5jb20vY3JtX3JvbGUiOiJVbmtub3duIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9maXJzdF9uYW1lIjoiV29ya2VyIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9sYXN0X25hbWUiOiIxIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9jb250YWN0X25hbWUiOiJVc2VyIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9sYW5ndWFnZSI6ImVuX1VTIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS90aW1lem9uZSI6IkV1cm9wZS9XYXJzYXciLCJodHRwczovL2V4YW1wbGUuY29tL2Nvbm5lY3Rpb25fbmFtZSI6IlRlc3RFbnYtNmRkb242dGFnaG9wZmQ1NnNkZzV6dHgzd3BnM2xiY28iLCJodHRwczovL2V4YW1wbGUuY29tL2lzX2phbWZfZW1wbG95ZWUiOmZhbHNlLCJuaWNrbmFtZSI6InVzZXItMSIsIm5hbWUiOiJVc2VyIiwicGljdHVyZSI6Imh0dHBzOi8vcy5ncmF2YXRhci5jb20vYXZhdGFyL3ZhdGFycyUyRncxLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDI0LTA1LTE1VDE2OjEwOjI2LjUyMloiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJpc3MiOiJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS8iLCJhdWQiOiJIYXNkZnJ0NDM1MzRzZGZzYWFkZmZyNTQiLCJpYXQiOjE3MTU3ODk0MzcsImV4cCI6MTcxNTgyNTQzNywic3ViIjoib2lkY3xUZXN0RW52LTZkZG9uNnRhZ2hvcGZkNTZzZGc1enR4M3dwZzNsYmNvfDRwM3ItRkl4THVkYlRCLXNhZGZhbGtqNTM0c2RzZjM0NTU0MyIsInNpZCI6IjNLbnk5dTNPa2tGSEFTRDU1NXMxVDl1MENyX1ZVIiwibm9uY2UiOiJwUzBGcFR3NHBUWnMzRzVDQ0NkNE9hWFdTSXBUN0hWMmZ6SHF3cERWRWMifQ.e30.N2sF3wD4cHMnoi667YFNPK7u7UfOnxdbt7cZPPF3JJUw_UDeOhS5r7O6fyaQVD0VowLukQILVb_PdnxayNKYrg
+  schemas:
+    OauthTokens:
+      nullable: false
+      properties:
+        accessToken:
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImEyNDc2MmUwOTc1NDllMzIzZTVlYzY5OGE2Zjk0NjZiIn0.eyJodHRwczovL2V4YW1wbGUuY29tL2xhbmd1YWdlIjoiZW5fVVMiLCJodHRwczovL2V4YW1wbGUuY29tL3RpbWV6b25lIjoiRXVyb3BlL1dhcnNhdyIsImh0dHBzOi8vZXhhbXBsZS5jb20vY29ubmVjdGlvbl9uYW1lIjoiVGVzdC1hc2ZhZGZzZ3NkZmh5NjV6dHgzd3BnM2xiY28iLCJodHRwczovL2V4YW1wbGUuY29tL2lzX2phbWZfZW1wbG95ZWUiOmZhbHNlLCJpc3MiOiJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS8iLCJzdWIiOiJvaWRjfFRlc3QtYXNmYWRmc2dzZGZoeTY1enR4M3dwZzNsYmNvfDRwM3ItRkl4THVBREZydGRnYTM0ZGZTU29Xc0hFRUhhayIsImF1ZCI6WyJodHRwOi8vZXhhbXBsZS5jb20iLCJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3MTUxOTM2NjYsImV4cCI6MTcxNTI4MDA2Niwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsImF6cCI6Ikh4ZVVqdDkxanFldHRXRXphck5nazBnbjdtWHYxbHBCUSJ9.D230129dYtmQLPYeZxKD2gBz9M3MA-8xpOg1IHMNpYgoK_zQLMwpNdWqdWO7xGPj2vc8xZOT6h0sY6pre15s_g
+          nullable: false
+          type: string
+        idToken:
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6Ijg2YmY4MzVkOWM2NWM5Yzg3YzY0MmEyMGIzZjQzYzdkIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9jb250YWN0X2lkIjoiMDAzVkUwMDAwMEF2VFFvWUFOIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9hY2NvdW50X2lkIjoiMDAxOEowMDAwMEZCbzF1UUFEIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9zdXBwb3J0X3BsYW4iOiJTdGFuZGFyZCIsImh0dHBzOi8vZXhhbXBsZS5jb20vY3JtX3JvbGUiOiJVbmtub3duIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9maXJzdF9uYW1lIjoiV29ya2VyIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9sYXN0X25hbWUiOiIxIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9jb250YWN0X25hbWUiOiJVc2VyIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS9sYW5ndWFnZSI6ImVuX1VTIiwiaHR0cHM6Ly9leGFtcGxlLmNvbS90aW1lem9uZSI6IkV1cm9wZS9XYXJzYXciLCJodHRwczovL2V4YW1wbGUuY29tL2Nvbm5lY3Rpb25fbmFtZSI6IlRlc3RFbnYtNmRkb242dGFnaG9wZmQ1NnNkZzV6dHgzd3BnM2xiY28iLCJodHRwczovL2V4YW1wbGUuY29tL2lzX2phbWZfZW1wbG95ZWUiOmZhbHNlLCJuaWNrbmFtZSI6InVzZXItMSIsIm5hbWUiOiJVc2VyIiwicGljdHVyZSI6Imh0dHBzOi8vcy5ncmF2YXRhci5jb20vYXZhdGFyL3ZhdGFycyUyRncxLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDI0LTA1LTE1VDE2OjEwOjI2LjUyMloiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJpc3MiOiJodHRwczovL3Rlc3QuZW52LmF1dGgwLmNvbS8iLCJhdWQiOiJIYXNkZnJ0NDM1MzRzZGZzYWFkZmZyNTQiLCJpYXQiOjE3MTU3ODk0MzcsImV4cCI6MTcxNTgyNTQzNywic3ViIjoib2lkY3xUZXN0RW52LTZkZG9uNnRhZ2hvcGZkNTZzZGc1enR4M3dwZzNsYmNvfDRwM3ItRkl4THVkYlRCLXNhZGZhbGtqNTM0c2RzZjM0NTU0MyIsInNpZCI6IjNLbnk5dTNPa2tGSEFTRDU1NXMxVDl1MENyX1ZVIiwibm9uY2UiOiJwUzBGcFR3NHBUWnMzRzVDQ0NkNE9hWFdTSXBUN0hWMmZ6SHF3cERWRWMifQ.e30.N2sF3wD4cHMnoi667YFNPK7u7UfOnxdbt7cZPPF3JJUw_UDeOhS5r7O6fyaQVD0VowLukQILVb_PdnxayNKYrg
+          nullable: false
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - OauthTokenSession
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/oauth2/session-tokens:
+    get:
+      description: Retrieve the access token and user information for the current session.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OauthTokens'
+          description: Successful response
+        400:
+          description: Unable to retrieve tokens
+      summary: |
+        Retrieve the access token and user information for the current session.
+      tags:
+        - sso-oauth-session-tokens
+      x-authentication-required: true
+servers:
+  - url: /api

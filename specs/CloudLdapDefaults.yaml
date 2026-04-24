@@ -1,79 +1,81 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Defaults for Cloud Identity Provider
+  title: Jamf Pro API - CloudLdapDefaults
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/cloud-ldaps/defaults/{provider}/mappings:
     get:
-      tags:
-        - cloud-ldap
-      summary: Get default mappings
-      description: Get default mappings for Cloud Identity Provider
-        Provider.
+      description: Get default mappings for Cloud Identity Provider Provider.
       parameters:
-        - name: provider
-          in: path
-          required: true
-          description: Cloud Identity Provider name
+        - description: Cloud Identity Provider name
           example: google
+          explode: false
+          in: path
+          name: provider
+          required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapMappingsResponse
           description: Default mappings returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapMappingsResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Files cannot be loaded.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: The provider name in the URL is invalid or not supported.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The provider name in the URL is invalid or not supported.
+      summary: Get default mappings
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Read LDAP Servers
   /v2/cloud-ldaps/defaults/{provider}/server-configuration:
     get:
-      tags:
-        - cloud-ldap
-      summary: Get default server configuration
-      description: Get default server configuration for Cloud Identity Provider
-        Identity Provider.
+      description: Get default server configuration for Cloud Identity Provider Identity Provider.
       parameters:
-        - name: provider
-          in: path
-          required: true
-          description: Cloud Identity Provider name
+        - description: Cloud Identity Provider name
           example: google
+          explode: false
+          in: path
+          name: provider
+          required: true
           schema:
             type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/CloudLdapServerResponse
           description: Default server configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/CloudLdapServerResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Default server configuration cannot be loaded.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: The provider name in the URL is invalid or not supported.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The provider name in the URL is invalid or not supported.
+      summary: Get default server configuration
+      tags:
+        - cloud-ldap
       x-required-privileges:
         - Read LDAP Servers
-components:
-  schemas: {}
+servers:
+  - url: /api

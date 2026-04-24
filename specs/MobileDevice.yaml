@@ -1,408 +1,36 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - mobiledevice
-  version: 0.0.1/
-paths:
-  /v2/mobile-devices:
-    get:
-      tags:
-        - mobile-devices
-      summary: |
-        Get Mobile Device objects
-      description: |
-        Gets Mobile Device objects.
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                is id:asc. Multiple sort criteria are supported and must be separated with
-                a comma. Example: sort=date:desc,name:asc '
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [ id:asc ]
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceSearchResultsV2'
-      x-required-privileges:
-        - Read Mobile Devices
-  /v2/mobile-devices/{id}:
-    get:
-      tags:
-        - mobile-devices
-      summary: |
-        Get Mobile Device
-      description: Get MobileDevice
-      parameters:
-        - name: id
-          in: path
-          description: instance id of mobile device record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceV2'
-        404:
-          description: Specified mobile device object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Mobile Devices
-    patch:
-      tags:
-        - mobile-devices
-      description: Updates fields on a mobile device that are allowed to be modified
-        by users.
-      summary: |
-        Update fields on a mobile device that are allowed to be modified by users
-      parameters:
-        - name: id
-          in: path
-          description: instance id of mobile device record
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/UpdateMobileDeviceV2'
-        required: true
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/MobileDeviceDetailsV2'
-        403:
-          description: Account not allowed to modify device
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: Specified mobile device object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Mobile Devices
-  /v2/mobile-devices/{id}/detail:
-    get:
-      tags:
-        - mobile-devices
-      summary: |
-        Get Mobile Device
-      description: Get MobileDevice
-      parameters:
-        - name: id
-          in: path
-          description: instance id of mobile device record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/MobileDeviceDetailsGetV2'
-        404:
-          description: Specified mobile device object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Mobile Devices
 components:
   schemas:
-    MobileDeviceCertificateV2:
-      type: object
-      properties:
-        commonName:
-          type: string
-          example: 3B259E4B-FAD5-4860-B1DD-336ADA786EBA
-        identity:
-          type: boolean
-          example: false
-        expirationDateEpoch:
-          type: string
-          format: date-time
-          example: 2030-10-31T18:04:13Z
-        subjectName:
-          type: string
-          example: CN=Fleet Docker Jamf Pro JSS Built-in Certificate Authority
-        serialNumber:
-          type: string
-          example: 5c28fdae
-        sha1Fingerprint:
-          type: string
-          example: 050cfe8ec9d170be7bf8f1a3cac2c52f3c6ddb20
-        issuedDateEpoch:
-          type: string
-          example: 2022-05-23T14:54:10Z
-        certificateStatus:
-          type: string
-          enum:
-            - EXPIRING
-            - EXPIRED
-            - REVOKED
-            - PENDING_REVOKE
-            - ISSUED
-          example: ISSUED
-        lifecycleStatus:
-          type: string
-          enum:
-            - ACTIVE
-            - INACTIVE
-          example: ACTIVE
-    MobileDeviceApplication:
-      type: object
-      properties:
-        identifier:
-          type: string
-          example: com.apple.airport.mobileairportutility
-        name:
-          type: string
-          example: AirPort Utility
-        version:
-          type: string
-          example: "135.24"
-        shortVersion:
-          type: string
-          example: "7.0"
     ConfigurationProfile:
-      type: object
       properties:
         displayName:
-          type: string
           example: Test WiFi
-        version:
           type: string
-          example: "1"
-        uuid:
-          type: string
-          example: D29DD9FB-0D5B-422F-A3A2-ABBC5848E949
         identifier:
-          type: string
           example: ac2-server4.D0EFAC2D-326C-4BB6-87E6-2BCB88490AAA
-    #################---V2----###############
-    MobileDeviceDetailsV2:
+          type: string
+        uuid:
+          example: D29DD9FB-0D5B-422F-A3A2-ABBC5848E949
+          type: string
+        version:
+          example: "1"
+          type: string
       type: object
-      properties:
-        id:
-          type: string
-          readOnly: true
-          example: 1
-        name:
-          type: string
-          description: Mobile device name.
-          example: Jon's iPad
-        enforceName:
-          type: boolean
-          description: Enforce the mobile device name. Device must be supervised. If set to true, Jamf Pro will revert the Mobile Device Name to the ‘name’ value each time the device checks in.
-          example: false
-        assetTag:
-          type: string
-          example: "12345"
-        lastInventoryUpdateTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56Z
-        osVersion:
-          type: string
-          example: "11.4"
-        osBuild:
-          type: string
-          example: 15F79
-        osSupplementalBuildVersion:
-          type: string
-          example: 20B101
-          description: Collected for iOS 16 and iPadOS 16.1 or later
-        osRapidSecurityResponse:
-          type: string
-          example: (a)
-          description: Collected for iOS 16 and iPadOS 16.1 or later
-        softwareUpdateDeviceId:
-          type: string
-          example: J132AP
-        serialNumber:
-          type: string
-          example: DMQVGC0DHLF0
-        udid:
-          type: string
-          example: 0dad565fb40b010a9e490440188063a378721069
-        ipAddress:
-          type: string
-          example: 10.0.0.1
-        wifiMacAddress:
-          type: string
-          example: ee:00:7c:f0:e5:ff
-        bluetoothMacAddress:
-          type: string
-          example: ee:00:7c:f0:e5:aa
-        managed:
-          type: boolean
-          example: true
-        timeZone:
-          type: string
-          example: Europe/Warsaw
-        initialEntryTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        lastEnrollmentTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        mdmProfileExpirationTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        deviceOwnershipLevel:
-          type: string
-          example: institutional
-        enrollmentMethod:
-          type: string
-          example: User-initiated - no invitation
-        enrollmentSessionTokenValid:
-          type: boolean
-          example: false
-        declarativeDeviceManagementEnabled:
-          type: boolean
-          example: true
-        site:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/V1Site'
-        extensionAttributes:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExtensionAttributeV2'
-        location:
-          $ref: '#/components/schemas/LocationV2'
-        type:
-          type: string
-          description: Based on the value of this either iOS, tvOS, watch or visionOS objects
-            will be populated.
-          example: ios
-          enum:
-            - ios
-            - tvos
-            - watchos
-            - visionos
-            - unknown
-        ios:
-          $ref: '#/components/schemas/DetailsV2'
-        tvos:
-          $ref: '#/components/schemas/TvOsDetails'
-        watchos:
-          $ref: '#/components/schemas/WatchOsDetailsV2'
-        visionos:
-          $ref: '#/components/schemas/DetailsV2'
-    MobileDeviceDetailsGetV2:
-      allOf:
-        - $ref: '#/components/schemas/MobileDeviceDetailsV2'
-        - type: object
-          properties:
-            managementId:
-              type: string
-              example: 73226fb6-61df-4c10-9552-eb9bc353d507
-              readOnly: true
-            groups:
-              type: array
-              items:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceInventoryGroup'
-    ExtensionAttributeV2:
-      type: object
-      properties:
-        id:
-          type: string
-          readOnly: true
-          example: 1
-        name:
-          type: string
-          example: Example EA
-        type:
-          type: string
-          example: STRING
-          enum:
-            - STRING
-            - INTEGER
-            - DATE
-        value:
-          type: array
-          items:
-            type: string
-            example: EA Value
-        extensionAttributeCollectionAllowed:
-          type: boolean
-          example: false
-    LocationV2:
-      type: object
-      properties:
-        username:
-          type: string
-          example: admin
-        realName:
-          type: string
-          example: IT Bob
-        emailAddress:
-          type: string
-          example: ITBob@jamf.com
-        position:
-          type: string
-          example: IT Team Lead
-        phoneNumber:
-          type: string
-          example: 555-555-5555
-        departmentId:
-          type: string
-          example: 1
-        buildingId:
-          type: string
-          example: 1
-        room:
-          type: string
-          example: 4th Floor - Quad 3
     DetailsV2:
-      type: object
+      description: will be populated if the type is ios or visionos.
       properties:
-        model:
-          type: string
-          example: iPad 5th Generation (Wi-Fi)
-        modelIdentifier:
-          type: string
-          example: ipad6,11
-        modelNumber:
-          type: string
-          example: MP2F2LL
-        supervised:
-          type: boolean
-          example: true
-        batteryLevel:
+        applications:
+          items:
+            $ref: '#/components/schemas/MobileDeviceApplication'
+          type: array
+        attachments:
+          items:
+            $ref: '#/components/schemas/MobileDeviceAttachmentV2'
+          type: array
+        availableMb:
+          example: 26646
           type: integer
-          example: 100
         batteryHealth:
-          type: string
+          default: UNKNOWN
           description: |
             - NON_GENUINE: The battery isn’t a genuine Apple battery.
             - NORMAL: The battery is operating normally.
@@ -415,236 +43,528 @@ components:
             - SERVICE_RECOMMENDED
             - UNKNOWN
             - UNSUPPORTED
-          default: UNKNOWN
-        lastBackupTimestamp:
           type: string
-          format: date-time
-          example: 2018-10-15T16:39:56Z
-        capacityMb:
+        batteryLevel:
+          example: 100
           type: integer
-          example: 27503
-        availableMb:
-          type: integer
-          example: 26646
-        percentageUsed:
-          type: integer
-          example: 3
-        shared:
-          type: boolean
-          example: false
-        deviceLocatorServiceEnabled:
-          type: boolean
-          example: false
-        doNotDisturbEnabled:
-          type: boolean
-          example: false
-        cloudBackupEnabled:
-          type: boolean
-          example: false
-        lastCloudBackupTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        locationServicesEnabled:
-          type: boolean
-          example: false
-        iTunesStoreAccountActive:
-          type: boolean
-          example: false
         bleCapable:
-          type: boolean
           example: false
-        unlockToken:
-          type: string
-          example: VU5MT0NLVE9LRU4=
+          type: boolean
+        capacityMb:
+          example: 27503
+          type: integer
+        certificates:
+          items:
+            $ref: '#/components/schemas/MobileDeviceCertificateV2'
+          type: array
+        cloudBackupEnabled:
+          example: false
+          type: boolean
         computer:
-          $ref: 'DefinitionsLibrary.yaml#/components/schemas/IdAndNameV2'
+          $ref: '#/components/schemas/IdAndNameV2'
+        configurationProfiles:
+          items:
+            $ref: '#/components/schemas/ConfigurationProfile'
+          type: array
+        deviceLocatorServiceEnabled:
+          example: false
+          type: boolean
+        doNotDisturbEnabled:
+          example: false
+          type: boolean
+        ebooks:
+          items:
+            $ref: '#/components/schemas/MobileDeviceEbook'
+          type: array
+        iTunesStoreAccountActive:
+          example: false
+          type: boolean
+        lastBackupTimestamp:
+          example: "2018-10-15T16:39:56Z"
+          format: date-time
+          type: string
+        lastCloudBackupTimestamp:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        locationServicesEnabled:
+          example: false
+          type: boolean
+        mdmCapableUsers:
+          items:
+            $ref: '#/components/schemas/MobileDeviceMdmCapableUser'
+          type: array
+        model:
+          example: iPad 5th Generation (Wi-Fi)
+          type: string
+        modelIdentifier:
+          example: ipad6,11
+          type: string
+        modelNumber:
+          example: MP2F2LL
+          type: string
+        network:
+          $ref: '#/components/schemas/NetworkV2'
+        percentageUsed:
+          example: 3
+          type: integer
+        provisioningProfiles:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles
+          type: array
         purchasing:
           $ref: '#/components/schemas/PurchasingV2'
         security:
           $ref: '#/components/schemas/SecurityV2'
-        network:
-          $ref: '#/components/schemas/NetworkV2'
         serviceSubscriptions:
-          type: array
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceServiceSubscriptions'
-        applications:
+            $ref: _MonolithLibrary.yaml#/components/schemas/MobileDeviceServiceSubscriptions
           type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceApplication'
-        certificates:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceCertificateV2'
-        ebooks:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceEbook'
-        mdmCapableUsers:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceMdmCapableUser'
-        configurationProfiles:
-          type: array
-          items:
-            $ref: '#/components/schemas/ConfigurationProfile'
-        provisioningProfiles:
-          type: array
-          items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles'
-        attachments:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceAttachmentV2'
-      description: will be populated if the type is ios or visionos.
-    MobileDeviceAttachmentV2:
+        shared:
+          example: false
+          type: boolean
+        supervised:
+          example: true
+          type: boolean
+        unlockToken:
+          example: VU5MT0NLVE9LRU4=
+          type: string
       type: object
+    ExtensionAttributeV2:
       properties:
-        name:
-          type: string
-          example: Bob's Attachment
+        extensionAttributeCollectionAllowed:
+          example: false
+          type: boolean
         id:
-          type: string
+          example: "1"
           readOnly: true
-          example: 1
-    MobileDeviceEbook:
+          type: string
+        name:
+          example: Example EA
+          type: string
+        type:
+          enum:
+            - STRING
+            - INTEGER
+            - DATE
+          example: STRING
+          type: string
+        value:
+          items:
+            example: EA Value
+            type: string
+          type: array
       type: object
+    IdAndNameV2:
+      properties:
+        id:
+          example: "1"
+          type: string
+        name:
+          example: A name
+          type: string
+      type: object
+    LocationV2:
+      properties:
+        buildingId:
+          example: "1"
+          type: string
+        departmentId:
+          example: "1"
+          type: string
+        emailAddress:
+          example: ITBob@jamf.com
+          type: string
+        phoneNumber:
+          example: 555-555-5555
+          type: string
+        position:
+          example: IT Team Lead
+          type: string
+        realName:
+          example: IT Bob
+          type: string
+        room:
+          example: 4th Floor - Quad 3
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    MobileDeviceApplication:
+      properties:
+        identifier:
+          example: com.apple.airport.mobileairportutility
+          type: string
+        name:
+          example: AirPort Utility
+          type: string
+        shortVersion:
+          example: "7.0"
+          type: string
+        version:
+          example: "135.24"
+          type: string
+      type: object
+    MobileDeviceAttachmentV2:
+      properties:
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          example: Bob's Attachment
+          type: string
+      type: object
+    MobileDeviceCertificateV2:
+      properties:
+        certificateStatus:
+          enum:
+            - EXPIRING
+            - EXPIRED
+            - REVOKED
+            - PENDING_REVOKE
+            - ISSUED
+          example: ISSUED
+          type: string
+        commonName:
+          example: 3B259E4B-FAD5-4860-B1DD-336ADA786EBA
+          type: string
+        expirationDateEpoch:
+          example: "2030-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        identity:
+          example: false
+          type: boolean
+        issuedDateEpoch:
+          example: "2022-05-23T14:54:10Z"
+          type: string
+        lifecycleStatus:
+          enum:
+            - ACTIVE
+            - INACTIVE
+          example: ACTIVE
+          type: string
+        serialNumber:
+          example: 5c28fdae
+          type: string
+        sha1Fingerprint:
+          example: 050cfe8ec9d170be7bf8f1a3cac2c52f3c6ddb20
+          type: string
+        subjectName:
+          example: CN=Fleet Docker Jamf Pro JSS Built-in Certificate Authority
+          type: string
+      type: object
+    MobileDeviceDetailsGetV2:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceDetailsV2'
+        - properties:
+            groups:
+              items:
+                $ref: _MonolithLibrary.yaml#/components/schemas/MobileDeviceInventoryGroup
+              type: array
+            managementId:
+              example: 73226fb6-61df-4c10-9552-eb9bc353d507
+              readOnly: true
+              type: string
+          type: object
+    MobileDeviceDetailsV2:
+      properties:
+        assetTag:
+          example: "12345"
+          type: string
+        bluetoothMacAddress:
+          example: ee:00:7c:f0:e5:aa
+          type: string
+        declarativeDeviceManagementEnabled:
+          example: true
+          type: boolean
+        deviceOwnershipLevel:
+          example: institutional
+          type: string
+        enforceName:
+          description: Enforce the mobile device name. Device must be supervised. If set to true, Jamf Pro will revert the Mobile Device Name to the ‘name’ value each time the device checks in.
+          example: false
+          type: boolean
+        enrollmentMethod:
+          example: User-initiated - no invitation
+          type: string
+        enrollmentSessionTokenValid:
+          example: false
+          type: boolean
+        extensionAttributes:
+          items:
+            $ref: '#/components/schemas/ExtensionAttributeV2'
+          type: array
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        initialEntryTimestamp:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        ios:
+          $ref: '#/components/schemas/DetailsV2'
+        ipAddress:
+          example: 10.0.0.1
+          type: string
+        lastEnrollmentTimestamp:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        lastInventoryUpdateTimestamp:
+          example: "2018-10-15T16:39:56Z"
+          format: date-time
+          type: string
+        location:
+          $ref: '#/components/schemas/LocationV2'
+        managed:
+          example: true
+          type: boolean
+        mdmProfileExpirationTimestamp:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        name:
+          description: Mobile device name.
+          example: Jon's iPad
+          type: string
+        osBuild:
+          example: 15F79
+          type: string
+        osRapidSecurityResponse:
+          description: Collected for iOS 16 and iPadOS 16.1 or later
+          example: (a)
+          type: string
+        osSupplementalBuildVersion:
+          description: Collected for iOS 16 and iPadOS 16.1 or later
+          example: 20B101
+          type: string
+        osVersion:
+          example: "11.4"
+          type: string
+        serialNumber:
+          example: DMQVGC0DHLF0
+          type: string
+        site:
+          $ref: _MonolithLibrary.yaml#/components/schemas/V1SiteBase
+        softwareUpdateDeviceId:
+          example: J132AP
+          type: string
+        timeZone:
+          example: Europe/Warsaw
+          type: string
+        tvos:
+          $ref: '#/components/schemas/TvOsDetails'
+        type:
+          description: Based on the value of this either iOS, tvOS, watch or visionOS objects will be populated.
+          enum:
+            - ios
+            - tvos
+            - watchos
+            - visionos
+            - unknown
+          example: ios
+          type: string
+        udid:
+          example: 0dad565fb40b010a9e490440188063a378721069
+          type: string
+        visionos:
+          $ref: '#/components/schemas/DetailsV2'
+        watchos:
+          $ref: '#/components/schemas/WatchOsDetailsV2'
+        wifiMacAddress:
+          example: ee:00:7c:f0:e5:ff
+          type: string
+      type: object
+    MobileDeviceEbook:
       properties:
         author:
-          type: string
           example: Homer J Simpson
+          type: string
         title:
-          type: string
           example: The Odyssey
+          type: string
         version:
-          type: string
           example: "0.1"
+          type: string
+      type: object
     MobileDeviceMdmCapableUser:
-      type: object
       properties:
-        userShortName:
-          type: string
-          example: "testUser"
         managementId:
+          example: 8835fe1c-eb9d-42e5-8277-f708ae011a9d
           type: string
-          example: "8835fe1c-eb9d-42e5-8277-f708ae011a9d"
-    TvOsDetails:
+        userShortName:
+          example: testUser
+          type: string
       type: object
+    MobileDeviceSearchResultsV2:
       properties:
-        model:
-          type: string
-          example: Apple TV 3rd Generation Rev 2
-        modelIdentifier:
-          type: string
-          example: AppleTV3,2
-        modelNumber:
-          type: string
-          example: MD199LL
-        supervised:
-          type: boolean
-          example: true
-        airplayPassword:
-          type: string
-          format: password
-          example: "1234"
-        deviceId:
-          type: string
-          example: "1"
-        locales:
-          type: string
-          example: "null"
-        purchasing:
-          $ref: '#/components/schemas/PurchasingV2'
-        configurationProfiles:
-          type: array
+        results:
           items:
-            $ref: '#/components/schemas/ConfigurationProfile'
-        certificates:
+            $ref: '#/components/schemas/MobileDeviceV2'
           type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceCertificateV2'
-        applications:
-          type: array
-          items:
-            $ref: '#/components/schemas/MobileDeviceApplication'
-      description: will be populated if the type is appleTv.
-    PurchasingV2:
-      type: object
-      properties:
-        purchased:
-          type: boolean
-          example: true
-        leased:
-          type: boolean
-          example: false
-        poNumber:
-          type: string
-          example: "8675309"
-        vendor:
-          type: string
-          example: Apple
-        appleCareId:
-          type: string
-          example: "9546567.0"
-        purchasePrice:
-          type: string
-          example: $399
-        purchasingAccount:
-          type: string
-          example: IT Budget
-        poDate:
-          type: string
-          format: date-time
-          example: 2019-02-04T21:09:31.661Z
-        warrantyExpiresDate:
-          type: string
-          format: date-time
-          example: 2019-02-04T21:09:31.661Z
-        leaseExpiresDate:
-          type: string
-          format: date-time
-          example: 2019-02-04T21:09:31.661Z
-        lifeExpectancy:
-          type: integer
-          example: 7
-        purchasingContact:
-          type: string
-          example: Nick in IT
-    SecurityV2:
-      type: object
-      properties:
-        dataProtected:
-          type: boolean
-          example: false
-        blockLevelEncryptionCapable:
-          type: boolean
-          example: true
-        fileLevelEncryptionCapable:
-          type: boolean
-          example: true
-        passcodePresent:
-          type: boolean
-          example: false
-        passcodeCompliant:
-          type: boolean
-          example: true
-        passcodeCompliantWithProfile:
-          type: boolean
-          example: true
-        hardwareEncryption:
-          type: integer
+        totalCount:
           example: 3
-        activationLockEnabled:
-          type: boolean
-          example: false
-        jailBreakDetected:
-          type: boolean
-          example: false
-        attestationStatus:
-          type: string
-          example: SUCCESS
+          minimum: 0
+          type: integer
+      type: object
+    MobileDeviceV2:
+      properties:
+        id:
+          example: "1"
           readOnly: true
+          type: string
+        managementId:
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+          type: string
+        model:
+          example: iPad 5th Generation (Wi-Fi)
+          type: string
+        modelIdentifier:
+          example: iPad6,11
+          type: string
+        name:
+          example: iPad
+          type: string
+        phoneNumber:
+          example: 651-555-5555 Ext111
+          type: string
+        serialNumber:
+          example: DMQVGC0DHLA0
+          type: string
+        softwareUpdateDeviceId:
+          example: J132AP
+          type: string
+        type:
+          enum:
+            - ios
+            - tvos
+            - watchos
+            - visionos
+            - unknown
+          example: ios
+          type: string
+        udid:
+          example: 0dad565fb40b010a9e490440188063a378721069
+          type: string
+        username:
+          example: admin
+          type: string
+        wifiMacAddress:
+          example: C4:84:66:92:78:00
+          type: string
+      type: object
+    NetworkV2:
+      properties:
+        carrierSettingsVersion:
+          example: "33.1"
+          type: string
+        cellularTechnology:
+          example: Unknown
+          type: string
+        currentCarrierNetwork:
+          example: Verizon Wireless
+          type: string
+        currentMobileCountryCode:
+          example: "311"
+          type: string
+        currentMobileNetworkCode:
+          example: "480"
+          type: string
+        dataRoamingEnabled:
+          example: true
+          type: boolean
+        eid:
+          description: EID or "embedded identity document" is a number associated with the eSIM on a device
+          example: "12547444452496388545569920380795"
+          readOnly: true
+          type: string
+        homeCarrierNetwork:
+          example: Verizon
+          type: string
+        homeMobileCountryCode:
+          example: US
+          type: string
+        homeMobileNetworkCode:
+          example: "480"
+          type: string
+        iccid:
+          example: "8991101200003204514"
+          type: string
+        imei:
+          example: 59 105109 176278 3
+          type: string
+        meid:
+          example: "15302309236898"
+          type: string
+        personalHotspotEnabled:
+          example: false
+          type: boolean
+        phoneNumber:
+          example: 555-555-5555 ext 5
+          type: string
+        preferredVoiceNumber:
+          example: 555-555-5555
+          type: string
+        roaming:
+          example: false
+          type: boolean
+        voiceRoamingEnabled:
+          example: false
+          type: boolean
+      type: object
+    PurchasingV2:
+      properties:
+        appleCareId:
+          example: "9546567.0"
+          type: string
+        leaseExpiresDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
+          type: string
+        leased:
+          example: false
+          type: boolean
+        lifeExpectancy:
+          example: 7
+          type: integer
+        poDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
+          type: string
+        poNumber:
+          example: "8675309"
+          type: string
+        purchasePrice:
+          example: $399
+          type: string
+        purchased:
+          example: true
+          type: boolean
+        purchasingAccount:
+          example: IT Budget
+          type: string
+        purchasingContact:
+          example: Nick in IT
+          type: string
+        vendor:
+          example: Apple
+          type: string
+        warrantyExpiresDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
+          type: string
+      type: object
+    SecurityV2:
+      properties:
+        activationLockEnabled:
+          example: false
+          type: boolean
+        attestationStatus:
           enum:
             - PENDING
             - SUCCESS
@@ -652,199 +572,351 @@ components:
             - DEVICE_PROPERTIES_MISMATCH
             - MDA_UNSUPPORTED_DUE_TO_HARDWARE
             - MDA_UNSUPPORTED_DUE_TO_SOFTWARE
-        lastAttestationAttemptDate:
-          type: string
-          format: date-time
-          example: 2019-02-04T21:09:31.661Z
+          example: SUCCESS
           readOnly: true
-        lastSuccessfulAttestationDate:
           type: string
-          format: date-time
-          example: 2019-02-04T21:09:31.661Z
-          readOnly: true
+        blockLevelEncryptionCapable:
+          example: true
+          type: boolean
         bootstrapToken:
-          type: string
           description: The bootstrap token for the device
           example: dGVzdCB0b2tlbg==
           readOnly: true
-        bootstrapTokenEscrowed:
           type: string
-          example: NOT_SUPPORTED
+        bootstrapTokenEscrowed:
           description: Indicates the bootstrap token escrow status for the device
           enum:
             - ESCROWED
             - NOT_ESCROWED
             - NOT_SUPPORTED
-    NetworkV2:
-      type: object
-      properties:
-        cellularTechnology:
+          example: NOT_SUPPORTED
           type: string
-          example: Unknown
-        voiceRoamingEnabled:
-          type: boolean
+        dataProtected:
           example: false
-        imei:
-          type: string
-          example: 59 105109 176278 3
-        iccid:
-          type: string
-          example: 8991101200003204514
-        meid:
-          type: string
-          example: "15302309236898"
-        eid:
-          type: string
+          type: boolean
+        fileLevelEncryptionCapable:
+          example: true
+          type: boolean
+        hardwareEncryption:
+          example: 3
+          type: integer
+        jailBreakDetected:
+          example: false
+          type: boolean
+        lastAttestationAttemptDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
           readOnly: true
-          description: EID or "embedded identity document" is a number associated with the eSIM on a device
-          example: "12547444452496388545569920380795"
-        carrierSettingsVersion:
           type: string
-          example: "33.1"
-        currentCarrierNetwork:
+        lastSuccessfulAttestationDate:
+          example: "2019-02-04T21:09:31.661Z"
+          format: date-time
+          readOnly: true
           type: string
-          example: Verizon Wireless
-        currentMobileCountryCode:
-          type: string
-          example: "311"
-        currentMobileNetworkCode:
-          type: string
-          example: "480"
-        homeCarrierNetwork:
-          type: string
-          example: Verizon
-        homeMobileCountryCode:
-          type: string
-          example: US
-        homeMobileNetworkCode:
-          type: string
-          example: "480"
-        dataRoamingEnabled:
-          type: boolean
+        passcodeCompliant:
           example: true
-        roaming:
           type: boolean
-          example: false
-        personalHotspotEnabled:
-          type: boolean
-          example: false
-        phoneNumber:
-          type: string
-          example: 555-555-5555 ext 5
-        preferredVoiceNumber:
-          type: string
-          example: 555-555-5555
-    UpdateMobileDeviceV2:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Mobile Device Name. When updated, Jamf Pro sends an MDM settings command to the device (device must be supervised).
-          example: Jan's Mobile Device
-        enforceName:
-          type: boolean
-          description: Enforce the mobile device name. Device must be supervised. If set to true, Jamf Pro will revert the Mobile Device Name to the ‘name’ value each time the device checks in.
+        passcodeCompliantWithProfile:
           example: true
-        assetTag:
-          type: string
-          example: "8675309"
-        siteId:
-          type: string
-          example: 1
-        timeZone:
-          type: string
-          description: IANA time zone database name
-          example: Europe/Warsaw
-        location:
-          $ref: '#/components/schemas/LocationV2'
-        updatedExtensionAttributes:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExtensionAttributeV2'
-        ios:
-          $ref: '#/components/schemas/UpdateIosV2'
-        tvos:
-          $ref: '#/components/schemas/UpdateTvOs'
-    UpdateIosV2:
+          type: boolean
+        passcodePresent:
+          example: false
+          type: boolean
       type: object
-      properties:
-        purchasing:
-          $ref: '#/components/schemas/PurchasingV2'
-    UpdateTvOs:
-      type: object
+    TvOsDetails:
+      description: will be populated if the type is appleTv.
       properties:
         airplayPassword:
-          type: string
+          example: "1234"
           format: password
-          example: "12345"
-        purchasing:
-          $ref: '#/components/schemas/PurchasingV2'
-    WatchOsDetailsV2:
-      type: object
-      properties:
-        model:
           type: string
-          example: Apple Watch Ultra
-        modelIdentifier:
-          type: string
-          example: Watch6,18
-        modelNumber:
-          type: string
-          example: A2622
-        supervised:
-          type: boolean
-          example: true
-        batteryLevel:
-          type: integer
-          example: 100
-        capacityMb:
-          type: integer
-          example: 27503
-        availableMb:
-          type: integer
-          example: 26646
-        percentageUsed:
-          type: integer
-          example: 3
-        deviceLocatorServiceEnabled:
-          type: boolean
-          example: false
-        doNotDisturbEnabled:
-          type: boolean
-          example: false
-        lastCloudBackupTimestamp:
-          type: string
-          format: date-time
-          example: 2018-10-15T16:39:56.307Z
-        iTunesStoreAccountActive:
-          type: boolean
-          example: false
-        bleCapable:
-          type: boolean
-          example: false
-        unlockToken:
-          type: string
-          example: VU5MT0NLVE9LRU4=
-        security:
-          $ref: '#/components/schemas/SecurityV2'
         applications:
-          type: array
           items:
             $ref: '#/components/schemas/MobileDeviceApplication'
-        certificates:
           type: array
+        certificates:
           items:
             $ref: '#/components/schemas/MobileDeviceCertificateV2'
-        configurationProfiles:
           type: array
+        configurationProfiles:
           items:
             $ref: '#/components/schemas/ConfigurationProfile'
-        provisioningProfiles:
           type: array
+        deviceId:
+          example: "1"
+          type: string
+        locales:
+          example: "null"
+          type: string
+        model:
+          example: Apple TV 3rd Generation Rev 2
+          type: string
+        modelIdentifier:
+          example: AppleTV3,2
+          type: string
+        modelNumber:
+          example: MD199LL
+          type: string
+        purchasing:
+          $ref: '#/components/schemas/PurchasingV2'
+        supervised:
+          example: true
+          type: boolean
+      type: object
+    UpdateIosV2:
+      properties:
+        purchasing:
+          $ref: '#/components/schemas/PurchasingV2'
+      type: object
+    UpdateMobileDeviceV2:
+      properties:
+        assetTag:
+          example: "8675309"
+          type: string
+        enforceName:
+          description: Enforce the mobile device name. Device must be supervised. If set to true, Jamf Pro will revert the Mobile Device Name to the ‘name’ value each time the device checks in.
+          example: true
+          type: boolean
+        ios:
+          $ref: '#/components/schemas/UpdateIosV2'
+        location:
+          $ref: '#/components/schemas/LocationV2'
+        name:
+          description: Mobile Device Name. When updated, Jamf Pro sends an MDM settings command to the device (device must be supervised).
+          example: Jan's Mobile Device
+          type: string
+        siteId:
+          example: "1"
+          type: string
+        timeZone:
+          description: IANA time zone database name
+          example: Europe/Warsaw
+          type: string
+        tvos:
+          $ref: '#/components/schemas/UpdateTvOs'
+        updatedExtensionAttributes:
           items:
-            $ref: 'DefinitionsLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles'
-        attachments:
+            $ref: '#/components/schemas/ExtensionAttributeV2'
           type: array
+      type: object
+    UpdateTvOs:
+      properties:
+        airplayPassword:
+          example: "12345"
+          format: password
+          type: string
+        purchasing:
+          $ref: '#/components/schemas/PurchasingV2'
+      type: object
+    WatchOsDetailsV2:
+      description: will be populated if the type is watchos.
+      properties:
+        applications:
+          items:
+            $ref: '#/components/schemas/MobileDeviceApplication'
+          type: array
+        attachments:
           items:
             $ref: '#/components/schemas/MobileDeviceAttachmentV2'
-      description: will be populated if the type is watchos.
+          type: array
+        availableMb:
+          example: 26646
+          type: integer
+        batteryLevel:
+          example: 100
+          type: integer
+        bleCapable:
+          example: false
+          type: boolean
+        capacityMb:
+          example: 27503
+          type: integer
+        certificates:
+          items:
+            $ref: '#/components/schemas/MobileDeviceCertificateV2'
+          type: array
+        configurationProfiles:
+          items:
+            $ref: '#/components/schemas/ConfigurationProfile'
+          type: array
+        deviceLocatorServiceEnabled:
+          example: false
+          type: boolean
+        doNotDisturbEnabled:
+          example: false
+          type: boolean
+        iTunesStoreAccountActive:
+          example: false
+          type: boolean
+        lastCloudBackupTimestamp:
+          example: "2018-10-15T16:39:56.307Z"
+          format: date-time
+          type: string
+        model:
+          example: Apple Watch Ultra
+          type: string
+        modelIdentifier:
+          example: Watch6,18
+          type: string
+        modelNumber:
+          example: A2622
+          type: string
+        percentageUsed:
+          example: 3
+          type: integer
+        provisioningProfiles:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles
+          type: array
+        security:
+          $ref: '#/components/schemas/SecurityV2'
+        supervised:
+          example: true
+          type: boolean
+        unlockToken:
+          example: VU5MT0NLVE9LRU4=
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - MobileDevice
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/mobile-devices:
+    get:
+      description: |
+        Gets Mobile Device objects.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceSearchResultsV2'
+          description: Successful response
+      summary: |
+        Get Mobile Device objects
+      tags:
+        - mobile-devices
+      x-required-privileges:
+        - Read Mobile Devices
+  /v2/mobile-devices/{id}:
+    get:
+      description: Get MobileDevice
+      parameters:
+        - description: instance id of mobile device record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceV2'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified mobile device object does not exist.
+      summary: |
+        Get Mobile Device
+      tags:
+        - mobile-devices
+      x-required-privileges:
+        - Read Mobile Devices
+    patch:
+      description: Updates fields on a mobile device that are allowed to be modified by users.
+      parameters:
+        - description: instance id of mobile device record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMobileDeviceV2'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceDetailsV2'
+          description: Successful response
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Account not allowed to modify device
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified mobile device object does not exist.
+      summary: |
+        Update fields on a mobile device that are allowed to be modified by users
+      tags:
+        - mobile-devices
+      x-required-privileges:
+        - Update Mobile Devices
+  /v2/mobile-devices/{id}/detail:
+    get:
+      description: Get MobileDevice
+      parameters:
+        - description: instance id of mobile device record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDeviceDetailsGetV2'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified mobile device object does not exist.
+      summary: |
+        Get Mobile Device
+      tags:
+        - mobile-devices
+      x-required-privileges:
+        - Read Mobile Devices
+servers:
+  - url: /api

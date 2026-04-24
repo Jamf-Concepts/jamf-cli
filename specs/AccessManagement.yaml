@@ -1,54 +1,56 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - hidden enrollment settings
-  version: 0.0.1
-paths:
-  /v4/enrollment/access-management:
-    post:
-      tags:
-        - enrollment
-      summary: |
-        Configure Access Management settings
-      description: |
-        Configure Access Management settings
-      requestBody:
-        description: Configure Access Management settings
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AccessManagementSetting'
-        required: true
-      responses:
-        200:
-          description: Successfully Configured Access Management settings
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AccessManagementSetting'
-      x-required-privileges:
-        - Access Management Setting Update
-      x-action: true
-    get:
-      tags:
-        - enrollment
-      summary: Get Access Management settings
-      description: Get Access Management settings
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AccessManagementSetting'
-      x-required-privileges:
-        - Access Management Setting Read
 components:
   schemas:
     AccessManagementSetting:
-      type: object
       properties:
         automatedDeviceEnrollmentServerUuid:
-          type: string
           default: ""
+          example: 4B637BAB65D14E6DA63A74E4F6F82C4B
           maxLength: 256
-          example: "4B637BAB65D14E6DA63A74E4F6F82C4B"
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - AccessManagement
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v4/enrollment/access-management:
+    get:
+      description: Get Access Management settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessManagementSetting'
+          description: Successful response
+      summary: Get Access Management settings
+      tags:
+        - enrollment
+      x-required-privileges:
+        - Access Management Setting Read
+    post:
+      description: |
+        Configure Access Management settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessManagementSetting'
+        description: Configure Access Management settings
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessManagementSetting'
+          description: Successfully Configured Access Management settings
+      summary: |
+        Configure Access Management settings
+      tags:
+        - enrollment
+      x-action: true
+      x-required-privileges:
+        - Access Management Setting Update
+servers:
+  - url: /api

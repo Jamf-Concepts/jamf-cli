@@ -1,160 +1,167 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - dockitem
-  version: 0.0.1
-paths:
-  /v1/dock-items:
-    post:
-      tags:
-      - dock-items
-      summary: |
-         Create a DockItem
-      description: Creates a DockItem
-      requestBody:
-        description: new DockItem to create. ids defined in this body will be ignored
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/DockItem'
-        required: true
-      responses:
-        201:
-          description: DockItem created successfully
-          content:
-              'application/json':
-                  schema:
-                      $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        409:
-            description: Duplicate
-            content:
-                'application/json':
-                    schema:
-                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Create Dock Items
-  /v1/dock-items/{id}:
-    get:
-      tags:
-      - dock-items
-      summary: |
-         Retrieve a full dockItem object
-      description: Retrieves a full dockItem object
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: DockItem object identifier
-        schema:
-          type: string
-      responses:
-        200:
-          description: Success
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DockItem'
-        404:
-          description: Dockitem with that ID does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Read Dock Items
-    put:
-      tags:
-      - dock-items
-      summary: |
-         Replace the dockItem at the id with the supplied information
-      description: Replaces the dockItem at the id with the supplied information
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: DockItem object identifier
-        schema:
-          type: string
-      requestBody:
-        description: new dockItem to upload to existing id. ids defined in this body
-          will be ignored
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/DockItem'
-        required: true
-      responses:
-        200:
-          description: DockItem at id was updated
-          content:
-              'text/plain':
-                  schema:
-                      type: string
-        404:
-          description: DockItem with that id does not exist
-          content:
-              'application/json':
-                  schema:
-                      $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        409:
-            description: Duplicate
-            content:
-                'application/json':
-                    schema:
-                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Update Dock Items
-    delete:
-      tags:
-      - dock-items
-      summary: |
-         Delete a DockItem at the specified id
-      description: Deletes a dockItem at the specified id
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: DockItem object identifier
-        schema:
-          type: string
-      responses:
-        204:
-          description: Successful response
-        404:
-          description: DockItem with that id does not exist
-          content:
-              'application/json':
-                  schema:
-                      $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-      - Delete Dock Items
 components:
   schemas:
     DockItem:
-      required:
-        - name
-        - path
-        - type
-      type: object
       properties:
-        id:
-          type: string
+        contents:
+          example: <dict><key>GUID</key><integer>-91117049</integer><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file://localhost/Applications/iTunes.app</string><key>_CFURLStringType</key><integer>15</integer></dict><key>file-label</key><string>MyDockItem2</string></dict><key>tile-type</key><string>directory-tile</string></dict>
           readOnly: true
+          type: string
+        id:
           example: "1"
           minimum: 1
+          readOnly: true
+          type: string
         name:
-          type: string
           example: DockItem Name
-        type:
           type: string
+        path:
+          example: file://localhost/Applications/iTunes.app
+          type: string
+        type:
           enum:
             - APP
             - FILE
             - FOLDER
           example: FILE
-        path:
+          type: string
+      required:
+        - name
+        - path
+        - type
+      type: object
+info:
+  title: Jamf Pro API - DockItem
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/dock-items:
+    post:
+      description: Creates a DockItem
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DockItem'
+        description: new DockItem to create. ids defined in this body will be ignored
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: DockItem created successfully
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate
+      summary: |
+        Create a DockItem
+      tags:
+        - dock-items
+      x-required-privileges:
+        - Create Dock Items
+  /v1/dock-items/{id}:
+    delete:
+      description: Deletes a dockItem at the specified id
+      parameters:
+        - description: DockItem object identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            example: file://localhost/Applications/iTunes.app
-        contents:
+          style: simple
+      responses:
+        204:
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: DockItem with that id does not exist
+      summary: |
+        Delete a DockItem at the specified id
+      tags:
+        - dock-items
+      x-required-privileges:
+        - Delete Dock Items
+    get:
+      description: Retrieves a full dockItem object
+      parameters:
+        - description: DockItem object identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-            readOnly: true
-            example: <dict><key>GUID</key><integer>-91117049</integer><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file://localhost/Applications/iTunes.app</string><key>_CFURLStringType</key><integer>15</integer></dict><key>file-label</key><string>MyDockItem2</string></dict><key>tile-type</key><string>directory-tile</string></dict>
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DockItem'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Dockitem with that ID does not exist
+      summary: |
+        Retrieve a full dockItem object
+      tags:
+        - dock-items
+      x-required-privileges:
+        - Read Dock Items
+    put:
+      description: Replaces the dockItem at the id with the supplied information
+      parameters:
+        - description: DockItem object identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DockItem'
+        description: new dockItem to upload to existing id. ids defined in this body will be ignored
+        required: true
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: DockItem at id was updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: DockItem with that id does not exist
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate
+      summary: |
+        Replace the dockItem at the id with the supplied information
+      tags:
+        - dock-items
+      x-required-privileges:
+        - Update Dock Items
+servers:
+  - url: /api

@@ -1,719 +1,837 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - Managed Software Update Plans
-    version: 0.0.1
-paths:
-    /v1/managed-software-updates/plans:
-        post:
-            tags:
-                - managed-software-updates
-            summary: Create a Managed Software Update Plan
-            description: |
-                Creates a Managed Software Update Plan.
-            x-required-privileges:
-                - Create Managed Software Updates
-                - Read Computers
-                - Read Mobile Devices
-                - Send Computer Remote Command to Download and Install OS X Update
-                - Send Mobile Device Remote Command to Download and Install iOS Update
-            requestBody:
-                description: Managed Software Update Plan to create
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPost'
-                required: true
-            responses:
-                201:
-                    description: Managed Software Update Plan was created
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPostResponse'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                429:
-                    description: Rate limit exceeded
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-rate-limit: true
-        get:
-            tags:
-                - managed-software-updates
-            summary: Retrieve Managed Software Update Plans
-            description: |
-                Retrieve Managed Software Update Plans
-            x-required-privileges:
-                - Read Managed Software Updates
-                - Read Computers
-                - Read Mobile Devices
-            parameters:
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                is planUuid:asc. Multiple sort criteria are supported and must be separated
-                with a comma.'
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ planUuid:asc ]
-                -   name: filter
-                    in: query
-                    description: 'Query in the RSQL format, allowing to filter Managed Software Updates collection.
-                      Default filter is empty query - returning all results for the requested page.
-                      Fields allowed in the query: planUuid, device.deviceId, device.objectType,
-                      updateAction, versionType, specificVersion, maxDeferrals, recipeId, forceInstallLocalDateTime, state.'
-                    schema:
-                        type: string
-                        default: ''
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlans'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/{id}:
-        get:
-            tags:
-                - managed-software-updates
-            summary: Retrieve a Managed Software Update Plan
-            description: |
-                Retrieves a Managed Software Update Plan
-            x-required-privileges:
-                - Read Managed Software Updates
-                - Read Computers
-                - Read Mobile Devices
-            parameters:
-                -   name: id
-                    in: path
-                    required: true
-                    description: Managed Software Update Plan Uuid
-                    schema:
-                        type: string
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlan'
-                404:
-                    description: Managed Software Update Plan with that id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/group:
-        post:
-            tags:
-                - managed-software-updates
-            summary: Create Managed Software Update Plans for a Group
-            description: |
-                Creates Managed Software Update Plans for a Group
-            x-required-privileges:
-                - Create Managed Software Updates
-                - Read Computers
-                - Read Mobile Devices
-                - Read Smart Computer Groups
-                - Read Static Computer Groups
-                - Read Smart Mobile Device Groups
-                - Read Static Mobile Device Groups
-                - Send Computer Remote Command to Download and Install OS X Update
-                - Send Mobile Device Remote Command to Download and Install iOS Update
-            requestBody:
-                description: Managed Software Update Plan to create for Group
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/ManagedSoftwareUpdatePlanGroupPost'
-                required: true
-            responses:
-                201:
-                    description: Managed Software Update Plan was created
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPostResponse'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: A group with that id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                429:
-                    description: Rate limit exceeded
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-rate-limit: true
-    /v1/managed-software-updates/plans/group/{id}:
-        get:
-            tags:
-                - managed-software-updates
-            summary: Retrieve Managed Software Update Plans for a Group
-            description: |
-                Retrieves Managed Software Update Plans for a Group
-            x-required-privileges:
-                - Read Managed Software Updates
-                - Read Computers
-                - Read Smart Computer Groups
-                - Read Static Computer Groups
-                - Read Mobile Devices
-                - Read Smart Mobile Device Groups
-                - Read Static Mobile Device Groups
-            parameters:
-                -   name: id
-                    in: path
-                    required: true
-                    description: Managed Software Update Group Id
-                    schema:
-                        type: string
-                -   name: group-type
-                    in: query
-                    required: true
-                    description: Managed Software Update Group Type, Available options are "COMPUTER_GROUP" or "MOBILE_DEVICE_GROUP"
-                    example: "COMPUTER_GROUP"
-                    schema:
-                        type: string
-                        enum: [ "COMPUTER_GROUP", "MOBILE_DEVICE_GROUP" ]
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlans'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: Group with that id does not exist
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/feature-toggle:
-        get:
-            tags:
-                - managed-software-updates
-            summary: Retrieve current value of the Feature Toggle
-            description: |
-                Retrieves current value of the Feature Toggle
-            x-required-privileges:
-                - Read Managed Software Updates
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
-        put:
-            tags:
-                - managed-software-updates
-            summary: Updates Feature Toggle Value
-            description: |
-               Updates the value of the Feature Toggle - This endpoint is asynchronous, the provided value will not be immediately updated. Please use the following endpoint to track the status of your toggle request. /v1/managed-software-updates/plans/feature-toggle/status:
-
-            x-required-privileges:
-                - Read Managed Software Updates
-                - Create Managed Software Updates
-                - Update Managed Software Updates
-            requestBody:
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
-                required: true
-            responses:
-                200:
-                    description: Managed Software Update Plan Feature Toggle was updated
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/feature-toggle/abandon:
-        post:
-            tags:
-                - managed-software-updates
-            summary: Force stops any ongoing or stalled feature-toggle processes
-            description: |
-                "Break Glass" endpoint, not for nominal usage.
-                Use this endpoint to forcefully abandon the feature-toggle background process if the status of the feature-toggle is 'stuck' or has reached an non-restartable failed state.
-                Usage of this endpoint under nominal conditions is undefined and unsupported.
-            x-action: true
-            x-required-privileges:
-                - Read Managed Software Updates
-                - Create Managed Software Updates
-                - Update Managed Software Updates
-            responses:
-                204:
-                    description: Managed Software Update Plan Feature Toggle abandon request was received
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/feature-toggle/status:
-        get:
-            tags:
-                - managed-software-updates
-            summary: Retrieves background status of the Feature Toggle
-            description: |
-                Retrieves background status of the Feature Toggle
-            x-required-privileges:
-                - Read Managed Software Updates
-            responses:
-                200:
-                    description: Managed Software Update Plan Feature Toggle Status was retrieved
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatusWrapper'
-                400:
-                    description: Bad Request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/managed-software-updates/plans/{id}/events:
-            get:
-                tags:
-                    - managed-software-updates
-                summary: Retrieve a Managed Software Update Plan Event Store
-                description: |
-                    Retrieves a Managed Software Update Plan Event Store
-                x-required-privileges:
-                    - Read Managed Software Updates
-                    - Read Computers
-                    - Read Mobile Devices
-                parameters:
-                    -   name: id
-                        in: path
-                        required: true
-                        description: Managed Software Update Plan Uuid
-                        schema:
-                            type: string
-                responses:
-                    200:
-                        description: Success
-                        content:
-                            'application/json':
-                                schema:
-                                    $ref: '#/components/schemas/ManagedSoftwareUpdatePlanEventStore'
-                    404:
-                        description: Managed Software Update Plan with that id does not exist
-                        content:
-                            'application/json':
-                                schema:
-                                    $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-
-    /v1/managed-software-updates/plans/{id}/declarations:
-                get:
-                    tags:
-                        - managed-software-updates
-                    summary: Retrieve all Declarations associated with a Managed Software Update Plan
-                    description: |
-                        Retrieves all Declarations associated with a Managed Software Update Plan
-                    x-required-privileges:
-                        - Read Managed Software Updates
-                        - Read Computers
-                        - Read Mobile Devices
-                    parameters:
-                        -   name: id
-                            in: path
-                            required: true
-                            description: Managed Software Update Plan Uuid
-                            schema:
-                                type: string
-                    responses:
-                        200:
-                            description: Success
-                            content:
-                                'application/json':
-                                    schema:
-                                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/DssDeclarations'
-                        404:
-                            description: Managed Software Update Plan with that id does not exist
-                            content:
-                                'application/json':
-                                    schema:
-                                        $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
 components:
-    schemas:
-        PlanStatus:
-            type: object
-            properties:
-                state:
-                    type: string
-                    enum: [ "Init", "PendingPlanValidation", "AcceptingPlan", "RejectingPlan", "ProcessingPlanType", "ProcessingPlanTypeMdm", "StartingPlan", "PlanFailed", "SchedulingScanForOSUpdates", "ProcessingScheduleOSUpdateScanResponse", "WaitingForScheduledOSUpdateScanToComplete", "CollectingAvailableOSUpdates", "ProcessingAvailableOSUpdatesResponse", "ProcessingSchedulingType", "SchedulingDDM", "DDMPlanScheduled", "WaitingToStartDDMUpdate", "ProcessingDDMStatusResponse", "CollectingDDMStatus", "SchedulingMDM", "MDMPlanScheduled", "SchedulingOSUpdate", "ProcessingScheduleOSUpdateResponse", "CollectingOSUpdateStatus", "ProcessingOSUpdateStatusResponse", "WaitingToCollectOSUpdateStatus", "VerifyingInstallation", "ProcessingInstallationVerification", "PlanCompleted", "PlanCanceled", "PlanException", "Unknown" ]
-                    example: "SchedulingScanForOSUpdates"
-                    readOnly: true
-                    nullable: false
-                errorReasons:
-                    type: array
-                    items:
-                        type: string
-                        enum: [ "APPLE_SILICON_NO_ESCROW_KEY", "NOT_SUPERVISED", "NOT_MANAGED", "NO_DISK_SPACE", "NO_UPDATES_AVAILABLE",
-                                "SPECIFIC_VERSION_UNAVAILABLE", "SPECIFIC_VERSION_UNAVAILABLE_FOR_DEVICE_MODEL", "ACTION_NOT_SUPPORTED_FOR_DEVICE_TYPE",
-                                "DECLARATIVE_DEVICE_MANAGEMENT_SOFTWARE_UPDATES_NOT_SUPPORTED_FOR_DEVICE_OS_VERSION",
-                                "DECLARATIVE_DEVICE_MANAGEMENT_SOFTWARE_UPDATES_NOT_SUPPORTED_FOR_DEVICE_TYPE", "PLAN_NOT_FOUND",
-                                "APPLE_SOFTWARE_LOOKUP_SERVICE_ERROR", "EXISTING_PLAN_FOR_DEVICE_IN_PROGRESS", "DOWNGRADE_NOT_SUPPORTED",
-                                "DECLARATIVE_SERVICE_ERROR", "UNABLE_TO_FIND_UPDATES_AND_OUT_OF_RETRIES", "DATA_INTEGRITY_VIOLATION_EXCEPTION",
-                                "ILLEGAL_ARGUMENT_EXCEPTION", "MDM_EXCEPTION", "INSTALL_REASON_UNKNOWN", "ACCEPT_PLAN_FAILURE", "SCHEDULE_PLAN_FAILURE",
-                                "REJECT_PLAN_FAILURE", "START_PLAN_FAILURE", "QUEUE_SCHEDULED_OS_UPDATE_SCAN_FAILURE",
-                                "SCAN_WAIT_FINISHED_FAILURE", "QUEUE_AVAILABLE_OS_UPDATE_COMMAND_FAILURE", "MDM_CLIENT_EXCEPTION",
-                                "QUEUE_SCHEDULE_OS_UPDATE_FAILURE", "QUEUE_OS_UPDATE_STATUS_COMMAND_FAILURE", "STILL_IN_PROGRESS_FAILURE",
-                                "WAIT_TO_COLLECT_OS_UPDATE_STATUS_FAILURE", "IS_DOWNLOADED_AND_NEEDS_INSTALL_FAILURE", "IS_INSTALLED_FAILURE",
-                                "IS_DOWNLOAD_ONLY_AND_DOWNLOADED_FAILURE", "VERIFY_INSTALLATION_FAILURE", "IS_MAC_OS_UPDATE_FAILURE",
-                                "IS_LATEST_FAILURE", "IS_SPECIFIC_VERSION_FAILURE", "HANDLE_COMMAND_QUEUE_FAILURE", "INVALID_CONFIGURATION_DECLARATION",
-                                "DECLARATIVE_DEVICE_MANAGEMENT_STATUS_RESPONSE_FAILURE_REASON_RECEIVED", "NO_DEVICE_STATUS_BY_GRACE_PERIOD", "UNKNOWN" ]
-                    example: [ "NO_UPDATES_AVAILABLE" , "NOT_SUPERVISED" ]
-                    readOnly: true
-                    nullable: true
-        PlanGroupPost:
-            type: object
-            nullable: false
-            required:
-                - groupId
-                - objectType
-            properties:
-                groupId:
-                    type: string
-                    example: "1"
-                    minLength: 1
-                objectType:
-                    type: string
-                    enum: [ "COMPUTER_GROUP", "MOBILE_DEVICE_GROUP" ]
-                    example: "COMPUTER_GROUP"
-                    nullable: false
-        ManagedSoftwareUpdatePlans:
-            type: object
-            properties:
-                totalCount:
-                    type: integer
-                    example: 1
-                    minimum: 0
-                results:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/ManagedSoftwareUpdatePlan'
-                    readOnly: true
-                    minItems: 0
-        ManagedSoftwareUpdatePlan:
-            type: object
-            required:
-                - planUuid
-                - device
-                - updateAction
-                - versionType
-                - maxDeferrals
-                - status
-            properties:
-                planUuid:
-                    type: string
-                    example: "6E47EF55-5318-494F-A09E-70F613E0AFD1"
-                    readOnly: true
-                    minLength: 1
-                device:
-                    $ref: '#/components/schemas/PlanDevice'
-                updateAction:
-                    type: string
-                    enum: [ "DOWNLOAD_ONLY", "DOWNLOAD_INSTALL", "DOWNLOAD_INSTALL_ALLOW_DEFERRAL", "DOWNLOAD_INSTALL_RESTART", "DOWNLOAD_INSTALL_SCHEDULE", "UNKNOWN" ]
-                    example: "DOWNLOAD_INSTALL"
-                    readOnly: true
-                    nullable: false
-                versionType:
-                    type: string
-                    enum: [ "LATEST_MAJOR", "LATEST_MINOR", "LATEST_ANY", "SPECIFIC_VERSION", "CUSTOM_VERSION", "UNKNOWN" ]
-                    example: "SPECIFIC_VERSION"
-                    readOnly: true
-                    nullable: false
-                specificVersion:
-                    type: string
-                    description: Optional. Indicates the specific version to update to. Only available when the version type is set to specific version or custom version, otherwise defaults to NO_SPECIFIC_VERSION.
-                    default: "NO_SPECIFIC_VERSION"
-                    example: "12.6.1"
-                    readOnly: true
-                buildVersion:
-                    type: string
-                    description: Optional. Indicates the build version to update to. Only available when the version type is set to custom version.
-                    example: "21F79"
-                    nullable: true
-                    readOnly: true
-                maxDeferrals:
-                    type: integer
-                    description: Not applicable to all managed software update plans
-                    example: 5
-                    readOnly: true
-                    minimum: 0
-                forceInstallLocalDateTime:
-                    type: string
-                    description: Optional. Indicates the local date and time of the device to force update by.
-                    example: 2023-12-25T21:09:31
-                    nullable: true
-                recipeId:
-                    type: string
-                    description: The id of the recipe that was used to generate the plan.
-                    default: "-1"
-                    example: "1"
-                    readOnly: true
-                status:
-                    $ref: '#/components/schemas/PlanStatus'
-        ManagedSoftwareUpdatePlanGroupPost:
-            type: object
-            required:
-                - group
-                - config
-            properties:
-                group:
-                    $ref: '#/components/schemas/PlanGroupPost'
-                config:
-                    $ref: '#/components/schemas/PlanConfigurationPost'
-        PlanDevice:
-            type: object
-            properties:
-                deviceId:
-                    type: string
-                    example: "1"
-                    readOnly: true
-                    minLength: 1
-                objectType:
-                    type: string
-                    enum: [ "COMPUTER", "MOBILE_DEVICE", "APPLE_TV" ]
-                    example: "COMPUTER"
-                    readOnly: true
-                    nullable: false
-                href:
-                    type: string
-                    example: "/v1/computers-inventory/1"
-                    readOnly: true
-                    nullable: false
-        ManagedSoftwareUpdatePlanPost:
-            type: object
-            required:
-                - devices
-                - config
-            properties:
-                devices:
-                    type: array
-                    minItems: 1
-                    uniqueItems: true
-                    items:
-                        $ref: '#/components/schemas/PlanDevicePost'
-                config:
-                    $ref: '#/components/schemas/PlanConfigurationPost'
-        ManagedSoftwareUpdatePlanPostResponse:
-            type: object
-            properties:
-                plans:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/PlanDeviceResponse'
-                    readOnly: true
-                    minItems: 0
-                    uniqueItems: true
-        PlanDevicePost:
-            type: object
-            required:
-                - deviceId
-                - objectType
-            properties:
-                deviceId:
-                    type: string
-                    example: "1"
-                    minLength: 1
-                objectType:
-                    type: string
-                    enum: [ "COMPUTER", "MOBILE_DEVICE", "APPLE_TV" ]
-                    example: "COMPUTER"
-                    nullable: false
-        PlanConfigurationPost:
-            type: object
-            nullable: false
-            required:
-                - updateAction
-                - versionType
-            properties:
-                updateAction:
-                    type: string
-                    enum: [ "DOWNLOAD_ONLY", "DOWNLOAD_INSTALL", "DOWNLOAD_INSTALL_ALLOW_DEFERRAL", "DOWNLOAD_INSTALL_RESTART", "DOWNLOAD_INSTALL_SCHEDULE", "UNKNOWN" ]
-                    example: "DOWNLOAD_INSTALL"
-                    nullable: false
-                versionType:
-                    type: string
-                    enum: [ "LATEST_MAJOR", "LATEST_MINOR", "LATEST_ANY", "SPECIFIC_VERSION", "CUSTOM_VERSION", "UNKNOWN" ]
-                    example: "SPECIFIC_VERSION"
-                    nullable: false
-                specificVersion:
-                    type: string
-                    example: "12.6.1"
-                    description: Optional. Indicates the specific version to update to. Only available when the version type is set to specific version or custom version, otherwise defaults to NO_SPECIFIC_VERSION.
-                    default: "NO_SPECIFIC_VERSION"
-                    minLength: 0
-                buildVersion:
-                    type: string
-                    description: Optional. Indicates the build version to update to. Only available when the version type is set to custom version.
-                    example: "21F79"
-                    nullable: true
-                maxDeferrals:
-                    type: integer
-                    minimum: 0
-                    example: 5
-                    description: Required when the provided updateAction is DOWNLOAD_INSTALL_ALLOW_DEFERRAL, not applicable to all managed software update plans
-                forceInstallLocalDateTime:
-                    type: string
-                    description: Optional. Indicates the local date and time of the device to force update by.
-                    example: 2023-12-25T21:09:31
-                    nullable: true
-        PlanDeviceResponse:
-            type: object
-            properties:
-                device:
-                    $ref: '#/components/schemas/PlanDevice'
-                planId:
-                    type: string
-                    example: "6E47EF55-5318-494F-A09E-70F613E0AFD1"
-                    readOnly: true
-                    minLength: 1
-                href:
-                    type: string
-                    example: "/v1/managed-software-updates/plans/6E47EF55-5318-494F-A09E-70F613E0AFD1"
-                    readOnly: true
-                    nullable: false
-        ManagedSoftwareUpdatePlanToggle:
-            type: object
-            nullable: false
-            required:
-                - toggle
-            properties:
-                toggle:
-                    type: boolean
-                    example: false
-                    nullable: false
-                forceInstallLocalDateEnabled:
-                    type: boolean
-                    readOnly: true
-                    example: false
-                    nullable: false
-                customVersionEnabled:
-                    type: boolean
-                    readOnly: true
-                    example: false
-                    nullable: false
-                dssEnabled:
-                    type: boolean
-                    readOnly: true
-                    example: false
-                    nullable: false
-                recipeEnabled:
-                    type: boolean
-                    readOnly: true
-                    example: false
-                    nullable: false
-        ManagedSoftwareUpdatePlanToggleStatusWrapper:
-            type: object
-            nullable: false
-            required:
-                - toggleOff
-                - toggleOn
-            properties:
-                toggleOn:
-                    $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatus'
-                toggleOff:
-                    $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatus'
-        ManagedSoftwareUpdatePlanToggleStatus:
-            type: object
-            nullable: false
-            properties:
-                startTime:
-                    type: string
-                    example: 2023-12-25T21:09:31
-                    description: The local server time when the toggle was initiated. Null if state is NEVER_RAN
-                    nullable: true
-                endTime:
-                    type: string
-                    example: 2023-12-25T21:09:31
-                    description: The local server time when the toggle was completed. Null if state is NEVER_RAN
-                    nullable: true
-                elapsedTime:
-                    type: integer
-                    example: 17
-                    description: Duration in seconds between the start time and end time. "Now" is used when end time is null. Null if state is NEVER_RAN
-                    nullable: true
-                state:
-                    type: string
-                    enum: [ "NOT_RUNNING", "RUNNING", "NEVER_RAN" ]
-                    example: NOT_RUNNING
-                    description: The current state of the toggle
-                totalRecords:
-                    type: integer
-                    format: int64
-                    example: 1000
-                    description: The total number of records that will be deleted
-                processedRecords:
-                    type: integer
-                    example: 500
-                    format: int64
-                    description: The total number of records that have been deleted
-                percentComplete:
-                    type: number
-                    format: double
-                    example: 61.2
-                    description: The percentage between total and completed records.
-                formattedPercentComplete:
-                    type: string
-                    example: 100 / 500 -> 20% Complete
-                    description: Pretty print of total, processed, and percentage complete
-                exitState:
-                    type: string
-                    example: UNKNOWN
-                    description: Troubleshooting - The exit status code from the toggle processing job. "Unknown" will return when the toggle is running.
-                    enum: [ "UNKNOWN", "EXECUTING", "COMPLETED", "NOOP", "FAILED", "STOPPED" ]
-                exitMessage:
-                    type: string
-                    example: "Error"
-                    description: Troubleshooting - The exit message of the toggle job if it encounters an exception while running. Nominal return is an empty string
-        ManagedSoftwareUpdatePlanEventStore:
-            type: object
-            properties:
-                events:
-                    type: string
-                    readOnly: true
-                    nullable: false
-                    default: ""
-
+  schemas:
+    ManagedSoftwareUpdatePlan:
+      properties:
+        buildVersion:
+          description: Optional. Indicates the build version to update to. Only available when the version type is set to custom version.
+          example: 21F79
+          nullable: true
+          readOnly: true
+          type: string
+        device:
+          $ref: '#/components/schemas/PlanDevice'
+        forceInstallLocalDateTime:
+          description: Optional. Indicates the local date and time of the device to force update by.
+          example: 2023-12-25T21:09:31
+          nullable: true
+          type: string
+        maxDeferrals:
+          description: Not applicable to all managed software update plans
+          example: 5
+          minimum: 0
+          readOnly: true
+          type: integer
+        planUuid:
+          example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
+          minLength: 1
+          readOnly: true
+          type: string
+        recipeId:
+          default: "-1"
+          description: The id of the recipe that was used to generate the plan.
+          example: "1"
+          readOnly: true
+          type: string
+        specificVersion:
+          default: NO_SPECIFIC_VERSION
+          description: Optional. Indicates the specific version to update to. Only available when the version type is set to specific version or custom version, otherwise defaults to NO_SPECIFIC_VERSION.
+          example: 12.6.1
+          readOnly: true
+          type: string
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        updateAction:
+          enum:
+            - DOWNLOAD_ONLY
+            - DOWNLOAD_INSTALL
+            - DOWNLOAD_INSTALL_ALLOW_DEFERRAL
+            - DOWNLOAD_INSTALL_RESTART
+            - DOWNLOAD_INSTALL_SCHEDULE
+            - UNKNOWN
+          example: DOWNLOAD_INSTALL
+          nullable: false
+          readOnly: true
+          type: string
+        versionType:
+          enum:
+            - LATEST_MAJOR
+            - LATEST_MINOR
+            - LATEST_ANY
+            - SPECIFIC_VERSION
+            - CUSTOM_VERSION
+            - UNKNOWN
+          example: SPECIFIC_VERSION
+          nullable: false
+          readOnly: true
+          type: string
+      required:
+        - device
+        - maxDeferrals
+        - planUuid
+        - status
+        - updateAction
+        - versionType
+      type: object
+    ManagedSoftwareUpdatePlanEventStore:
+      properties:
+        events:
+          default: ""
+          nullable: false
+          readOnly: true
+          type: string
+      type: object
+    ManagedSoftwareUpdatePlanGroupPost:
+      properties:
+        config:
+          $ref: '#/components/schemas/PlanConfigurationPost'
+        group:
+          $ref: '#/components/schemas/PlanGroupPost'
+      required:
+        - config
+        - group
+      type: object
+    ManagedSoftwareUpdatePlanPost:
+      properties:
+        config:
+          $ref: '#/components/schemas/PlanConfigurationPost'
+        devices:
+          items:
+            $ref: '#/components/schemas/PlanDevicePost'
+          minItems: 1
+          type: array
+          uniqueItems: true
+      required:
+        - config
+        - devices
+      type: object
+    ManagedSoftwareUpdatePlanPostResponse:
+      properties:
+        plans:
+          items:
+            $ref: '#/components/schemas/PlanDeviceResponse'
+          minItems: 0
+          readOnly: true
+          type: array
+          uniqueItems: true
+      type: object
+    ManagedSoftwareUpdatePlanToggle:
+      nullable: false
+      properties:
+        customVersionEnabled:
+          example: false
+          nullable: false
+          readOnly: true
+          type: boolean
+        dssEnabled:
+          example: false
+          nullable: false
+          readOnly: true
+          type: boolean
+        forceInstallLocalDateEnabled:
+          example: false
+          nullable: false
+          readOnly: true
+          type: boolean
+        recipeEnabled:
+          example: false
+          nullable: false
+          readOnly: true
+          type: boolean
+        toggle:
+          example: false
+          nullable: false
+          type: boolean
+      required:
+        - toggle
+      type: object
+    ManagedSoftwareUpdatePlanToggleStatus:
+      nullable: false
+      properties:
+        elapsedTime:
+          description: Duration in seconds between the start time and end time. "Now" is used when end time is null. Null if state is NEVER_RAN
+          example: 17
+          nullable: true
+          type: integer
+        endTime:
+          description: The local server time when the toggle was completed. Null if state is NEVER_RAN
+          example: 2023-12-25T21:09:31
+          nullable: true
+          type: string
+        exitMessage:
+          description: Troubleshooting - The exit message of the toggle job if it encounters an exception while running. Nominal return is an empty string
+          example: Error
+          type: string
+        exitState:
+          description: Troubleshooting - The exit status code from the toggle processing job. "Unknown" will return when the toggle is running.
+          enum:
+            - UNKNOWN
+            - EXECUTING
+            - COMPLETED
+            - NOOP
+            - FAILED
+            - STOPPED
+          example: UNKNOWN
+          type: string
+        formattedPercentComplete:
+          description: Pretty print of total, processed, and percentage complete
+          example: 100 / 500 -> 20% Complete
+          type: string
+        percentComplete:
+          description: The percentage between total and completed records.
+          example: 61.2
+          format: double
+          type: number
+        processedRecords:
+          description: The total number of records that have been deleted
+          example: 500
+          format: int64
+          type: integer
+        startTime:
+          description: The local server time when the toggle was initiated. Null if state is NEVER_RAN
+          example: 2023-12-25T21:09:31
+          nullable: true
+          type: string
+        state:
+          description: The current state of the toggle
+          enum:
+            - NOT_RUNNING
+            - RUNNING
+            - NEVER_RAN
+          example: NOT_RUNNING
+          type: string
+        totalRecords:
+          description: The total number of records that will be deleted
+          example: 1000
+          format: int64
+          type: integer
+      type: object
+    ManagedSoftwareUpdatePlanToggleStatusWrapper:
+      nullable: false
+      properties:
+        toggleOff:
+          $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatus'
+        toggleOn:
+          $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatus'
+      required:
+        - toggleOff
+        - toggleOn
+      type: object
+    ManagedSoftwareUpdatePlans:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ManagedSoftwareUpdatePlan'
+          minItems: 0
+          readOnly: true
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    PlanConfigurationPost:
+      nullable: false
+      properties:
+        buildVersion:
+          description: Optional. Indicates the build version to update to. Only available when the version type is set to custom version.
+          example: 21F79
+          nullable: true
+          type: string
+        forceInstallLocalDateTime:
+          description: Optional. Indicates the local date and time of the device to force update by.
+          example: 2023-12-25T21:09:31
+          nullable: true
+          type: string
+        maxDeferrals:
+          description: Required when the provided updateAction is DOWNLOAD_INSTALL_ALLOW_DEFERRAL, not applicable to all managed software update plans
+          example: 5
+          minimum: 0
+          type: integer
+        specificVersion:
+          default: NO_SPECIFIC_VERSION
+          description: Optional. Indicates the specific version to update to. Only available when the version type is set to specific version or custom version, otherwise defaults to NO_SPECIFIC_VERSION.
+          example: 12.6.1
+          minLength: 0
+          type: string
+        updateAction:
+          enum:
+            - DOWNLOAD_ONLY
+            - DOWNLOAD_INSTALL
+            - DOWNLOAD_INSTALL_ALLOW_DEFERRAL
+            - DOWNLOAD_INSTALL_RESTART
+            - DOWNLOAD_INSTALL_SCHEDULE
+            - UNKNOWN
+          example: DOWNLOAD_INSTALL
+          nullable: false
+          type: string
+        versionType:
+          enum:
+            - LATEST_MAJOR
+            - LATEST_MINOR
+            - LATEST_ANY
+            - SPECIFIC_VERSION
+            - CUSTOM_VERSION
+            - UNKNOWN
+          example: SPECIFIC_VERSION
+          nullable: false
+          type: string
+      required:
+        - updateAction
+        - versionType
+      type: object
+    PlanDevice:
+      properties:
+        deviceId:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        href:
+          example: /v1/computers-inventory/1
+          nullable: false
+          readOnly: true
+          type: string
+        objectType:
+          enum:
+            - COMPUTER
+            - MOBILE_DEVICE
+            - APPLE_TV
+          example: COMPUTER
+          nullable: false
+          readOnly: true
+          type: string
+      type: object
+    PlanDevicePost:
+      properties:
+        deviceId:
+          example: "1"
+          minLength: 1
+          type: string
+        objectType:
+          enum:
+            - COMPUTER
+            - MOBILE_DEVICE
+            - APPLE_TV
+          example: COMPUTER
+          nullable: false
+          type: string
+      required:
+        - deviceId
+        - objectType
+      type: object
+    PlanDeviceResponse:
+      properties:
+        device:
+          $ref: '#/components/schemas/PlanDevice'
+        href:
+          example: /v1/managed-software-updates/plans/6E47EF55-5318-494F-A09E-70F613E0AFD1
+          nullable: false
+          readOnly: true
+          type: string
+        planId:
+          example: 6E47EF55-5318-494F-A09E-70F613E0AFD1
+          minLength: 1
+          readOnly: true
+          type: string
+      type: object
+    PlanGroupPost:
+      nullable: false
+      properties:
+        groupId:
+          example: "1"
+          minLength: 1
+          type: string
+        objectType:
+          enum:
+            - COMPUTER_GROUP
+            - MOBILE_DEVICE_GROUP
+          example: COMPUTER_GROUP
+          nullable: false
+          type: string
+      required:
+        - groupId
+        - objectType
+      type: object
+    PlanStatus:
+      properties:
+        errorReasons:
+          example:
+            - NO_UPDATES_AVAILABLE
+            - NOT_SUPERVISED
+          items:
+            enum:
+              - APPLE_SILICON_NO_ESCROW_KEY
+              - NOT_SUPERVISED
+              - NOT_MANAGED
+              - NO_DISK_SPACE
+              - NO_UPDATES_AVAILABLE
+              - SPECIFIC_VERSION_UNAVAILABLE
+              - SPECIFIC_VERSION_UNAVAILABLE_FOR_DEVICE_MODEL
+              - ACTION_NOT_SUPPORTED_FOR_DEVICE_TYPE
+              - DECLARATIVE_DEVICE_MANAGEMENT_SOFTWARE_UPDATES_NOT_SUPPORTED_FOR_DEVICE_OS_VERSION
+              - DECLARATIVE_DEVICE_MANAGEMENT_SOFTWARE_UPDATES_NOT_SUPPORTED_FOR_DEVICE_TYPE
+              - PLAN_NOT_FOUND
+              - APPLE_SOFTWARE_LOOKUP_SERVICE_ERROR
+              - EXISTING_PLAN_FOR_DEVICE_IN_PROGRESS
+              - DOWNGRADE_NOT_SUPPORTED
+              - DECLARATIVE_SERVICE_ERROR
+              - UNABLE_TO_FIND_UPDATES_AND_OUT_OF_RETRIES
+              - DATA_INTEGRITY_VIOLATION_EXCEPTION
+              - ILLEGAL_ARGUMENT_EXCEPTION
+              - MDM_EXCEPTION
+              - INSTALL_REASON_UNKNOWN
+              - ACCEPT_PLAN_FAILURE
+              - SCHEDULE_PLAN_FAILURE
+              - REJECT_PLAN_FAILURE
+              - START_PLAN_FAILURE
+              - QUEUE_SCHEDULED_OS_UPDATE_SCAN_FAILURE
+              - SCAN_WAIT_FINISHED_FAILURE
+              - QUEUE_AVAILABLE_OS_UPDATE_COMMAND_FAILURE
+              - MDM_CLIENT_EXCEPTION
+              - QUEUE_SCHEDULE_OS_UPDATE_FAILURE
+              - QUEUE_OS_UPDATE_STATUS_COMMAND_FAILURE
+              - STILL_IN_PROGRESS_FAILURE
+              - WAIT_TO_COLLECT_OS_UPDATE_STATUS_FAILURE
+              - IS_DOWNLOADED_AND_NEEDS_INSTALL_FAILURE
+              - IS_INSTALLED_FAILURE
+              - IS_DOWNLOAD_ONLY_AND_DOWNLOADED_FAILURE
+              - VERIFY_INSTALLATION_FAILURE
+              - IS_MAC_OS_UPDATE_FAILURE
+              - IS_LATEST_FAILURE
+              - IS_SPECIFIC_VERSION_FAILURE
+              - HANDLE_COMMAND_QUEUE_FAILURE
+              - INVALID_CONFIGURATION_DECLARATION
+              - DECLARATIVE_DEVICE_MANAGEMENT_STATUS_RESPONSE_FAILURE_REASON_RECEIVED
+              - NO_DEVICE_STATUS_BY_GRACE_PERIOD
+              - UNKNOWN
+            type: string
+          nullable: true
+          readOnly: true
+          type: array
+        state:
+          enum:
+            - Init
+            - PendingPlanValidation
+            - AcceptingPlan
+            - RejectingPlan
+            - ProcessingPlanType
+            - ProcessingPlanTypeMdm
+            - StartingPlan
+            - PlanFailed
+            - SchedulingScanForOSUpdates
+            - ProcessingScheduleOSUpdateScanResponse
+            - WaitingForScheduledOSUpdateScanToComplete
+            - CollectingAvailableOSUpdates
+            - ProcessingAvailableOSUpdatesResponse
+            - ProcessingSchedulingType
+            - SchedulingDDM
+            - DDMPlanScheduled
+            - WaitingToStartDDMUpdate
+            - ProcessingDDMStatusResponse
+            - CollectingDDMStatus
+            - SchedulingMDM
+            - MDMPlanScheduled
+            - SchedulingOSUpdate
+            - ProcessingScheduleOSUpdateResponse
+            - CollectingOSUpdateStatus
+            - ProcessingOSUpdateStatusResponse
+            - WaitingToCollectOSUpdateStatus
+            - VerifyingInstallation
+            - ProcessingInstallationVerification
+            - PlanCompleted
+            - PlanCanceled
+            - PlanException
+            - Unknown
+          example: SchedulingScanForOSUpdates
+          nullable: false
+          readOnly: true
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - ManagedSoftwareUpdatesPlans
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/managed-software-updates/plans:
+    get:
+      description: |
+        Retrieve Managed Software Update Plans
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is planUuid:asc. Multiple sort criteria are supported and must be separated with a comma.'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - planUuid:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter Managed Software Updates collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: planUuid, device.deviceId, device.objectType, updateAction, versionType, specificVersion, maxDeferrals, recipeId, forceInstallLocalDateTime, state.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlans'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Retrieve Managed Software Update Plans
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+    post:
+      description: |
+        Creates a Managed Software Update Plan.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPost'
+        description: Managed Software Update Plan to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPostResponse'
+          description: Managed Software Update Plan was created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        429:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Rate limit exceeded
+      summary: Create a Managed Software Update Plan
+      tags:
+        - managed-software-updates
+      x-rate-limit: true
+      x-required-privileges:
+        - Create Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+        - Send Computer Remote Command to Download and Install OS X Update
+        - Send Mobile Device Remote Command to Download and Install iOS Update
+  /v1/managed-software-updates/plans/feature-toggle:
+    get:
+      description: |
+        Retrieves current value of the Feature Toggle
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
+          description: Success
+      summary: Retrieve current value of the Feature Toggle
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+    put:
+      description: |
+        Updates the value of the Feature Toggle - This endpoint is asynchronous, the provided value will not be immediately updated. Please use the following endpoint to track the status of your toggle request. /v1/managed-software-updates/plans/feature-toggle/status:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggle'
+          description: Managed Software Update Plan Feature Toggle was updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Updates Feature Toggle Value
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Create Managed Software Updates
+        - Update Managed Software Updates
+  /v1/managed-software-updates/plans/feature-toggle/abandon:
+    post:
+      description: |
+        "Break Glass" endpoint, not for nominal usage.
+        Use this endpoint to forcefully abandon the feature-toggle background process if the status of the feature-toggle is 'stuck' or has reached an non-restartable failed state.
+        Usage of this endpoint under nominal conditions is undefined and unsupported.
+      responses:
+        204:
+          description: Managed Software Update Plan Feature Toggle abandon request was received
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Force stops any ongoing or stalled feature-toggle processes
+      tags:
+        - managed-software-updates
+      x-action: true
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Create Managed Software Updates
+        - Update Managed Software Updates
+  /v1/managed-software-updates/plans/feature-toggle/status:
+    get:
+      description: |
+        Retrieves background status of the Feature Toggle
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanToggleStatusWrapper'
+          description: Managed Software Update Plan Feature Toggle Status was retrieved
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Retrieves background status of the Feature Toggle
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+  /v1/managed-software-updates/plans/group:
+    post:
+      description: |
+        Creates Managed Software Update Plans for a Group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManagedSoftwareUpdatePlanGroupPost'
+        description: Managed Software Update Plan to create for Group
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanPostResponse'
+          description: Managed Software Update Plan was created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: A group with that id does not exist
+        429:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Rate limit exceeded
+      summary: Create Managed Software Update Plans for a Group
+      tags:
+        - managed-software-updates
+      x-rate-limit: true
+      x-required-privileges:
+        - Create Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+        - Read Smart Computer Groups
+        - Read Static Computer Groups
+        - Read Smart Mobile Device Groups
+        - Read Static Mobile Device Groups
+        - Send Computer Remote Command to Download and Install OS X Update
+        - Send Mobile Device Remote Command to Download and Install iOS Update
+  /v1/managed-software-updates/plans/group/{id}:
+    get:
+      description: |
+        Retrieves Managed Software Update Plans for a Group
+      parameters:
+        - description: Managed Software Update Group Id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: Managed Software Update Group Type, Available options are "COMPUTER_GROUP" or "MOBILE_DEVICE_GROUP"
+          example: COMPUTER_GROUP
+          explode: true
+          in: query
+          name: group-type
+          required: true
+          schema:
+            enum:
+              - COMPUTER_GROUP
+              - MOBILE_DEVICE_GROUP
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlans'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Group with that id does not exist
+      summary: Retrieve Managed Software Update Plans for a Group
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Read Computers
+        - Read Smart Computer Groups
+        - Read Static Computer Groups
+        - Read Mobile Devices
+        - Read Smart Mobile Device Groups
+        - Read Static Mobile Device Groups
+  /v1/managed-software-updates/plans/{id}:
+    get:
+      description: |
+        Retrieves a Managed Software Update Plan
+      parameters:
+        - description: Managed Software Update Plan Uuid
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlan'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Managed Software Update Plan with that id does not exist
+      summary: Retrieve a Managed Software Update Plan
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+  /v1/managed-software-updates/plans/{id}/declarations:
+    get:
+      description: |
+        Retrieves all Declarations associated with a Managed Software Update Plan
+      parameters:
+        - description: Managed Software Update Plan Uuid
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/DssDeclarations
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Managed Software Update Plan with that id does not exist
+      summary: Retrieve all Declarations associated with a Managed Software Update Plan
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+  /v1/managed-software-updates/plans/{id}/events:
+    get:
+      description: |
+        Retrieves a Managed Software Update Plan Event Store
+      parameters:
+        - description: Managed Software Update Plan Uuid
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedSoftwareUpdatePlanEventStore'
+          description: Success
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Managed Software Update Plan with that id does not exist
+      summary: Retrieve a Managed Software Update Plan Event Store
+      tags:
+        - managed-software-updates
+      x-required-privileges:
+        - Read Managed Software Updates
+        - Read Computers
+        - Read Mobile Devices
+servers:
+  - url: /api

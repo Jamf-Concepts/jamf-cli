@@ -164,7 +164,7 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
     "App Analytics Enabled"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -240,7 +240,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
     "App Analytics Enabled"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -602,7 +602,7 @@ If not, a new resource is created.`,
     "App Analytics Enabled"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 

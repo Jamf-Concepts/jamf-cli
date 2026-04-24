@@ -1,0 +1,37 @@
+components:
+  schemas:
+    LastLoginResponse:
+      properties:
+        lastLogin:
+          description: Timestamp of the last login (ISO 8601 format)
+          example: "2021-12-31T22:00:00Z"
+          format: date-time
+          type: string
+      required:
+        - lastLogin
+      type: object
+info:
+  title: Jamf Pro API - LastLogin
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/last-login:
+    get:
+      description: Returns the date of the last login event.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LastLoginResponse'
+          description: Last login date returned successfully.
+        204:
+          description: No last login information available.
+      summary: Get the date of the last login event
+      tags:
+        - last-login
+      x-authentication-required: true
+      x-required-privileges:
+        - Read Last Login
+servers:
+  - url: /api

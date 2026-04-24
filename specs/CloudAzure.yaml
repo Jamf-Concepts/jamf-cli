@@ -1,155 +1,288 @@
-openapi: 3.0.1
+components:
+  schemas:
+    AzureConfiguration:
+      description: A Cloud Identity Provider Azure configuration for responses
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommon
+        server:
+          $ref: _MonolithLibrary.yaml#/components/schemas/AzureServerConfiguration
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
+    AzureConfigurationRequest:
+      description: A Cloud Identity Provider Azure configuration for responses
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommonRequest
+        server:
+          $ref: '#/components/schemas/AzureServerConfigurationRequest'
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
+    AzureConfigurationUpdate:
+      description: A Cloud Identity Provider Azure configuration for update
+      properties:
+        cloudIdPCommon:
+          $ref: _MonolithLibrary.yaml#/components/schemas/CloudIdPCommon
+        server:
+          $ref: '#/components/schemas/AzureServerConfigurationUpdate'
+      required:
+        - cloudIdPCommon
+        - server
+      type: object
+    AzureServerConfigurationRequest:
+      description: Azure Cloud Identity Provider configuration request
+      properties:
+        code:
+          example: auth
+          type: string
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: "1001"
+          readOnly: true
+          type: string
+        mappings:
+          $ref: _MonolithLibrary.yaml#/components/schemas/AzureMappings
+        membershipCalculationOptimizationEnabled:
+          description: Use this field to enable membership calculation optimization. This setting would not apply to Single Sign On
+          example: true
+          type: boolean
+        searchTimeout:
+          example: 30
+          maximum: 600
+          minimum: 5
+          type: integer
+        tenantId:
+          example: db65d325-0350-4a17-9af9-b302d0fc386b
+          type: string
+        transitiveDirectoryMembershipEnabled:
+          description: Use this field to enable transitive membership lookup. This setting would not apply to Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipEnabled:
+          description: Use this field to enable transitive membership lookup with Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipUserField:
+          description: Use this field to set user field mapping for transitive membership lookup with Single Sign On
+          example: userPrincipalName
+          type: string
+        type:
+          description: Type of Entra ID connection
+          enum:
+            - PUBLIC
+            - GCC_HIGH
+          example: PUBLIC
+          type: string
+      required:
+        - code
+        - enabled
+        - mappings
+        - searchTimeout
+        - tenantId
+        - transitiveDirectoryMembershipEnabled
+        - transitiveMembershipEnabled
+        - transitiveMembershipUserField
+      type: object
+    AzureServerConfigurationUpdate:
+      description: Azure Cloud Identity Provider configuration update
+      properties:
+        enabled:
+          example: true
+          type: boolean
+        id:
+          example: "1001"
+          type: string
+        mappings:
+          $ref: _MonolithLibrary.yaml#/components/schemas/AzureMappings
+        membershipCalculationOptimizationEnabled:
+          description: Use this field to enable membership calculation optimization. This setting would not apply to Single Sign On
+          example: true
+          type: boolean
+        searchTimeout:
+          example: 30
+          maximum: 600
+          minimum: 5
+          type: integer
+        transitiveDirectoryMembershipEnabled:
+          description: Use this field to enable transitive membership lookup. This setting would not apply to Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipEnabled:
+          description: Use this field to enable transitive membership lookup with Single Sign On
+          example: false
+          type: boolean
+        transitiveMembershipUserField:
+          description: Use this field to set user field mapping for transitive membership lookup with Single Sign On
+          example: userPrincipalName
+          type: string
+      required:
+        - enabled
+        - id
+        - mappings
+        - searchTimeout
+        - transitiveDirectoryMembershipEnabled
+        - transitiveMembershipEnabled
+        - transitiveMembershipUserField
+      type: object
 info:
-  title: Jamf Pro API - Cloud Identity Provider
+  title: Jamf Pro API - CloudAzure
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/cloud-azure:
     post:
-      tags:
-        - cloud-azure
-      summary: Create Azure Cloud Identity Provider configuration
-      description: Create new Azure Cloud Identity Provider configuration with unique display
-        name.
+      description: Create new Azure Cloud Identity Provider configuration with unique display name.
       requestBody:
-        description: Azure Cloud Identity Provider configuration to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfigurationRequest'
+              $ref: '#/components/schemas/AzureConfigurationRequest'
+        description: Azure Cloud Identity Provider configuration to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Azure Cloud Identity Provider configuration created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Azure Cloud Identity Provider configuration cannot be saved.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: This endpoint is not available for your environment.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment.
+      summary: Create Azure Cloud Identity Provider configuration
+      tags:
+        - cloud-azure
       x-required-privileges:
         - Create LDAP Servers
   /v1/cloud-azure/{id}:
-    get:
-      tags:
-        - cloud-azure
-      summary: Get Azure Cloud Identity Provider configuration with given ID.
-      description: Get Azure Cloud Identity Provider configuration with given ID.
-      parameters:
-        - name: id
-          in: path
-          description: Cloud Identity Provider identifier
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Cloud Identity Provider configuration returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfiguration'
-        400:
-          description: ID can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
-            specified Azure Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read LDAP Servers
-    put:
-      tags:
-        - cloud-azure
-      summary: Update Azure Cloud Identity Provider configuration
-      description: Update Azure Cloud Identity Provider configuration. Cannot be used for
-        partial updates, all content body must be sent.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Cloud Identity Provider identifier
-          schema:
-            type: string
-      requestBody:
-        description: Azure Cloud Identity Provider configuration to update
-        content:
-          'application/json':
-            schema:
-              $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfigurationUpdate'
-        required: true
-      responses:
-        200:
-          description: Cloud Identity Provider configuration updated
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/AzureConfiguration'
-        400:
-          description: One or more parameters were invalid.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        404:
-          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
-            Cloud Identity Provider configuration does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-        409:
-          description: The request URL configuration id value does not match the id value in the request body.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update LDAP Servers
     delete:
-      tags:
-        - cloud-azure
-      summary: Delete Cloud Identity Provider configuration.
       description: Delete Cloud Identity Provider configuration.
       parameters:
-        - name: id
+        - description: Cloud Identity Provider identifier
+          explode: false
           in: path
+          name: id
           required: true
-          description: Cloud Identity Provider identifier
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: Cloud Identity Provider configuration deleted.
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: ID can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or
-            Cloud Identity Provider configuration does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or Cloud Identity Provider configuration does not exist.
+      summary: Delete Cloud Identity Provider configuration.
+      tags:
+        - cloud-azure
       x-required-privileges:
         - Delete LDAP Servers
-components:
-  schemas: {}
+    get:
+      description: Get Azure Cloud Identity Provider configuration with given ID.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AzureConfiguration'
+          description: Cloud Identity Provider configuration returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: ID can only be a number.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or specified Azure Cloud Identity Provider configuration does not exist.
+      summary: Get Azure Cloud Identity Provider configuration with given ID.
+      tags:
+        - cloud-azure
+      x-required-privileges:
+        - Read LDAP Servers
+    put:
+      description: Update Azure Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.
+      parameters:
+        - description: Cloud Identity Provider identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AzureConfigurationUpdate'
+        description: Azure Cloud Identity Provider configuration to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AzureConfiguration'
+          description: Cloud Identity Provider configuration updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: One or more parameters were invalid.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: This endpoint is not available for your environment if CLOUD_ONLY reason code or Cloud Identity Provider configuration does not exist.
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The request URL configuration id value does not match the id value in the request body.
+      summary: Update Azure Cloud Identity Provider configuration
+      tags:
+        - cloud-azure
+      x-required-privileges:
+        - Update LDAP Servers
+servers:
+  - url: /api

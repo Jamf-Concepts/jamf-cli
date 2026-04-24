@@ -161,7 +161,7 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
     "Price"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -237,7 +237,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
     "Price"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -452,7 +452,7 @@ If not, a new resource is created.`,
     "Price"
   ],
   "name": "Andy's Search",
-  "siteId": -1
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 

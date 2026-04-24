@@ -1,228 +1,228 @@
-openapi: 3.0.3
-info:
-    title: Jamf Pro API - APNS Client Push Status
-    version: 0.0.1
-paths:
-    /v1/apns-client-push-status:
-        get:
-            tags:
-                - apns-client-push-status
-            summary: |
-                Search for clients with push notifications disabled
-            description: |
-                Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled.
-                The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.
-            parameters:
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: |
-                        Sorting criteria in the format: property(,asc|desc).
-                        Default sort order is ascending. Multiple sort criteria are supported.
-                        Sortable fields: pushDisabledTime, deviceType, managementId
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ pushDisabledTime:asc ]
-                -   name: filter
-                    in: query
-                    description: |
-                        Query in the RSQL format, allowing to filter results.
-                        Fields allowed in the query: deviceType, disabledAt, managementId.
-                        This param can be combined with paging and sorting.
-                        
-                        Example: filter=deviceType=="MOBILE_DEVICE"
-                        Example: filter=disabledAt>2024-11-01T00:00:00Z
-                        Example: filter=deviceType=="COMPUTER";disabledAt>2024-01-01T00:00:00Z
-                    schema:
-                        type: string
-                        default: ""
-            responses:
-                200:
-                    description: |
-                        Successful operation. Returns a paginated list of clients with push notifications disabled.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ApnsClientPushStatusSearchResults'
-                400:
-                    description: |
-                        Bad Request - Invalid filter or pagination parameters
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - View MDM command information in Jamf Pro API
-
-    /v1/apns-client-push-status/enable-client:
-        post:
-            tags:
-                - apns-client-push-status
-            summary: |
-                Enable push notifications for a single client
-            description: |
-                Enable push notifications for a single MDM client that previously had push disabled.
-                This sets the pushEnabled flag to true for the specified client.
-                managementId field is required in the request body.
-            x-action: true
-            requestBody:
-                required: true
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/EnablePushRequest'
-            responses:
-                204:
-                    description: |
-                        Push notifications successfully enabled for the client. No content returned.
-                400:
-                    description: |
-                        Bad Request - managementId is required or invalid request body
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                404:
-                    description: |
-                        Client not found - No client exists with the provided management ID
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Send MDM command information in Jamf Pro API
-
-    /v1/apns-client-push-status/enable-all-clients:
-        post:
-            tags:
-                - apns-client-push-status
-            summary: |
-                Enable push notifications for all clients
-            description: |
-                Create a request to enable push notifications for all MDM clients that currently have push disabled.
-                This is an asynchronous operation that processes all disabled clients in the background.
-            x-action: true
-            responses:
-                202:
-                    description: |
-                        Request accepted. Push notifications will be enabled for all clients asynchronously.
-            x-required-privileges:
-                - Send MDM command information in Jamf Pro API
-
-    /v1/apns-client-push-status/enable-all-clients/status:
-        get:
-            tags:
-                - apns-client-push-status
-            summary: |
-                Get status of enable all clients request
-            description: |
-                Retrieve the status of the most recent request to enable push notifications for all clients.
-                Returns 404 if no recent request exists.
-            responses:
-                200:
-                    description: |
-                        Successful operation. Returns the status of the recent request.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/ApnsPushEnableRequest'
-                404:
-                    description: |
-                        No recent request found.
-            x-required-privileges:
-                - View MDM command information in Jamf Pro API
-
 components:
-    schemas:
-        ApnsClientPushStatusSearchResults:
-            type: object
-            description: Search results containing APNS client push status records
-            required:
-                - totalCount
-                - results
-            properties:
-                totalCount:
-                    type: integer
-                    format: int64
-                    description: Total number of records matching the query
-                    example: 42
-                results:
-                    type: array
-                    description: Array of APNS client push status records
-                    items:
-                        $ref: '#/components/schemas/ApnsClientPushStatus'
+  schemas:
+    ApnsClientPushStatus:
+      description: Information about a client with push notifications disabled
+      properties:
+        clientId:
+          description: Id of the Computer or Device record in Jamf Pro
+          example: "55"
+          nullable: false
+          type: string
+        deviceType:
+          description: The type of MDM client device
+          enum:
+            - MOBILE_DEVICE
+            - MOBILE_DEVICE_USER
+            - COMPUTER
+            - COMPUTER_USER
+            - TV
+            - WATCH
+            - VISION_PRO
+            - UNKNOWN
+          example: MOBILE_DEVICE
+          nullable: false
+          type: string
+        disabledAt:
+          description: Timestamp when push notifications were disabled for this client (ISO-8601 format)
+          example: "2024-11-06T14:30:00Z"
+          format: date-time
+          nullable: false
+          type: string
+        managementId:
+          description: Unique identifier for the device management record
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+          nullable: false
+          type: string
+      type: object
+    ApnsClientPushStatusSearchResults:
+      description: Search results containing APNS client push status records
+      properties:
+        results:
+          description: Array of APNS client push status records
+          items:
+            $ref: '#/components/schemas/ApnsClientPushStatus'
+          type: array
+        totalCount:
+          description: Total number of records matching the query
+          example: 42
+          format: int64
+          type: integer
+      required:
+        - results
+        - totalCount
+      type: object
+    ApnsPushEnableRequest:
+      description: Status information for an enable all clients push request
+      properties:
+        processedTime:
+          description: Timestamp when the request was processed (ISO-8601 format), null if not yet processed
+          example: "2024-11-06T15:30:00Z"
+          format: date-time
+          nullable: true
+          type: string
+        requestedTime:
+          description: Timestamp when the request was created (ISO-8601 format)
+          example: "2024-11-06T14:30:00Z"
+          format: date-time
+          type: string
+        status:
+          description: Current status of the request
+          enum:
+            - QUEUED
+            - STARTED
+            - COMPLETED
+          example: QUEUED
+          type: string
+      type: object
+    EnablePushRequest:
+      description: Request body to enable push notifications for a client
+      properties:
+        managementId:
+          description: Unique identifier for the device management record to enable push for
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+          type: string
+      required:
+        - managementId
+      type: object
+info:
+  title: Jamf Pro API - ApnsClientPushStatus
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/apns-client-push-status:
+    get:
+      description: |
+        Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled.
+        The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: property(,asc|desc).
+            Default sort order is ascending. Multiple sort criteria are supported.
+            Sortable fields: pushDisabledTime, deviceType, managementId
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - pushDisabledTime:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: |
+            Query in the RSQL format, allowing to filter results.
+            Fields allowed in the query: deviceType, disabledAt, managementId.
+            This param can be combined with paging and sorting.
 
-        ApnsClientPushStatus:
-            type: object
-            description: Information about a client with push notifications disabled
-            properties:
-                deviceType:
-                    type: string
-                    description: The type of MDM client device
-                    enum:
-                        - MOBILE_DEVICE
-                        - MOBILE_DEVICE_USER
-                        - COMPUTER
-                        - COMPUTER_USER
-                        - TV
-                        - WATCH
-                        - VISION_PRO
-                        - UNKNOWN
-                    example: "MOBILE_DEVICE"
-                    nullable: false
-                clientId:
-                    type: string
-                    description: Id of the Computer or Device record in Jamf Pro
-                    example: 55
-                    nullable: false
-                disabledAt:
-                    type: string
-                    format: date-time
-                    description: Timestamp when push notifications were disabled for this client (ISO-8601 format)
-                    example: "2024-11-06T14:30:00Z"
-                    nullable: false
-                managementId:
-                    type: string
-                    description: Unique identifier for the device management record
-                    example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-                    nullable: false
-
-        EnablePushRequest:
-            type: object
-            description: Request body to enable push notifications for a client
-            required:
-                - managementId
-            properties:
-                managementId:
-                    type: string
-                    description: Unique identifier for the device management record to enable push for
-                    example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-
-        ApnsPushEnableRequest:
-            type: object
-            description: Status information for an enable all clients push request
-            properties:
-                requestedTime:
-                    type: string
-                    format: date-time
-                    description: Timestamp when the request was created (ISO-8601 format)
-                    example: "2024-11-06T14:30:00Z"
-                status:
-                    type: string
-                    description: Current status of the request
-                    enum:
-                        - QUEUED
-                        - STARTED
-                        - COMPLETED
-                    example: "QUEUED"
-                processedTime:
-                    type: string
-                    format: date-time
-                    description: Timestamp when the request was processed (ISO-8601 format), null if not yet processed
-                    example: "2024-11-06T15:30:00Z"
-                    nullable: true
-
+            Example: filter=deviceType=="MOBILE_DEVICE"
+            Example: filter=disabledAt>2024-11-01T00:00:00Z
+            Example: filter=deviceType=="COMPUTER";disabledAt>2024-01-01T00:00:00Z
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApnsClientPushStatusSearchResults'
+          description: |
+            Successful operation. Returns a paginated list of clients with push notifications disabled.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Bad Request - Invalid filter or pagination parameters
+      summary: |
+        Search for clients with push notifications disabled
+      tags:
+        - apns-client-push-status
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+  /v1/apns-client-push-status/enable-all-clients:
+    post:
+      description: |
+        Create a request to enable push notifications for all MDM clients that currently have push disabled.
+        This is an asynchronous operation that processes all disabled clients in the background.
+      responses:
+        202:
+          description: |
+            Request accepted. Push notifications will be enabled for all clients asynchronously.
+      summary: |
+        Enable push notifications for all clients
+      tags:
+        - apns-client-push-status
+      x-action: true
+      x-required-privileges:
+        - Send MDM command information in Jamf Pro API
+  /v1/apns-client-push-status/enable-all-clients/status:
+    get:
+      description: |
+        Retrieve the status of the most recent request to enable push notifications for all clients.
+        Returns 404 if no recent request exists.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApnsPushEnableRequest'
+          description: |
+            Successful operation. Returns the status of the recent request.
+        404:
+          description: |
+            No recent request found.
+      summary: |
+        Get status of enable all clients request
+      tags:
+        - apns-client-push-status
+      x-required-privileges:
+        - View MDM command information in Jamf Pro API
+  /v1/apns-client-push-status/enable-client:
+    post:
+      description: |
+        Enable push notifications for a single MDM client that previously had push disabled.
+        This sets the pushEnabled flag to true for the specified client.
+        managementId field is required in the request body.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnablePushRequest'
+        required: true
+      responses:
+        204:
+          description: |
+            Push notifications successfully enabled for the client. No content returned.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Bad Request - managementId is required or invalid request body
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Client not found - No client exists with the provided management ID
+      summary: |
+        Enable push notifications for a single client
+      tags:
+        - apns-client-push-status
+      x-action: true
+      x-required-privileges:
+        - Send MDM command information in Jamf Pro API
+servers:
+  - url: /api

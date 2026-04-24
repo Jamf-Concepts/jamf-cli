@@ -26,6 +26,7 @@ func NewAuthenticationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAuthenticationsInvalidateTokenCmd(ctx))
 	cmd.AddCommand(newAuthenticationsKeepAliveCmd(ctx))
 	cmd.AddCommand(newAuthenticationsTokenCmd(ctx))
+	cmd.AddCommand(newAuthenticationsOauthTokenCmd(ctx))
 
 	return cmd
 }
@@ -230,6 +231,56 @@ func newAuthenticationsTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/auth/token"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newAuthenticationsOauthTokenCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "oauth-token",
+		Short: "Obtain an access token using an API Client",
+		Long:  "Obtain an access token using the OAuth2 client credentials flow",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/oauth/token"
 
 			// Build query string
 			var queryParts []string

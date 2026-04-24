@@ -3,10 +3,6 @@
 package generated
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -21,29 +17,24 @@ func NewUserSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage user-sessions in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newUserSessionsListCmd(ctx))
-	cmd.AddCommand(newUserSessionsCreateCmd(ctx))
+	cmd.AddCommand(newUserSessionsActiveCmd(ctx))
+	cmd.AddCommand(newUserSessionsCountCmd(ctx))
 
 	return cmd
 }
 
-func newUserSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newUserSessionsActiveCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Return all Jamf Pro user acounts",
-		Long:  "Return all Jamf Pro user acounts.",
-		Example: `  # List all user-sessions
-  jamf-cli pro user-sessions list
-
-  # List user-sessions and extract IDs
-  jamf-cli pro user-sessions list --field id`,
+		Use:   "active",
+		Short: "Get active user sessions.",
+		Long:  "Returns detailed information about currently logged in users.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/user"
+			path := "/v1/user-sessions/active"
 
 			// Build query string
 			var queryParts []string
@@ -65,34 +56,18 @@ func newUserSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newUserSessionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagScaffold bool
-	)
+func newUserSessionsCountCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Update values in the User's current session",
-		Long:  "Updates values in the user's current session.",
-		Example: `  # Show the JSON template for creating a user-session
-  jamf-cli pro user-sessions create --scaffold
-
-  # Create a user-session from JSON
-  echo '{"name":"Example"}' | jamf-cli pro user-sessions create
-
-  # Get a user-session, modify it, and create a copy
-  jamf-cli pro user-sessions get 1 -o json | jq '.name = "Copy"' | jamf-cli pro user-sessions create`,
+		Use:   "count",
+		Short: "Get count of active user sessions.",
+		Long:  "Returns the number of currently logged in users.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "currentSiteId": 1
-}`, ctx.Output.Format())
-			}
-
 			// Build request path
-			path := "/user/updateSession"
+			path := "/v1/user-sessions/count"
 
 			// Build query string
 			var queryParts []string
@@ -101,24 +76,7 @@ func newUserSessionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
 				return err
 			}
@@ -127,8 +85,6 @@ func newUserSessionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

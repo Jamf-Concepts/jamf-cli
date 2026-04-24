@@ -1,288 +1,296 @@
-openapi: 3.0.3
+components:
+  schemas:
+    PatchPolicies:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/PatchPolicyListView'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    PatchPolicyDetail:
+      properties:
+        deploymentMethod:
+          example: automatically
+          type: string
+        downgrade:
+          example: false
+          type: boolean
+        enabled:
+          example: false
+          type: boolean
+        iconId:
+          example: "1"
+          type: string
+        id:
+          example: "1"
+          nullable: false
+          type: string
+        installButtonText:
+          example: install
+          type: string
+        killAppsDelayMinutes:
+          example: 5
+          type: integer
+        killAppsMessage:
+          example: message
+          type: string
+        name:
+          example: Policy name
+          type: string
+        notificationHeader:
+          example: notification header
+          type: string
+        patchUnknownVersion:
+          example: false
+          type: boolean
+        reminderEnabled:
+          example: false
+          type: boolean
+        reminderFrequency:
+          example: 1
+          type: integer
+        selfServiceDeadline:
+          example: 1
+          type: integer
+        selfServiceDescription:
+          example: description
+          type: string
+        selfServiceEnforceDeadline:
+          example: false
+          type: boolean
+        softwareTitleConfigurationId:
+          example: "1"
+          type: string
+        softwareTitleId:
+          example: "1"
+          type: string
+        targetPatchVersion:
+          example: v1
+          type: string
+      type: object
+    PatchPolicyDetails:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/PatchPolicyDetail'
+          type: array
+        totalCount:
+          example: 1
+          nullable: false
+          type: integer
+      type: object
+    PatchPolicyListView:
+      properties:
+        completed:
+          example: 0
+          type: integer
+        deferred:
+          example: 0
+          type: integer
+        failed:
+          example: 0
+          type: integer
+        id:
+          example: "1"
+          type: string
+        pending:
+          example: 0
+          type: integer
+        policyDeploymentMethod:
+          example: automatically
+          type: string
+        policyEnabled:
+          example: false
+          type: boolean
+        policyName:
+          example: Policy name
+          type: string
+        policyTargetVersion:
+          example: v1
+          type: string
+        softwareTitle:
+          example: Software title
+          type: string
+        softwareTitleConfigurationId:
+          example: "1"
+          type: string
+      type: object
+    PatchPolicyV2OnDashboard:
+      properties:
+        onDashboard:
+          example: true
+          nullable: false
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - Patch
-  version: 0.0.2
+  title: Jamf Pro API - PatchPolicies
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v2/patch-policies:
     get:
-      tags:
-        - patch-policies
-      summary: Retrieve Patch Policies
       description: Retrieves a list of patch policies.
-      x-required-privileges:
-        - Read Patch Policies
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc.
-            Multiple sort criteria are supported and must be separated with a comma.'
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma.'
           explode: true
+          in: query
+          name: sort
+          required: false
           schema:
-            type: array
+            default:
+              - id:asc
             items:
               type: string
-            default: [ id:asc ]
-        - name: filter
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter Patch Policy collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, policyName, policyEnabled, policyTargetVersion, policyDeploymentMethod, softwareTitle, softwareTitleConfigurationId, pending, completed, deferred, and failed. This param can be combined with paging and sorting.'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter Patch Policy collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: id, policyName, policyEnabled, policyTargetVersion, policyDeploymentMethod,
-            softwareTitle, softwareTitleConfigurationId, pending, completed, deferred, and failed.
-            This param can be combined with paging and sorting.'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
-          description: Success
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatchPolicies'
+          description: Success
         400:
-          description: Bad Request
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-policies/policy-details:
-      get:
-          tags:
-              - patch-policies
-          summary: Retrieve Patch Policies
-          description: Retrieves a list of patch policies.
-          x-required-privileges:
-              - Read Patch Policies
-          parameters:
-              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-              - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-              - name: sort
-                in: query
-                description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc.
-            Multiple sort criteria are supported and must be separated with a comma.'
-                explode: true
-                schema:
-                    type: array
-                    items:
-                        type: string
-                    default: [ id:asc ]
-              - name: filter
-                in: query
-                description: 'Query in the RSQL format, allowing to filter Patch Policy collection.
-            Default filter is empty query - returning all results for the requested page.
-            Fields allowed in the query: id, name, enabled, targetPatchVersion, deploymentMethod,
-            softwareTitleId, softwareTitleConfigurationId, killAppsDelayMinutes, killAppsMessage, isDowngrade,
-            isPatchUnknownVersion, notificationHeader, selfServiceEnforceDeadline, selfServiceDeadline,
-            installButtonText, selfServiceDescription, iconId, reminderFrequency, reminderEnabled.
-            This param can be combined with paging and sorting.'
-                schema:
-                    type: string
-                    default: ''
-          responses:
-              200:
-                  description: Success
-                  content:
-                      application/json:
-                          schema:
-                              $ref: '#/components/schemas/PatchPolicyDetails'
-              400:
-                  description: Bad Request
-                  content:
-                      'application/json':
-                          schema:
-                              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-  /v2/patch-policies/{id}/dashboard:
-    get:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Retrieve Patch Policies
       tags:
         - patch-policies
-      summary: |
-        Return whether or not the requested patch policy is on the dashboard
-      description: Returns whether or not the requested patch policy is on the dashboard
+      x-required-privileges:
+        - Read Patch Policies
+  /v2/patch-policies/policy-details:
+    get:
+      description: Retrieves a list of patch policies.
       parameters:
-        - name: id
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma.'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter Patch Policy collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, enabled, targetPatchVersion, deploymentMethod, softwareTitleId, softwareTitleConfigurationId, killAppsDelayMinutes, killAppsMessage, isDowngrade, isPatchUnknownVersion, notificationHeader, selfServiceEnforceDeadline, selfServiceDeadline, installButtonText, selfServiceDescription, iconId, reminderFrequency, reminderEnabled. This param can be combined with paging and sorting.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchPolicyDetails'
+          description: Success
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request
+      summary: Retrieve Patch Policies
+      tags:
+        - patch-policies
+      x-required-privileges:
+        - Read Patch Policies
+  /v2/patch-policies/{id}/dashboard:
+    delete:
+      description: Removes a patch policy from the dashboard.
+      parameters:
+        - description: patch policy id
+          explode: false
           in: path
-          description: patch policy id
+          name: id
           required: true
           schema:
             type: string
+          style: simple
+      responses:
+        204:
+          description: OK
+      summary: |
+        Remove a patch policy from the dashboard
+      tags:
+        - patch-policies
+      x-required-privileges:
+        - Read Patch Policies
+    get:
+      description: Returns whether or not the requested patch policy is on the dashboard
+      parameters:
+        - description: patch policy id
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
-          description: Whether the Patch Policy is on the Dashboard.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatchPolicyV2OnDashboard'
+          description: Whether the Patch Policy is on the Dashboard.
         404:
-          description: The requested Patch Policy does not exist
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested Patch Policy does not exist
+      summary: |
+        Return whether or not the requested patch policy is on the dashboard
+      tags:
+        - patch-policies
       x-required-privileges:
         - Read Patch Policies
     post:
-      tags:
-        - patch-policies
-      summary: |
-        Add a patch policy to the dashboard
       description: Adds a patch policy to the dashboard.
       parameters:
-        - name: id
+        - description: patch policy id
+          explode: false
           in: path
-          description: patch policy id
+          name: id
           required: true
           schema:
             type: string
+          style: simple
       responses:
         204:
           description: OK
+      summary: |
+        Add a patch policy to the dashboard
+      tags:
+        - patch-policies
       x-action: true
       x-required-privileges:
         - Read Patch Policies
-    delete:
-      tags:
-        - patch-policies
-      summary: |
-        Remove a patch policy from the dashboard
-      description: Removes a patch policy from the dashboard.
-      parameters:
-        - name: id
-          in: path
-          description: patch policy id
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: OK
-      x-required-privileges:
-        - Read Patch Policies
-components:
-  schemas:
-    PatchPolicyListView:
-      type: object
-      properties:
-        id:
-          type: string
-          example: '1'
-        policyName:
-          type: string
-          example: 'Policy name'
-        policyEnabled:
-          type: boolean
-          example: false
-        policyTargetVersion:
-          type: string
-          example: 'v1'
-        policyDeploymentMethod:
-          type: string
-          example: 'automatically'
-        softwareTitle:
-          type: string
-          example: 'Software title'
-        softwareTitleConfigurationId:
-          type: string
-          example: '1'
-        pending:
-          type: integer
-          example: 0
-        completed:
-          type: integer
-          example: 0
-        deferred:
-          type: integer
-          example: 0
-        failed:
-          type: integer
-          example: 0
-    PatchPolicies:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          example: 1
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatchPolicyListView'
-    PatchPolicyDetail:
-        type: object
-        properties:
-            id:
-                type: string
-                example: '1'
-                nullable: false
-            name:
-                type: string
-                example: 'Policy name'
-            enabled:
-                type: boolean
-                example: false
-            targetPatchVersion:
-                type: string
-                example: 'v1'
-            deploymentMethod:
-                type: string
-                example: 'automatically'
-            softwareTitleId:
-                type: string
-                example: '1'
-            softwareTitleConfigurationId:
-                type: string
-                example: '1'
-            killAppsDelayMinutes:
-                type: integer
-                example: 5
-            killAppsMessage:
-                type: string
-                example: 'message'
-            downgrade:
-                type: boolean
-                example: false
-            patchUnknownVersion:
-                type: boolean
-                example: false
-            notificationHeader:
-                type: string
-                example: 'notification header'
-            selfServiceEnforceDeadline:
-                type: boolean
-                example: false
-            selfServiceDeadline:
-                type: integer
-                example: 1
-            installButtonText:
-                type: string
-                example: 'install'
-            selfServiceDescription:
-                type: string
-                example: 'description'
-            iconId:
-                type: string
-                example: '1'
-            reminderFrequency:
-                type: integer
-                example: 1
-            reminderEnabled:
-                type: boolean
-                example: false
-    PatchPolicyDetails:
-        type: object
-        properties:
-            totalCount:
-                type: integer
-                example: 1
-                nullable: false
-            results:
-                type: array
-                items:
-                    $ref: '#/components/schemas/PatchPolicyDetail'
-    PatchPolicyV2OnDashboard:
-      type: object
-      properties:
-        onDashboard:
-          type: boolean
-          example: true
-          nullable: false
+servers:
+  - url: /api

@@ -1,149 +1,155 @@
-openapi: 3.0.1
+components:
+  schemas:
+    LdapGroup:
+      description: An LDAP group.
+      properties:
+        distinguishedName:
+          example: Grade School Teachers
+          type: string
+        id:
+          example: "1"
+          type: string
+        ldapServerId:
+          example: 1
+          type: integer
+        name:
+          example: Grade School Teachers
+          type: string
+        uuid:
+          example: 89AF33FC-123C-1231-AEFD-9C3ED123AFCC
+          type: string
+      type: object
+    LdapGroupSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/LdapGroup'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    LdapServer:
+      description: An LDAP Server.
+      properties:
+        id:
+          example: 1
+          type: integer
+        name:
+          example: Server name
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - LDAP
+  title: Jamf Pro API - LdapRs
   version: 0.0.1
+openapi: 3.0.1
 paths:
-  /v1/ldap/groups:
+  /ldap/groups:
     get:
-      tags:
-        - ldap
-      summary: |
-        Retrieve the configured access groups that contain the text in the search param
-      description: Retrieves the configured access groups that contain the text in
-        the searchParam.
+      description: Retrieves the configured access groups that contain the text in the searchParam.
       parameters:
-        - name: q
+        - description: Will perform a "contains" search on the names of access groups
+          explode: true
           in: query
-          description: Will perform a "contains" search on the names of access groups
+          name: q
+          required: false
           schema:
+            default: "null"
             type: string
-            default: 'null'
+          style: form
       responses:
         200:
-          description: Successful search.
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/LdapGroupSearchResults'
-      x-required-privileges:
-        - Read LDAP Servers
-  /v1/ldap/servers:
-    get:
+          description: Successful search.
+      summary: |
+        Retrieve the configured access groups that contain the text in the search param
       tags:
         - ldap
-      summary: |
-        Retrieve all Servers including LDAP and Cloud Identity Providers.
-      description: Retrieve all active Servers including LDAP and Cloud Identity Providers.
+      x-required-privileges:
+        - Read LDAP Servers
+  /ldap/servers:
+    get:
+      description: Retrieve all Servers including LDAP and Cloud Identity Providers.
       responses:
         200:
-          description: Successfully completed.
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/LdapServer'
+                type: array
+          description: Successfully completed.
+      summary: |
+        Retrieve all Servers including LDAP and Cloud Identity Providers.
+      tags:
+        - ldap
+      x-required-privileges:
+        - Read LDAP Servers
+  /v1/ldap/groups:
+    get:
+      description: Retrieves the configured access groups that contain the text in the searchParam.
+      parameters:
+        - description: Will perform a "contains" search on the names of access groups
+          explode: true
+          in: query
+          name: q
+          required: false
+          schema:
+            default: "null"
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LdapGroupSearchResults'
+          description: Successful search.
+      summary: |
+        Retrieve the configured access groups that contain the text in the search param
+      tags:
+        - ldap
       x-required-privileges:
         - Read LDAP Servers
   /v1/ldap/ldap-servers:
     get:
-      tags:
-        - ldap
-      summary: |
-        Retrieve all LDAP Servers.
       description: Retrieves all not migrated, LDAP Servers.
       responses:
         200:
-          description: Successfully completed.
           content:
-            'application/json':
+            application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/LdapServer'
+                type: array
+          description: Successfully completed.
+      summary: |
+        Retrieve all LDAP Servers.
+      tags:
+        - ldap
       x-required-privileges:
         - Read LDAP Servers
-  /ldap/groups:
+  /v1/ldap/servers:
     get:
-      tags:
-      - ldap
-      summary: |
-         Retrieve the configured access groups that contain the text in the search param
-      description: Retrieves the configured access groups that contain the text in
-        the searchParam.
-      parameters:
-      - name: q
-        in: query
-        description: Will perform a "contains" search on the names of access groups
-        schema:
-          type: string
-          default: 'null'
+      description: Retrieve all active Servers including LDAP and Cloud Identity Providers.
       responses:
         200:
-          description: Successful search.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/LdapGroupSearchResults'
-      x-required-privileges:
-      - Read LDAP Servers
-  /ldap/servers:
-    get:
-      tags:
-      - ldap
-      summary: |
-         Retrieve all Servers including LDAP and Cloud Identity Providers.
-      description: Retrieve all Servers including LDAP and Cloud Identity Providers.
-      responses:
-        200:
-          description: Successfully completed.
-          content:
-            'application/json':
-              schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/LdapServer'
+                type: array
+          description: Successfully completed.
+      summary: |
+        Retrieve all Servers including LDAP and Cloud Identity Providers.
+      tags:
+        - ldap
       x-required-privileges:
-      - Read LDAP Servers
-components:
-  schemas:
-    LdapGroup:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-        uuid:
-          type: string
-          example: 89AF33FC-123C-1231-AEFD-9C3ED123AFCC
-        ldapServerId:
-          type: integer
-          example: 1
-        name:
-          type: string
-          example: Grade School Teachers
-        distinguishedName:
-          type: string
-          example: Grade School Teachers
-      description: An LDAP group.
-    LdapGroupSearchResults:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 3
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/LdapGroup'
-    LdapServer:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        name:
-          type: string
-          example: Server name
-      description: An LDAP Server.
+        - Read LDAP Servers
+servers:
+  - url: /api

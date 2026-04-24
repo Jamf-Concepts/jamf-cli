@@ -203,6 +203,11 @@ var resourceNameFieldOverrides = map[string]string{
 	// responses, so both filter lookups and backup file naming fail silently.
 	"mobile-device-groups-smart-groups":  "groupName",
 	"mobile-device-groups-static-groups": "groupName",
+	// mdm-commands is a command log, not a name-addressable resource. The
+	// detector otherwise picks up `userName` from action payload schemas
+	// (DeleteUserCommand, UnlockUserAccountCommand) that live in the same
+	// spec as request bodies. Force-clear it.
+	"mdm-commands": "",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path
@@ -530,6 +535,18 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 
 	// Post-process operation names before family detection.
 	//
+	// 0. Reclassify collection-root POSTs that upstream mis-tagged as x-action
+	//    but which clearly belong to a CRUD family (evidenced by the presence
+	//    of a sibling /{collection}/{id} path). The per-op 201-response check
+	//    in parseOperation misses cases where the monolith declares only 200.
+	//    /v1/deploy-thing (no {id} sibling) keeps its path-segment name.
+	reclassifyMisannotatedCreates(allOps)
+	// 0b. Pre-rename the singleton root GET from "list" to "get" so it is
+	//     immune to the conflict-resolution pass below. Without this, a
+	//     non-list sibling GET (e.g. /singleton/download lacking x-action in
+	//     the monolith) collides with the root as "list" and both get
+	//     renamed to their terminal segments, hiding the canonical get op.
+	renameSingletonRootGet(allOps)
 	// 1. Drop lower-version duplicates: when the same path exists at multiple API
 	//    versions in one spec (e.g. /v2/foo and /v3/foo), keep only the highest.
 	allOps = deduplicateVersionedOps(allOps)
@@ -577,10 +594,36 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 		resource.Name = kebabName
 		resource.NameSingular = kebabName
 		resource.GoName = strcase.ToCamel(kebabName)
-		// Rename "list" → "get": a non-paginated GET on the root path is a get, not a list.
+		// Rename "list" → "get" for the singleton root path only. Sub-paths
+		// that still carry the "list" name here (e.g. /v2/sso/cert/download
+		// when upstream stripped x-action) are not list endpoints either, but
+		// blindly renaming them to "get" collides with the canonical root get.
+		// Leave them as "list" and let the sub-path fallback (resolveNoParam
+		// below) handle the rename to their terminal segment if needed.
+		rootPath := ""
 		for _, op := range resource.Operations {
-			if op.Name == "list" {
+			if op.Method == "GET" && !op.IsList && !hasPathParam(op.Path) {
+				if rootPath == "" || len(op.Path) < len(rootPath) {
+					rootPath = op.Path
+				}
+			}
+		}
+		for _, op := range resource.Operations {
+			if op.Name != "list" {
+				continue
+			}
+			if op.Path == rootPath {
 				op.Name = "get"
+				continue
+			}
+			// Sub-path GETs still carrying "list" inside a singleton are not
+			// list endpoints — rename to their terminal segment (e.g.
+			// /v2/sso/cert/download → "download") so they don't collide with
+			// the root "get" or confuse users.
+			parts := strings.Split(op.Path, "/")
+			tail := parts[len(parts)-1]
+			if !strings.HasPrefix(tail, "{") && tail != "" {
+				op.Name = strcase.ToKebab(tail)
 			}
 		}
 	} else {
@@ -1415,7 +1458,24 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 				break
 			}
 		}
-		if hasBinaryResponse {
+		// Prefer sub-resource naming over the generic "download" when a path
+		// ends in a non-param segment (e.g. /{id}/der → "der"). This avoids
+		// collapsing two distinct binary formats (/{id}/der + /{id}/pem) into
+		// a single "download" op, which drops one in dedupe.
+		subResourceTail := ""
+		if strings.Contains(path, "{") {
+			parts := strings.Split(path, "/")
+			lastPart := parts[len(parts)-1]
+			if !strings.HasPrefix(lastPart, "{") {
+				for _, p := range parts[:len(parts)-1] {
+					if strings.HasPrefix(p, "{") {
+						subResourceTail = strcase.ToKebab(lastPart)
+						break
+					}
+				}
+			}
+		}
+		if hasBinaryResponse && subResourceTail == "" {
 			operation.Name = "download"
 		} else if strings.Contains(path, "{") {
 			parts := strings.Split(path, "/")
@@ -1631,6 +1691,61 @@ func inferOperationName(path, method string, isAction bool) string {
 		return "delete"
 	default:
 		return method
+	}
+}
+
+// renameSingletonRootGet detects the classic singleton/settings pattern
+// (non-paginated GET + PUT on the same non-param path, with no path-parameter
+// siblings anywhere in the resource) and renames that path's root GET from
+// "list" to "get". Must run before resolveNoParamConflicts so the root GET
+// is excluded from "list"-collision rename logic.
+func renameSingletonRootGet(ops []*Operation) {
+	for _, op := range ops {
+		if hasPathParam(op.Path) {
+			return
+		}
+	}
+	getPaths := map[string]*Operation{}
+	putPaths := map[string]bool{}
+	for _, op := range ops {
+		if op.Method == "GET" && !op.IsList && op.Name == "list" {
+			getPaths[op.Path] = op
+		}
+		if op.Method == "PUT" {
+			putPaths[op.Path] = true
+		}
+	}
+	for path, op := range getPaths {
+		if putPaths[path] {
+			op.Name = "get"
+		}
+	}
+}
+
+// reclassifyMisannotatedCreates finds collection-root POSTs that were tagged
+// x-action upstream (and so got their CLI name derived from the path segment)
+// but actually belong to a CRUD family. A sibling /{collection}/{id} path in
+// the same spec is the "this is a CRUD" signal: true standalone actions like
+// /v1/deploy-thing never have one, while CRUD creates like /v1/api-roles do.
+// Matching ops are renamed to "create".
+func reclassifyMisannotatedCreates(ops []*Operation) {
+	siblings := map[string]bool{}
+	for _, op := range ops {
+		if strings.Contains(op.Path, "/{") {
+			siblings[op.Path[:strings.Index(op.Path, "/{")]] = true
+		}
+	}
+	for _, op := range ops {
+		if op.Method != "POST" || !op.IsAction {
+			continue
+		}
+		if !isCollectionRootPath(op.Path) {
+			continue
+		}
+		if !siblings[op.Path] {
+			continue
+		}
+		op.Name = "create"
 	}
 }
 

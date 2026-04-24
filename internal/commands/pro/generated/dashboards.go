@@ -80,7 +80,7 @@ func newDashboardsToggleCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "objectId": 1,
+  "objectId": "1",
   "objectType": "TYPE_IOS_CONFIGURATION_PROFILE"
 }`, ctx.Output.Format())
 			}

@@ -259,21 +259,21 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appleCareId": 5678,
+  "appleCareId": "5678",
   "assetTag": "ABCDEFG12345",
-  "barCode1": 123456789,
-  "barCode2": 123456789,
+  "barCode1": "123456789",
+  "barCode2": "123456789",
   "building": "Eau Claire",
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
   "extensionAttributes": [],
   "fullName": "Name",
-  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",
   "phoneNumber": "555-555-5555",
   "poDate": "2019-02-04T21:09:31.661Z",
-  "poNumber": 8675309,
+  "poNumber": "8675309",
   "position": "IT Team Lead",
   "purchasePrice": "$399",
   "purchasingAccount": "IT Budget",
@@ -282,7 +282,7 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "serialNumber": "C02L29ECF8J1",
   "username": "admin",
   "vendor": "Apple",
-  "warrantyExpiration": "2012-07-21T00:00:00Z"
+  "warrantyExpiration": "2012-07-21"
 }`, ctx.Output.Format())
 			}
 
@@ -352,21 +352,21 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appleCareId": 5678,
+  "appleCareId": "5678",
   "assetTag": "ABCDEFG12345",
-  "barCode1": 123456789,
-  "barCode2": 123456789,
+  "barCode1": "123456789",
+  "barCode2": "123456789",
   "building": "Eau Claire",
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
   "extensionAttributes": [],
   "fullName": "Name",
-  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",
   "phoneNumber": "555-555-5555",
   "poDate": "2019-02-04T21:09:31.661Z",
-  "poNumber": 8675309,
+  "poNumber": "8675309",
   "position": "IT Team Lead",
   "purchasePrice": "$399",
   "purchasingAccount": "IT Budget",
@@ -375,7 +375,7 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "serialNumber": "C02L29ECF8J1",
   "username": "admin",
   "vendor": "Apple",
-  "warrantyExpiration": "2012-07-21T00:00:00Z"
+  "warrantyExpiration": "2012-07-21"
 }`, ctx.Output.Format())
 			}
 
@@ -1230,21 +1230,21 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appleCareId": 5678,
+  "appleCareId": "5678",
   "assetTag": "ABCDEFG12345",
-  "barCode1": 123456789,
-  "barCode2": 123456789,
+  "barCode1": "123456789",
+  "barCode2": "123456789",
   "building": "Eau Claire",
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
   "extensionAttributes": [],
   "fullName": "Name",
-  "leaseExpiration": "2015-06-19T00:00:00Z",
+  "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",
   "phoneNumber": "555-555-5555",
   "poDate": "2019-02-04T21:09:31.661Z",
-  "poNumber": 8675309,
+  "poNumber": "8675309",
   "position": "IT Team Lead",
   "purchasePrice": "$399",
   "purchasingAccount": "IT Budget",
@@ -1253,7 +1253,7 @@ If not, a new resource is created.`,
   "serialNumber": "C02L29ECF8J1",
   "username": "admin",
   "vendor": "Apple",
-  "warrantyExpiration": "2012-07-21T00:00:00Z"
+  "warrantyExpiration": "2012-07-21"
 }`, ctx.Output.Format())
 			}
 

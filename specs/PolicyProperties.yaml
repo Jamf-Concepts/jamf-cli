@@ -1,111 +1,113 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - Policy Properties
-  version: 0.0.1
-paths:
-  /settings/obj/policyProperties:
-    get:
-      tags:
-      - policies-preview
-      summary: |
-        Get Policy Properties object
-      description: |
-        Gets `Policy Properties` object.
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PolicyProperties'
-      x-required-privileges:
-      - Read Policies
-      deprecated: true
-      x-deprecation-date: 2021-11-07
-    put:
-      tags:
-      - policies-preview
-      summary: |
-        Update Policy Properties object
-      description: |
-        Update Policy Properties object
-      requestBody:
-        description: Policy Properties object to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/PolicyProperties'
-        required: true
-      responses:
-        201:
-          description: Policy Properties was updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PolicyProperties'
-      x-required-privileges:
-      - Update Policies
-      deprecated: true
-      x-deprecation-date: 2021-11-07
-  /v1/policy-properties:
-    get:
-      tags:
-        - policies-preview
-      summary: |
-        Get Policy Properties object
-      description: |
-        Gets `Policy Properties` object.
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PolicyPropertiesV1'
-      x-required-privileges:
-        - Read Policies
-    put:
-      tags:
-        - policies-preview
-      summary: |
-        Update Policy Properties object
-      description: |
-        Update Policy Properties object
-      requestBody:
-        description: Policy Properties object to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/PolicyPropertiesV1'
-        required: true
-      responses:
-        200:
-          description: Policy Properties was updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/PolicyPropertiesV1'
-      x-required-privileges:
-        - Update Policies
 components:
   schemas:
     PolicyProperties:
-      type: object
       properties:
-        isPoliciesRequireNetworkStateChange:
-          type: boolean
-          default: false
-          description: This field always returns false.
         isAllowNetworkStateChangeTriggers:
-          type: boolean
           default: true
-    PolicyPropertiesV1:
-      type: object
-      properties:
-        policiesRequireNetworkStateChange:
           type: boolean
+        isPoliciesRequireNetworkStateChange:
           default: false
           description: This field always returns false.
-        allowNetworkStateChangeTriggers:
           type: boolean
+      type: object
+    PolicyPropertiesV1:
+      properties:
+        allowNetworkStateChangeTriggers:
           default: true
+          type: boolean
+        policiesRequireNetworkStateChange:
+          default: false
+          description: This field always returns false.
+          type: boolean
+      type: object
+info:
+  title: Jamf Pro API - PolicyProperties
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /settings/obj/policyProperties:
+    get:
+      deprecated: true
+      description: |
+        Gets `Policy Properties` object.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyProperties'
+          description: Successful response
+      summary: |
+        Get Policy Properties object
+      tags:
+        - policies-preview
+      x-deprecation-date: "2021-11-07"
+      x-required-privileges:
+        - Read Policies
+    put:
+      deprecated: true
+      description: |
+        Update Policy Properties object
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyProperties'
+        description: Policy Properties object to update
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyProperties'
+          description: Policy Properties was updated
+      summary: |
+        Update Policy Properties object
+      tags:
+        - policies-preview
+      x-deprecation-date: "2021-11-07"
+      x-required-privileges:
+        - Update Policies
+  /v1/policy-properties:
+    get:
+      description: |
+        Gets `Policy Properties` object.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyPropertiesV1'
+          description: Successful response
+      summary: |
+        Get Policy Properties object
+      tags:
+        - policies-preview
+      x-required-privileges:
+        - Read Policies
+    put:
+      description: |
+        Update Policy Properties object
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyPropertiesV1'
+        description: Policy Properties object to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyPropertiesV1'
+          description: Policy Properties was updated
+      summary: |
+        Update Policy Properties object
+      tags:
+        - policies-preview
+      x-required-privileges:
+        - Update Policies
+servers:
+  - url: /api

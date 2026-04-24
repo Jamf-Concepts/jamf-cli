@@ -1,151 +1,153 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ClientCheckInV3:
+      properties:
+        checkInFrequency:
+          default: 15
+          description: Suggested values are 5, 15, 30, or 60. Web interface will not display correctly if not one of those. Minimum is 5, maximum is 60.
+          format: int32
+          type: integer
+        createHooks:
+          default: false
+          type: boolean
+        createStartupScript:
+          default: false
+          type: boolean
+        enableLocalConfigurationProfiles:
+          default: false
+          type: boolean
+        hookLog:
+          default: false
+          type: boolean
+        hookPolicies:
+          default: false
+          type: boolean
+        startupLog:
+          default: false
+          type: boolean
+        startupPolicies:
+          default: false
+          type: boolean
+        startupSsh:
+          default: false
+          type: boolean
+      type: object
 info:
-  title: Jamf Pro API - Client Check-In
-  version: 0.2.0
+  title: Jamf Pro API - ClientCheckIn
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v3/check-in:
     get:
-      tags:
-        - client-check-in
-      summary: |
-        Get Client Check-In settings
       description: |
         Gets `Client Check-In` object.
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ClientCheckInV3'
+          description: Successful response
+      summary: |
+        Get Client Check-In settings
+      tags:
+        - client-check-in
       x-required-privileges:
         - Read Computer Check-In
     put:
-      tags:
-        - client-check-in
-      summary: |
-        Update Client Check-In object
       description: |
         Update Client Check-In object
       requestBody:
-        description: Client Check-In object to update
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/ClientCheckInV3'
+        description: Client Check-In object to update
         required: true
       responses:
         200:
-          description: Client Check-In was updated
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/ClientCheckInV3'
+          description: Client Check-In was updated
+      summary: |
+        Update Client Check-In object
+      tags:
+        - client-check-in
       x-required-privileges:
         - Update Computer Check-In
   /v3/check-in/history:
     get:
-      tags:
-        - client-check-in
-      summary: |
-        Get Client Check-In history object
       description: |
         Gets Client Check-In history object
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is name:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,username:asc '
+          explode: true
           in: query
-          description: 'Sorting criteria in the format: property:asc/desc. Default sort
-                  is name:asc. Multiple sort criteria are supported and must be separated with
-                  a comma. Example: sort=date:desc,username:asc '
+          name: sort
+          required: false
           schema:
-            type: array
-            items:
-              type: string
-            example:
-              - date:desc
             default:
               - date:desc
-        - name: filter
+            example:
+              - date:desc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter history notes collection.
-                Default filter is empty query - returning all results for the requested page.
-                Fields allowed in the query: username, date, note, details.
-                This param can be combined with paging and sorting.
-                Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
       responses:
         200:
-          description: Details of Client Check-In history were found
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResultsV1'
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResultsV1
+          description: Details of Client Check-In history were found
+      summary: |
+        Get Client Check-In history object
+      tags:
+        - client-check-in
       x-required-privileges:
         - Read Computer Check-In
     post:
-      tags:
-        - client-check-in
-      summary: |
-        Add a Note to Client Check-In History
       description: |
         Adds Client Check-In history object notes
       requestBody:
-        description: history notes to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: history notes to create
         required: true
       responses:
         201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Notes of Client Check-In history were added
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
         503:
-          description: Client Check-In history can not be saved
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Client Check-In history can not be saved
+      summary: |
+        Add a Note to Client Check-In History
+      tags:
+        - client-check-in
       x-required-privileges:
         - Update Computer Check-In
-components:
-  schemas:
-    ClientCheckInV3:
-      type: object
-      properties:
-        checkInFrequency:
-          type: integer
-          format: int32
-          default: 15
-          description: Suggested values are 5, 15, 30, or 60. Web interface will not display correctly if not one of those. Minimum is 5, maximum is 60.
-        createHooks:
-          type: boolean
-          default: false
-        hookLog:
-          type: boolean
-          default: false
-        hookPolicies:
-          type: boolean
-          default: false
-        createStartupScript:
-          type: boolean
-          default: false
-        startupLog:
-          type: boolean
-          default: false
-        startupPolicies:
-          type: boolean
-          default: false
-        startupSsh:
-          type: boolean
-          default: false
-        enableLocalConfigurationProfiles:
-          type: boolean
-          default: false
+servers:
+  - url: /api

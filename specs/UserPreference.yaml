@@ -1,125 +1,133 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - jamf pro account settings
-  version: 0.0.1
-servers:
-- url: /
-paths:
-  /v1/user/preferences/{keyId}:
-    get:
-      tags:
-        - jamf-pro-user-account-settings
-      summary: |
-        Get the user setting for the authenticated user and key
-      description: |
-        Gets the user setting for the authenticated user and key.
-      parameters:
-        - name: keyId
-          in: path
-          description: user setting to be retrieved
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/UserPreferencesJson'
-      x-authentication-required: true
-    put:
-      tags:
-        - jamf-pro-user-account-settings
-      summary: |
-        Persist the user setting
-      description: |
-        Persists the user setting
-      parameters:
-        - name: keyId
-          in: path
-          description: unique key of user setting to be persisted
-          required: true
-          schema:
-            type: string
-      requestBody:
-        description: user setting value to be persisted
-        content:
-          'application/json':
-            schema:
-              type: object
-        required: false
-      responses:
-        200:
-          description: setting successfully updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/UserPreferencesJson'
-      x-authentication-required: true
-    delete:
-      tags:
-        - jamf-pro-user-account-settings
-      summary: |
-        Remove specified setting for authenticated user
-      description: |
-        Remove specified setting for authenticated user
-      parameters:
-        - name: keyId
-          in: path
-          description: unique key of user setting to be persisted
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: setting was deleted
-      x-authentication-required: true
-  /v1/user/preferences/settings/{keyId}:
-    get:
-      tags:
-        - jamf-pro-user-account-settings
-      summary: |
-        Get the user preferences for the authenticated user and key.
-      description: |
-        Gets the user preferences for the authenticated user and key.
-      parameters:
-        - name: keyId
-          in: path
-          description: user setting to be retrieved
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/UserPreferencesSettings'
-      x-authentication-required: true
 components:
   schemas:
     UserPreferencesJson:
       description: Valid JSON of any client-desired structure
       type: object
     UserPreferencesSettings:
-      required:
-        - username
-        - key
-        - values
       description: Response object.
-      type: object
       properties:
-        username:
-          type: string
-          example: "jamfuser"
         key:
+          example: mobileDeviceDisplayHeadings
           type: string
-          example: "mobileDeviceDisplayHeadings"
+        username:
+          example: jamfuser
+          type: string
         values:
           description: List of preferences for the specific key and user.
-          type: array
           items:
+            example: Device name
             type: string
-            example: "Device name"
+          type: array
+      required:
+        - key
+        - username
+        - values
+      type: object
+info:
+  title: Jamf Pro API - UserPreference
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/user/preferences/settings/{keyId}:
+    get:
+      description: |
+        Gets the user preferences for the authenticated user and key.
+      parameters:
+        - description: user setting to be retrieved
+          explode: false
+          in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesSettings'
+          description: Successful response
+      summary: |
+        Get the user preferences for the authenticated user and key.
+      tags:
+        - jamf-pro-user-account-settings
+      x-authentication-required: true
+  /v1/user/preferences/{keyId}:
+    delete:
+      description: |
+        Remove specified setting for authenticated user
+      parameters:
+        - description: unique key of user setting to be persisted
+          explode: false
+          in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: setting was deleted
+      summary: |
+        Remove specified setting for authenticated user
+      tags:
+        - jamf-pro-user-account-settings
+      x-authentication-required: true
+    get:
+      description: |
+        Gets the user setting for the authenticated user and key.
+      parameters:
+        - description: user setting to be retrieved
+          explode: false
+          in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesJson'
+          description: Successful response
+      summary: |
+        Get the user setting for the authenticated user and key
+      tags:
+        - jamf-pro-user-account-settings
+      x-authentication-required: true
+    put:
+      description: |
+        Persists the user setting
+      parameters:
+        - description: unique key of user setting to be persisted
+          explode: false
+          in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        description: user setting value to be persisted
+        required: false
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesJson'
+          description: setting successfully updated
+      summary: |
+        Persist the user setting
+      tags:
+        - jamf-pro-user-account-settings
+      x-authentication-required: true
+servers:
+  - url: /api

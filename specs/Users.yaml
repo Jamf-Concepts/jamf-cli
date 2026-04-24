@@ -1,192 +1,306 @@
-openapi: 3.0.1
+components:
+  schemas:
+    PagedUserResults:
+      properties:
+        hasNext:
+          description: True if there are more pages after the current page
+          example: true
+          type: boolean
+        hasPrevious:
+          description: True if there are pages before the current page
+          example: false
+          type: boolean
+        page:
+          description: Current page number (zero-based)
+          example: 0
+          format: int32
+          nullable: false
+          type: integer
+        pageSize:
+          description: Number of results per page
+          example: 100
+          format: int32
+          type: integer
+        results:
+          description: List of users in the current page
+          items:
+            $ref: '#/components/schemas/User'
+          type: array
+        totalCount:
+          description: Total number of users matching the search criteria
+          example: 150
+          format: int64
+          type: integer
+        totalPages:
+          description: Total number of pages available
+          example: 2
+          format: int64
+          type: integer
+      type: object
+    User:
+      allOf:
+        - $ref: '#/components/schemas/UserInventory'
+        - properties:
+            id:
+              example: "1"
+              minLength: 1
+              readOnly: true
+              type: string
+          type: object
+    UserInventory:
+      properties:
+        customPhotoUrl:
+          example: https://example.com/photo.jpg
+          type: string
+        email:
+          example: john.smith@example.com
+          type: string
+        enableCustomPhotoUrl:
+          example: false
+          type: boolean
+        managedAppleId:
+          example: john@example.com
+          type: string
+        phone:
+          example: 555-123-4567
+          nullable: true
+          type: string
+        position:
+          example: IT Manager
+          nullable: true
+          type: string
+        realname:
+          example: John Smith
+          type: string
+        username:
+          example: jsmith
+          type: string
+      type: object
 info:
-  title: Jamf Pro API - users
+  title: Jamf Pro API - Users
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/users:
     get:
-      tags:
-      - users
-      summary: |
-        Search for Users
-      description: |
-        Retrieves a paginated list of users with optional filtering and sorting.
+      description: Retrieves a paginated list of users with optional filtering and sorting.
       parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description: 'Sorting criteria in the format: property(:asc|desc). Default
-            sort is id:asc. Multiple sort criteria are supported and must be separated
-            with a comma. Example: sort=username:asc,realname:desc'
+        - description: Page to display. Uses zero-based indexing.
           explode: true
+          in: query
+          name: page
+          required: false
           schema:
-            type: array
+            default: 0
+            format: int32
+            minimum: 0
+            type: integer
+          style: form
+        - description: Number of results per page. Maximum of 1000.
+          explode: true
+          in: query
+          name: page-size
+          required: false
+          schema:
+            default: 100
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+          style: form
+        - description: |-
+            Sorting criteria in the format: property(:asc|desc). Default sort order is ascending.
+            Multiple sort criteria are supported.
+
+            Examples:
+            - sort=username
+            - sort=username:asc
+            - sort=username:asc,realname:desc
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
             items:
               type: string
-            default: [id:asc]
-        - name: filter
+            type: array
+          style: form
+        - description: |-
+            RSQL filter to limit results. Supports all user fields.
+
+            Examples:
+            - filter=username=="john*"
+            - filter=realname=="John Smith"
+            - filter=email=="*@jamf.com"
+            - filter=position=="Manager";id!="1"
+            - filter=id=in=(123,456,789)
+          explode: true
           in: query
-          description: 'Query in the RSQL format, allowing to filter users collection.
-            Default filter is empty query - returning all results for the requested
-            page. Fields allowed in the query: id, username, realname, email, phone,
-            position. Example: filter=username=="jsmith*"'
+          name: filter
+          required: false
           schema:
+            default: ""
             type: string
-            default: ''
+          style: form
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/UserSearchResults'
-      x-required-privileges:
-      - Read User
-    post:
+                $ref: '#/components/schemas/PagedUserResults'
+          description: Users retrieved successfully
+        400:
+          description: Invalid request parameters
+        500:
+          description: Internal server error
+      summary: Retrieve users with pagination and filtering
       tags:
-      - users
-      summary: |
-        Create User record
-      description: |
-        Creates a new user in inventory.
+        - users
+      x-authentication-required: true
+      x-required-privileges:
+        - Read User
+    post:
+      description: Creates a new user in the inventory.
+      parameters:
+        - description: Internal platform request indicator
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+          x-internal: true
       requestBody:
-        description: User object to create. ids defined in this body will be ignored.
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/UserInventory'
         required: true
       responses:
         201:
-          description: User record was created
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: User successfully created
+        400:
+          description: Invalid user data provided
+        500:
+          description: Internal server error
+      summary: Create a new user in inventory
+      tags:
+        - users
+      x-authentication-required: true
       x-required-privileges:
-      - Create User
+        - Create User
   /v1/users/{id}:
-    get:
-      tags:
-      - users
-      summary: |
-        Get specified User object
-      description: |
-        Gets the specified User object.
-      parameters:
-      - name: id
-        in: path
-        description: instance id of user record
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/User'
-        404:
-          description: User with specified id does not exist
-      x-required-privileges:
-      - Read User
-    put:
-      tags:
-      - users
-      summary: |
-        Update specified User object
-      description: |
-        Updates the specified User object.
-      parameters:
-      - name: id
-        in: path
-        description: instance id of user record
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: User object to update
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/User'
-        required: true
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/User'
-        404:
-          description: User with specified id does not exist
-      x-required-privileges:
-      - Update User
     delete:
-      tags:
-      - users
-      summary: |
-        Delete specified User object
-      description: |
-        Deletes the specified User object.
+      description: Deletes a user from the inventory by ID.
       parameters:
-      - name: id
-        in: path
-        description: instance id of user record
-        required: true
-        schema:
-          type: string
+        - description: ID of the user to delete
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            example: "1"
+            type: string
+          style: simple
       responses:
         204:
-          description: User record was deleted
+          description: User successfully deleted
         404:
-          description: User with specified id does not exist
+          description: User with specified ID not found
+        500:
+          description: Internal server error
+      summary: Delete a user from inventory
+      tags:
+        - users
+      x-authentication-required: true
       x-required-privileges:
-      - Delete User
-components:
-  schemas:
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-          readOnly: true
-          example: "1"
-        username:
-          type: string
-          example: jsmith
-        realname:
-          type: string
-          example: John Smith
-        email:
-          type: string
-          example: john.smith@example.com
-        phone:
-          type: string
-          nullable: true
-          example: 555-123-4567
-        position:
-          type: string
-          nullable: true
-          example: IT Administrator
-        enableCustomPhotoUrl:
-          type: boolean
-          default: false
-        customPhotoUrl:
-          type: string
-          nullable: true
-        managedAppleId:
-          type: string
-          nullable: true
-    UserSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          format: int32
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/User'
+        - Delete User
+    get:
+      description: Retrieves a single user by their ID.
+      parameters:
+        - description: ID of the user to retrieve
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: User retrieved successfully
+        404:
+          description: User with specified ID not found
+        500:
+          description: Internal server error
+      summary: Retrieve a user by ID
+      tags:
+        - users
+      x-authentication-required: true
+      x-required-privileges:
+        - Read User
+    put:
+      description: Updates an existing user in the inventory by ID.
+      parameters:
+        - description: ID of the user to update
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            example: "1"
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInventory'
+        required: true
+      responses:
+        204:
+          description: User successfully updated
+        400:
+          description: Invalid user data provided
+        404:
+          description: User with specified ID not found
+        500:
+          description: Internal server error
+      summary: Update a user in inventory
+      tags:
+        - users
+      x-authentication-required: true
+      x-required-privileges:
+        - Update User
+servers:
+  - url: /api

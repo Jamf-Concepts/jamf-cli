@@ -1,41 +1,102 @@
-openapi: 3.0.1
+components:
+  schemas:
+    ClassicLdapMappings:
+      description: Classic Ldap mappings configuration
+      properties:
+        userGroupObjectMapGroupNameTo:
+          example: name
+          type: string
+        userGroupObjectMapIdTo:
+          example: name
+          type: string
+        userGroupObjectMapUuidTo:
+          example: uid
+          type: string
+        userObjectMapBuildingTo:
+          default: ""
+          type: string
+        userObjectMapDepartmentTo:
+          example: departmentNumber
+          type: string
+        userObjectMapEmailTo:
+          example: mail
+          type: string
+        userObjectMapIdTo:
+          example: mail
+          type: string
+        userObjectMapPhoneTo:
+          default: ""
+          type: string
+        userObjectMapPositionTo:
+          example: title
+          type: string
+        userObjectMapRealNameTo:
+          example: displayName
+          type: string
+        userObjectMapRoomTo:
+          default: ""
+          type: string
+        userObjectMapUsernameTo:
+          example: uid
+          type: string
+        userObjectMapUuidTo:
+          example: uid
+          type: string
+      required:
+        - userGroupObjectMapGroupNameTo
+        - userGroupObjectMapIdTo
+        - userGroupObjectMapUuidTo
+        - userObjectMapBuildingTo
+        - userObjectMapDepartmentTo
+        - userObjectMapEmailTo
+        - userObjectMapIdTo
+        - userObjectMapPhoneTo
+        - userObjectMapPositionTo
+        - userObjectMapRealNameTo
+        - userObjectMapRoomTo
+        - userObjectMapUsernameTo
+        - userObjectMapUuidTo
+      type: object
 info:
-  title: Jamf Pro API - OnPrem LDAP
+  title: Jamf Pro API - ClassicLdap
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/classic-ldap/{id}:
     get:
-      tags:
-      - classic-ldap
-      summary: Get mappings for OnPrem Ldap configuration with given id.
       description: Get mappings for OnPrem Ldap configuration with given id.
       parameters:
-      - name: id
-        in: path
-        description: OnPrem Ldap identifier
-        required: true
-        schema:
-          type: string
+        - description: OnPrem Ldap identifier
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassicLdapMappings'
           description: OnPrem Ldap mappings returned.
-          content:
-            'application/json':
-              schema:
-                $ref: 'CloudLdapDefinitionsLibrary.yaml#/components/schemas/ClassicLdapMappings'
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Id can only be a number.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         404:
-          description: Specified OnPrem Ldap configuration does not exist.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified OnPrem Ldap configuration does not exist.
+      summary: Get mappings for OnPrem Ldap configuration with given id.
+      tags:
+        - classic-ldap
       x-required-privileges:
-      - Read LDAP Servers
-components:
-  schemas: {}
+        - Read LDAP Servers
+servers:
+  - url: /api

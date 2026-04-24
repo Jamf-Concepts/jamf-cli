@@ -1,169 +1,173 @@
-openapi: 3.0.1
-info:
-    title: Jamf Pro API - Log Flushing
-    version: 0.0.1
-paths:
-    /v1/log-flushing:
-        get:
-            tags:
-                - log-flushing
-            summary: Get log flushing settings
-            description: Get all log flushing and retention policy settings
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/LogFlushingV1'
-            x-required-privileges:
-                - Read Retention Policy
-    /v1/log-flushing/task:
-        get:
-            tags:
-                - log-flushing
-            summary: Get log flushing tasks
-            description: Get a list of all log flushing tasks and their statuses
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                type: array
-                                items:
-                                    $ref: '#/components/schemas/LogFlushingTaskV1'
-            x-required-privileges:
-                - Read Retention Policy
-        post:
-            tags:
-                - log-flushing
-            summary: Queue a log flushing task
-            description: Queue a log flushing task
-            requestBody:
-                description: The manual log flushing settings
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/LogFlushingTaskV1'
-            responses:
-                202:
-                    description: The log flushing request was queued
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-                400:
-                    description: Bad request
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-                503:
-                    description: The request was rejected, typically because the service is stopping or stopped
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Retention Policy
-            x-action: true
-    /v1/log-flushing/task/{id}:
-        parameters:
-            -   name: "id"
-                in: path
-                description: The identifier of the log flushing task
-                required: true
-                schema:
-                    type: string
-        get:
-            tags:
-                - log-flushing
-            summary: Get log flushing task
-            description: Get the log flushing task by the specified ID
-            responses:
-                200:
-                    description: Success
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/LogFlushingTaskV1'
-            x-required-privileges:
-                - Read Retention Policy
-        delete:
-            tags:
-                - log-flushing
-            summary: Cancels a log flushing task
-            description: Cancels a log flushing task by ID
-            responses:
-                204:
-                    description: Log flushing task successfully canceled
-                404:
-                    description: Log flushing task not found
-                410:
-                    description: Log flushing task already completed and is pending removal
-            x-required-privileges:
-                - Update Retention Policy
 components:
-    schemas:
-        LogFlushingV1:
-            type: object
-            properties:
-                retentionPolicies:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/RetentionPolicyV1'
-                hourOfDay:
-                    type: integer
-                    minimum: 0
-                    maximum: 23
-                    default: 0
-        RetentionPolicyV1:
-            type: object
-            properties:
-                displayName:
-                    type: string
-                    example: "Policy Logs"
-                    readOnly: true
-                qualifier:
-                    type: string
-                    example: "policy"
-                    readOnly: true
-                retentionPeriod:
-                    type: integer
-                    example: 3
-                    nullable: false
-                retentionPeriodUnit:
-                    type: string
-                    example: "MONTH"
-                    description: "The unit of the retention period (eg: DAY, WEEK, MONTH, YEAR)"
-                    nullable: false
-        LogFlushingTaskV1:
-            type: object
-            required:
-                - qualifier
-                - retentionPeriod
-                - retentionPeriodUnit
-            properties:
-                id:
-                    type: string
-                    description: "The unique identifier of the log flushing task"
-                    example: "8c47858a-0029-450b-8720-cf5ae4bc27c7"
-                    readOnly: true
-                qualifier:
-                    type: string
-                    description: "The qualifier of the retention policy"
-                    example: "policy"
-                retentionPeriod:
-                    type: integer
-                    description: "The period beyond which data will be flushed"
-                    example: 3
-                retentionPeriodUnit:
-                    type: string
-                    description: "The unit of the retention period (eg: DAY, WEEK, MONTH, YEAR)"
-                    example: "MONTH"
-                state:
-                    type: string
-                    description: "The state of the task (eg: RUNNING, SUCCESS, FAILED, CANCELLED)"
-                    example: "SUCCESS"
-                    readOnly: true
+  schemas:
+    LogFlushingTaskV1:
+      properties:
+        id:
+          description: The unique identifier of the log flushing task
+          example: 8c47858a-0029-450b-8720-cf5ae4bc27c7
+          readOnly: true
+          type: string
+        qualifier:
+          description: The qualifier of the retention policy
+          example: policy
+          type: string
+        retentionPeriod:
+          description: The period beyond which data will be flushed
+          example: 3
+          type: integer
+        retentionPeriodUnit:
+          description: 'The unit of the retention period (eg: DAY, WEEK, MONTH, YEAR)'
+          example: MONTH
+          type: string
+        state:
+          description: 'The state of the task (eg: RUNNING, SUCCESS, FAILED, CANCELLED)'
+          example: SUCCESS
+          readOnly: true
+          type: string
+      required:
+        - qualifier
+        - retentionPeriod
+        - retentionPeriodUnit
+      type: object
+    LogFlushingV1:
+      properties:
+        hourOfDay:
+          default: 0
+          maximum: 23
+          minimum: 0
+          type: integer
+        retentionPolicies:
+          items:
+            $ref: '#/components/schemas/RetentionPolicyV1'
+          type: array
+      type: object
+    RetentionPolicyV1:
+      properties:
+        displayName:
+          example: Policy Logs
+          readOnly: true
+          type: string
+        qualifier:
+          example: policy
+          readOnly: true
+          type: string
+        retentionPeriod:
+          example: 3
+          nullable: false
+          type: integer
+        retentionPeriodUnit:
+          description: 'The unit of the retention period (eg: DAY, WEEK, MONTH, YEAR)'
+          example: MONTH
+          nullable: false
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - LogFlushing
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/log-flushing:
+    get:
+      description: Get all log flushing and retention policy settings
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogFlushingV1'
+          description: Success
+      summary: Get log flushing settings
+      tags:
+        - log-flushing
+      x-required-privileges:
+        - Read Retention Policy
+  /v1/log-flushing/task:
+    get:
+      description: Get a list of all log flushing tasks and their statuses
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/LogFlushingTaskV1'
+                type: array
+          description: Success
+      summary: Get log flushing tasks
+      tags:
+        - log-flushing
+      x-required-privileges:
+        - Read Retention Policy
+    post:
+      description: Queue a log flushing task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogFlushingTaskV1'
+        description: The manual log flushing settings
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: The log flushing request was queued
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad request
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The request was rejected, typically because the service is stopping or stopped
+      summary: Queue a log flushing task
+      tags:
+        - log-flushing
+      x-action: true
+      x-required-privileges:
+        - Update Retention Policy
+  /v1/log-flushing/task/{id}:
+    delete:
+      description: Cancels a log flushing task by ID
+      responses:
+        204:
+          description: Log flushing task successfully canceled
+        404:
+          description: Log flushing task not found
+        410:
+          description: Log flushing task already completed and is pending removal
+      summary: Cancels a log flushing task
+      tags:
+        - log-flushing
+      x-required-privileges:
+        - Update Retention Policy
+    get:
+      description: Get the log flushing task by the specified ID
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogFlushingTaskV1'
+          description: Success
+      summary: Get log flushing task
+      tags:
+        - log-flushing
+      x-required-privileges:
+        - Read Retention Policy
+    parameters:
+      - description: The identifier of the log flushing task
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+servers:
+  - url: /api

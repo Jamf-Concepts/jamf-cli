@@ -1,76 +1,79 @@
-openapi: 3.0.1
 info:
-  title: Jamf Pro API - Jamf Connect Settings
+  title: Jamf Pro API - JamfConnectDeploymentTasks
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/jamf-connect/deployments/{id}/tasks:
     get:
-      tags:
-        - jamf-connect
-      summary: |
-        Search for deployment tasks for a config profile linked to Jamf Connect
       description: Search for config profiles linked to Jamf Connect
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: the UUID of the Jamf Connect deployment
+        - description: the UUID of the Jamf Connect deployment
           example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
+          explode: false
+          in: path
+          name: id
+          required: true
           schema:
             type: string
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/sort'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/filter'
+          style: simple
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - $ref: _MonolithLibrary.yaml#/components/parameters/sort
+        - $ref: _MonolithLibrary.yaml#/components/parameters/filter
       responses:
         200:
-          description: Success.
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/DeploymentTaskSearchResults'
-      x-required-privileges:
-        - Read Jamf Connect Deployments
-
-  /v1/jamf-connect/deployments/{id}/tasks/retry:
-    post:
+                $ref: _MonolithLibrary.yaml#/components/schemas/DeploymentTaskSearchResults
+          description: Success.
+      summary: |
+        Search for deployment tasks for a config profile linked to Jamf Connect
       tags:
         - jamf-connect
-      summary: |
-        Request a retry of Connect install tasks
+      x-required-privileges:
+        - Read Jamf Connect Deployments
+  /v1/jamf-connect/deployments/{id}/tasks/retry:
+    post:
       description: |
         Request a retry of Connect install tasks
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: the UUID of the deployment associated with the retry
+        - description: the UUID of the deployment associated with the retry
           example: 24a7bb2a-9871-4895-9009-d1be07ed31b1
+          explode: false
+          in: path
+          name: id
+          required: true
           schema:
             type: string
+          style: simple
       requestBody:
-        description: task IDs to retry
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: 'DefinitionsLibrary.yaml#/components/schemas/Ids'
+              $ref: _MonolithLibrary.yaml#/components/schemas/Ids
+        description: task IDs to retry
         required: true
       responses:
         204:
           description: Success, no content.
         400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Cloud Services Connection has not been established.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
         500:
-          description: Jamf Connect tasks to retry failed
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Jamf Connect tasks to retry failed
+      summary: |
+        Request a retry of Connect install tasks
+      tags:
+        - jamf-connect
       x-required-privileges:
         - Jamf Connect Deployment Retry
-components:
-  schemas: {}
+servers:
+  - url: /api

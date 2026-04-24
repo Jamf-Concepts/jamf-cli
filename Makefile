@@ -79,10 +79,47 @@ sync-specs:
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff"
 
-# Generate CLI commands from OpenAPI specs and Classic API manifest
+# Path to, or URL of, a consolidated Jamf Pro OpenAPI document (e.g.
+# https://<instance>/api/schema/). When set, sync-spec splits it into per-
+# resource spec files under specs/ before regenerating.
+JAMF_MONOLITH_SPEC ?=
+
+# Sync OpenAPI specs from a single consolidated document and regenerate commands.
+# JAMF_MONOLITH_SPEC accepts a local path or an http(s):// URL, e.g.:
+#   make sync-spec JAMF_MONOLITH_SPEC=/path/to/monolith-schema.json
+#   make sync-spec JAMF_MONOLITH_SPEC=https://<instance>/api/schema/
+# Preserved spec files (see generator/monolith/overrides.go PreservedSpecs) and
+# the classic/ and blueprint-components/ subdirectories are left untouched.
+sync-spec:
+	@if [ -z "$(JAMF_MONOLITH_SPEC)" ]; then \
+		echo "Error: JAMF_MONOLITH_SPEC is not set."; \
+		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<path-or-url>"; \
+		echo "  e.g. JAMF_MONOLITH_SPEC=/tmp/monolith-schema.json"; \
+		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/"; \
+		exit 1; \
+	fi
+	@case "$(JAMF_MONOLITH_SPEC)" in \
+		http://*|https://*) ;; \
+		*) \
+			if [ ! -f "$(JAMF_MONOLITH_SPEC)" ]; then \
+				echo "Error: $(JAMF_MONOLITH_SPEC) not found"; \
+				exit 1; \
+			fi ;; \
+	esac
+	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
+	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
+	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
+
+# Generate CLI commands from OpenAPI specs and Classic API manifest.
+# If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
+# files before parsing, preserving the existing filename layout.
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
+ifneq ($(JAMF_MONOLITH_SPEC),)
+	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated --monolith $(JAMF_MONOLITH_SPEC)
+else
 	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated
+endif
 	@go fmt ./internal/commands/pro/generated/...
 	@-go fmt ./internal/blueprintcomponents/... 2>/dev/null
 	@echo "Generated commands:"

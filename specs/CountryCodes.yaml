@@ -1,39 +1,41 @@
-openapi: 3.0.1
+components:
+  schemas:
+    Country:
+      properties:
+        code:
+          example: US
+          type: string
+        name:
+          example: United States
+          type: string
+      type: object
+    CountryCodes:
+      properties:
+        countryCodes:
+          items:
+            $ref: '#/components/schemas/Country'
+          type: array
+      type: object
 info:
-  title: Jamf Pro API - App Store Country Codes Request
-  version: 1.0.0
+  title: Jamf Pro API - CountryCodes
+  version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/app-store-country-codes:
     get:
-      tags:
-      - app-store-country-codes-preview
-      summary: |
-        Return a list of Countries and the associated Codes
       description: |
         Returns a list of countries and the associated codes that can be use for the App Store locale
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
                 $ref: '#/components/schemas/CountryCodes'
+          description: Successful response
+      summary: |
+        Return a list of Countries and the associated Codes
+      tags:
+        - app-store-country-codes-preview
       x-authentication-required: false
-components:
-  schemas:
-    CountryCodes:
-      type: object
-      properties:
-        countryCodes:
-          type: array
-          items:
-            $ref: '#/components/schemas/Country'
-    Country:
-      type: object
-      properties:
-        code:
-          type: string
-          example: US
-        name:
-          type: string
-          example: United States
+servers:
+  - url: /api

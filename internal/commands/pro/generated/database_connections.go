@@ -40,7 +40,7 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *registry.CLICont
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "password": 12345
+  "password": "12345"
 }`, ctx.Output.Format())
 			}
 

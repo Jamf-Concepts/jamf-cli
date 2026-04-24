@@ -1,465 +1,96 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - computers
-  version: 0.0.1
-paths:
-  /v2/computers-inventory/{id}:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return General section of a Computer
-      description: Return General section of a Computer
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-        - name: section
-          in: query
-          description: 'section of computer details, if not specified, General section data is returned.
-            Multiple section parameters are supported, e.g. section=general&section=hardware'
-          required: false
-          schema:
-            type: array
-            example: [GENERAL]
-            default: [GENERAL]
-            items:
-              $ref: '#/components/schemas/ComputerSectionV2'
-      responses:
-        200:
-          description: Details of computer were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerInventoryV2'
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computers
-    delete:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Remove specified Computer record
-      description: Remove specified Computer record
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Computer record successfully removed
-        404:
-          description: Specified computer object id does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Delete Computers
-  /v2/computers-inventory:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return paginated Computer Inventory records
-      description: Return paginated Computer Inventory records
-      parameters:
-        - name: section
-          in: query
-          description: 'section of computer details, if not specified, General section data is returned.
-              Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE'
-          required: false
-          schema:
-            type: array
-            example: [GENERAL]
-            default: [GENERAL]
-            items:
-              $ref: '#/components/schemas/ComputerSectionV2'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-        - name: sort
-          in: query
-          description:  |
-            Sorting criteria in the format: `property:asc/desc`. Default sort
-            is `general.name:asc`. Multiple sort criteria are supported and must be separated with
-            a comma.
-
-            Fields allowed in the sort: `general.name`, `udid`, `id`, `general.assetTag`,
-            `general.jamfBinaryVersion`, `general.lastContactTime`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,
-            `general.reportDate`,
-            `general.mdmCertificateExpiration`, `general.platform`, `general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`,
-            `general.mdmCertificateExpiration`, `general.platform`, `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`
-            `hardware.make`, `hardware.model`,
-            `operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`,
-            `userAndLocation.realname`,
-            `purchasing.lifeExpectancy`, `purchasing.warrantyDate`
-
-            Example: `sort=udid:desc,general.name:asc`.
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: string
-            default: [general.name:asc]
-        - name: filter
-          in: query
-          description:  |
-            Query in the RSQL format, allowing to filter computer inventory collection.
-            Default filter is empty query - returning all results for the requested page.
-            
-            Fields allowed in the query: `general.name`, `udid`, `id`, `general.assetTag`, `general.barcode1`, `general.barcode2`,
-            `general.enrolledViaAutomatedDeviceEnrollment`, `general.lastIpAddress`, `general.itunesStoreAccountActive`,
-            `general.jamfBinaryVersion`, `general.lastContactTime`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,
-            `general.reportDate`, `general.lastReportedIp`, `general.lastReportedIpV4`, `general.lastReportedIpV6`, `general.managementId`, `general.remoteManagement.managed`,
-            `general.mdmCapable.capable`, `general.mdmCertificateExpiration`, `general.platform`, `general.supervised`, `general.userApprovedMdm`, `general.declarativeDeviceManagementEnabled`, 
-            `general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`, 
-            `general.mdmCapable.capable`, `general.mdmCertificateExpiration`, `general.platform`, `general.supervised`, `general.userApprovedMdm`, `general.declarativeDeviceManagementEnabled`, `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`,
-            `hardware.bleCapable`, `hardware.macAddress`, `hardware.make`, `hardware.model`, `hardware.modelIdentifier`, `hardware.serialNumber`,
-            `hardware.supportsIosAppInstalls`,`hardware.appleSilicon`, `operatingSystem.activeDirectoryStatus`, `operatingSystem.fileVault2Status`,
-            `operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`, `security.activationLockEnabled`,
-            `security.recoveryLockEnabled`,`security.firewallEnabled`,`userAndLocation.buildingId`, `userAndLocation.departmentId`, `userAndLocation.email`, `userAndLocation.realname`,
-            `userAndLocation.phone`, `userAndLocation.position`,`userAndLocation.room`, `userAndLocation.username`, `diskEncryption.fileVault2Enabled`,
-            `purchasing.appleCareId`, `purchasing.lifeExpectancy`, `purchasing.purchased`, `purchasing.leased`, `purchasing.vendor`, `purchasing.warrantyDate`,
-            
-            This param can be combined with paging and sorting.
-            Example: `filter=general.name=="Orchard"`
-          schema:
-            type: string
-            default: ''
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerInventorySearchResultsV2'
-      x-required-privileges:
-        - Read Computers
-    post:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Create Computer Inventory record
-      description: Creates Computer Inventory record
-      requestBody:
-        required: true
-        content:
-          'application/json':
-            schema:
-              $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryCreateRequestV2'
-      responses:
-        201:
-          description: Successful response - Computer Inventory record created
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-      x-required-privileges:
-        - Create Computers
-  /v2/computers-inventory-detail/{id}:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return all sections of a computer
-      description: Return all sections of a computer
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Details of computer were found
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/ComputerInventoryV2'
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computers
-    patch:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Update specific fields on a computer
-      description: Update specific fields on a computer, then return the updated computer object.
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          'application/json':
-            schema:
-              $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryUpdateRequest'
-      responses:
-        204:
-          description: Details of computer were updated
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Computers
-  /v2/computers-inventory/{id}/attachments:
-    post:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Upload attachment and assign to computer
-      description: Upload attachment and assign to computer
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - file
-              properties:
-                file:
-                  type: string
-                  description: The file to upload
-                  format: binary
-        required: true
-      responses:
-        201:
-          description: Successfully uploaded attachment
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HrefResponse'
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Computers
-  /v2/computers-inventory/{id}/attachments/{attachmentId}:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Download attachment file
-      description: Download attachment file
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-        - name: attachmentId
-          in: path
-          description: instance id of attachment object
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Attachment successfully downloaded
-          content:
-            'text/plain':
-              schema:
-                type: string
-                format: binary
-                description: Downloaded binary file, Content-Type will be dynamic, based on a file extension
-        404:
-          description: Specified computer object or attachment does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Read Computers
-    delete:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Remove attachment
-      description: Remove attachment
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-        - name: attachmentId
-          in: path
-          description: instance id of attachment object
-          required: true
-          schema:
-            type: string
-      responses:
-        204:
-          description: Attachment successfully removed
-        404:
-          description: Specified computer object or attachment does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - Update Computers
-  /v2/computers-inventory/{id}/view-recovery-lock-password:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return a Computers Recovery Lock Password
-      description: Return a Computers Recovery Lock Password
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Recovery Lock Password
-          content:
-            'application/json':
-              schema:
-                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryRecoveryLockPasswordResponse'
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - View Recovery Lock
-  /v2/computers-inventory/{id}/view-device-lock-pin:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return a computer's Device Lock PIN
-      description: Return a computer's Device Lock PIN
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Device Lock PIN
-          content:
-            'application/json':
-              schema:
-                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryDeviceLockPinResponse'
-        404:
-          description: Specified computer object does not exist.
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - View Computer Device Lock Pin
-  /v2/computers-inventory/filevault:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return paginated FileVault information for all computers
-      description: Return paginated FileVault information for all computers
-      parameters:
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-        - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVaultSearchResults'
-      x-required-privileges:
-        - View Disk Encryption Recovery Key
-  /v2/computers-inventory/{id}/filevault:
-    get:
-      deprecated: true
-      x-deprecation-date: 2025-11-06
-      tags:
-        - computer-inventory
-      summary: Return FileVault information for a specific computer
-      description: Return FileVault information for a specific computer
-      parameters:
-        - name: id
-          in: path
-          description: instance id of computer record
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: FileVault information for computer was found
-          content:
-            'application/json':
-              schema:
-                $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerInventoryFileVault'
-        404:
-          description: FileVault information for specified computer does not exist
-          content:
-            'application/json':
-              schema:
-                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-      x-required-privileges:
-        - View Disk Encryption Recovery Key
 components:
   schemas:
+    ComputerInventorySearchResultsV2:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ComputerInventoryV2'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    ComputerInventoryV2:
+      properties:
+        applications:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerApplication
+          type: array
+        attachments:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerAttachment
+          type: array
+        certificates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerCertificate
+          type: array
+        configurationProfiles:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerConfigurationProfile
+          type: array
+        contentCaching:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerContentCaching
+        diskEncryption:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerDiskEncryption
+        extensionAttributes:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerExtensionAttribute
+          type: array
+        general:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerGeneral
+        groupMemberships:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/GroupMembership
+          type: array
+        hardware:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerHardware
+        ibeacons:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerIbeacon
+          type: array
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        licensedSoftware:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerLicensedSoftware
+          type: array
+        localUserAccounts:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerLocalUserAccount
+          type: array
+        operatingSystem:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerOperatingSystem
+        packageReceipts:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPackageReceipts
+        printers:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPrinter
+          type: array
+        purchasing:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPurchase
+        security:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSecurity
+        services:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerService
+          type: array
+        softwareUpdates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSoftwareUpdate
+          type: array
+        storage:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerStorage
+        udid:
+          example: "123"
+          type: string
+        userAndLocation:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerUserAndLocation
+      type: object
     ComputerSectionV2:
-      type: string
-      example: general
       enum:
         - GENERAL
         - DISK_ENCRYPTION
@@ -483,93 +114,480 @@ components:
         - EXTENSION_ATTRIBUTES
         - CONTENT_CACHING
         - GROUP_MEMBERSHIPS
-    ComputerInventoryV2:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 1
-          minLength: 1
-          readOnly: true
-        udid:
-          type: string
-          example: 123
-        general:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerGeneral'
-        diskEncryption:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerDiskEncryption'
-        purchasing:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPurchase'
-        applications:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerApplication'
-        storage:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerStorage'
-        userAndLocation:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerUserAndLocation'
-        configurationProfiles:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerConfigurationProfile'
-        printers:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPrinter'
-        services:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerService'
-        hardware:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerHardware'
-        localUserAccounts:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerLocalUserAccount'
-        certificates:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerCertificate'
-        attachments:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerAttachment'
-        packageReceipts:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerPackageReceipts'
-        security:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerSecurity'
-        operatingSystem:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerOperatingSystem'
-        licensedSoftware:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerLicensedSoftware'
-        ibeacons:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerIbeacon'
-        softwareUpdates:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerSoftwareUpdate'
-        extensionAttributes:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerExtensionAttribute'
-        contentCaching:
-          $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/ComputerContentCaching'
-        groupMemberships:
-          type: array
-          items:
-            $ref: 'ComputersInventoryDefinitionsLibrary.yaml#/components/schemas/GroupMembership'
-    ComputerInventorySearchResultsV2:
-      type: object
-      properties:
-        totalCount:
-          minimum: 0
-          type: integer
-          example: 3
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/ComputerInventoryV2'
+      example: general
+      type: string
+info:
+  title: Jamf Pro API - ComputersInventoryV2
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/computers-inventory:
+    get:
+      deprecated: true
+      description: Return paginated Computer Inventory records
+      parameters:
+        - description: section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE
+          explode: true
+          in: query
+          name: section
+          required: false
+          schema:
+            default:
+              - GENERAL
+            example:
+              - GENERAL
+            items:
+              $ref: '#/components/schemas/ComputerSectionV2'
+            type: array
+          style: form
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `general.name:asc`. Multiple sort criteria are supported and must be separated with
+            a comma.
+
+            Fields allowed in the sort: `general.name`, `udid`, `id`, `general.assetTag`,
+            `general.jamfBinaryVersion`, `general.lastContactTime`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,
+            `general.reportDate`,
+            `general.mdmCertificateExpiration`, `general.platform`, `general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`,
+            `general.mdmCertificateExpiration`, `general.platform`, `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`
+            `hardware.make`, `hardware.model`,
+            `operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`,
+            `userAndLocation.realname`,
+            `purchasing.lifeExpectancy`, `purchasing.warrantyDate`
+
+            Example: `sort=udid:desc,general.name:asc`.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - general.name:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: "Query in the RSQL format, allowing to filter computer inventory collection.\nDefault filter is empty query - returning all results for the requested page.\n\nFields allowed in the query: `general.name`, `udid`, `id`, `general.assetTag`, `general.barcode1`, `general.barcode2`,\n`general.enrolledViaAutomatedDeviceEnrollment`, `general.lastIpAddress`, `general.itunesStoreAccountActive`,\n`general.jamfBinaryVersion`, `general.lastContactTime`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,\n`general.reportDate`, `general.lastReportedIp`, `general.lastReportedIpV4`, `general.lastReportedIpV6`, `general.managementId`, `general.remoteManagement.managed`,\n`general.mdmCapable.capable`, `general.mdmCertificateExpiration`, `general.platform`, `general.supervised`, `general.userApprovedMdm`, `general.declarativeDeviceManagementEnabled`, \n`general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`, \n`general.mdmCapable.capable`, `general.mdmCertificateExpiration`, `general.platform`, `general.supervised`, `general.userApprovedMdm`, `general.declarativeDeviceManagementEnabled`, `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`,\n`hardware.bleCapable`, `hardware.macAddress`, `hardware.make`, `hardware.model`, `hardware.modelIdentifier`, `hardware.serialNumber`,\n`hardware.supportsIosAppInstalls`,`hardware.appleSilicon`, `operatingSystem.activeDirectoryStatus`, `operatingSystem.fileVault2Status`,\n`operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`, `security.activationLockEnabled`,\n`security.recoveryLockEnabled`,`security.firewallEnabled`,`userAndLocation.buildingId`, `userAndLocation.departmentId`, `userAndLocation.email`, `userAndLocation.realname`,\n`userAndLocation.phone`, `userAndLocation.position`,`userAndLocation.room`, `userAndLocation.username`, `diskEncryption.fileVault2Enabled`,\n`purchasing.appleCareId`, `purchasing.lifeExpectancy`, `purchasing.purchased`, `purchasing.leased`, `purchasing.vendor`, `purchasing.warrantyDate`,\n\nThis param can be combined with paging and sorting.\nExample: `filter=general.name==\"Orchard\"`\n"
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventorySearchResultsV2'
+          description: Successful response
+      summary: Return paginated Computer Inventory records
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Read Computers
+    post:
+      deprecated: true
+      description: Creates Computer Inventory record
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryCreateRequestV2
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successful response - Computer Inventory record created
+      summary: Create Computer Inventory record
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Create Computers
+  /v2/computers-inventory-detail/{id}:
+    get:
+      deprecated: true
+      description: Return all sections of a computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventoryV2'
+          description: Details of computer were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return all sections of a computer
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Read Computers
+    patch:
+      deprecated: true
+      description: Update specific fields on a computer, then return the updated computer object.
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryUpdateRequest
+        required: true
+      responses:
+        204:
+          description: Details of computer were updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Update specific fields on a computer
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Update Computers
+  /v2/computers-inventory/filevault:
+    get:
+      deprecated: true
+      description: Return paginated FileVault information for all computers
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryFileVaultSearchResults
+          description: Successful response
+      summary: Return paginated FileVault information for all computers
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - View Disk Encryption Recovery Key
+  /v2/computers-inventory/{id}:
+    delete:
+      deprecated: true
+      description: Remove specified Computer record
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Computer record successfully removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object id does not exist.
+      summary: Remove specified Computer record
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Delete Computers
+    get:
+      deprecated: true
+      description: Return General section of a Computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=general&section=hardware
+          explode: true
+          in: query
+          name: section
+          required: false
+          schema:
+            default:
+              - GENERAL
+            example:
+              - GENERAL
+            items:
+              $ref: '#/components/schemas/ComputerSectionV2'
+            type: array
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventoryV2'
+          description: Details of computer were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return General section of a Computer
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Read Computers
+  /v2/computers-inventory/{id}/attachments:
+    post:
+      deprecated: true
+      description: Upload attachment and assign to computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  description: The file to upload
+                  format: binary
+                  type: string
+              required:
+                - file
+              type: object
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successfully uploaded attachment
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Upload attachment and assign to computer
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Update Computers
+  /v2/computers-inventory/{id}/attachments/{attachmentId}:
+    delete:
+      deprecated: true
+      description: Remove attachment
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: instance id of attachment object
+          explode: false
+          in: path
+          name: attachmentId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Attachment successfully removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object or attachment does not exist.
+      summary: Remove attachment
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Update Computers
+    get:
+      deprecated: true
+      description: Download attachment file
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: instance id of attachment object
+          explode: false
+          in: path
+          name: attachmentId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                description: Downloaded binary file, Content-Type will be dynamic, based on a file extension
+                format: binary
+                type: string
+          description: Attachment successfully downloaded
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object or attachment does not exist.
+      summary: Download attachment file
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - Read Computers
+  /v2/computers-inventory/{id}/filevault:
+    get:
+      deprecated: true
+      description: Return FileVault information for a specific computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryFileVault
+          description: FileVault information for computer was found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: FileVault information for specified computer does not exist
+      summary: Return FileVault information for a specific computer
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - View Disk Encryption Recovery Key
+  /v2/computers-inventory/{id}/view-device-lock-pin:
+    get:
+      deprecated: true
+      description: Return a computer's Device Lock PIN
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryDeviceLockPinResponse
+          description: Device Lock PIN
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return a computer's Device Lock PIN
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - View Computer Device Lock Pin
+  /v2/computers-inventory/{id}/view-recovery-lock-password:
+    get:
+      deprecated: true
+      description: Return a Computers Recovery Lock Password
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryRecoveryLockPasswordResponse
+          description: Recovery Lock Password
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return a Computers Recovery Lock Password
+      tags:
+        - computer-inventory
+      x-deprecation-date: "2025-11-06"
+      x-required-privileges:
+        - View Recovery Lock
+servers:
+  - url: /api

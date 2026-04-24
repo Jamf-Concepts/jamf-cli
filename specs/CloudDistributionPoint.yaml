@@ -1,579 +1,525 @@
-openapi: 3.0.3
-info:
-    title: Jamf Pro API - Cloud Distribution Point
-    version: 0.0.1
-paths:
-    /v1/cloud-distribution-point/fail-upload/{id}:
-        post:
-            tags:
-                - cloud-distribution-point
-            summary: |
-                Marks a specific file upload as failed for the currently configured cloud distribution point.
-            description: |
-                Marks a specific file upload as failed for the currently configured cloud distribution point.
-            parameters:
-                - name: id
-                  in: path
-                  description: 'The identifier of the inventory file to be marked as failed. The type and ID will make a unique identifier for the file.'
-                  required: true
-                  schema:
-                    type: string
-                    example: "1"
-                - name: 'file-name'
-                  in: query
-                  description: 'Name of the file to mark failure for.'
-                  required: true
-                  schema:
-                    type: string
-                    default: ''
-                    maxLength: 255
-                    example: 'filename.pkg'
-                - name: type
-                  in: query
-                  description: 'Type of file to mark failure for. Possible values are PACKAGE, EBOOK, MOBILE_DEVICE_APP.'
-                  required: true
-                  schema:
-                      type: string
-                      default: ''
-                      maxLength: 50
-                      example: 'PACKAGE'
-            responses:
-                204:
-                    description: |
-                        Successfully marked the specified file upload as failed for the currently configured cloud distribution point.
-                404:
-                    description: The specified inventory file could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-action: true
-            x-required-privileges:
-                - Update Cloud Distribution Point
-    /v1/cloud-distribution-point/refresh-inventory:
-        post:
-            tags:
-                - cloud-distribution-point
-            summary: |
-                Updates inventory data for the currently configured cloud distribution point.
-            description: |
-                Updates inventory data for the currently configured cloud distribution point.
-            parameters:
-                - name: 'file-name'
-                  in: query
-                  description: 'Name of the file to check the availability of. If available, the inventory and status will be updated in Jamf Pro. If no file is specified, it will force an immediate inventory refresh at a rate-limit of once every 15 seconds.'
-                  required: false
-                  schema:
-                      type: string
-                      default: ''
-                      maxLength: 255
-                      example: 'filename.pkg'
-            responses:
-                204:
-                    description: |
-                        Successfully updated inventory data for the currently configured cloud distribution point.
-            x-action: true
-            x-required-privileges:
-                - Read Cloud Distribution Point
-    /v1/cloud-distribution-point/upload-capability:
-        get:
-            tags:
-                - cloud-distribution-point
-            summary: |
-                Finds specific information for the currently configured cloud distribution point.
-            description: |
-                Finds a variety of values based on the currently configured cloud distribution point.
-            responses:
-                200:
-                    description: |
-                        The request was successful, and the upload capability details for the currently configured cloud distribution point (CDP) have been retrieved. 
-                        This response provides information about whether the cloud distribution point supports direct uploads and the principal distribution technology being used.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPointUploadCapability'
-            x-authentication-required: true
-
-    /v1/cloud-distribution-point:
-        get:
-            tags:
-                - cloud-distribution-point
-            summary: |
-                Get the cloud distribution point Details.
-            description: |
-                Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.
-            responses:
-                200:
-                    description: |
-                        The request was successful, and the details of the cloud distribution point (CDP) have been retrieved. The response contains the current configuration of the CDP, including the CDN service being used (e.g., Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3), Akamai(AKAMAI)), the CDN URL, and the status of the test connection.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPoint'
-                404:
-                    description: cloud distribution point object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Cloud Distribution Point
-        post:
-            tags:
-                - cloud-distribution-point
-            summary: Create cloud distribution point
-            description: Creates cloud distribution point. This operation is triggered when the content delivery network (CDN) settings change, specifically when the network type is updated from "None" to any other supported type. Upon successful creation,the API returns the updated details of the cloud distribution point.
-            requestBody:
-                required: true
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/CloudDistributionPoint'
-            responses:
-                201:
-                    description: |
-                        The cloud distribution point was successfully created. After creation, a connection test was performed to ensure that the distribution point is properly configured and accessible. If the connection test passes, files will be uploaded to the distribution point. The response returns the details of the newly created cloud distribution point, including:
-                            - The unique identifier assigned to the cloud distribution point, along with the configured data.
-                            - The CDN type and URL where content will be distributed.
-                            - The connection test result (success or failure).
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPoint'
-                400:
-                    description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br>
-                        1) Required fields are not provided in request body.</br>
-                        2) Fields which are not associated with provided cdnType has some value.</br>
-                        3) Any values outside of the allowed range are included in the request body.</br>
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Cloud Distribution Point
-        patch:
-            tags:
-                - cloud-distribution-point
-            summary: Update specific fields on a cloud distribution point
-            description: Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.
-            requestBody:
-                required: true
-                content:
-                    'application/json':
-                        schema:
-                            $ref: '#/components/schemas/CloudDistributionPoint'
-            responses:
-                200:
-                    description: |
-                        The cloud distribution point was successfully updated. After the update, a connection test was performed to verify the configuration, and files were successfully uploaded to the distribution point.
-                        The response body will return the most up-to-date information about the cloud distribution point, including:
-                            - Updated configuration fields.
-                            - Connection test status (success or failure).
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPoint'
-                400:
-                    description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br>
-                        1) Required fields are not provided in request body.</br>
-                        2) Fields which are not associated with provided cdnType has some value.</br>
-                        3) Any values outside of the allowed range are included in the request body.</br>
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Cloud Distribution Point
-        delete:
-            tags:
-                - cloud-distribution-point
-            summary: Delete cloud distribution point.
-            description: The cloud distribution point and inventory details to be deleted.
-            responses:
-                204:
-                    description: cloud distribution point deleted successfully.
-                404:
-                    description: No cloud distribution point has been configured.
-                409:
-                    description: The request could not be completed due to a conflict caused by multiple records existing in the system.
-                500:
-                    description: An unexpected error occurred while attempting to delete the cloud distribution point. This could be due to a server issue, database error, or failure to perform the necessary cleanup actions.
-            x-required-privileges:
-                - Update Cloud Distribution Point
-    /v1/cloud-distribution-point/history:
-        get:
-            tags:
-                - cloud-distribution-point
-            summary: Get cloud distribution point history details
-            description: Get cloud distribution point history details
-            parameters:
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                -   $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                -   name: sort
-                    in: query
-                    description: 'Sorts results by one or more criteria, following the format property:asc/desc.
-                          Default sort is ID:asc.
-                          If using multiple criteria, separate with commas.'
-                    explode: true
-                    schema:
-                        type: array
-                        items:
-                            type: string
-                        default: [ id:asc ]
-                -   name: filter
-                    in: query
-                    description: 'Filters results.
-                          Use RSQL format for query.
-                          Allows for many fields, including ID, name, etc.
-                          Can be combined with paging and sorting.
-                          Default filter is an empty query and returns all results from the requested page.'
-                    schema:
-                        type: string
-                        default: ''
-            responses:
-                200:
-                    description: Details of cloud distribution point history were found.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/HistorySearchResults'
-                400:
-                    description: Bad Request. Specified cloud distribution point history object could not be found.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Read Cloud Distribution Point
-        post:
-            tags:
-                - cloud-distribution-point
-            summary: Add specified cloud distribution point history object notes
-            description: Add specified cloud distribution point history object notes
-            requestBody:
-                description: History note to be created
-                content:
-                    'application/json':
-                        schema:
-                            $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistoryNote'
-                required: true
-            responses:
-                201:
-                    description: cloud distribution point history note created successfully.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ObjectHistory'
-                400:
-                    description: Bad Request. Error creating history note.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-            x-required-privileges:
-                - Update Cloud Distribution Point
-    /v1/cloud-distribution-point/files:
-        get:
-            tags:
-                - cloud-distribution-point
-            summary: Get the cloud distribution point Inventory files details
-            description: |
-                Retrieves the details of the inventory files associated with a cloud distribution point.This includes information about the files used for content distribution,
-                such as their type, status, and categorization.The response provides a comprehensive list of inventory files, which may include packages, ebooks, or mobile device apps,
-                allowing users to view the current state and metadata for each file in the distribution system.
-            x-required-privileges:
-                - Read Cloud Distribution Point
-            parameters:
-                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-                - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
-                - name: sort
-                  in: query
-                  description: 'Sorts results by one or more criteria, following the format property:asc/desc.<br/>
-                          Default sort is id:asc.<br/>
-                          If using multiple criteria, separate with commas. Allows sort for id, fileName, inventoryId and type etc.'
-                  explode: true
-                  schema:
-                      type: array
-                      items:
-                          type: string
-                      default: [ id.asc ]
-                - name: filter
-                  in: query
-                  description: 'Filters results.
-                          Use RSQL format for query. Allows for many fields, including fileName and type<br/>
-                          Can be combined with paging and sorting.<br/>
-                          Fields allowed in the query: fileName, inventoryId and type <br/>
-                          Default filter is an empty query and returns all results from the requested page.'
-                  schema:
-                      type: string
-                      default: ''
-            responses:
-                200:
-                    description: cloud distribution point Inventory objects has been fetched successfully.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPointInventoryFilesResults'
-                404:
-                    description: cloud distribution point Inventory objects could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: 'DefinitionsLibrary.yaml#/components/schemas/ApiError'
-    /v1/cloud-distribution-point/test-connection:
-        get:
-            tags:
-                - cloud-distribution-point
-            summary: |
-                Get the cloud distribution point test connection details.
-            description: |
-                Verifies the connection to the cloud distribution point after updating its configuration. 
-                This endpoint returns the connection status and a message indicating whether the connection is successful or failed.
-            x-required-privileges:
-                - Read Cloud Distribution Point
-            responses:
-                200:
-                    description: |
-                        This response indicates the test connection of the cloud distribution point (CDP). 
-                        The response includes the following details:
-                           - **hasConnectionSucceeded**: A status indicating whether the connection test was successful or failed. 
-                                This will be either `true` or `false`, based on the outcome of the connection test.
-                           - **message**: A detailed message providing additional context regarding the test result. 
-                                For example, if the connection failed, the message might contain an error description.
-                    content:
-                        'application/json':
-                            schema:
-                                $ref: '#/components/schemas/CloudDistributionPointTestConnection'
-            x-authentication-required: true
 components:
-    schemas:
-        CloudDistributionPointUploadCapability:
-            type: object
-            properties:
-                principalDistributionTechnology:
-                    type: boolean
-                    default: false
-                    example: false
-                    nullable: false
-                directUploadCapable:
-                    type: boolean
-                    default: false
-                    example: false
-                    nullable: false
-
-        CloudDistributionPointTestConnection:
-            type: object
-            required:
-                - hasConnectionSucceeded
-                - message
-            properties:
-                hasConnectionSucceeded:
-                    type: boolean
-                    description: |
-                        Indicates whether the connection to the cloud distribution point was successful. 
-                        If `true`, the connection was successful. If `false`, the connection failed.<br/>
-                        Possible values are:<br/>
-                        false <br/>
-                        true
-                    default: false
-                    readOnly: true
-                message:
-                    type: string
-                    description: |
-                        A message detailing the result of the connection test. This could be a success message
-                        or an error message if the connection failed.
-                    example: Cannot contact JCDS
-                    readOnly: true
-
-        CloudDistributionPointInventoryFilesResults:
-            type: object
-            required:
-                - totalCount
-            properties:
-                totalCount:
-                    type: integer
-                    example: 1
-                results:
-                    type: array
-                    minItems: 0
-                    items:
-                        $ref: '#/components/schemas/CloudDistributionPointInventoryFileInfo'
-
-        CloudDistributionPoint:
-            allOf:
-                - "$ref": '#/components/schemas/CloudDistributionPointTestConnection'
-                - type: object
-                  required:
-                      - cdnType
-                      - username
-                      - password
-                  properties:
-                      inventoryId:
-                          type: string
-                          description: The unique identifier (inventoryId) that links the cloud distribution point to its inventory data. By default, its value is 0, and it increments by +1 based on the existing inventory ID present in the table for each new cloud distribution point configuration. If the cdnType is set to NONE in the next configuration, the ID resets and starts from 1.
-                          default: '0'
-                          readOnly: true
-                      cdnType:
-                          type: string
-                          description: Specifies the content delivery network (CDN) used to distribute content for the cloud distribution point.
-                          enum:
-                              - NONE
-                              - JAMF_CLOUD
-                              - RACKSPACE_CLOUD_FILES
-                              - AMAZON_S3
-                              - AKAMAI
-                          default: NONE
-                      master:
-                          type: boolean
-                          description: Use as principal distribution point. Use as the authoritative source for all files.<br/>
-                              Possible values are:<br/>
-                              false <br/>
-                              true
-                          default: false
-                          example: false
-                      username:
-                          type: string
-                          description: |
-                              The username or access key used for authenticating with the selected content delivery network (CDN). 
-                              This field is required when the **cdnType** is set to **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, **Amazon Web Services(AMAZON_S3)**, or **Akamai(AKAMAI)**, as it is used to authenticate and authorize access to the respective cloud services.
-                              - For **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, this is typically the username associated with your Rackspace cloud account.
-                              - For **Amazon Web Services(AMAZON_S3)**, this corresponds to the **Access Key ID** used to interact with Amazon Web Services(AMAZON_S3) resources.
-                              - For **Akamai(AKAMAI)**, this is the username used for API authentication to access Akamai's content delivery services.
-                              If the **cdnType** is **None**, this field is not applicable.
-                          example: 'Admin'
-                      password:
-                          type: string
-                          description: |
-                              The password or authentication key used for connecting to the selected content delivery network (CDN). 
-                              This field is required when the **cdnType** is set to **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, **Amazon Web Services(AMAZON_S3)**, or **Akamai(AKAMAI)**, and is used to authenticate and authorize access to the respective cloud services.
-                              - For **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, this refers to the **API Key** that is used in conjunction with the username for authenticating API requests.
-                              - For **Amazon Web Services(AMAZON_S3)**, this corresponds to the **Secret Access Key** associated with your AWS account, used to securely sign requests to AWS services.
-                              - For **Akamai(AKAMAI)**, this is the **password** used for API authentication to access Akamai's content delivery services.
-                              If the **cdnType** is **None**, this field is not applicable.
-                          format: password
-                          writeOnly: true
-                          example: 'secretKey123'
-                      directory:
-                          type: string
-                          description: The directory or path for content delivery in Akamai. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and specifies where content is stored within Akamai's system.
-                          example: '123456'
-                      cdnUrl:
-                          type: string
-                          description: |
-                              The CDN URL for the cloud distribution point. The URL format varies depending on the selected CDN provider:
-                              - **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**
-                              - **Amazon Web Services(AMAZON_S3)** 
-                              - **Akamai(AKAMAI)**
-                              
-                              The **cdnUrl** should point to the content distribution location where software or other content is stored and made available for distribution.
-                          example: "https://example-cdn-url.com/content-path"
-                          readOnly: true
-                      uploadUrl:
-                          type: string
-                          description: |
-                              The URL used to upload files to Akamai's NetStorage. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**. 
-                              It specifies where content should be uploaded to Akamai’s cloud storage before being distributed via their CDN. The upload typically uses FTP or SFTP.
-                          example: 'ftp://mycompany.upload.akamai.com'
-                      downloadUrl:
-                          type: string
-                          description: |
-                              The URL used to access and download content from Akamai's EdgeSuite. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**. 
-                              It specifies the endpoint from which files are retrieved by devices or users.
-                          example: 'https://download.mycompany.com'
-                      secondaryAuthRequired:
-                          type: boolean
-                          description: Enable Remote Authentication.Authorize requests for files stored on the distribution point. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**.<br/>
-                              Possible values are:<br/>
-                              false <br/>
-                              true
-                          default: false
-                          example: false
-                      secondaryAuthStatusCode:
-                          type: integer
-                          description: Secondary Auth Status Code. Configure the HTTP response code that will be returned by Jamf Pro during remote authentication. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and **secondaryAuthRequired** is true.
-                          default: 200
-                      secondaryAuthTimeToLive:
-                          type: integer
-                          description: Secondary Auth Time To Live. Number of seconds before the authorization token expires. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and **secondaryAuthRequired** is true.
-                          minimum: 1
-                          default: 3600
-                      requireSignedUrls:
-                          type: boolean
-                          description: Amazon Sign Url. It restrict access to requests that use a signed URL. This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)**.<br/>
-                              Possible values are:<br/>
-                              false <br/>
-                              true
-                          default: false
-                          example: false
-                      keyPairId:
-                          type: string
-                          description: |
-                              The CloudFront Access Key ID (keyPairId) is part of the credentials used to generate signed URLs for secure access to content in a CloudFront distribution.
-                              When using AWS, this key is paired with the CloudFront Secret Access Key to create the signed URL, ensuring that only authorized users can access specific content within a specified timeframe.
-                              This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls** is true.
-                          example: 'K1R8C5EXAMPLE'
-                      expirationSeconds:
-                          type: integer
-                          description: Signed URL Expiration. Number of seconds before the signed URL expires, This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls** is true.
-                          minimum: 1
-                          default: 3600
-                      privateKey:
-                          type: string
-                          format: byte
-                          description: |
-                              The CloudFront Private Key file is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls**
-                              parameter is enabled. This private key is used for signing URLs for restricted access to CloudFront-distributed content. 
-                              The private key allows secure URL generation for signed URLs, ensuring that only authorized users can access certain content.
-                              The key must be uploaded in one of the following formats:
-                              - **.pem**: A Privacy-Enhanced Mail (PEM) file containing the private key in base64 encoded format.
-                              - **.der**: A Distinguished Encoding Rules (DER) encoded file, which is a binary format for the private key.
-                              The uploaded file should be kept secure, as it provides the ability to generate signed URLs with access to protected content.
-
-        CloudDistributionPointInventoryFileInfo:
-            type: object
-            required:
-                - type
-                - fileName
-                - fileObjectId
-                - status
-            properties:
-                id:
-                    type: string
-                    description: A unique identifier for the cloud distribution point inventory file table.
-                    example: '1'
-                    readOnly: true
-                inventoryId:
-                    type: string
-                    description: A unique identifier for the cloud distribution point inventory file and cloud distribution point tables.This ID is used to reference a specific inventory resource within the system.
-                    example: '1'
-                    readOnly: true
-                type:
-                    type: string
-                    description: The type of the inventory file. This field indicates whether the file is related to a package, mobile device app, or an ebook.
-                    enum:
-                        - NONE
-                        - PACKAGE
-                        - EBOOK
-                        - MOBILE_DEVICE_APP
-                        - SCRIPT
-                    example: "PACKAGE"
-                fileName:
-                    type: string
-                    description: The name of the inventory file. This could be the name of a package, a mobile device app, or an ebook file, depending on the file type. The name should match the actual file or package name as stored in the cloud distribution system.
-                    example: 'SettingPackage'
-                fileObjectId:
-                    type: string
-                    description: A unique identifier for each file type (package, ebook, or mobile device app). This ID is used to construct the URL for accessing or navigating to the specific resource related to the file type.
-                    example: '1'
-                category:
-                    type: string
-                    description: The category assigned to the inventory file (package, ebook, or mobile device app) during creation. This helps group and organize files based on their type or purpose, such as security software or productivity tools.
-                    example: 'Category1'
-                status:
-                    type: string
-                    description: The current status of the inventory file, indicating the progress or outcome of the file's upload process.It reflects whether the file is ready for use, still being processed, or has encountered an error.
-                    enum:
-                        - READY
-                        - PENDING
-                        - ERROR
-                    example: "READY"
+  schemas:
+    CloudDistributionPoint:
+      allOf:
+        - $ref: '#/components/schemas/CloudDistributionPointTestConnection'
+        - properties:
+            cdnType:
+              default: NONE
+              description: Specifies the content delivery network (CDN) used to distribute content for the cloud distribution point.
+              enum:
+                - NONE
+                - JAMF_CLOUD
+                - RACKSPACE_CLOUD_FILES
+                - AMAZON_S3
+                - AKAMAI
+              type: string
+            cdnUrl:
+              description: "The CDN URL for the cloud distribution point. The URL format varies depending on the selected CDN provider:\n- **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**\n- **Amazon Web Services(AMAZON_S3)** \n- **Akamai(AKAMAI)**\n\nThe **cdnUrl** should point to the content distribution location where software or other content is stored and made available for distribution.\n"
+              example: https://example-cdn-url.com/content-path
+              readOnly: true
+              type: string
+            directory:
+              description: The directory or path for content delivery in Akamai. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and specifies where content is stored within Akamai's system.
+              example: "123456"
+              type: string
+            downloadUrl:
+              description: "The URL used to access and download content from Akamai's EdgeSuite. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**. \nIt specifies the endpoint from which files are retrieved by devices or users.\n"
+              example: https://download.mycompany.com
+              type: string
+            expirationSeconds:
+              default: 3600
+              description: Signed URL Expiration. Number of seconds before the signed URL expires, This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls** is true.
+              minimum: 1
+              type: integer
+            inventoryId:
+              default: "0"
+              description: The unique identifier (inventoryId) that links the cloud distribution point to its inventory data. By default, its value is 0, and it increments by +1 based on the existing inventory ID present in the table for each new cloud distribution point configuration. If the cdnType is set to NONE in the next configuration, the ID resets and starts from 1.
+              readOnly: true
+              type: string
+            keyPairId:
+              description: |
+                The CloudFront Access Key ID (keyPairId) is part of the credentials used to generate signed URLs for secure access to content in a CloudFront distribution.
+                When using AWS, this key is paired with the CloudFront Secret Access Key to create the signed URL, ensuring that only authorized users can access specific content within a specified timeframe.
+                This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls** is true.
+              example: K1R8C5EXAMPLE
+              type: string
+            master:
+              default: false
+              description: Use as principal distribution point. Use as the authoritative source for all files.<br/> Possible values are:<br/> false <br/> true
+              example: false
+              type: boolean
+            password:
+              description: "The password or authentication key used for connecting to the selected content delivery network (CDN). \nThis field is required when the **cdnType** is set to **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, **Amazon Web Services(AMAZON_S3)**, or **Akamai(AKAMAI)**, and is used to authenticate and authorize access to the respective cloud services.\n- For **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, this refers to the **API Key** that is used in conjunction with the username for authenticating API requests.\n- For **Amazon Web Services(AMAZON_S3)**, this corresponds to the **Secret Access Key** associated with your AWS account, used to securely sign requests to AWS services.\n- For **Akamai(AKAMAI)**, this is the **password** used for API authentication to access Akamai's content delivery services.\nIf the **cdnType** is **None**, this field is not applicable.\n"
+              example: secretKey123
+              format: password
+              type: string
+              writeOnly: true
+            privateKey:
+              description: "The CloudFront Private Key file is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)** and **requireSignedUrls**\nparameter is enabled. This private key is used for signing URLs for restricted access to CloudFront-distributed content. \nThe private key allows secure URL generation for signed URLs, ensuring that only authorized users can access certain content.\nThe key must be uploaded in one of the following formats:\n- **.pem**: A Privacy-Enhanced Mail (PEM) file containing the private key in base64 encoded format.\n- **.der**: A Distinguished Encoding Rules (DER) encoded file, which is a binary format for the private key.\nThe uploaded file should be kept secure, as it provides the ability to generate signed URLs with access to protected content.\n"
+              format: byte
+              type: string
+            requireSignedUrls:
+              default: false
+              description: Amazon Sign Url. It restrict access to requests that use a signed URL. This field is required when the **cdnType** is set to **Amazon Web Services(AMAZON_S3)**.<br/> Possible values are:<br/> false <br/> true
+              example: false
+              type: boolean
+            secondaryAuthRequired:
+              default: false
+              description: Enable Remote Authentication.Authorize requests for files stored on the distribution point. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**.<br/> Possible values are:<br/> false <br/> true
+              example: false
+              type: boolean
+            secondaryAuthStatusCode:
+              default: 200
+              description: Secondary Auth Status Code. Configure the HTTP response code that will be returned by Jamf Pro during remote authentication. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and **secondaryAuthRequired** is true.
+              type: integer
+            secondaryAuthTimeToLive:
+              default: 3600
+              description: Secondary Auth Time To Live. Number of seconds before the authorization token expires. This field is required when the **cdnType** is set to **Akamai(AKAMAI)** and **secondaryAuthRequired** is true.
+              minimum: 1
+              type: integer
+            uploadUrl:
+              description: "The URL used to upload files to Akamai's NetStorage. This field is required when the **cdnType** is set to **Akamai(AKAMAI)**. \nIt specifies where content should be uploaded to Akamai’s cloud storage before being distributed via their CDN. The upload typically uses FTP or SFTP.\n"
+              example: ftp://mycompany.upload.akamai.com
+              type: string
+            username:
+              description: "The username or access key used for authenticating with the selected content delivery network (CDN). \nThis field is required when the **cdnType** is set to **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, **Amazon Web Services(AMAZON_S3)**, or **Akamai(AKAMAI)**, as it is used to authenticate and authorize access to the respective cloud services.\n- For **Rackspace Cloud Files(RACKSPACE_CLOUD_FILES)**, this is typically the username associated with your Rackspace cloud account.\n- For **Amazon Web Services(AMAZON_S3)**, this corresponds to the **Access Key ID** used to interact with Amazon Web Services(AMAZON_S3) resources.\n- For **Akamai(AKAMAI)**, this is the username used for API authentication to access Akamai's content delivery services.\nIf the **cdnType** is **None**, this field is not applicable.\n"
+              example: Admin
+              type: string
+          required:
+            - cdnType
+            - password
+            - username
+          type: object
+    CloudDistributionPointInventoryFileInfo:
+      properties:
+        category:
+          description: The category assigned to the inventory file (package, ebook, or mobile device app) during creation. This helps group and organize files based on their type or purpose, such as security software or productivity tools.
+          example: Category1
+          type: string
+        fileName:
+          description: The name of the inventory file. This could be the name of a package, a mobile device app, or an ebook file, depending on the file type. The name should match the actual file or package name as stored in the cloud distribution system.
+          example: SettingPackage
+          type: string
+        fileObjectId:
+          description: A unique identifier for each file type (package, ebook, or mobile device app). This ID is used to construct the URL for accessing or navigating to the specific resource related to the file type.
+          example: "1"
+          type: string
+        id:
+          description: A unique identifier for the cloud distribution point inventory file table.
+          example: "1"
+          readOnly: true
+          type: string
+        inventoryId:
+          description: A unique identifier for the cloud distribution point inventory file and cloud distribution point tables.This ID is used to reference a specific inventory resource within the system.
+          example: "1"
+          readOnly: true
+          type: string
+        status:
+          description: The current status of the inventory file, indicating the progress or outcome of the file's upload process.It reflects whether the file is ready for use, still being processed, or has encountered an error.
+          enum:
+            - READY
+            - PENDING
+            - ERROR
+          example: READY
+          type: string
+        type:
+          description: The type of the inventory file. This field indicates whether the file is related to a package, mobile device app, or an ebook.
+          enum:
+            - NONE
+            - PACKAGE
+            - EBOOK
+            - MOBILE_DEVICE_APP
+            - SCRIPT
+          example: PACKAGE
+          type: string
+      required:
+        - fileName
+        - fileObjectId
+        - status
+        - type
+      type: object
+    CloudDistributionPointInventoryFilesResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/CloudDistributionPointInventoryFileInfo'
+          minItems: 0
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      required:
+        - totalCount
+      type: object
+    CloudDistributionPointTestConnection:
+      properties:
+        hasConnectionSucceeded:
+          default: false
+          description: "Indicates whether the connection to the cloud distribution point was successful. \nIf `true`, the connection was successful. If `false`, the connection failed.<br/>\nPossible values are:<br/>\nfalse <br/>\ntrue\n"
+          readOnly: true
+          type: boolean
+        message:
+          description: |
+            A message detailing the result of the connection test. This could be a success message
+            or an error message if the connection failed.
+          example: Cannot contact JCDS
+          readOnly: true
+          type: string
+      required:
+        - hasConnectionSucceeded
+        - message
+      type: object
+    CloudDistributionPointUploadCapability:
+      properties:
+        directUploadCapable:
+          default: false
+          example: false
+          nullable: false
+          type: boolean
+        principalDistributionTechnology:
+          default: false
+          example: false
+          nullable: false
+          type: boolean
+      type: object
+info:
+  title: Jamf Pro API - CloudDistributionPoint
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/cloud-distribution-point:
+    delete:
+      description: The cloud distribution point and inventory details to be deleted.
+      responses:
+        204:
+          description: cloud distribution point deleted successfully.
+        404:
+          description: No cloud distribution point has been configured.
+        409:
+          description: The request could not be completed due to a conflict caused by multiple records existing in the system.
+        500:
+          description: An unexpected error occurred while attempting to delete the cloud distribution point. This could be due to a server issue, database error, or failure to perform the necessary cleanup actions.
+      summary: Delete cloud distribution point.
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Update Cloud Distribution Point
+    get:
+      description: |
+        Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPoint'
+          description: |
+            The request was successful, and the details of the cloud distribution point (CDP) have been retrieved. The response contains the current configuration of the CDP, including the CDN service being used (e.g., Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3), Akamai(AKAMAI)), the CDN URL, and the status of the test connection.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: cloud distribution point object could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: |
+        Get the cloud distribution point Details.
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Read Cloud Distribution Point
+    patch:
+      description: Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDistributionPoint'
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPoint'
+          description: |
+            The cloud distribution point was successfully updated. After the update, a connection test was performed to verify the configuration, and files were successfully uploaded to the distribution point.
+            The response body will return the most up-to-date information about the cloud distribution point, including:
+                - Updated configuration fields.
+                - Connection test status (success or failure).
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br> 1) Required fields are not provided in request body.</br> 2) Fields which are not associated with provided cdnType has some value.</br> 3) Any values outside of the allowed range are included in the request body.</br>
+      summary: Update specific fields on a cloud distribution point
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Update Cloud Distribution Point
+    post:
+      description: Creates cloud distribution point. This operation is triggered when the content delivery network (CDN) settings change, specifically when the network type is updated from "None" to any other supported type. Upon successful creation,the API returns the updated details of the cloud distribution point.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDistributionPoint'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPoint'
+          description: |
+            The cloud distribution point was successfully created. After creation, a connection test was performed to ensure that the distribution point is properly configured and accessible. If the connection test passes, files will be uploaded to the distribution point. The response returns the details of the newly created cloud distribution point, including:
+                - The unique identifier assigned to the cloud distribution point, along with the configured data.
+                - The CDN type and URL where content will be distributed.
+                - The connection test result (success or failure).
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. The server could not understand the request because of invalid syntax. Possible reasons are:</br> 1) Required fields are not provided in request body.</br> 2) Fields which are not associated with provided cdnType has some value.</br> 3) Any values outside of the allowed range are included in the request body.</br>
+      summary: Create cloud distribution point
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Update Cloud Distribution Point
+  /v1/cloud-distribution-point/fail-upload/{id}:
+    post:
+      description: |
+        Marks a specific file upload as failed for the currently configured cloud distribution point.
+      parameters:
+        - description: The identifier of the inventory file to be marked as failed. The type and ID will make a unique identifier for the file.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            example: "1"
+            type: string
+          style: simple
+        - description: Name of the file to mark failure for.
+          explode: true
+          in: query
+          name: file-name
+          required: true
+          schema:
+            default: ""
+            example: filename.pkg
+            maxLength: 255
+            type: string
+          style: form
+        - description: Type of file to mark failure for. Possible values are PACKAGE, EBOOK, MOBILE_DEVICE_APP.
+          explode: true
+          in: query
+          name: type
+          required: true
+          schema:
+            default: ""
+            example: PACKAGE
+            maxLength: 50
+            type: string
+          style: form
+      responses:
+        204:
+          description: |
+            Successfully marked the specified file upload as failed for the currently configured cloud distribution point.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The specified inventory file could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: |
+        Marks a specific file upload as failed for the currently configured cloud distribution point.
+      tags:
+        - cloud-distribution-point
+      x-action: true
+      x-required-privileges:
+        - Update Cloud Distribution Point
+  /v1/cloud-distribution-point/files:
+    get:
+      description: |
+        Retrieves the details of the inventory files associated with a cloud distribution point.This includes information about the files used for content distribution,
+        such as their type, status, and categorization.The response provides a comprehensive list of inventory files, which may include packages, ebooks, or mobile device apps,
+        allowing users to view the current state and metadata for each file in the distribution system.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc.<br/> Default sort is id:asc.<br/> If using multiple criteria, separate with commas. Allows sort for id, fileName, inventoryId and type etc.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id.asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Filters results. Use RSQL format for query. Allows for many fields, including fileName and type<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: fileName, inventoryId and type <br/> Default filter is an empty query and returns all results from the requested page.'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPointInventoryFilesResults'
+          description: cloud distribution point Inventory objects has been fetched successfully.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: cloud distribution point Inventory objects could not be found. The server either did not find a current representation for the requested resource or is trying to hide its existence from an unauthorized client.
+      summary: Get the cloud distribution point Inventory files details
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Read Cloud Distribution Point
+  /v1/cloud-distribution-point/history:
+    get:
+      description: Get cloud distribution point history details
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: Sorts results by one or more criteria, following the format property:asc/desc. Default sort is ID:asc. If using multiple criteria, separate with commas.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HistorySearchResults
+          description: Details of cloud distribution point history were found.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Specified cloud distribution point history object could not be found.
+      summary: Get cloud distribution point history details
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Read Cloud Distribution Point
+    post:
+      description: Add specified cloud distribution point history object notes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistoryNote
+        description: History note to be created
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ObjectHistory
+          description: cloud distribution point history note created successfully.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Bad Request. Error creating history note.
+      summary: Add specified cloud distribution point history object notes
+      tags:
+        - cloud-distribution-point
+      x-required-privileges:
+        - Update Cloud Distribution Point
+  /v1/cloud-distribution-point/refresh-inventory:
+    post:
+      description: |
+        Updates inventory data for the currently configured cloud distribution point.
+      parameters:
+        - description: Name of the file to check the availability of. If available, the inventory and status will be updated in Jamf Pro. If no file is specified, it will force an immediate inventory refresh at a rate-limit of once every 15 seconds.
+          explode: true
+          in: query
+          name: file-name
+          required: false
+          schema:
+            default: ""
+            example: filename.pkg
+            maxLength: 255
+            type: string
+          style: form
+      responses:
+        204:
+          description: |
+            Successfully updated inventory data for the currently configured cloud distribution point.
+      summary: |
+        Updates inventory data for the currently configured cloud distribution point.
+      tags:
+        - cloud-distribution-point
+      x-action: true
+      x-required-privileges:
+        - Read Cloud Distribution Point
+  /v1/cloud-distribution-point/test-connection:
+    get:
+      description: "Verifies the connection to the cloud distribution point after updating its configuration. \nThis endpoint returns the connection status and a message indicating whether the connection is successful or failed.\n"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPointTestConnection'
+          description: "This response indicates the test connection of the cloud distribution point (CDP). \nThe response includes the following details:\n   - **hasConnectionSucceeded**: A status indicating whether the connection test was successful or failed. \n        This will be either `true` or `false`, based on the outcome of the connection test.\n   - **message**: A detailed message providing additional context regarding the test result. \n        For example, if the connection failed, the message might contain an error description.\n"
+      summary: |
+        Get the cloud distribution point test connection details.
+      tags:
+        - cloud-distribution-point
+      x-authentication-required: true
+      x-required-privileges:
+        - Read Cloud Distribution Point
+  /v1/cloud-distribution-point/upload-capability:
+    get:
+      description: |
+        Finds a variety of values based on the currently configured cloud distribution point.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDistributionPointUploadCapability'
+          description: "The request was successful, and the upload capability details for the currently configured cloud distribution point (CDP) have been retrieved. \nThis response provides information about whether the cloud distribution point supports direct uploads and the principal distribution technology being used.\n"
+      summary: |
+        Finds specific information for the currently configured cloud distribution point.
+      tags:
+        - cloud-distribution-point
+      x-authentication-required: true
+servers:
+  - url: /api

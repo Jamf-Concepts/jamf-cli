@@ -253,7 +253,7 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 
@@ -330,7 +330,7 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 
@@ -542,7 +542,7 @@ If not, a new resource is created.`,
   "criteria": [],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
-  "siteId": 11
+  "siteId": "11"
 }`, ctx.Output.Format())
 			}
 
