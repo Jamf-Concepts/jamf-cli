@@ -250,7 +250,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		return nil, fmt.Errorf("resolving auth for profile %q: %w", profileName, err)
 	}
 
-	httpCli := &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verbose))}
+	httpCli := &cliClient{client.New(resolvedURL, authProvider, client.WithVerbose(verboseLevel))}
 
 	defs, err := ResolveBackupResources(nameFilter)
 	if err != nil {
@@ -317,7 +317,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			return false
 		}
 
-		pc := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && !verbose)
+		pc := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && verboseLevel == 0)
 
 		if wantPlatform("blueprints") {
 			bps, err := pc.ListBlueprints(ctx, nil, "")

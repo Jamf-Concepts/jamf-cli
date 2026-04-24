@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,20 +22,20 @@ import (
 
 // Client is the HTTP client for Jamf Pro API
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	auth       auth.Provider
-	verbose    bool
-	tenantID   string // non-empty when using platform gateway auth
+	baseURL      string
+	httpClient   *http.Client
+	auth         auth.Provider
+	verboseLevel int    // 1 = request/response lines, 2 = +headers
+	tenantID     string // non-empty when using platform gateway auth
 }
 
 // Option configures the client
 type Option func(*Client)
 
-// WithVerbose enables verbose logging
-func WithVerbose(v bool) Option {
+// WithVerbose sets the verbosity level (1 = request/response lines, 2 = +headers).
+func WithVerbose(level int) Option {
 	return func(c *Client) {
-		c.verbose = v
+		c.verboseLevel = level
 	}
 }
 
@@ -130,8 +131,14 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		}
 	}
 
-	if c.verbose {
+	if c.verboseLevel >= 1 {
 		fmt.Fprintf(os.Stderr, "--> %s %s\n", method, req.URL)
+	}
+	if c.verboseLevel >= 2 {
+		logHeaders(os.Stderr, req.Header, true)
+	}
+	if c.verboseLevel >= 3 {
+		logBody(os.Stderr, bodyData)
 	}
 
 	resp, err := c.doWithRetry(ctx, req, bodyData)
@@ -139,14 +146,20 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		return nil, err
 	}
 
-	if c.verbose {
+	if c.verboseLevel >= 1 {
 		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+	}
+	if c.verboseLevel >= 2 {
+		logHeaders(os.Stderr, resp.Header, false)
 	}
 
 	// Map HTTP error status codes to structured exit codes
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		_ = resp.Body.Close()
+		if c.verboseLevel >= 3 {
+			logBody(os.Stderr, body)
+		}
 		switch resp.StatusCode {
 		case http.StatusUnauthorized:
 			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamf-cli config validate", string(body)))
@@ -159,6 +172,12 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		default:
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, string(body)))
 		}
+	}
+
+	if c.verboseLevel >= 3 {
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
+		resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
+		logBody(os.Stderr, preview)
 	}
 
 	return resp, nil
@@ -209,12 +228,18 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		req.Header.Set("Accept", "application/json")
 		req.ContentLength = contentLength
 
-		if c.verbose {
+		if c.verboseLevel >= 1 {
 			if maxAttempts > 1 {
 				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes, attempt %d/%d)\n", req.URL, contentLength, attempt+1, maxAttempts)
 			} else {
 				fmt.Fprintf(os.Stderr, "--> POST %s (%d bytes)\n", req.URL, contentLength)
 			}
+		}
+		if c.verboseLevel >= 2 {
+			logHeaders(os.Stderr, req.Header, true)
+		}
+		if c.verboseLevel >= 3 {
+			fmt.Fprintf(os.Stderr, "    [streaming body: %d bytes, %s]\n", contentLength, contentType)
 		}
 
 		resp, err := c.httpClient.Do(req)
@@ -226,7 +251,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		if resp.StatusCode == http.StatusTooManyRequests && seeker != nil && attempt+1 < maxAttempts {
 			delay := parseRetryAfter(resp.Header.Get("Retry-After"), time.Second*time.Duration(1<<attempt))
 			_ = resp.Body.Close()
-			if c.verbose {
+			if c.verboseLevel >= 1 {
 				fmt.Fprintf(os.Stderr, "<-- 429 Too Many Requests, retrying in %v\n", delay)
 			}
 			if err := sleepWithContext(ctx, delay); err != nil {
@@ -235,17 +260,29 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			continue
 		}
 
-		if c.verbose {
+		if c.verboseLevel >= 1 {
 			fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+		}
+		if c.verboseLevel >= 2 {
+			logHeaders(os.Stderr, resp.Header, false)
 		}
 
 		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 			_ = resp.Body.Close()
+			if c.verboseLevel >= 3 {
+				logBody(os.Stderr, respBody)
+			}
 			if resp.StatusCode == http.StatusTooManyRequests {
 				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, string(respBody)))
 			}
 			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("upload failed (HTTP %d): %s", resp.StatusCode, string(respBody)))
+		}
+
+		if c.verboseLevel >= 3 {
+			preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
+			resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
+			logBody(os.Stderr, preview)
 		}
 
 		return resp, nil
@@ -324,6 +361,39 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+// bodyLogLimit is the maximum number of body bytes written to stderr at -vvv.
+const bodyLogLimit = 64 << 10 // 64 KB
+
+// logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
+// the Authorization header value is replaced with "[redacted]".
+func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
+	keys := make([]string, 0, len(h))
+	for k := range h {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := strings.Join(h[k], ", ")
+		if redactAuth && strings.EqualFold(k, "Authorization") {
+			v = "[redacted]"
+		}
+		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
+	}
+}
+
+// logBody prints body bytes to w indented by four spaces. Truncates at bodyLogLimit
+// and notes when truncation occurs.
+func logBody(w io.Writer, data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	truncated := len(data) >= bodyLogLimit
+	_, _ = fmt.Fprintf(w, "    %s\n", strings.ReplaceAll(strings.TrimRight(string(data), "\n"), "\n", "\n    "))
+	if truncated {
+		_, _ = fmt.Fprintf(w, "    [body truncated at %d bytes]\n", bodyLogLimit)
 	}
 }
 

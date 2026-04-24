@@ -351,7 +351,7 @@ func TestDo_VerboseOutput(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithVerbose(true))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithVerbose(1))
 
 	// Capture stderr
 	oldStderr := os.Stderr
@@ -383,13 +383,13 @@ func TestDo_VerboseOutput(t *testing.T) {
 
 func TestWithVerbose_SetsField(t *testing.T) {
 	c := New("https://example.com", auth.NewTokenProvider("tok"))
-	if c.verbose {
-		t.Error("verbose should default to false")
+	if c.verboseLevel != 0 {
+		t.Error("verboseLevel should default to 0")
 	}
 
-	c = New("https://example.com", auth.NewTokenProvider("tok"), WithVerbose(true))
-	if !c.verbose {
-		t.Error("WithVerbose(true) should set verbose to true")
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithVerbose(1))
+	if c.verboseLevel != 1 {
+		t.Error("WithVerbose(1) should set verboseLevel to 1")
 	}
 }
 

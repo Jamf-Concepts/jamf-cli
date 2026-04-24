@@ -439,7 +439,7 @@ func resetGlobals() {
 	profile = ""
 	outputFmt = "json"
 	quiet = false
-	verbose = false
+	verboseLevel = 0
 	noInput = false
 	noColor = false
 	dryRun = false
