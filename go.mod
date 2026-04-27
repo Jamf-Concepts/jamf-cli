@@ -3,7 +3,7 @@ module github.com/Jamf-Concepts/jamf-cli
 go 1.26.2
 
 require (
-	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.4.0
+	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.6.0
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.3.0
 	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2
 	github.com/getkin/kin-openapi v0.136.0
