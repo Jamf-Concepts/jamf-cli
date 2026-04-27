@@ -3,7 +3,7 @@ module github.com/Jamf-Concepts/jamf-cli
 go 1.26.2
 
 require (
-	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.4.0
+	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.7.0
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.3.0
 	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2
 	github.com/getkin/kin-openapi v0.136.0
@@ -20,7 +20,7 @@ require (
 
 require (
 	github.com/danieljoos/wincred v1.2.3 // indirect
-	github.com/go-openapi/jsonpointer v0.23.0 // indirect
+	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/swag/jsonname v0.26.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -36,5 +36,5 @@ require (
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 )

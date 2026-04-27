@@ -15,45 +15,50 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 func strPtr(s string) *string { return &s }
 
 // platformMockClient implements registry.PlatformClient for testing.
 type platformMockClient struct {
-	blueprints         []jamfplatform.BlueprintOverview
-	details            map[string]*jamfplatform.BlueprintDetail
-	reports            map[string]*jamfplatform.BlueprintStatusDetail
-	benchmarks         *jamfplatform.BenchmarksResponseV2
-	bmDetails          map[string]*jamfplatform.BenchmarkResponseV2
-	baselines          *jamfplatform.BaselinesResponse
-	baselineRules      map[string]*jamfplatform.SourcedRules
-	createdBenchmark   *jamfplatform.BenchmarkRequestV2
-	compliance         map[string]*jamfplatform.CompliancePercentage
-	devices            []jamfplatform.DeviceListReadRepresentationV1
-	devGroups          []jamfplatform.DeviceGroupListReadRepresentationV1
-	devGroupsForDevice map[string][]jamfplatform.DeviceGroupMemberOfRepresentationV1
-	ddmReports         map[string]*jamfplatform.DeviceReportDto
-	declClients        map[string][]jamfplatform.DeclarationReportClientDto
+	blueprints         []blueprints.BlueprintOverview
+	details            map[string]*blueprints.BlueprintDetail
+	reports            map[string]*blueprints.BlueprintStatusDetail
+	benchmarks         *compliancebenchmarks.BenchmarksResponseV2
+	bmDetails          map[string]*compliancebenchmarks.BenchmarkResponseV2
+	baselines          *compliancebenchmarks.BaselinesResponse
+	baselineRules      map[string]*compliancebenchmarks.SourcedRules
+	createdBenchmark   *compliancebenchmarks.BenchmarkRequestV2
+	compliance         map[string]*compliancebenchmarks.CompliancePercentage
+	devices            []devices.DeviceListReadRepresentationV1
+	devGroups          []devicegroups.DeviceGroupListReadRepresentationV1
+	devGroupsForDevice map[string][]devicegroups.DeviceGroupMemberOfRepresentationV1
+	ddmReports         map[string]*ddmreport.DeviceReportDto
+	declClients        map[string][]ddmreport.DeclarationReportClientDto
 }
 
-func (m *platformMockClient) ListBlueprints(_ context.Context, _ []string, _ string) ([]jamfplatform.BlueprintOverview, error) {
+func (m *platformMockClient) ListBlueprints(_ context.Context, _ []string, _ string) ([]blueprints.BlueprintOverview, error) {
 	return m.blueprints, nil
 }
 
-func (m *platformMockClient) GetBlueprint(_ context.Context, id string) (*jamfplatform.BlueprintDetail, error) {
+func (m *platformMockClient) GetBlueprint(_ context.Context, id string) (*blueprints.BlueprintDetail, error) {
 	if d, ok := m.details[id]; ok {
 		return d, nil
 	}
 	return nil, fmt.Errorf("blueprint %s not found", id)
 }
 
-func (m *platformMockClient) CreateBlueprint(_ context.Context, req *jamfplatform.CreateBlueprintRequest) (*jamfplatform.CreateResponse, error) {
-	return &jamfplatform.CreateResponse{ID: "new-bp-id"}, nil
+func (m *platformMockClient) CreateBlueprint(_ context.Context, req *blueprints.CreateBlueprintRequest) (*blueprints.CreateResponse, error) {
+	return &blueprints.CreateResponse{ID: "new-bp-id"}, nil
 }
 
-func (m *platformMockClient) UpdateBlueprint(_ context.Context, _ string, _ *jamfplatform.UpdateBlueprintRequest) error {
+func (m *platformMockClient) UpdateBlueprint(_ context.Context, _ string, _ *blueprints.UpdateBlueprintRequest) error {
 	return nil
 }
 func (m *platformMockClient) DeleteBlueprint(_ context.Context, _ string) error { return nil }
@@ -62,49 +67,49 @@ func (m *platformMockClient) UndeployBlueprint(_ context.Context, _ string) erro
 	return nil
 }
 
-func (m *platformMockClient) GetBlueprintReport(_ context.Context, id string) (*jamfplatform.BlueprintStatusDetail, error) {
+func (m *platformMockClient) GetBlueprintReport(_ context.Context, id string) (*blueprints.BlueprintStatusDetail, error) {
 	if r, ok := m.reports[id]; ok {
 		return r, nil
 	}
-	return &jamfplatform.BlueprintStatusDetail{}, nil
+	return &blueprints.BlueprintStatusDetail{}, nil
 }
 
-func (m *platformMockClient) ListBlueprintComponents(_ context.Context) ([]jamfplatform.ComponentDescription, error) {
+func (m *platformMockClient) ListBlueprintComponents(_ context.Context) ([]blueprints.ComponentDescription, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) GetBlueprintComponent(_ context.Context, _ string) (*jamfplatform.ComponentDescription, error) {
+func (m *platformMockClient) GetBlueprintComponent(_ context.Context, _ string) (*blueprints.ComponentDescription, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) ListBaselines(_ context.Context) (*jamfplatform.BaselinesResponse, error) {
+func (m *platformMockClient) ListBaselines(_ context.Context) (*compliancebenchmarks.BaselinesResponse, error) {
 	if m.baselines != nil {
 		return m.baselines, nil
 	}
-	return &jamfplatform.BaselinesResponse{}, nil
+	return &compliancebenchmarks.BaselinesResponse{}, nil
 }
 
-func (m *platformMockClient) ListBenchmarks(_ context.Context) (*jamfplatform.BenchmarksResponseV2, error) {
+func (m *platformMockClient) ListBenchmarks(_ context.Context) (*compliancebenchmarks.BenchmarksResponseV2, error) {
 	if m.benchmarks != nil {
 		return m.benchmarks, nil
 	}
-	return &jamfplatform.BenchmarksResponseV2{}, nil
+	return &compliancebenchmarks.BenchmarksResponseV2{}, nil
 }
 
-func (m *platformMockClient) GetBenchmark(_ context.Context, id string) (*jamfplatform.BenchmarkResponseV2, error) {
+func (m *platformMockClient) GetBenchmark(_ context.Context, id string) (*compliancebenchmarks.BenchmarkResponseV2, error) {
 	if d, ok := m.bmDetails[id]; ok {
 		return d, nil
 	}
 	return nil, fmt.Errorf("benchmark %s not found", id)
 }
 
-func (m *platformMockClient) CreateBenchmark(_ context.Context, req *jamfplatform.BenchmarkRequestV2) (*jamfplatform.BenchmarkResponseV2, error) {
+func (m *platformMockClient) CreateBenchmark(_ context.Context, req *compliancebenchmarks.BenchmarkRequestV2) (*compliancebenchmarks.BenchmarkResponseV2, error) {
 	m.createdBenchmark = req
 	desc := ""
 	if req.Description != nil {
 		desc = *req.Description
 	}
-	return &jamfplatform.BenchmarkResponseV2{
+	return &compliancebenchmarks.BenchmarkResponseV2{
 		BenchmarkID:     "new-bm-id",
 		Title:           req.Title,
 		Description:     desc,
@@ -117,7 +122,7 @@ func (m *platformMockClient) CreateBenchmark(_ context.Context, req *jamfplatfor
 
 func (m *platformMockClient) DeleteBenchmark(_ context.Context, _ string) error { return nil }
 
-func (m *platformMockClient) GetBaselineRules(_ context.Context, baselineID string) (*jamfplatform.SourcedRules, error) {
+func (m *platformMockClient) GetBaselineRules(_ context.Context, baselineID string) (*compliancebenchmarks.SourcedRules, error) {
 	if m.baselineRules != nil {
 		if r, ok := m.baselineRules[baselineID]; ok {
 			return r, nil
@@ -126,54 +131,54 @@ func (m *platformMockClient) GetBaselineRules(_ context.Context, baselineID stri
 	return nil, fmt.Errorf("baseline %q not found", baselineID)
 }
 
-func (m *platformMockClient) ListBenchmarkRulesStats(_ context.Context, _ string, _ string, _ string) ([]jamfplatform.RuleResult, error) {
+func (m *platformMockClient) ListBenchmarkRulesStats(_ context.Context, _ string, _ string, _ string) ([]compliancebenchmarks.RuleResult, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) ListBenchmarkRuleDevices(_ context.Context, _, _, _, _, _ string) ([]jamfplatform.DeviceRuleResult, error) {
+func (m *platformMockClient) ListBenchmarkRuleDevices(_ context.Context, _, _, _, _, _ string) ([]compliancebenchmarks.DeviceRuleResult, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) GetBenchmarkCompliancePercentage(_ context.Context, id string) (*jamfplatform.CompliancePercentage, error) {
+func (m *platformMockClient) GetBenchmarkCompliancePercentage(_ context.Context, id string) (*compliancebenchmarks.CompliancePercentage, error) {
 	if c, ok := m.compliance[id]; ok {
 		return c, nil
 	}
-	return &jamfplatform.CompliancePercentage{}, nil
+	return &compliancebenchmarks.CompliancePercentage{}, nil
 }
 
-func (m *platformMockClient) ListDevices(_ context.Context, _ []string, _ string) ([]jamfplatform.DeviceListReadRepresentationV1, error) {
+func (m *platformMockClient) ListDevices(_ context.Context, _ []string, _ string) ([]devices.DeviceListReadRepresentationV1, error) {
 	return m.devices, nil
 }
 
-func (m *platformMockClient) GetDevice(_ context.Context, _ string) (*jamfplatform.DeviceReadRepresentationV1, error) {
+func (m *platformMockClient) GetDevice(_ context.Context, _ string) (*devices.DeviceReadRepresentationV1, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) UpdateDevice(_ context.Context, _ string, _ *jamfplatform.DeviceUpdateRepresentationV1) error {
+func (m *platformMockClient) UpdateDevice(_ context.Context, _ string, _ *devices.DeviceUpdateRepresentationV1) error {
 	return nil
 }
 func (m *platformMockClient) DeleteDevice(_ context.Context, _ string) error { return nil }
-func (m *platformMockClient) ListDeviceApplications(_ context.Context, _ string, _ []string, _ string) ([]jamfplatform.DeviceInstalledApplicationReadRepresentationV1, error) {
+func (m *platformMockClient) ListDeviceApplications(_ context.Context, _ string, _ []string, _ string) ([]devices.DeviceInstalledApplicationReadRepresentationV1, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) ListDevicesForUser(_ context.Context, _ string, _ []string, _ string) ([]jamfplatform.DeviceListReadRepresentationV1, error) {
+func (m *platformMockClient) ListDevicesForUser(_ context.Context, _ string, _ []string, _ string) ([]devices.DeviceListReadRepresentationV1, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) ListDeviceGroups(_ context.Context, _ []string, _ string) ([]jamfplatform.DeviceGroupListReadRepresentationV1, error) {
+func (m *platformMockClient) ListDeviceGroups(_ context.Context, _ []string, _ string) ([]devicegroups.DeviceGroupListReadRepresentationV1, error) {
 	return m.devGroups, nil
 }
 
-func (m *platformMockClient) GetDeviceGroup(_ context.Context, _ string) (*jamfplatform.DeviceGroupReadRepresentationV1, error) {
+func (m *platformMockClient) GetDeviceGroup(_ context.Context, _ string) (*devicegroups.DeviceGroupReadRepresentationV1, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) CreateDeviceGroup(_ context.Context, _ *jamfplatform.DeviceGroupCreateRepresentationV1) (*jamfplatform.HrefRepresentation, error) {
+func (m *platformMockClient) CreateDeviceGroup(_ context.Context, _ *devicegroups.DeviceGroupCreateRepresentationV1) (*devicegroups.HrefRepresentation, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) UpdateDeviceGroup(_ context.Context, _ string, _ *jamfplatform.DeviceGroupUpdateRepresentationV1) error {
+func (m *platformMockClient) UpdateDeviceGroup(_ context.Context, _ string, _ *devicegroups.DeviceGroupUpdateRepresentationV1) error {
 	return nil
 }
 func (m *platformMockClient) DeleteDeviceGroup(_ context.Context, _ string) error { return nil }
@@ -181,41 +186,41 @@ func (m *platformMockClient) ListDeviceGroupMembers(_ context.Context, _ string)
 	return nil, nil
 }
 
-func (m *platformMockClient) UpdateDeviceGroupMembers(_ context.Context, _ string, _ *jamfplatform.DeviceGroupMemberPatchRepresentationV1) error {
+func (m *platformMockClient) UpdateDeviceGroupMembers(_ context.Context, _ string, _ *devicegroups.DeviceGroupMemberPatchRepresentationV1) error {
 	return nil
 }
 
-func (m *platformMockClient) ListDeviceGroupsForDevice(_ context.Context, deviceID string) ([]jamfplatform.DeviceGroupMemberOfRepresentationV1, error) {
+func (m *platformMockClient) ListDeviceGroupsForDevice(_ context.Context, deviceID string) ([]devicegroups.DeviceGroupMemberOfRepresentationV1, error) {
 	if groups, ok := m.devGroupsForDevice[deviceID]; ok {
 		return groups, nil
 	}
 	return nil, nil
 }
 func (m *platformMockClient) CheckInDevice(_ context.Context, _ string) error { return nil }
-func (m *platformMockClient) EraseDevice(_ context.Context, _ string, _ *jamfplatform.EraseDeviceRequest) ([]jamfplatform.DeviceCommandResponse, error) {
+func (m *platformMockClient) EraseDevice(_ context.Context, _ string, _ *deviceactions.EraseDeviceRequest) ([]deviceactions.DeviceCommandResponse, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) RestartDevice(_ context.Context, _ string) ([]jamfplatform.DeviceCommandResponse, error) {
+func (m *platformMockClient) RestartDevice(_ context.Context, _ string) ([]deviceactions.DeviceCommandResponse, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) ShutdownDevice(_ context.Context, _ string) ([]jamfplatform.DeviceCommandResponse, error) {
+func (m *platformMockClient) ShutdownDevice(_ context.Context, _ string) ([]deviceactions.DeviceCommandResponse, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) UnmanageDevice(_ context.Context, _ string) ([]jamfplatform.DeviceCommandResponse, error) {
+func (m *platformMockClient) UnmanageDevice(_ context.Context, _ string) ([]deviceactions.DeviceCommandResponse, error) {
 	return nil, nil
 }
 
-func (m *platformMockClient) GetDeviceDeclarationReport(_ context.Context, deviceID string) (*jamfplatform.DeviceReportDto, error) {
+func (m *platformMockClient) GetDeviceDeclarationReport(_ context.Context, deviceID string) (*ddmreport.DeviceReportDto, error) {
 	if r, ok := m.ddmReports[deviceID]; ok {
 		return r, nil
 	}
-	return &jamfplatform.DeviceReportDto{}, nil
+	return &ddmreport.DeviceReportDto{}, nil
 }
 
-func (m *platformMockClient) ListDeclarationReportClients(_ context.Context, declID string, _ []string) ([]jamfplatform.DeclarationReportClientDto, error) {
+func (m *platformMockClient) ListDeclarationReportClients(_ context.Context, declID string, _ []string) ([]ddmreport.DeclarationReportClientDto, error) {
 	if c, ok := m.declClients[declID]; ok {
 		return c, nil
 	}
@@ -228,10 +233,10 @@ func (m *platformMockClient) BaseURL() string                             { retu
 
 func TestCheckUndeployedBlueprints(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
-			{ID: "bp-1", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
-			{ID: "bp-2", DeploymentState: &jamfplatform.DeploymentState{State: "NOT_DEPLOYED"}},
-			{ID: "bp-3", DeploymentState: &jamfplatform.DeploymentState{State: "NOT_DEPLOYED"}},
+		blueprints: []blueprints.BlueprintOverview{
+			{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
+			{ID: "bp-2", DeploymentState: &blueprints.DeploymentState{State: "NOT_DEPLOYED"}},
+			{ID: "bp-3", DeploymentState: &blueprints.DeploymentState{State: "NOT_DEPLOYED"}},
 		},
 	}
 	result := checkUndeployedBlueprints(pc.blueprints)
@@ -246,8 +251,8 @@ func TestCheckUndeployedBlueprints(t *testing.T) {
 
 func TestCheckUndeployedBlueprints_AllDeployed(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
-			{ID: "bp-1", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
+		blueprints: []blueprints.BlueprintOverview{
+			{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
 		},
 	}
 	result := checkUndeployedBlueprints(pc.blueprints)
@@ -258,11 +263,11 @@ func TestCheckUndeployedBlueprints_AllDeployed(t *testing.T) {
 
 func TestCheckBlueprintFailures(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
-			{ID: "bp-1", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
-			{ID: "bp-2", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
+		blueprints: []blueprints.BlueprintOverview{
+			{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
+			{ID: "bp-2", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
 		},
-		reports: map[string]*jamfplatform.BlueprintStatusDetail{
+		reports: map[string]*blueprints.BlueprintStatusDetail{
 			"bp-1": {Succeeded: 10, Failed: 0, Pending: 0},
 			"bp-2": {Succeeded: 8, Failed: 2, Pending: 0},
 		},
@@ -282,8 +287,8 @@ func TestCheckBlueprintFailures(t *testing.T) {
 
 func TestCheckBenchmarkUpdates(t *testing.T) {
 	pc := &platformMockClient{
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", UpdateAvailable: true},
 				{ID: "bm-2", UpdateAvailable: false},
 				{ID: "bm-3", UpdateAvailable: true},
@@ -302,17 +307,17 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 
 func TestCheckEmptyPlatformScope(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
+		blueprints: []blueprints.BlueprintOverview{
 			{ID: "bp-1"},
 			{ID: "bp-2"},
 		},
-		details: map[string]*jamfplatform.BlueprintDetail{
-			"bp-1": {Scope: &jamfplatform.BlueprintScope{DeviceGroups: []string{"g1"}}},
-			"bp-2": {Scope: &jamfplatform.BlueprintScope{DeviceGroups: nil}},
+		details: map[string]*blueprints.BlueprintDetail{
+			"bp-1": {Scope: &blueprints.BlueprintScope{DeviceGroups: []string{"g1"}}},
+			"bp-2": {Scope: &blueprints.BlueprintScope{DeviceGroups: nil}},
 		},
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
-				{ID: "bm-1", Target: &jamfplatform.TargetV2{DeviceGroups: nil}},
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
+				{ID: "bm-1", Target: &compliancebenchmarks.TargetV2{DeviceGroups: nil}},
 			},
 		},
 	}
@@ -328,19 +333,19 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations(t *testing.T) {
 	pc := &platformMockClient{
-		devices: []jamfplatform.DeviceListReadRepresentationV1{
+		devices: []devices.DeviceListReadRepresentationV1{
 			{ID: "dev-1"},
 			{ID: "dev-2"},
 		},
-		ddmReports: map[string]*jamfplatform.DeviceReportDto{
-			"dev-1": {Channels: []jamfplatform.DeviceReportChannelDto{{
-				Declarations: []jamfplatform.StatusReportDeclarationDto{
+		ddmReports: map[string]*ddmreport.DeviceReportDto{
+			"dev-1": {Channels: []ddmreport.DeviceReportChannelDto{{
+				Declarations: []ddmreport.StatusReportDeclarationDto{
 					{Status: "SUCCESSFUL", ValidityState: "VALID"},
 				},
 			}}},
-			"dev-2": {Channels: []jamfplatform.DeviceReportChannelDto{{
-				Declarations: []jamfplatform.StatusReportDeclarationDto{
-					{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []jamfplatform.StatusReportDeclarationReasonDto{
+			"dev-2": {Channels: []ddmreport.DeviceReportChannelDto{{
+				Declarations: []ddmreport.StatusReportDeclarationDto{
+					{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 						{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
 					}},
 				},
@@ -359,11 +364,11 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 	pc := &platformMockClient{
-		devices: []jamfplatform.DeviceListReadRepresentationV1{{ID: "dev-1"}},
-		ddmReports: map[string]*jamfplatform.DeviceReportDto{
-			"dev-1": {Channels: []jamfplatform.DeviceReportChannelDto{{
-				Declarations: []jamfplatform.StatusReportDeclarationDto{
-					{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []jamfplatform.StatusReportDeclarationReasonDto{
+		devices: []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}},
+		ddmReports: map[string]*ddmreport.DeviceReportDto{
+			"dev-1": {Channels: []ddmreport.DeviceReportChannelDto{{
+				Declarations: []ddmreport.StatusReportDeclarationDto{
+					{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 						{Code: "Info.DeclarationNotInstalled", Description: "not applicable"},
 					}},
 				},
@@ -380,16 +385,16 @@ func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 
 func TestFetchPlatformOverview(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
-			{ID: "bp-1", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
-			{ID: "bp-2", DeploymentState: &jamfplatform.DeploymentState{State: "NOT_DEPLOYED"}},
+		blueprints: []blueprints.BlueprintOverview{
+			{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
+			{ID: "bp-2", DeploymentState: &blueprints.DeploymentState{State: "NOT_DEPLOYED"}},
 		},
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", UpdateAvailable: true},
 			},
 		},
-		compliance: map[string]*jamfplatform.CompliancePercentage{
+		compliance: map[string]*compliancebenchmarks.CompliancePercentage{
 			"bm-1": {CompliancePercentage: 92.5},
 		},
 	}
@@ -414,15 +419,15 @@ func TestFetchPlatformOverview_UsesAllMockData(t *testing.T) {
 	// available for all Platform API calls. The caller (overview RunE) guards
 	// against nil PlatformClient so we don't test that path here.
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
-			{ID: "bp-1", Name: "Test", DeploymentState: &jamfplatform.DeploymentState{State: "DEPLOYED"}},
+		blueprints: []blueprints.BlueprintOverview{
+			{ID: "bp-1", Name: "Test", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
 		},
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Benchmark"},
 			},
 		},
-		compliance: map[string]*jamfplatform.CompliancePercentage{
+		compliance: map[string]*compliancebenchmarks.CompliancePercentage{
 			"bm-1": {CompliancePercentage: 95.0},
 		},
 	}
@@ -451,10 +456,10 @@ func TestRandomizePayloadIdentifiers(t *testing.T) {
 		"payloadDisplayName": "Test Profile"
 	}`)
 
-	steps := []jamfplatform.BlueprintStep{
+	steps := []blueprints.BlueprintStep{
 		{
 			Name: strPtr("Step 1"),
-			Components: []jamfplatform.Component{
+			Components: []blueprints.Component{
 				{Identifier: "com.jamf.ddm-configuration-profile", Configuration: config},
 			},
 		},
@@ -492,10 +497,10 @@ func TestRandomizePayloadIdentifiers(t *testing.T) {
 
 func TestRandomizePayloadIdentifiers_NoPayloads(t *testing.T) {
 	config := json.RawMessage(`{"RequirePasscode": true}`)
-	steps := []jamfplatform.BlueprintStep{
+	steps := []blueprints.BlueprintStep{
 		{
 			Name: strPtr("Step 1"),
-			Components: []jamfplatform.Component{
+			Components: []blueprints.Component{
 				{Identifier: "com.jamf.ddm.passcode-settings", Configuration: config},
 			},
 		},
@@ -563,17 +568,17 @@ func TestClassifyDeclaration(t *testing.T) {
 func TestOnlyHasIgnorableReasons(t *testing.T) {
 	tests := []struct {
 		name    string
-		reasons []jamfplatform.StatusReportDeclarationReasonDto
+		reasons []ddmreport.StatusReportDeclarationReasonDto
 		want    bool
 	}{
 		{"no reasons", nil, true},
-		{"only ignorable", []jamfplatform.StatusReportDeclarationReasonDto{
+		{"only ignorable", []ddmreport.StatusReportDeclarationReasonDto{
 			{Code: "Info.DeclarationNotInstalled"},
 		}, true},
-		{"actionable reason", []jamfplatform.StatusReportDeclarationReasonDto{
+		{"actionable reason", []ddmreport.StatusReportDeclarationReasonDto{
 			{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
 		}, false},
-		{"mixed", []jamfplatform.StatusReportDeclarationReasonDto{
+		{"mixed", []ddmreport.StatusReportDeclarationReasonDto{
 			{Code: "Info.DeclarationNotInstalled"},
 			{Code: "Error.ConfigurationAlreadyPresent"},
 		}, false},
@@ -639,19 +644,19 @@ func writeTempJSON(t *testing.T, v any) string {
 // ── Compliance Benchmark Helpers ────────────────────────────────────────────
 
 func TestBenchmarkToPortable_ResolvesGroupNames(t *testing.T) {
-	bm := &jamfplatform.BenchmarkResponseV2{
+	bm := &compliancebenchmarks.BenchmarkResponseV2{
 		Title:           "My Benchmark",
 		Description:     "desc",
 		BaselineID:      "bl-1",
 		EnforcementMode: "AUDIT",
-		Sources:         []jamfplatform.Source{{Branch: "main"}},
-		Rules: []jamfplatform.RuleInfo{
+		Sources:         []compliancebenchmarks.Source{{Branch: "main"}},
+		Rules: []compliancebenchmarks.RuleInfo{
 			{ID: "rule-1", Enabled: true},
 			{ID: "rule-2", Enabled: false},
 		},
-		Target: &jamfplatform.TargetV2{DeviceGroups: []string{"grp-id-1", "grp-id-unknown"}},
+		Target: &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-id-1", "grp-id-unknown"}},
 	}
-	groupByID := map[string]jamfplatform.DeviceGroupListReadRepresentationV1{
+	groupByID := map[string]devicegroups.DeviceGroupListReadRepresentationV1{
 		"grp-id-1": {Name: "All Managed Clients", DeviceType: "COMPUTER", GroupType: "SMART"},
 	}
 
@@ -690,9 +695,9 @@ func TestBenchmarkToPortable_ResolvesGroupNames(t *testing.T) {
 
 func TestBenchmarkToPortable_PreservesODV(t *testing.T) {
 	odvVal := "90"
-	bm := &jamfplatform.BenchmarkResponseV2{
-		Rules: []jamfplatform.RuleInfo{
-			{ID: "rule-odv", Enabled: true, ODV: &jamfplatform.OrganizationDefinedValue{Value: odvVal}},
+	bm := &compliancebenchmarks.BenchmarkResponseV2{
+		Rules: []compliancebenchmarks.RuleInfo{
+			{ID: "rule-odv", Enabled: true, ODV: &compliancebenchmarks.OrganizationDefinedValue{Value: odvVal}},
 			{ID: "rule-no-odv", Enabled: true},
 		},
 	}
@@ -739,22 +744,22 @@ func TestCBScaffold_StaticTemplate(t *testing.T) {
 
 func TestCBScaffoldFromBaseline(t *testing.T) {
 	pc := &platformMockClient{
-		baselines: &jamfplatform.BaselinesResponse{
-			Baselines: []jamfplatform.BaselineInfo{
+		baselines: &compliancebenchmarks.BaselinesResponse{
+			Baselines: []compliancebenchmarks.BaselineInfo{
 				{ID: "bl-uuid-1", Title: "macOS Security Compliance", Description: "CIS Level 1 for macOS"},
 			},
 		},
-		baselineRules: map[string]*jamfplatform.SourcedRules{
+		baselineRules: map[string]*compliancebenchmarks.SourcedRules{
 			"bl-uuid-1": {
-				Sources: []jamfplatform.Source{{Branch: "main"}},
-				Rules: []jamfplatform.RuleInfo{
+				Sources: []compliancebenchmarks.Source{{Branch: "main"}},
+				Rules: []compliancebenchmarks.RuleInfo{
 					{ID: "auth_pam_sudo_smartcard", Title: "Enforce Smartcard"},
 					{ID: "os_airdrop_disable", Title: "Disable AirDrop"},
 					// ODV rule: Placeholder takes precedence
 					{
 						ID:    "os_password_hint_remove",
 						Title: "Password History",
-						ODV: &jamfplatform.OrganizationDefinedValue{
+						ODV: &compliancebenchmarks.OrganizationDefinedValue{
 							Placeholder: "5",
 							Value:       "3",
 							Hint:        "Number of passwords to remember",
@@ -764,7 +769,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 					{
 						ID:    "os_max_retry_unlock",
 						Title: "Max Retry Unlock",
-						ODV: &jamfplatform.OrganizationDefinedValue{
+						ODV: &compliancebenchmarks.OrganizationDefinedValue{
 							Placeholder: "",
 							Value:       "10",
 						},
@@ -773,7 +778,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 					{
 						ID:    "os_screensaver_timeout",
 						Title: "Screensaver Timeout",
-						ODV:   &jamfplatform.OrganizationDefinedValue{},
+						ODV:   &compliancebenchmarks.OrganizationDefinedValue{},
 					},
 				},
 			},
@@ -852,7 +857,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 
 func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 	pc := &platformMockClient{
-		baselineRules: map[string]*jamfplatform.SourcedRules{},
+		baselineRules: map[string]*compliancebenchmarks.SourcedRules{},
 	}
 	cliCtx := &registry.CLIContext{PlatformClient: pc, Output: &captureOutput{}}
 
@@ -866,23 +871,23 @@ func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 
 func TestCBExport(t *testing.T) {
 	pc := &platformMockClient{
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Level 1"},
 			},
 		},
-		bmDetails: map[string]*jamfplatform.BenchmarkResponseV2{
+		bmDetails: map[string]*compliancebenchmarks.BenchmarkResponseV2{
 			"bm-1": {
 				BenchmarkID:     "bm-1",
 				Title:           "CIS Level 1",
 				BaselineID:      "bl-cis",
 				EnforcementMode: "AUDIT",
-				Sources:         []jamfplatform.Source{{Branch: "main"}},
-				Rules:           []jamfplatform.RuleInfo{{ID: "rule-1", Enabled: true}},
-				Target:          &jamfplatform.TargetV2{DeviceGroups: []string{"grp-123"}},
+				Sources:         []compliancebenchmarks.Source{{Branch: "main"}},
+				Rules:           []compliancebenchmarks.RuleInfo{{ID: "rule-1", Enabled: true}},
+				Target:          &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-123"}},
 			},
 		},
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "grp-123", Name: "All Mac Clients", DeviceType: "COMPUTER", GroupType: "SMART"},
 		},
 	}
@@ -924,19 +929,19 @@ func TestCBExport(t *testing.T) {
 func TestCBClone(t *testing.T) {
 	out := &captureOutput{}
 	pc := &platformMockClient{
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{{ID: "bm-src", Title: "Source Benchmark"}},
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{{ID: "bm-src", Title: "Source Benchmark"}},
 		},
-		bmDetails: map[string]*jamfplatform.BenchmarkResponseV2{
+		bmDetails: map[string]*compliancebenchmarks.BenchmarkResponseV2{
 			"bm-src": {
 				BenchmarkID:     "bm-src",
 				Title:           "Source Benchmark",
 				Description:     "original desc",
 				BaselineID:      "bl-1",
 				EnforcementMode: "AUDIT",
-				Sources:         []jamfplatform.Source{{Branch: "main"}},
-				Rules:           []jamfplatform.RuleInfo{{ID: "r1", Enabled: true}, {ID: "r2", Enabled: false}},
-				Target:          &jamfplatform.TargetV2{DeviceGroups: []string{"grp-src-id"}},
+				Sources:         []compliancebenchmarks.Source{{Branch: "main"}},
+				Rules:           []compliancebenchmarks.RuleInfo{{ID: "r1", Enabled: true}, {ID: "r2", Enabled: false}},
+				Target:          &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-src-id"}},
 			},
 		},
 	}
@@ -980,17 +985,17 @@ func TestCBClone(t *testing.T) {
 func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 	out := &captureOutput{}
 	pc := &platformMockClient{
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{{ID: "bm-src", Title: "Source"}},
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{{ID: "bm-src", Title: "Source"}},
 		},
-		bmDetails: map[string]*jamfplatform.BenchmarkResponseV2{
+		bmDetails: map[string]*compliancebenchmarks.BenchmarkResponseV2{
 			"bm-src": {
 				Title:      "Source",
 				BaselineID: "bl-1",
-				Target:     &jamfplatform.TargetV2{DeviceGroups: []string{"old-grp-id"}},
+				Target:     &compliancebenchmarks.TargetV2{DeviceGroups: []string{"old-grp-id"}},
 			},
 		},
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "new-grp-id", Name: "New Group"},
 		},
 	}
@@ -1025,8 +1030,8 @@ func TestCBDeleteByID(t *testing.T) {
 
 func TestCBDeleteByName(t *testing.T) {
 	pc := &platformMockClient{
-		benchmarks: &jamfplatform.BenchmarksResponseV2{
-			Benchmarks: []jamfplatform.BenchmarkV2{
+		benchmarks: &compliancebenchmarks.BenchmarksResponseV2{
+			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-named-id", Title: "Named Benchmark"},
 			},
 		},
@@ -1054,7 +1059,7 @@ func TestCBDeleteNoArgs(t *testing.T) {
 
 func TestCBApply_ResolvesGroupNames(t *testing.T) {
 	pc := &platformMockClient{
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "grp-resolved-id", Name: "My Device Group"},
 		},
 	}
@@ -1090,7 +1095,7 @@ func TestCBApply_ResolvesGroupNames(t *testing.T) {
 
 func TestCBApply_ComputerGroupOverride(t *testing.T) {
 	pc := &platformMockClient{
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "override-id", Name: "Override Group"},
 		},
 	}
@@ -1129,13 +1134,13 @@ func TestCBApply_LegacyFormat(t *testing.T) {
 	cliCtx := &registry.CLIContext{PlatformClient: pc, Output: &captureOutput{}}
 
 	// Legacy format: target.deviceGroups is []string (raw IDs), not []object.
-	legacy := jamfplatform.BenchmarkRequestV2{
+	legacy := compliancebenchmarks.BenchmarkRequestV2{
 		Title:            "Legacy Benchmark",
 		SourceBaselineID: "bl-1",
 		EnforcementMode:  "AUDIT",
-		Sources:          []jamfplatform.Source{{Branch: "main"}},
-		Rules:            []jamfplatform.RuleRequest{{ID: "r1", Enabled: true}},
-		Target:           jamfplatform.TargetV2{DeviceGroups: []string{"raw-group-id-1"}},
+		Sources:          []compliancebenchmarks.Source{{Branch: "main"}},
+		Rules:            []compliancebenchmarks.RuleRequest{{ID: "r1", Enabled: true}},
+		Target:           compliancebenchmarks.TargetV2{DeviceGroups: []string{"raw-group-id-1"}},
 	}
 	path := writeTempJSON(t, legacy)
 
@@ -1161,17 +1166,17 @@ func TestCBApply_LegacyFormat(t *testing.T) {
 
 func TestCBApply_LegacyFormatWithGroupOverride(t *testing.T) {
 	pc := &platformMockClient{
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "override-id", Name: "Override Group"},
 		},
 	}
 	cliCtx := &registry.CLIContext{PlatformClient: pc, Output: &captureOutput{}}
 
-	legacy := jamfplatform.BenchmarkRequestV2{
+	legacy := compliancebenchmarks.BenchmarkRequestV2{
 		Title:            "Legacy With Override",
 		SourceBaselineID: "bl-1",
 		EnforcementMode:  "AUDIT",
-		Target:           jamfplatform.TargetV2{DeviceGroups: []string{"old-id"}},
+		Target:           compliancebenchmarks.TargetV2{DeviceGroups: []string{"old-id"}},
 	}
 	path := writeTempJSON(t, legacy)
 
@@ -1268,7 +1273,7 @@ func TestResolveBlueprintID_IDFromArgs(t *testing.T) {
 
 func TestResolveBlueprintID_NameFlag(t *testing.T) {
 	pc := &platformMockClient{
-		blueprints: []jamfplatform.BlueprintOverview{
+		blueprints: []blueprints.BlueprintOverview{
 			{ID: "bp-id-1", Name: "Test BP"},
 		},
 	}
@@ -1513,7 +1518,7 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 
 func TestReverseResolveGroups(t *testing.T) {
 	pc := &platformMockClient{
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "uuid-1", Name: "Lab Macs", DeviceType: "COMPUTER"},
 			{ID: "uuid-2", Name: "Shared iPads", DeviceType: "MOBILE_DEVICE"},
 		},
@@ -1688,17 +1693,17 @@ func TestParseBlueprintApplyInput_NoName(t *testing.T) {
 func TestBlueprintExportRoundTrip(t *testing.T) {
 	// Simulate: export from source → marshal → unmarshal on target via parseBlueprintApplyInput
 	pc := &platformMockClient{
-		devGroups: []jamfplatform.DeviceGroupListReadRepresentationV1{
+		devGroups: []devicegroups.DeviceGroupListReadRepresentationV1{
 			{ID: "source-uuid", Name: "Lab Macs", DeviceType: "COMPUTER"},
 		},
-		details: map[string]*jamfplatform.BlueprintDetail{
+		details: map[string]*blueprints.BlueprintDetail{
 			"bp-1": {
 				ID:          "bp-1",
 				Name:        "Round Trip BP",
 				Description: strPtr("test"),
-				Scope:       &jamfplatform.BlueprintScope{DeviceGroups: []string{"source-uuid"}},
-				Steps: []jamfplatform.BlueprintStep{
-					{Name: strPtr("Step 1"), Components: []jamfplatform.Component{
+				Scope:       &blueprints.BlueprintScope{DeviceGroups: []string{"source-uuid"}},
+				Steps: []blueprints.BlueprintStep{
+					{Name: strPtr("Step 1"), Components: []blueprints.Component{
 						{Identifier: "com.jamf.ddm.passcode-settings", Configuration: json.RawMessage(`{"RequirePasscode": true}`)},
 					}},
 				},

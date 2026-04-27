@@ -11,7 +11,12 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
@@ -214,56 +219,56 @@ type ProtectClient interface {
 // The SDK's *jamfplatform.Client satisfies this interface directly.
 type PlatformClient interface {
 	// Blueprints
-	ListBlueprints(ctx context.Context, sort []string, search string) ([]jamfplatform.BlueprintOverview, error)
-	GetBlueprint(ctx context.Context, id string) (*jamfplatform.BlueprintDetail, error)
-	CreateBlueprint(ctx context.Context, request *jamfplatform.CreateBlueprintRequest) (*jamfplatform.CreateResponse, error)
-	UpdateBlueprint(ctx context.Context, id string, request *jamfplatform.UpdateBlueprintRequest) error
+	ListBlueprints(ctx context.Context, sort []string, search string) ([]blueprints.BlueprintOverview, error)
+	GetBlueprint(ctx context.Context, id string) (*blueprints.BlueprintDetail, error)
+	CreateBlueprint(ctx context.Context, request *blueprints.CreateBlueprintRequest) (*blueprints.CreateResponse, error)
+	UpdateBlueprint(ctx context.Context, id string, request *blueprints.UpdateBlueprintRequest) error
 	DeleteBlueprint(ctx context.Context, id string) error
 	DeployBlueprint(ctx context.Context, id string) error
 	UndeployBlueprint(ctx context.Context, id string) error
-	GetBlueprintReport(ctx context.Context, id string) (*jamfplatform.BlueprintStatusDetail, error)
-	ListBlueprintComponents(ctx context.Context) ([]jamfplatform.ComponentDescription, error)
-	GetBlueprintComponent(ctx context.Context, id string) (*jamfplatform.ComponentDescription, error)
+	GetBlueprintReport(ctx context.Context, id string) (*blueprints.BlueprintStatusDetail, error)
+	ListBlueprintComponents(ctx context.Context) ([]blueprints.ComponentDescription, error)
+	GetBlueprintComponent(ctx context.Context, id string) (*blueprints.ComponentDescription, error)
 
 	// Compliance Benchmarks
-	ListBaselines(ctx context.Context) (*jamfplatform.BaselinesResponse, error)
-	ListBenchmarks(ctx context.Context) (*jamfplatform.BenchmarksResponseV2, error)
-	GetBenchmark(ctx context.Context, id string) (*jamfplatform.BenchmarkResponseV2, error)
-	CreateBenchmark(ctx context.Context, request *jamfplatform.BenchmarkRequestV2) (*jamfplatform.BenchmarkResponseV2, error)
+	ListBaselines(ctx context.Context) (*compliancebenchmarks.BaselinesResponse, error)
+	ListBenchmarks(ctx context.Context) (*compliancebenchmarks.BenchmarksResponseV2, error)
+	GetBenchmark(ctx context.Context, id string) (*compliancebenchmarks.BenchmarkResponseV2, error)
+	CreateBenchmark(ctx context.Context, request *compliancebenchmarks.BenchmarkRequestV2) (*compliancebenchmarks.BenchmarkResponseV2, error)
 	DeleteBenchmark(ctx context.Context, id string) error
-	GetBaselineRules(ctx context.Context, baselineID string) (*jamfplatform.SourcedRules, error)
-	ListBenchmarkRulesStats(ctx context.Context, benchmarkID string, sort string, ruleSearch string) ([]jamfplatform.RuleResult, error)
-	ListBenchmarkRuleDevices(ctx context.Context, benchmarkID string, ruleID string, sort string, deviceSearch string, ruleResult string) ([]jamfplatform.DeviceRuleResult, error)
-	GetBenchmarkCompliancePercentage(ctx context.Context, benchmarkID string) (*jamfplatform.CompliancePercentage, error)
+	GetBaselineRules(ctx context.Context, baselineID string) (*compliancebenchmarks.SourcedRules, error)
+	ListBenchmarkRulesStats(ctx context.Context, benchmarkID string, sort string, ruleSearch string) ([]compliancebenchmarks.RuleResult, error)
+	ListBenchmarkRuleDevices(ctx context.Context, benchmarkID string, ruleID string, sort string, deviceSearch string, ruleResult string) ([]compliancebenchmarks.DeviceRuleResult, error)
+	GetBenchmarkCompliancePercentage(ctx context.Context, benchmarkID string) (*compliancebenchmarks.CompliancePercentage, error)
 
 	// Devices
-	ListDevices(ctx context.Context, sort []string, filter string) ([]jamfplatform.DeviceListReadRepresentationV1, error)
-	GetDevice(ctx context.Context, id string) (*jamfplatform.DeviceReadRepresentationV1, error)
-	UpdateDevice(ctx context.Context, id string, payload *jamfplatform.DeviceUpdateRepresentationV1) error
+	ListDevices(ctx context.Context, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error)
+	GetDevice(ctx context.Context, id string) (*devices.DeviceReadRepresentationV1, error)
+	UpdateDevice(ctx context.Context, id string, payload *devices.DeviceUpdateRepresentationV1) error
 	DeleteDevice(ctx context.Context, id string) error
-	ListDeviceApplications(ctx context.Context, deviceID string, sort []string, filter string) ([]jamfplatform.DeviceInstalledApplicationReadRepresentationV1, error)
-	ListDevicesForUser(ctx context.Context, userID string, sort []string, filter string) ([]jamfplatform.DeviceListReadRepresentationV1, error)
+	ListDeviceApplications(ctx context.Context, deviceID string, sort []string, filter string) ([]devices.DeviceInstalledApplicationReadRepresentationV1, error)
+	ListDevicesForUser(ctx context.Context, userID string, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error)
 
 	// Device Groups
-	ListDeviceGroups(ctx context.Context, sort []string, filter string) ([]jamfplatform.DeviceGroupListReadRepresentationV1, error)
-	GetDeviceGroup(ctx context.Context, id string) (*jamfplatform.DeviceGroupReadRepresentationV1, error)
-	CreateDeviceGroup(ctx context.Context, request *jamfplatform.DeviceGroupCreateRepresentationV1) (*jamfplatform.HrefRepresentation, error)
-	UpdateDeviceGroup(ctx context.Context, id string, request *jamfplatform.DeviceGroupUpdateRepresentationV1) error
+	ListDeviceGroups(ctx context.Context, sort []string, filter string) ([]devicegroups.DeviceGroupListReadRepresentationV1, error)
+	GetDeviceGroup(ctx context.Context, id string) (*devicegroups.DeviceGroupReadRepresentationV1, error)
+	CreateDeviceGroup(ctx context.Context, request *devicegroups.DeviceGroupCreateRepresentationV1) (*devicegroups.HrefRepresentation, error)
+	UpdateDeviceGroup(ctx context.Context, id string, request *devicegroups.DeviceGroupUpdateRepresentationV1) error
 	DeleteDeviceGroup(ctx context.Context, id string) error
 	ListDeviceGroupMembers(ctx context.Context, id string) ([]string, error)
-	UpdateDeviceGroupMembers(ctx context.Context, id string, patch *jamfplatform.DeviceGroupMemberPatchRepresentationV1) error
-	ListDeviceGroupsForDevice(ctx context.Context, deviceID string) ([]jamfplatform.DeviceGroupMemberOfRepresentationV1, error)
+	UpdateDeviceGroupMembers(ctx context.Context, id string, patch *devicegroups.DeviceGroupMemberPatchRepresentationV1) error
+	ListDeviceGroupsForDevice(ctx context.Context, deviceID string) ([]devicegroups.DeviceGroupMemberOfRepresentationV1, error)
 
 	// Device Actions
 	CheckInDevice(ctx context.Context, id string) error
-	EraseDevice(ctx context.Context, id string, request *jamfplatform.EraseDeviceRequest) ([]jamfplatform.DeviceCommandResponse, error)
-	RestartDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponse, error)
-	ShutdownDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponse, error)
-	UnmanageDevice(ctx context.Context, id string) ([]jamfplatform.DeviceCommandResponse, error)
+	EraseDevice(ctx context.Context, id string, request *deviceactions.EraseDeviceRequest) ([]deviceactions.DeviceCommandResponse, error)
+	RestartDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
+	ShutdownDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
+	UnmanageDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
 
 	// DDM Declaration Reports
-	GetDeviceDeclarationReport(ctx context.Context, deviceID string) (*jamfplatform.DeviceReportDto, error)
-	ListDeclarationReportClients(ctx context.Context, declarationIdentifier string, sort []string) ([]jamfplatform.DeclarationReportClientDto, error)
+	GetDeviceDeclarationReport(ctx context.Context, deviceID string) (*ddmreport.DeviceReportDto, error)
+	ListDeclarationReportClients(ctx context.Context, declarationIdentifier string, sort []string) ([]ddmreport.DeclarationReportClientDto, error)
 
 	// Client metadata
 	ValidateCredentials(ctx context.Context) error

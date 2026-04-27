@@ -13,7 +13,8 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 // auditSeverity levels for findings.
@@ -547,7 +548,7 @@ func runPlatformAuditChecks(ctx context.Context, pc registry.PlatformClient) []a
 	return results
 }
 
-func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverview) *auditResult {
+func checkUndeployedBlueprints(bps []blueprints.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" {
@@ -566,7 +567,7 @@ func checkUndeployedBlueprints(bps []jamfplatform.BlueprintOverview) *auditResul
 	}
 }
 
-func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverview) *auditResult {
+func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps []blueprints.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" {
@@ -592,22 +593,14 @@ func checkBlueprintFailures(ctx context.Context, pc registry.PlatformClient, bps
 	}
 }
 
-func checkStaleBlueprints(bps []jamfplatform.BlueprintOverview) *auditResult {
+func checkStaleBlueprints(bps []blueprints.BlueprintOverview) *auditResult {
 	count := 0
 	for _, bp := range bps {
 		if bp.DeploymentState == nil || bp.DeploymentState.State != "DEPLOYED" || bp.DeploymentState.LastDeployment == nil {
 			continue
 		}
 		// Blueprint was updated after its last deployment
-		deployedAt, err := time.Parse(time.RFC3339, bp.DeploymentState.LastDeployment.Started)
-		if err != nil {
-			continue
-		}
-		updatedAt, err := time.Parse(time.RFC3339, bp.Updated)
-		if err != nil {
-			continue
-		}
-		if updatedAt.After(deployedAt) {
+		if bp.Updated.After(bp.DeploymentState.LastDeployment.Started) {
 			count++
 		}
 	}
@@ -623,7 +616,7 @@ func checkStaleBlueprints(bps []jamfplatform.BlueprintOverview) *auditResult {
 	}
 }
 
-func checkBenchmarkUpdates(resp *jamfplatform.BenchmarksResponseV2) *auditResult {
+func checkBenchmarkUpdates(resp *compliancebenchmarks.BenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		if b.UpdateAvailable {
@@ -642,7 +635,7 @@ func checkBenchmarkUpdates(resp *jamfplatform.BenchmarksResponseV2) *auditResult
 	}
 }
 
-func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, resp *jamfplatform.BenchmarksResponseV2) *auditResult {
+func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, resp *compliancebenchmarks.BenchmarksResponseV2) *auditResult {
 	count := 0
 	for _, b := range resp.Benchmarks {
 		bm, err := pc.GetBenchmark(ctx, b.ID)
@@ -665,7 +658,7 @@ func checkBenchmarkMonitorOnly(ctx context.Context, pc registry.PlatformClient, 
 	}
 }
 
-func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bps []jamfplatform.BlueprintOverview, bmResp *jamfplatform.BenchmarksResponseV2) *auditResult {
+func checkEmptyPlatformScope(ctx context.Context, pc registry.PlatformClient, bps []blueprints.BlueprintOverview, bmResp *compliancebenchmarks.BenchmarksResponseV2) *auditResult {
 	count := 0
 
 	// Check blueprints with empty scope

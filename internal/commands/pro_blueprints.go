@@ -22,7 +22,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
 func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -80,7 +81,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func flattenBlueprintOverview(bp jamfplatform.BlueprintOverview) map[string]any {
+func flattenBlueprintOverview(bp blueprints.BlueprintOverview) map[string]any {
 	m := map[string]any{
 		"id":      bp.ID,
 		"name":    bp.Name,
@@ -99,7 +100,7 @@ func flattenBlueprintOverview(bp jamfplatform.BlueprintOverview) map[string]any 
 	return m
 }
 
-func flattenBlueprintDetail(bp jamfplatform.BlueprintDetail) map[string]any {
+func flattenBlueprintDetail(bp blueprints.BlueprintDetail) map[string]any {
 	m := map[string]any{
 		"id":      bp.ID,
 		"name":    bp.Name,
@@ -217,14 +218,14 @@ Examples:
 			if scaffold {
 				bp := blueprintScaffold()
 				if len(components) > 0 {
-					var comps []jamfplatform.Component
+					var comps []blueprints.Component
 					for _, c := range components {
 						id := resolveComponentIdentifier(c)
 						jsonStr, ok := blueprintcomponents.Scaffolds[id]
 						if !ok {
 							return fmt.Errorf("unknown component: %s\nRun 'jamf-cli pro blueprints components list' to see available components", c)
 						}
-						comps = append(comps, jamfplatform.Component{
+						comps = append(comps, blueprints.Component{
 							Identifier:    id,
 							Configuration: json.RawMessage(jsonStr),
 						})
@@ -323,31 +324,31 @@ Examples:
 
 // blueprintCreateToUpdate converts a create request to an update request
 // for merge-patch semantics.
-func blueprintCreateToUpdate(c *jamfplatform.CreateBlueprintRequest) *jamfplatform.UpdateBlueprintRequest {
-	update := &jamfplatform.UpdateBlueprintRequest{
+func blueprintCreateToUpdate(c *blueprints.CreateBlueprintRequest) *blueprints.UpdateBlueprintRequest {
+	update := &blueprints.UpdateBlueprintRequest{
 		Name:        &c.Name,
 		Description: c.Description,
 		Steps:       &c.Steps,
 	}
 	if len(c.Scope.DeviceGroups) > 0 {
-		update.Scope = &jamfplatform.BlueprintScope{
+		update.Scope = &blueprints.BlueprintScope{
 			DeviceGroups: c.Scope.DeviceGroups,
 		}
 	}
 	return update
 }
 
-func blueprintScaffold() *jamfplatform.CreateBlueprintRequest {
+func blueprintScaffold() *blueprints.CreateBlueprintRequest {
 	stepName := "Step 1"
-	return &jamfplatform.CreateBlueprintRequest{
+	return &blueprints.CreateBlueprintRequest{
 		Name: "My Blueprint",
-		Scope: jamfplatform.CreateScope{
+		Scope: blueprints.CreateScope{
 			DeviceGroups: []string{"<device-group-id>"},
 		},
-		Steps: []jamfplatform.BlueprintStep{
+		Steps: []blueprints.BlueprintStep{
 			{
 				Name: &stepName,
-				Components: []jamfplatform.Component{
+				Components: []blueprints.Component{
 					{
 						Identifier:    "<component-identifier>",
 						Configuration: json.RawMessage(`{}`),
@@ -417,10 +418,10 @@ type blueprintExport struct {
 	Name        string                       `json:"name" yaml:"name"`
 	Description string                       `json:"description,omitempty" yaml:"description,omitempty"`
 	Scope       blueprintExportScope         `json:"scope" yaml:"scope"`
-	Steps       []jamfplatform.BlueprintStep `json:"steps" yaml:"steps"`
+	Steps       []blueprints.BlueprintStep `json:"steps" yaml:"steps"`
 }
 
-func blueprintToExport(ctx context.Context, pc registry.PlatformClient, bp *jamfplatform.BlueprintDetail) blueprintExport {
+func blueprintToExport(ctx context.Context, pc registry.PlatformClient, bp *blueprints.BlueprintDetail) blueprintExport {
 	var groupIDs []string
 	if bp.Scope != nil {
 		groupIDs = bp.Scope.DeviceGroups
@@ -731,8 +732,8 @@ Examples:
 				return nil
 			}
 
-			updateReq := &jamfplatform.UpdateBlueprintRequest{
-				Scope: &jamfplatform.BlueprintScope{
+			updateReq := &blueprints.UpdateBlueprintRequest{
+				Scope: &blueprints.BlueprintScope{
 					DeviceGroups: newScope,
 				},
 			}
@@ -818,8 +819,8 @@ Examples:
 				return nil
 			}
 
-			updateReq := &jamfplatform.UpdateBlueprintRequest{
-				Scope: &jamfplatform.BlueprintScope{
+			updateReq := &blueprints.UpdateBlueprintRequest{
+				Scope: &blueprints.BlueprintScope{
 					DeviceGroups: newScope,
 				},
 			}
@@ -948,10 +949,10 @@ The source scope is copied by default. Use --scope to override device group targ
 			}
 			steps := randomizePayloadIdentifiers(source.Steps)
 
-			createReq := &jamfplatform.CreateBlueprintRequest{
+			createReq := &blueprints.CreateBlueprintRequest{
 				Name:        args[1],
 				Description: source.Description,
-				Scope: jamfplatform.CreateScope{
+				Scope: blueprints.CreateScope{
 					DeviceGroups: groups,
 				},
 				Steps: steps,
@@ -1347,7 +1348,7 @@ Examples:
 
 			// Step 3: Convert mobileconfig to blueprint components.
 			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
-			var components []jamfplatform.Component
+			var components []blueprints.Component
 
 			if noConvert {
 				// Legacy mode: wrap all payloads in a single configuration-profile component.
@@ -1371,7 +1372,7 @@ Examples:
 				}
 				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
 				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
-				components = append(components, jamfplatform.Component{
+				components = append(components, blueprints.Component{
 					Identifier:    "com.jamf.ddm-configuration-profile",
 					Configuration: config,
 				})
@@ -1421,13 +1422,13 @@ Examples:
 				}
 
 				for _, nc := range ddmResult.NativeComponents {
-					components = append(components, jamfplatform.Component{
+					components = append(components, blueprints.Component{
 						Identifier:    nc.Identifier,
 						Configuration: nc.Configuration,
 					})
 				}
 				if ddmResult.ProfileConfig != nil {
-					components = append(components, jamfplatform.Component{
+					components = append(components, blueprints.Component{
 						Identifier:    "com.jamf.ddm-configuration-profile",
 						Configuration: ddmResult.ProfileConfig,
 					})
@@ -1459,12 +1460,12 @@ Examples:
 			}
 
 			importStepName := "Step 1"
-			createReq := &jamfplatform.CreateBlueprintRequest{
+			createReq := &blueprints.CreateBlueprintRequest{
 				Name: name,
-				Scope: jamfplatform.CreateScope{
+				Scope: blueprints.CreateScope{
 					DeviceGroups: scopeGroups,
 				},
-				Steps: []jamfplatform.BlueprintStep{
+				Steps: []blueprints.BlueprintStep{
 					{
 						Name:       &importStepName,
 						Components: components,
@@ -1683,10 +1684,10 @@ func extractPayloadsFromXML(xmlStr string) string {
 // randomizePayloadIdentifiers walks through blueprint steps and replaces
 // payloadIdentifier values in legacy configuration profile components
 // (com.jamf.ddm-configuration-profile) with fresh UUIDs.
-func randomizePayloadIdentifiers(steps []jamfplatform.BlueprintStep) []jamfplatform.BlueprintStep {
-	out := make([]jamfplatform.BlueprintStep, len(steps))
+func randomizePayloadIdentifiers(steps []blueprints.BlueprintStep) []blueprints.BlueprintStep {
+	out := make([]blueprints.BlueprintStep, len(steps))
 	for i, step := range steps {
-		comps := make([]jamfplatform.Component, len(step.Components))
+		comps := make([]blueprints.Component, len(step.Components))
 		for j, comp := range step.Components {
 			comps[j] = comp
 			if len(comp.Configuration) == 0 {
@@ -1702,7 +1703,7 @@ func randomizePayloadIdentifiers(steps []jamfplatform.BlueprintStep) []jamfplatf
 				}
 			}
 		}
-		out[i] = jamfplatform.BlueprintStep{
+		out[i] = blueprints.BlueprintStep{
 			Name:                step.Name,
 			Components:          comps,
 			ActivationPredicate: step.ActivationPredicate,
@@ -1752,7 +1753,7 @@ func reverseResolveGroups(ctx context.Context, pc registry.PlatformClient, ids [
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
 	}
-	groupMap := make(map[string]jamfplatform.DeviceGroupListReadRepresentationV1, len(allGroups))
+	groupMap := make(map[string]devicegroups.DeviceGroupListReadRepresentationV1, len(allGroups))
 	for _, g := range allGroups {
 		groupMap[g.ID] = g
 	}
@@ -1817,13 +1818,13 @@ func deviceTypeToGroupType(deviceType string) string {
 // enriched group objects). When the portable format is detected, group names
 // are resolved to UUIDs on the target instance. scopeOverrideIDs, if non-empty,
 // replaces the file's scope entirely.
-func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.HTTPClient, scopeOverrideIDs []string) (*jamfplatform.CreateBlueprintRequest, error) {
+func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.HTTPClient, scopeOverrideIDs []string) (*blueprints.CreateBlueprintRequest, error) {
 	// Probe the scope format via a generic unmarshal to avoid type coercion
 	// issues between JSON objects and YAML strings.
 	portable := isPortableScopeFormat(data)
 
 	if !portable {
-		var req jamfplatform.CreateBlueprintRequest
+		var req blueprints.CreateBlueprintRequest
 		if err := unmarshalInput(data, &req); err != nil {
 			return nil, fmt.Errorf("parsing input: %w", err)
 		}
@@ -1856,9 +1857,9 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 		}
 	}
 
-	req := &jamfplatform.CreateBlueprintRequest{
+	req := &blueprints.CreateBlueprintRequest{
 		Name: exp.Name,
-		Scope: jamfplatform.CreateScope{
+		Scope: blueprints.CreateScope{
 			DeviceGroups: groupIDs,
 		},
 		Steps: exp.Steps,

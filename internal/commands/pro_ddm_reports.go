@@ -73,8 +73,8 @@ func newDDMDeclarationReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					"validityState": c.ValidityState,
 					"serverToken":   c.ServerToken,
 				}
-				if c.DateUpdated != "" {
-					row["dateUpdated"] = c.DateUpdated
+				if c.DateUpdated != nil {
+					row["dateUpdated"] = c.DateUpdated.Format("2006-01-02T15:04:05Z07:00")
 				}
 				rows = append(rows, row)
 			}
@@ -127,8 +127,8 @@ validity state, including the error reason codes and descriptions.`,
 					"active":        c.Active,
 					"validityState": c.ValidityState,
 				}
-				if c.DateUpdated != "" {
-					row["dateUpdated"] = c.DateUpdated
+				if c.DateUpdated != nil {
+					row["dateUpdated"] = c.DateUpdated.Format("2006-01-02T15:04:05Z07:00")
 				}
 				if len(actionableReasons) > 0 {
 					row["reasons"] = strings.Join(actionableReasons, "; ")

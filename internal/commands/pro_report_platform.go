@@ -12,7 +12,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
 )
 
 // ── Blueprint Status Report ────────────────────────────────────────────────
@@ -240,8 +240,8 @@ of failing rules.`,
 					agg, ok := devices[d.DeviceID]
 					if !ok {
 						name := d.DeviceID
-						if d.DeviceName != nil && *d.DeviceName != "" {
-							name = *d.DeviceName
+						if n, ok := d.DeviceName.(string); ok && n != "" {
+							name = n
 						}
 						agg = &deviceAgg{Name: name}
 						devices[d.DeviceID] = agg
@@ -329,7 +329,7 @@ var ignorableDDMReasonCodes = map[string]bool{
 }
 
 // onlyHasIgnorableReasons returns true if all reasons (or no reasons) are ignorable.
-func onlyHasIgnorableReasons(reasons []jamfplatform.StatusReportDeclarationReasonDto) bool {
+func onlyHasIgnorableReasons(reasons []ddmreport.StatusReportDeclarationReasonDto) bool {
 	for _, r := range reasons {
 		if !ignorableDDMReasonCodes[r.Code] {
 			return false

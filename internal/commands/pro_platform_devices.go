@@ -13,7 +13,8 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 // uuidPattern matches the standard UUID format (8-4-4-4-12 hex digits).
@@ -43,7 +44,7 @@ func newPlatformDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func flattenDeviceList(d jamfplatform.DeviceListReadRepresentationV1) map[string]any {
+func flattenDeviceList(d devices.DeviceListReadRepresentationV1) map[string]any {
 	m := map[string]any{
 		"id":             d.ID,
 		"name":           d.Name,
@@ -144,7 +145,7 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			var payload jamfplatform.DeviceUpdateRepresentationV1
+			var payload devices.DeviceUpdateRepresentationV1
 			if fromFile != "" {
 				data, err := readInput(fromFile)
 				if err != nil {
@@ -378,7 +379,7 @@ func newPlatformDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			req := &jamfplatform.EraseDeviceRequest{}
+			req := &deviceactions.EraseDeviceRequest{}
 			if cmd.Flags().Changed("pin") {
 				req.Pin = &pin
 			}

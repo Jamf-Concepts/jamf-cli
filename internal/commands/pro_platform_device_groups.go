@@ -11,7 +11,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
 func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -32,7 +32,7 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func flattenDeviceGroup(dg jamfplatform.DeviceGroupListReadRepresentationV1) map[string]any {
+func flattenDeviceGroup(dg devicegroups.DeviceGroupListReadRepresentationV1) map[string]any {
 	return map[string]any{
 		"id":          dg.ID,
 		"name":        dg.Name,
@@ -122,7 +122,7 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			var createReq jamfplatform.DeviceGroupCreateRepresentationV1
+			var createReq devicegroups.DeviceGroupCreateRepresentationV1
 			if err := unmarshalInput(data, &createReq); err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
@@ -155,7 +155,7 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
-			updateReq := &jamfplatform.DeviceGroupUpdateRepresentationV1{
+			updateReq := &devicegroups.DeviceGroupUpdateRepresentationV1{
 				Name:        &createReq.Name,
 				Description: createReq.Description,
 				Criteria:    createReq.Criteria,
@@ -177,9 +177,9 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func deviceGroupScaffold() *jamfplatform.DeviceGroupCreateRepresentationV1 {
+func deviceGroupScaffold() *devicegroups.DeviceGroupCreateRepresentationV1 {
 	desc := ""
-	return &jamfplatform.DeviceGroupCreateRepresentationV1{
+	return &devicegroups.DeviceGroupCreateRepresentationV1{
 		Name:        "My Device Group",
 		Description: &desc,
 		DeviceType:  "COMPUTER",
@@ -273,7 +273,7 @@ func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			patch := &jamfplatform.DeviceGroupMemberPatchRepresentationV1{
+			patch := &devicegroups.DeviceGroupMemberPatchRepresentationV1{
 				Added: &ids,
 			}
 			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
@@ -306,7 +306,7 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			patch := &jamfplatform.DeviceGroupMemberPatchRepresentationV1{
+			patch := &devicegroups.DeviceGroupMemberPatchRepresentationV1{
 				Removed: &ids,
 			}
 			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
