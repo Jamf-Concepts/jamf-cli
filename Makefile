@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-site smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-platform-specs verify-site smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -173,6 +173,23 @@ verify-generated:
 		exit 1; \
 	fi
 	@echo "Generated code is up to date."
+
+# Verify platform specs and generated platform code are in sync (CI-safe)
+verify-platform-specs:
+	@$(MAKE) sync-platform-specs > /dev/null 2>&1; true
+	@if ! git diff --quiet -- specs/platform/; then \
+		echo "Error: specs/platform/ is stale — run 'make sync-platform-specs' and commit"; \
+		git diff --stat -- specs/platform/; \
+		exit 1; \
+	fi
+	@ls internal/commands/platform/generated/*.go | grep -v '_test\.go' | xargs rm -f
+	@$(MAKE) generate > /dev/null
+	@if ! git diff --quiet -- internal/commands/platform/generated/; then \
+		echo "Error: generated platform code is stale — run 'make generate' and commit"; \
+		git diff --stat -- internal/commands/platform/generated/; \
+		exit 1; \
+	fi
+	@echo "Platform specs and generated code are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
 smoke:

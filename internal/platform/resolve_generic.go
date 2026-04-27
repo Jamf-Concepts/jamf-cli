@@ -33,35 +33,54 @@ func ResolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath 
 	}
 
 	const pageSize = 100
-	for page := 0; ; page++ {
-		endpoint := listPath
-		// Add pagination query params; harmless on endpoints that ignore them.
-		q := url.Values{}
-		q.Set("page", strconv.Itoa(page))
-		q.Set("page-size", strconv.Itoa(pageSize))
-		sep := "?"
-		if u, err := url.Parse(endpoint); err == nil && u.RawQuery != "" {
-			sep = "&"
-		}
-		endpoint += sep + q.Encode()
 
-		var raw json.RawMessage
-		if err := client.Transport().DoExpect(ctx, http.MethodGet, endpoint, nil, http.StatusOK, &raw); err != nil {
-			return "", fmt.Errorf("listing %s: %w", listPath, err)
-		}
-
-		items, more := extractItems(raw)
-		for _, item := range items {
-			if matchesName(item, name) {
-				if id := extractID(item); id != "" {
-					return id, nil
-				}
+	// First request: no pagination params. Some endpoints return 500 when sent
+	// page/page-size params they don't support (e.g. compliance-benchmarks).
+	// We detect whether the endpoint is paginated from the response shape and
+	// only add params for subsequent pages when totalCount signals more items.
+	var raw json.RawMessage
+	if err := client.Transport().DoExpect(ctx, http.MethodGet, listPath, nil, http.StatusOK, &raw); err != nil {
+		return "", fmt.Errorf("listing %s: %w", listPath, err)
+	}
+	items, paged := extractItems(raw)
+	for _, item := range items {
+		if matchesName(item, name) {
+			if id := extractID(item); id != "" {
+				return id, nil
 			}
 		}
-		if !more || len(items) < pageSize {
-			break
+	}
+
+	// Paginate only if the first response signalled more pages.
+	if paged && len(items) == pageSize {
+		for page := 1; ; page++ {
+			q := url.Values{}
+			q.Set("page", strconv.Itoa(page))
+			q.Set("page-size", strconv.Itoa(pageSize))
+			sep := "?"
+			if u, err := url.Parse(listPath); err == nil && u.RawQuery != "" {
+				sep = "&"
+			}
+			endpoint := listPath + sep + q.Encode()
+
+			var pageRaw json.RawMessage
+			if err := client.Transport().DoExpect(ctx, http.MethodGet, endpoint, nil, http.StatusOK, &pageRaw); err != nil {
+				return "", fmt.Errorf("listing %s: %w", listPath, err)
+			}
+			pageItems, _ := extractItems(pageRaw)
+			for _, item := range pageItems {
+				if matchesName(item, name) {
+					if id := extractID(item); id != "" {
+						return id, nil
+					}
+				}
+			}
+			if len(pageItems) < pageSize {
+				break
+			}
 		}
 	}
+
 	return "", fmt.Errorf("%w: no item with name %q", ErrNotFound, name)
 }
 

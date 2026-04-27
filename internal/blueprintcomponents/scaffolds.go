@@ -4,6 +4,7 @@ package blueprintcomponents
 
 import (
 	"encoding/json"
+	"maps"
 	"sort"
 
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -64,9 +65,7 @@ func init() {
 	}
 	// Raw JSON fallback for components not yet typed in the SDK.
 	// Remove each entry once the blueprints package gains the corresponding type.
-	for id, v := range rawScaffolds {
-		Scaffolds[id] = v
-	}
+	maps.Copy(Scaffolds, rawScaffolds)
 }
 
 // rawScaffolds holds example configurations for components not yet represented
@@ -116,10 +115,6 @@ var rawScaffolds = map[string]string{
 }`,
 }
 
-func boolPtr(b bool) *bool    { return &b }
-func intPtr(i int) *int       { return &i }
-func strPtr(s string) *string { return &s }
-
 func exampleConfigurationProfile() blueprints.ConfigurationProfileConfiguration {
 	return blueprints.ConfigurationProfileConfiguration{
 		PayloadDisplayName: "Example Profile",
@@ -132,12 +127,12 @@ func exampleConfigurationProfile() blueprints.ConfigurationProfileConfiguration 
 func exampleAudioAccessorySettings() blueprints.AudioAccessorySettingsConfiguration {
 	return blueprints.AudioAccessorySettingsConfiguration{
 		TemporaryPairing: &blueprints.TemporaryPairing{
-			Included: boolPtr(true),
-			Disabled: boolPtr(false),
+			Included: new(true),
+			Disabled: new(false),
 			Configuration: &blueprints.TemporaryPairingConfig{
 				UnpairingTime: blueprints.UnpairingTime{
 					Policy: "None",
-					Hour:   intPtr(0),
+					Hour:   new(0),
 				},
 			},
 		},
@@ -148,8 +143,8 @@ func exampleDiskManagement() blueprints.DiskManagementSettingsConfiguration {
 	return blueprints.DiskManagementSettingsConfiguration{
 		Version: 2,
 		Restrictions: &blueprints.Restrictions{
-			ExternalStorage: &blueprints.StorageMode{Included: boolPtr(true), Value: "Allowed"},
-			NetworkStorage:  &blueprints.StorageMode{Included: boolPtr(true), Value: "Allowed"},
+			ExternalStorage: &blueprints.StorageMode{Included: new(true), Value: "Allowed"},
+			NetworkStorage:  &blueprints.StorageMode{Included: new(true), Value: "Allowed"},
 		},
 	}
 }
@@ -157,14 +152,14 @@ func exampleDiskManagement() blueprints.DiskManagementSettingsConfiguration {
 func exampleMathSettings() blueprints.MathSettingsConfiguration {
 	return blueprints.MathSettingsConfiguration{
 		Calculator: &blueprints.Calculator{
-			BasicMode:      &blueprints.BasicMode{Included: boolPtr(true), AddSquareRoot: false},
-			InputModes:     &blueprints.InputModes{Included: boolPtr(true), RPN: false, UnitConversion: false},
-			MathNotesMode:  &blueprints.MathNotesMode{Included: boolPtr(true), Enabled: false},
-			ProgrammerMode: &blueprints.ProgrammerMode{Included: boolPtr(true), Enabled: false},
-			ScientificMode: &blueprints.ScientificMode{Included: boolPtr(true), Enabled: false},
+			BasicMode:      &blueprints.BasicMode{Included: new(true), AddSquareRoot: false},
+			InputModes:     &blueprints.InputModes{Included: new(true), RPN: false, UnitConversion: false},
+			MathNotesMode:  &blueprints.MathNotesMode{Included: new(true), Enabled: false},
+			ProgrammerMode: &blueprints.ProgrammerMode{Included: new(true), Enabled: false},
+			ScientificMode: &blueprints.ScientificMode{Included: new(true), Enabled: false},
 		},
 		SystemBehavior: &blueprints.SystemBehavior{
-			Included:            boolPtr(true),
+			Included:            new(true),
 			KeyboardSuggestions: false,
 			MathNotes:           false,
 		},
@@ -174,19 +169,19 @@ func exampleMathSettings() blueprints.MathSettingsConfiguration {
 func examplePasscodeSettings() blueprints.PasscodeSettingsConfiguration {
 	return blueprints.PasscodeSettingsConfiguration{
 		Version:                      2,
-		ChangeAtNextAuth:             &blueprints.ChangeAtNextAuth{Included: boolPtr(false), Value: boolPtr(false)},
-		CustomRegex:                  &blueprints.CustomRegex{Included: boolPtr(false), Regex: strPtr("[0-9]{16}"), Description: &map[string]string{"<key>": ""}},
-		FailedAttemptsResetInMinutes: &blueprints.FailedAttemptsResetInMinutes{Included: boolPtr(false), Value: intPtr(5)},
-		MaximumFailedAttempts:        &blueprints.MaximumFailedAttempts{Included: boolPtr(false), Value: intPtr(10)},
-		MaximumGracePeriodInMinutes:  &blueprints.MaximumGracePeriodInMinutes{Included: boolPtr(false), Value: intPtr(2)},
-		MaximumInactivityInMinutes:   &blueprints.MaximumInactivityInMinutes{Included: boolPtr(false), Value: intPtr(10)},
-		MaximumPasscodeAgeInDays:     &blueprints.MaximumPasscodeAgeInDays{Included: boolPtr(false), Value: intPtr(14)},
-		MinimumComplexCharacters:     &blueprints.MinimumComplexCharacters{Included: boolPtr(false), Value: intPtr(1)},
-		MinimumLength:                &blueprints.MinimumLength{Included: boolPtr(false), Value: intPtr(8)},
-		PasscodeReuseLimit:           &blueprints.PasscodeReuseLimit{Included: boolPtr(false), Value: intPtr(10)},
-		RequireAlphanumericPasscode:  &blueprints.RequireAlphanumericPasscode{Included: boolPtr(false), Value: boolPtr(false)},
-		RequireComplexPasscode:       &blueprints.RequireComplexPasscode{Included: boolPtr(false), Value: boolPtr(false)},
-		RequirePasscode:              &blueprints.RequirePasscode{Included: boolPtr(false), Value: boolPtr(false)},
+		ChangeAtNextAuth:             &blueprints.ChangeAtNextAuth{Included: new(false), Value: new(false)},
+		CustomRegex:                  &blueprints.CustomRegex{Included: new(false), Regex: new("[0-9]{16}"), Description: &map[string]string{"<key>": ""}},
+		FailedAttemptsResetInMinutes: &blueprints.FailedAttemptsResetInMinutes{Included: new(false), Value: new(5)},
+		MaximumFailedAttempts:        &blueprints.MaximumFailedAttempts{Included: new(false), Value: new(10)},
+		MaximumGracePeriodInMinutes:  &blueprints.MaximumGracePeriodInMinutes{Included: new(false), Value: new(2)},
+		MaximumInactivityInMinutes:   &blueprints.MaximumInactivityInMinutes{Included: new(false), Value: new(10)},
+		MaximumPasscodeAgeInDays:     &blueprints.MaximumPasscodeAgeInDays{Included: new(false), Value: new(14)},
+		MinimumComplexCharacters:     &blueprints.MinimumComplexCharacters{Included: new(false), Value: new(1)},
+		MinimumLength:                &blueprints.MinimumLength{Included: new(false), Value: new(8)},
+		PasscodeReuseLimit:           &blueprints.PasscodeReuseLimit{Included: new(false), Value: new(10)},
+		RequireAlphanumericPasscode:  &blueprints.RequireAlphanumericPasscode{Included: new(false), Value: new(false)},
+		RequireComplexPasscode:       &blueprints.RequireComplexPasscode{Included: new(false), Value: new(false)},
+		RequirePasscode:              &blueprints.RequirePasscode{Included: new(false), Value: new(false)},
 	}
 }
 
@@ -208,8 +203,8 @@ func exampleSafariExtensions() blueprints.SafariExtensionsConfiguration {
 	return blueprints.SafariExtensionsConfiguration{
 		ManagedExtensions: map[string]blueprints.ManagedExtension{
 			"<extension-bundle-id>": {
-				State:           strPtr("Allowed"),
-				PrivateBrowsing: strPtr("Allowed"),
+				State:           new("Allowed"),
+				PrivateBrowsing: new("Allowed"),
 				AllowedDomains:  &[]blueprints.ManagedExtensionDomain{{Domain: "example.com"}},
 				DeniedDomains:   &[]blueprints.ManagedExtensionDomain{{Domain: ""}},
 			},
@@ -219,46 +214,46 @@ func exampleSafariExtensions() blueprints.SafariExtensionsConfiguration {
 
 func exampleSafariSettings() blueprints.SafariSettingsConfiguration {
 	return blueprints.SafariSettingsConfiguration{
-		AcceptCookies:              &blueprints.AcceptCookies{Included: boolPtr(false), Value: strPtr("Never")},
-		AllowDisablingFraudWarning: &blueprints.AllowDisablingFraudWarning{Included: boolPtr(false), Value: boolPtr(false)},
-		AllowHistoryClearing:       &blueprints.AllowHistoryClearing{Included: boolPtr(false), Value: boolPtr(false)},
-		AllowJavaScript:            &blueprints.AllowJavaScript{Included: boolPtr(false), Value: boolPtr(false)},
-		AllowPopups:                &blueprints.AllowPopups{Included: boolPtr(false), Value: boolPtr(false)},
-		AllowPrivateBrowsing:       &blueprints.AllowPrivateBrowsing{Included: boolPtr(false), Value: boolPtr(false)},
-		AllowSummary:               &blueprints.AllowSummary{Included: boolPtr(false), Value: boolPtr(false)},
+		AcceptCookies:              &blueprints.AcceptCookies{Included: new(false), Value: new("Never")},
+		AllowDisablingFraudWarning: &blueprints.AllowDisablingFraudWarning{Included: new(false), Value: new(false)},
+		AllowHistoryClearing:       &blueprints.AllowHistoryClearing{Included: new(false), Value: new(false)},
+		AllowJavaScript:            &blueprints.AllowJavaScript{Included: new(false), Value: new(false)},
+		AllowPopups:                &blueprints.AllowPopups{Included: new(false), Value: new(false)},
+		AllowPrivateBrowsing:       &blueprints.AllowPrivateBrowsing{Included: new(false), Value: new(false)},
+		AllowSummary:               &blueprints.AllowSummary{Included: new(false), Value: new(false)},
 		NewTabStartPage: &blueprints.NewTabStartPage{
-			Included:            boolPtr(false),
-			PageType:            strPtr("Start"),
-			HomepageURL:         strPtr("https://example.com"),
-			ExtensionIdentifier: strPtr("com.example.extension (ABC1234567)"),
+			Included:            new(false),
+			PageType:            new("Start"),
+			HomepageURL:         new("https://example.com"),
+			ExtensionIdentifier: new("com.example.extension (ABC1234567)"),
 		},
 	}
 }
 
 func exampleSoftwareUpdateSettings() blueprints.SoftwareUpdateSettingsConfiguration {
 	return blueprints.SoftwareUpdateSettingsConfiguration{
-		AllowStandardUserOSUpdates: &blueprints.OptionallyEnabled{Included: boolPtr(true), Enabled: false},
+		AllowStandardUserOSUpdates: &blueprints.OptionallyEnabled{Included: new(true), Enabled: false},
 		AutomaticActions: &blueprints.AutomaticActions{
-			Download:              &blueprints.AutomaticAction{Included: boolPtr(true), Value: "Allowed"},
-			InstallOSUpdates:      &blueprints.AutomaticAction{Included: boolPtr(true), Value: "Allowed"},
-			InstallSecurityUpdate: &blueprints.AutomaticAction{Included: boolPtr(true), Value: "Allowed"},
+			Download:              &blueprints.AutomaticAction{Included: new(true), Value: "Allowed"},
+			InstallOSUpdates:      &blueprints.AutomaticAction{Included: new(true), Value: "Allowed"},
+			InstallSecurityUpdate: &blueprints.AutomaticAction{Included: new(true), Value: "Allowed"},
 		},
 		Beta: &blueprints.Beta{
-			Included: boolPtr(true),
+			Included: new(true),
 			Value:    &blueprints.BetaSettings{ProgramEnrollment: "Allowed"},
 		},
 		Deferrals: &blueprints.Deferrals{
-			CombinedPeriodInDays: &blueprints.OptionalPeriodInDays{Included: boolPtr(true), Value: intPtr(1)},
-			MajorPeriodInDays:    &blueprints.OptionalPeriodInDays{Included: boolPtr(true), Value: intPtr(1)},
-			MinorPeriodInDays:    &blueprints.OptionalPeriodInDays{Included: boolPtr(true), Value: intPtr(1)},
-			SystemPeriodInDays:   &blueprints.OptionalPeriodInDays{Included: boolPtr(true), Value: intPtr(1)},
+			CombinedPeriodInDays: &blueprints.OptionalPeriodInDays{Included: new(true), Value: new(1)},
+			MajorPeriodInDays:    &blueprints.OptionalPeriodInDays{Included: new(true), Value: new(1)},
+			MinorPeriodInDays:    &blueprints.OptionalPeriodInDays{Included: new(true), Value: new(1)},
+			SystemPeriodInDays:   &blueprints.OptionalPeriodInDays{Included: new(true), Value: new(1)},
 		},
-		Notifications: &blueprints.OptionallyEnabled{Included: boolPtr(true), Enabled: false},
+		Notifications: &blueprints.OptionallyEnabled{Included: new(true), Enabled: false},
 		RapidSecurityResponse: &blueprints.RapidSecurityResponse{
-			Enable:         &blueprints.OptionallyEnabled{Included: boolPtr(true), Enabled: false},
-			EnableRollback: &blueprints.OptionallyEnabled{Included: boolPtr(true), Enabled: false},
+			Enable:         &blueprints.OptionallyEnabled{Included: new(true), Enabled: false},
+			EnableRollback: &blueprints.OptionallyEnabled{Included: new(true), Enabled: false},
 		},
-		RecommendedCadence: &blueprints.RecommendedCadence{Included: boolPtr(true), Value: "All"},
+		RecommendedCadence: &blueprints.RecommendedCadence{Included: new(true), Value: "All"},
 	}
 }
 
@@ -268,6 +263,6 @@ func exampleSwUpdates() blueprints.SwUpdateLatestConfiguration {
 		Strategy:         "LATEST",
 		DeploymentTime:   "16:00",
 		EnforceAfterDays: 14,
-		DetailsURL:       &blueprints.DetailsURL{Included: boolPtr(false), Value: strPtr("")},
+		DetailsURL:       &blueprints.DetailsURL{Included: new(false), Value: new("")},
 	}
 }

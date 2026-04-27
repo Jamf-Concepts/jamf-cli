@@ -62,7 +62,7 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 	if t.level >= 3 && resp.Body != nil {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jamfclient.BodyLogLimit))
 		_ = resp.Body.Close()
-		jamfclient.LogBody(os.Stderr, preview)
+		jamfclient.LogBody(os.Stderr, jamfclient.RedactTokenBody(preview))
 		resp.Body = io.NopCloser(bytes.NewReader(preview))
 	}
 	return resp, nil

@@ -84,6 +84,14 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+				{Field: "id", Label: "id"},
+				{Field: "name", Label: "name"},
+				{Field: "description", Label: "description"},
+				{Field: "deviceType", Label: "deviceType"},
+				{Field: "groupType", Label: "groupType"},
+				{Field: "memberCount", Label: "memberCount"},
+			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

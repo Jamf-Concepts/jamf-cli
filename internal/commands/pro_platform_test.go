@@ -838,8 +838,8 @@ func TestCBDeleteByID(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	cmd := newCBDeleteCmd(cliCtx)
-	cmd.SetArgs([]string{"bm-abc-123", "--yes"})
+	cmd := newComplianceBenchmarksCmd(cliCtx)
+	cmd.SetArgs([]string{"delete", "bm-abc-123", "--yes"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("delete by ID: %v", err)
 	}
@@ -858,8 +858,8 @@ func TestCBDeleteByName(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	cmd := newCBDeleteCmd(cliCtx)
-	cmd.SetArgs([]string{"--name", "Named Benchmark", "--yes"})
+	cmd := newComplianceBenchmarksCmd(cliCtx)
+	cmd.SetArgs([]string{"delete", "--name", "Named Benchmark", "--yes"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("delete by name: %v", err)
 	}
@@ -868,8 +868,8 @@ func TestCBDeleteByName(t *testing.T) {
 func TestCBDeleteNoArgs(t *testing.T) {
 	cliCtx, _, _ := newTestPlatformContext(t)
 
-	cmd := newCBDeleteCmd(cliCtx)
-	cmd.SetArgs([]string{"--yes"})
+	cmd := newComplianceBenchmarksCmd(cliCtx)
+	cmd.SetArgs([]string{"delete", "--yes"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected error when no ID or --name provided")
 		return
@@ -1615,6 +1615,42 @@ func TestIsPortableScopeFormat(t *testing.T) {
 				t.Errorf("isPortableScopeFormat(%s) = %v, want %v", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDDMReportsDeclarationRouting(t *testing.T) {
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	called := false
+	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/declarations/com.example.decl", func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		writeJSON(w, map[string]any{"results": []any{}})
+	})
+
+	cmd := newDDMReportsCmd(cliCtx)
+	cmd.SetArgs([]string{"declaration", "get", "com.example.decl"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("ddm-reports declaration get: %v", err)
+	}
+	if !called {
+		t.Error("declaration report endpoint was not called")
+	}
+}
+
+func TestDDMReportsDeviceRouting(t *testing.T) {
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	called := false
+	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/device-uuid-123", func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		writeJSON(w, map[string]any{"channels": []any{}})
+	})
+
+	cmd := newDDMReportsCmd(cliCtx)
+	cmd.SetArgs([]string{"device", "get", "device-uuid-123"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("ddm-reports device get: %v", err)
+	}
+	if !called {
+		t.Error("device report endpoint was not called")
 	}
 }
 

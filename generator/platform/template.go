@@ -203,6 +203,13 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+{{- if .ListTableColumns }}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+			{{- range .ListTableColumns }}
+				{Field: {{printf "%q" .Field}}, Label: {{printf "%q" .Label}}},
+			{{- end }}
+			}, cliCtx.Output.Format())
+{{- end }}
 			return cliCtx.Output.PrintRaw(b)
 {{- else }}
 			if encoded := q.Encode(); encoded != "" {
@@ -239,6 +246,13 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+{{- if .ListTableColumns }}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+			{{- range .ListTableColumns }}
+				{Field: {{printf "%q" .Field}}, Label: {{printf "%q" .Label}}},
+			{{- end }}
+			}, cliCtx.Output.Format())
+{{- end }}
 			return cliCtx.Output.PrintRaw(b)
 {{- else }}
 			return nil

@@ -18,6 +18,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
+	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -34,71 +35,24 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Create, deploy, and manage Jamf Platform blueprints. Requires platform gateway auth.",
 	}
 
-	cmd.AddCommand(newBlueprintsListCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsGetCmd(cliCtx))
+	// Generated CRUD and actions: list, get, delete, patch, deploy, undeploy, report
+	// skip create — apply covers it with portable format + scope resolution + randomize-IDs
+	for _, sub := range platformgen.NewBlueprintsCmd(cliCtx).Commands() {
+		if sub.Name() == "create" {
+			continue
+		}
+		cmd.AddCommand(sub)
+	}
+
+	// Business logic: portable upsert, export, scope management, clone, components, profile import
 	cmd.AddCommand(newBlueprintsApplyCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeleteCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsExportCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeployCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsUndeployCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCloneCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsScopeCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsImportProfileCmd(cliCtx))
 
 	return cmd
-}
-
-func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		sortFields []string
-		search     string
-	)
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all blueprints",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			bps, err := blueprints.New(cliCtx.PlatformSDKClient).ListBlueprints(cmd.Context(), sortFields, search)
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(bps))
-			for _, bp := range bps {
-				rows = append(rows, flattenBlueprintOverview(bp))
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-	cmd.Flags().StringSliceVar(&sortFields, "sort", nil, "Sort fields (e.g. name:asc)")
-	cmd.Flags().StringVar(&search, "search", "", "Search filter")
-	return cmd
-}
-
-func flattenBlueprintOverview(bp blueprints.BlueprintOverview) map[string]any {
-	m := map[string]any{
-		"id":      bp.ID,
-		"name":    bp.Name,
-		"created": bp.Created,
-		"updated": bp.Updated,
-	}
-	if bp.Description != nil {
-		m["description"] = *bp.Description
-	}
-	if bp.DeploymentState != nil {
-		m["state"] = bp.DeploymentState.State
-		if bp.DeploymentState.LastDeployment != nil {
-			m["lastDeployed"] = bp.DeploymentState.LastDeployment.Started
-		}
-	}
-	return m
 }
 
 func flattenBlueprintDetail(bp blueprints.BlueprintDetail) map[string]any {
@@ -150,31 +104,6 @@ func blueprintLabel(args []string, nameFlag string) string {
 		return args[0]
 	}
 	return "<unknown>"
-}
-
-func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:   "get [<id>]",
-		Short: "Get a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(cmd.Context(), id)
-			if err != nil {
-				return err
-			}
-			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
-		},
-	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
 }
 
 func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -358,44 +287,6 @@ func blueprintScaffold() *blueprints.CreateBlueprintRequest {
 	}
 }
 
-func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
-		Short: "Delete a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			proceed, err := confirmDelete("blueprint", label, yes)
-			if err != nil {
-				return err
-			}
-			if !proceed {
-				return nil
-			}
-			if err := blueprints.New(cliCtx.PlatformSDKClient).DeleteBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Deleted blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
 // blueprintExportScopeGroup represents a device group in the portable export format.
 // Includes both the platform UUID and human-readable metadata so the export
 // can be applied to a different Jamf instance where group UUIDs differ.
@@ -472,139 +363,6 @@ Multi-instance fan-out:
 				return err
 			}
 			return printExport(blueprintToExport(ctx, cliCtx.PlatformSDKClient, bp))
-		},
-	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "deploy [<id>]",
-		Short: "Deploy a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			if !yes {
-				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would deploy blueprint %q\n", label)
-					return nil
-				}
-				if noInput {
-					return fmt.Errorf("deploy requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will deploy blueprint %q. Type 'yes' to confirm: ", label)
-				var confirm string
-				if _, err := fmt.Scanln(&confirm); err != nil {
-					return fmt.Errorf("reading confirmation: %w", err)
-				}
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-			if err := blueprints.New(cliCtx.PlatformSDKClient).DeployBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Deployment started for blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "undeploy [<id>]",
-		Short: "Undeploy a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			if !yes {
-				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would undeploy blueprint %q\n", label)
-					return nil
-				}
-				if noInput {
-					return fmt.Errorf("undeploy requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will undeploy blueprint %q. Type 'yes' to confirm: ", label)
-				var confirm string
-				if _, err := fmt.Scanln(&confirm); err != nil {
-					return fmt.Errorf("reading confirmation: %w", err)
-				}
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-			if err := blueprints.New(cliCtx.PlatformSDKClient).UndeployBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Undeployment started for blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:   "report [<id>]",
-		Short: "Get deployment status report for a blueprint",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			report, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprintReport(ctx, id)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			m := map[string]any{
-				"blueprint": label,
-				"succeeded": report.Succeeded,
-				"failed":    report.Failed,
-				"pending":   report.Pending,
-			}
-			data, err := json.Marshal(m)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")

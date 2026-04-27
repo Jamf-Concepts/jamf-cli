@@ -19,25 +19,72 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 )
 
+// tableColumn maps a dot-notation JSON field path to an output label for list
+// table ops. Used at generator time to populate the platformTableColumns map;
+// the rendered Go code references platform.TableColumn at runtime.
+type tableColumn struct {
+	Field string
+	Label string
+}
+
+// platformTableColumns maps canonical platform resource names to preferred
+// columns for list table output. Only applies to paginated list operations.
+var platformTableColumns = map[string][]tableColumn{
+	"blueprints": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "deploymentState.state", Label: "state"},
+		{Field: "deploymentState.lastDeployment.started", Label: "lastDeployed"},
+		{Field: "created", Label: "created"},
+		{Field: "updated", Label: "updated"},
+	},
+	"benchmarks": {
+		{Field: "id", Label: "id"},
+		{Field: "title", Label: "title"},
+		{Field: "description", Label: "description"},
+		{Field: "syncState", Label: "syncState"},
+		{Field: "updateAvailable", Label: "updateAvailable"},
+		{Field: "modified", Label: "modified"},
+	},
+	"devices": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "model", Label: "model"},
+		{Field: "serialNumber", Label: "serialNumber"},
+		{Field: "operatingSystemVersion", Label: "osVersion"},
+		{Field: "enrollmentType", Label: "enrollmentType"},
+		{Field: "lastInventoryUpdateTime", Label: "lastInventory"},
+	},
+	"device-groups": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "description", Label: "description"},
+		{Field: "deviceType", Label: "deviceType"},
+		{Field: "groupType", Label: "groupType"},
+		{Field: "memberCount", Label: "memberCount"},
+	},
+}
+
 // templateOp wraps *parser.Operation with template-friendly fields.
 type templateOp struct {
 	*parser.Operation
-	GoName             string       // PascalCase form of Name, used in Go identifiers
-	Short              string       // Short help text for the cobra subcommand
-	Long               string       // Long help text — first paragraph of op description, plain text
-	Use                string       // cobra Use string, includes <param> placeholders for path params
-	PathParams         []string     // path parameter names in order of appearance in Path
-	HasBody            bool         // operation accepts a request body — emit --file/--set flags
-	NeedsConfirm       bool         // destructive op — emit --yes flag and ConfirmAction guard
-	UsesMergePatch     bool         // PATCH with application/merge-patch+json content type
-	SuccessCode        int          // success HTTP status code (200 default; 201 for create, 204 for delete/patch, etc.)
-	HasResult          bool         // operation returns a JSON response body to unmarshal/print
-	QueryParams        []queryParam // user-facing query flags (excludes pagination params we manage internally)
-	Paginate           bool         // op exposes page+page-size — emit a pagination loop
-	ListArrayKey       string       // JSON key holding the result array on a list response (empty if response shouldn't be unwrapped)
-	Scaffold           string       // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when op has no body)
-	SupportsNameLookup bool         // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
-	ListPath           string       // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
+	GoName             string        // PascalCase form of Name, used in Go identifiers
+	Short              string        // Short help text for the cobra subcommand
+	Long               string        // Long help text — first paragraph of op description, plain text
+	Use                string        // cobra Use string, includes <param> placeholders for path params
+	PathParams         []string      // path parameter names in order of appearance in Path
+	HasBody            bool          // operation accepts a request body — emit --file/--set flags
+	NeedsConfirm       bool          // destructive op — emit --yes flag and ConfirmAction guard
+	UsesMergePatch     bool          // PATCH with application/merge-patch+json content type
+	SuccessCode        int           // success HTTP status code (200 default; 201 for create, 204 for delete/patch, etc.)
+	HasResult          bool          // operation returns a JSON response body to unmarshal/print
+	QueryParams        []queryParam  // user-facing query flags (excludes pagination params we manage internally)
+	Paginate           bool          // op exposes page+page-size — emit a pagination loop
+	ListArrayKey       string        // JSON key holding the result array on a list response (empty if response shouldn't be unwrapped)
+	ListTableColumns   []tableColumn // preferred columns for table output on a list op (empty = emit raw)
+	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when op has no body)
+	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
+	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
 }
 
 // queryParam describes a CLI flag bound to a query string parameter.
@@ -169,6 +216,10 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		if supportsName {
 			opListPath = listPath
 		}
+		var listTableCols []tableColumn
+		if opCopy.Name == "list" {
+			listTableCols = platformTableColumns[r.Name]
+		}
 		ops = append(ops, templateOp{
 			Operation:          &opCopy,
 			GoName:             strcase.ToCamel(opCopy.Name),
@@ -184,6 +235,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			QueryParams:        buildQueryParams(opCopy.Parameters),
 			Paginate:           hasPaginationParams(opCopy.Parameters),
 			ListArrayKey:       detectListArrayKey(&opCopy),
+			ListTableColumns:   listTableCols,
 			Scaffold:           buildScaffold(&opCopy),
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,

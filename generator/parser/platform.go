@@ -40,7 +40,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.RemoveAll(filepath.Dir(tmpPath)) }()
 
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
@@ -230,11 +230,11 @@ func serviceSegment(doc map[string]any) string {
 	}
 	url, _ := srv["url"].(string)
 	const marker = "/api/"
-	idx := strings.Index(url, marker)
-	if idx < 0 {
+	_, after, ok := strings.Cut(url, marker)
+	if !ok {
 		return ""
 	}
-	return url[idx+len(marker):]
+	return after
 }
 
 // prependServiceSegment rewrites every path key from "/v1/foo" to
@@ -298,11 +298,11 @@ func trimPlatformPathPrefix(name string) string {
 
 func stripTenantSegment(p string) string {
 	const marker = "/tenant/{tenantId}"
-	idx := strings.Index(p, marker)
-	if idx < 0 {
+	before, after, ok := strings.Cut(p, marker)
+	if !ok {
 		return p
 	}
-	return p[:idx] + p[idx+len(marker):]
+	return before + after
 }
 
 func stripTenantParam(pi map[string]any) {
@@ -346,16 +346,16 @@ func writeNormalisedTempSpec(originalPath string, doc map[string]any) (string, e
 	tmpPath := filepath.Join(dir, filepath.Base(originalPath))
 	tmp, err := os.Create(tmpPath)
 	if err != nil {
-		os.RemoveAll(dir)
+		_ = os.RemoveAll(dir)
 		return "", fmt.Errorf("creating temp spec: %w", err)
 	}
 	enc := json.NewEncoder(tmp)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(doc); err != nil {
-		tmp.Close()
-		os.RemoveAll(dir)
+		_ = tmp.Close()
+		_ = os.RemoveAll(dir)
 		return "", fmt.Errorf("encoding normalised spec: %w", err)
 	}
-	tmp.Close()
+	_ = tmp.Close()
 	return tmpPath, nil
 }

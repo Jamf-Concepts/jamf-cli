@@ -45,9 +45,6 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(platformgen.NewBaselinesCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewBenchmarkReportsCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewBlueprintComponentsCmd(cliCtx))
-	cmd.AddCommand(platformgen.NewDeclarationReportsCmd(cliCtx))
-	cmd.AddCommand(platformgen.NewDeviceActionsCmd(cliCtx))
-	cmd.AddCommand(platformgen.NewDeviceReportsCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewRulesCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewPlatformUsersCmd(cliCtx))
 

@@ -64,6 +64,14 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+				{Field: "id", Label: "id"},
+				{Field: "title", Label: "title"},
+				{Field: "description", Label: "description"},
+				{Field: "syncState", Label: "syncState"},
+				{Field: "updateAvailable", Label: "updateAvailable"},
+				{Field: "modified", Label: "modified"},
+			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

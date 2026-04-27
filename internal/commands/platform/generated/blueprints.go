@@ -85,6 +85,14 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+				{Field: "id", Label: "id"},
+				{Field: "name", Label: "name"},
+				{Field: "deploymentState.state", Label: "state"},
+				{Field: "deploymentState.lastDeployment.started", Label: "lastDeployed"},
+				{Field: "created", Label: "created"},
+				{Field: "updated", Label: "updated"},
+			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

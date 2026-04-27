@@ -138,6 +138,15 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+				{Field: "id", Label: "id"},
+				{Field: "name", Label: "name"},
+				{Field: "model", Label: "model"},
+				{Field: "serialNumber", Label: "serialNumber"},
+				{Field: "operatingSystemVersion", Label: "osVersion"},
+				{Field: "enrollmentType", Label: "enrollmentType"},
+				{Field: "lastInventoryUpdateTime", Label: "lastInventory"},
+			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}

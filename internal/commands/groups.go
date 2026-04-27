@@ -287,9 +287,7 @@ var proGroupMap = map[string]string{
 	"baselines":              groupPlatform,
 	"benchmark-reports":      groupPlatform,
 	"blueprint-components":   groupPlatform,
-	"declaration-reports":    groupPlatform,
 	"device-actions":         groupPlatform,
-	"device-reports":         groupPlatform,
 	"rules":                  groupPlatform,
 	"platform-users":         groupPlatform,
 
