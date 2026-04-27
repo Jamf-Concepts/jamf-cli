@@ -36,8 +36,8 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Get list of rules for given baseline",
 		Long:  "Return list of the rules for given mSCP baseline together with sources that provide them",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/rules"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -63,7 +63,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&baselineId, "baseline-id", "", "")
+	cmd.Flags().StringVar(&baselineId, "baseline-id", "", "Filter by baseline-id")
 	_ = cmd.MarkFlagRequired("baseline-id")
 	return cmd
 }

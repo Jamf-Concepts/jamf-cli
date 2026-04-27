@@ -40,8 +40,8 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Requests that a device check for pending commands",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/check-in"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -82,8 +82,8 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"clearActivationLock\": false,\n  \"disallowProximitySetup\": false,\n  \"pin\": \"\",\n  \"preserveDataPlan\": false,\n  \"returnToService\": false\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
 				return err
@@ -128,8 +128,8 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Requests that a device restart",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
 				return err
@@ -168,8 +168,8 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Requests that a device shut down",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
 				return err
@@ -201,14 +201,18 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "unmanage <id>",
 		Short: "Unmanage a device",
 		Long:  "Removes remote management from a device",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
+				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/unmanage"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -232,6 +236,7 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 	return cmd
 }
 

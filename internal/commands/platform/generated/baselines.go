@@ -35,8 +35,8 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Return list of the mSCP baselines",
 		Long:  "Return list of the mSCP baselines allowed for the Compliance benchmarks",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/baselines"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)

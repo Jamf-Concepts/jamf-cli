@@ -36,8 +36,8 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "List available blueprint components",
 		Long:  "Get list of available blueprint components",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/blueprints/v1/tenant/{tenantId}/blueprint-components"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -85,8 +85,8 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Get component by identifier",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {

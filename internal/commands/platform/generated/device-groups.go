@@ -43,8 +43,8 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Get all device groups",
 		Long:  "Retrieve a paginated list of all device groups for the tenant",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -115,8 +115,8 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"\"\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -157,8 +157,8 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Delete an existing device group",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -203,8 +203,8 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve a specific device group by its ID",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -234,11 +234,6 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["criteria"].([]any); ok {
-					result = arr
-				}
-			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
@@ -267,8 +262,8 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"name\": \"\"\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -315,8 +310,8 @@ func newDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve all members of a device group",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -346,11 +341,6 @@ func newDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["results"].([]any); ok {
-					result = arr
-				}
-			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
@@ -379,8 +369,8 @@ func newDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command 
 				fmt.Println("{\n  \"added\": [],\n  \"removed\": []\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {

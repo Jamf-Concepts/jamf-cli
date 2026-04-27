@@ -42,8 +42,8 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve all device groups to which a specific device ID belongs<br/> If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -73,11 +73,6 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["results"].([]any); ok {
-					result = arr
-				}
-			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
@@ -97,8 +92,8 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Get all devices",
 		Long:  "Retrieve a paginated list of all devices",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -164,8 +159,8 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Delete an existing device",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -210,8 +205,8 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve a specific device by its ID",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -269,8 +264,8 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"name\": \"\",\n  \"userId\": \"\"\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -319,8 +314,8 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve a paginated list of applications installed on a specific device",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -360,7 +355,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					endpoint += "?" + encoded
 				}
 				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
+					Results []json.RawMessage `json:""`
 				}
 				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("applications: %w", err)

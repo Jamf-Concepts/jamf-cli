@@ -38,8 +38,8 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 		Long:  "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/compliance-percentage"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -77,8 +77,8 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Provide devices filtered report for a specific benchmark rule",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/devices"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -111,7 +111,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					endpoint += "?" + encoded
 				}
 				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
+					Results []json.RawMessage `json:""`
 				}
 				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("devices: %w", err)
@@ -128,10 +128,10 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&ruleId, "rule-id", "", "")
+	cmd.Flags().StringVar(&ruleId, "rule-id", "", "Filter by rule-id")
 	_ = cmd.MarkFlagRequired("rule-id")
 	cmd.Flags().StringVar(&deviceSearch, "device-search", "", "Search devices with matching device name or device ID")
-	cmd.Flags().StringVar(&ruleResult, "rule-result", "", "")
+	cmd.Flags().StringVar(&ruleResult, "rule-result", "", "Filter by rule-result")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort order of result (e.g., 'deviceName:asc', 'ruleResult:desc'). Supports chained sorting like 'deviceName,ruleResult:desc'. Ascending order is default and in such a case doesn't require to be specified.")
 	return cmd
 }
@@ -145,8 +145,8 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Provide benchmark rules stats for a specific benchmark",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/rules"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -173,7 +173,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					endpoint += "?" + encoded
 				}
 				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
+					Results []json.RawMessage `json:""`
 				}
 				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("rules: %w", err)

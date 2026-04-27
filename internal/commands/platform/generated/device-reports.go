@@ -36,8 +36,8 @@ func newDeviceReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Get a device report containing all the declarations reported for the provided deviceId.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/ddm/report/v1/tenant/{tenantId}/devices/{deviceId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -53,11 +53,6 @@ func newDeviceReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if result == nil {
 				return nil
-			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["channels"].([]any); ok {
-					result = arr
-				}
 			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {

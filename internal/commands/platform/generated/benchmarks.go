@@ -38,8 +38,8 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Return list of tenant benchmarks",
 		Long:  "Return list of tenant benchmarks (if any)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -93,8 +93,8 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"description\": \"\",\n  \"enforcementMode\": \"\",\n  \"rules\": [],\n  \"sourceBaselineId\": \"\",\n  \"sources\": [],\n  \"target\": {\n    \"deviceGroups\": []\n  },\n  \"title\": \"\"\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -135,8 +135,8 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Remove benchmark with given benchmark ID and remove associated draft (if any) and artifacts from the MDM",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -181,8 +181,8 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Return benchmark for given benchmark ID (if exists)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {

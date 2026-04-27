@@ -38,8 +38,8 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve a paginated list of devices associated with a specific user",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/users/{id}/devices"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -66,7 +66,7 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					endpoint += "?" + encoded
 				}
 				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
+					Results []json.RawMessage `json:""`
 				}
 				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("devices: %w", err)

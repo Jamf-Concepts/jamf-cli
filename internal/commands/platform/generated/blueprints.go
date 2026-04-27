@@ -44,8 +44,8 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "List blueprints",
 		Long:  "Get list of blueprints",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -116,8 +116,8 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
@@ -158,8 +158,8 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Delete a blueprint",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -204,8 +204,8 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Get a blueprint",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -235,11 +235,6 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["steps"].([]any); ok {
-					result = arr
-				}
-			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
@@ -268,8 +263,8 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
 				return nil
 			}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -316,8 +311,8 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Deploy blueprint",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -358,8 +353,8 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Retrieve deployment status report for a specified blueprint.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
@@ -408,8 +403,8 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Undeploy blueprint",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
