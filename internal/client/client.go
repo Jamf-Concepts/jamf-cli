@@ -367,6 +367,21 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 // bodyLogLimit is the maximum number of body bytes written to stderr at -vvv.
 const bodyLogLimit = 64 << 10 // 64 KB
 
+// BodyLogLimit is the truncation cap used by LogBody.
+const BodyLogLimit = bodyLogLimit
+
+// LogHeaders is the exported alias of logHeaders, callable from other packages
+// that wrap HTTP transports (e.g. the Platform Gateway client wired through
+// the SDK).
+func LogHeaders(w io.Writer, h http.Header, redactAuth bool) {
+	logHeaders(w, h, redactAuth)
+}
+
+// LogBody is the exported alias of logBody.
+func LogBody(w io.Writer, data []byte) {
+	logBody(w, data)
+}
+
 // logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
 // the Authorization header value is replaced with "[redacted]".
 func logHeaders(w io.Writer, h http.Header, redactAuth bool) {

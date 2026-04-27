@@ -52,7 +52,7 @@ const LibraryFilename = "_MonolithLibrary.yaml"
 // writes per-resource spec files into specsDir. monolithSource may be a
 // local file path OR an http(s):// URL; URLs are fetched anonymously.
 // Existing *.yaml files at the root of specsDir are removed; subdirectories
-// (classic/, blueprint-components/) are left untouched. Files listed in
+// (classic/) are left untouched. Files listed in
 // PreservedSpecs (and any library files they depend on) are also left in
 // place.
 //
@@ -665,7 +665,7 @@ func rewriteSharedRefs(v any, shared map[string]bool, libraryFile string) any {
 }
 
 // wipeRootYAMLs deletes every *.yaml file directly in specsDir (not in any
-// subdirectory). Subdirs like classic/ and blueprint-components/ are preserved,
+// subdirectory). Subdirs like classic/ are preserved,
 // as are any files listed in PreservedSpecs and any library/definitions/common
 // files that preserved specs may reference.
 func wipeRootYAMLs(specsDir string) error {

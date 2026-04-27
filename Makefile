@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs install lint verify-generated verify-site smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-site smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -89,7 +89,7 @@ JAMF_MONOLITH_SPEC ?=
 #   make sync-spec JAMF_MONOLITH_SPEC=/path/to/monolith-schema.json
 #   make sync-spec JAMF_MONOLITH_SPEC=https://<instance>/api/schema/
 # Preserved spec files (see generator/monolith/overrides.go PreservedSpecs) and
-# the classic/ and blueprint-components/ subdirectories are left untouched.
+# the classic/ subdirectory is left untouched.
 sync-spec:
 	@if [ -z "$(JAMF_MONOLITH_SPEC)" ]; then \
 		echo "Error: JAMF_MONOLITH_SPEC is not set."; \
@@ -109,6 +109,24 @@ sync-spec:
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
 	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
+
+# Sync Jamf Platform Gateway specs from the gitignored .platform-source/
+# directory into the published specs/platform/ tree, then regenerate. Drop
+# updated *.json specs into specs/.platform-source/ and run this target —
+# the spec layout, structure, and content remain unchanged on copy; the
+# generator (generator/platform/) does the rest.
+sync-platform-specs:
+	@if [ ! -d "specs/.platform-source" ]; then \
+		echo "Error: specs/.platform-source/ not found"; \
+		echo "Drop Platform Gateway *.json specs into specs/.platform-source/ first."; \
+		exit 1; \
+	fi
+	@mkdir -p specs/platform
+	@rm -f specs/platform/*.json
+	@cp specs/.platform-source/*.json specs/platform/
+	@echo "Copied $$(ls specs/platform/*.json | wc -l | tr -d ' ') platform spec(s) to specs/platform/"
+	@$(MAKE) generate
+	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
 
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec

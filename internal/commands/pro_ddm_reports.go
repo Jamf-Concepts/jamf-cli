@@ -11,6 +11,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
 )
 
 func newDDMReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -37,11 +38,11 @@ func newDDMDeviceReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
-			report, err := cliCtx.PlatformClient.GetDeviceDeclarationReport(ctx, id)
+			report, err := ddmreport.New(cliCtx.PlatformSDKClient).GetDeviceDeclarationReport(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -60,7 +61,7 @@ func newDDMDeclarationReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			clients, err := cliCtx.PlatformClient.ListDeclarationReportClients(cmd.Context(), args[0], sortFields)
+			clients, err := ddmreport.New(cliCtx.PlatformSDKClient).ListDeclarationReportClients(cmd.Context(), args[0], sortFields)
 			if err != nil {
 				return err
 			}
@@ -100,7 +101,7 @@ validity state, including the error reason codes and descriptions.`,
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			clients, err := cliCtx.PlatformClient.ListDeclarationReportClients(cmd.Context(), args[0], nil)
+			clients, err := ddmreport.New(cliCtx.PlatformSDKClient).ListDeclarationReportClients(cmd.Context(), args[0], nil)
 			if err != nil {
 				return err
 			}

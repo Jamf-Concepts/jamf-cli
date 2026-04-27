@@ -11,10 +11,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Jamf-Concepts/jamf-cli/generator/blueprintcomponents"
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
 	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
+	"github.com/Jamf-Concepts/jamf-cli/generator/platform"
 )
 
 // smokeEntry collects endpoint metadata from both modern and classic generators.
@@ -73,8 +73,8 @@ func main() {
 	}
 
 	// If a monolith was provided, split it into per-resource spec files first.
-	// The splitter overwrites *.yaml in the root of specsDir; classic/ and
-	// blueprint-components/ subdirectories are left untouched.
+	// The splitter overwrites *.yaml in the root of specsDir; the classic/
+	// subdirectory is left untouched.
 	if monolithPath != "" {
 		fmt.Println("Splitting monolith spec")
 		fmt.Println("-----------------------")
@@ -233,26 +233,54 @@ func main() {
 		fmt.Printf("Successfully generated %d classic resource command(s)\n", len(classicResources))
 	}
 
-	// ── Blueprint component scaffolds ────────────────────────────
-	bcSpecsDir := filepath.Join(specsDir, "blueprint-components")
-	if _, err := os.Stat(bcSpecsDir); err == nil {
+	// ── Platform Gateway commands ────────────────────────────────
+	platformSpecsDir := filepath.Join(specsDir, "platform")
+	if _, err := os.Stat(platformSpecsDir); err == nil {
 		fmt.Println()
-		fmt.Println("Blueprint component scaffold generation")
-		fmt.Println("=======================================")
-		fmt.Printf("Specs directory: %s\n\n", bcSpecsDir)
+		fmt.Println("Platform Gateway command generation")
+		fmt.Println("===================================")
+		fmt.Printf("Specs directory: %s\n\n", platformSpecsDir)
 
-		bcOutputDir := "./internal/blueprintcomponents"
-		if err := os.MkdirAll(bcOutputDir, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		platformOutputDir := "./internal/commands/platform/generated"
+		if err := os.MkdirAll(platformOutputDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating platform output directory: %v\n", err)
 			os.Exit(1)
 		}
 
-		outPath, err := blueprintcomponents.Generate(bcSpecsDir, bcOutputDir)
+		platformResources, err := platform.LoadResources(platformSpecsDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error generating blueprint component scaffolds: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error loading platform specs: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Generated: %s\n", outPath)
+
+		platformFiles, err := platform.Generate(platformResources, platformOutputDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating platform commands: %v\n", err)
+			os.Exit(1)
+		}
+		platformGenerated := make(map[string]bool, len(platformFiles))
+		for _, f := range platformFiles {
+			fmt.Printf("Generated: %s\n", f)
+			platformGenerated[filepath.Base(f)] = true
+		}
+		fmt.Println()
+		fmt.Printf("Successfully generated %d platform resource file(s)\n", len(platformFiles))
+
+		// Remove stale files in the platform output dir that this run did not
+		// produce — keeps the directory in sync when resources are dropped
+		// from specs.
+		existingPlatform, _ := filepath.Glob(filepath.Join(platformOutputDir, "*.go"))
+		for _, f := range existingPlatform {
+			base := filepath.Base(f)
+			if strings.HasSuffix(base, "_test.go") {
+				continue
+			}
+			if !platformGenerated[base] {
+				if err := os.Remove(f); err == nil {
+					fmt.Printf("Removed stale: %s\n", base)
+				}
+			}
+		}
 	}
 
 	// ── Smoke test registry ──────────────────────────────────────

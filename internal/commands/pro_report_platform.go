@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
-	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 // ── Blueprint Status Report ────────────────────────────────────────────────
@@ -30,9 +32,9 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			c := cliCtx.PlatformSDKClient
 
-			bps, err := pc.ListBlueprints(ctx, nil, "")
+			bps, err := blueprints.New(c).ListBlueprints(ctx, nil, "")
 			if err != nil {
 				return err
 			}
@@ -48,7 +50,7 @@ failed, and pending device counts. Requires platform gateway auth.`,
 					"state": state,
 				}
 
-				detail, err := pc.GetBlueprint(ctx, bp.ID)
+				detail, err := blueprints.New(c).GetBlueprint(ctx, bp.ID)
 				if err == nil {
 					if detail.Scope != nil {
 						row["scope"] = len(detail.Scope.DeviceGroups)
@@ -59,7 +61,7 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				}
 
 				if state == "DEPLOYED" {
-					report, err := pc.GetBlueprintReport(ctx, bp.ID)
+					report, err := blueprints.New(c).GetBlueprintReport(ctx, bp.ID)
 					if err == nil {
 						row["succeeded"] = report.Succeeded
 						row["failed"] = report.Failed
@@ -111,10 +113,10 @@ shows only rules that have failing devices).`,
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			c := cliCtx.PlatformSDKClient
 
-			r := platform.NewResolver(pc)
-			benchmarkID, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			benchmarkID, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
@@ -124,7 +126,7 @@ shows only rules that have failing devices).`,
 				sort = "failed:desc"
 			}
 
-			stats, err := pc.ListBenchmarkRulesStats(ctx, benchmarkID, sort, search)
+			stats, err := compliancebenchmarks.New(c).ListBenchmarkRulesStats(ctx, benchmarkID, sort, search)
 			if err != nil {
 				return err
 			}
@@ -200,16 +202,16 @@ of failing rules.`,
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			c := cliCtx.PlatformSDKClient
 
-			r := platform.NewResolver(pc)
-			benchmarkID, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			benchmarkID, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
 
 			// Get all rules stats
-			stats, err := pc.ListBenchmarkRulesStats(ctx, benchmarkID, "failed:desc", "")
+			stats, err := compliancebenchmarks.New(c).ListBenchmarkRulesStats(ctx, benchmarkID, "failed:desc", "")
 			if err != nil {
 				return err
 			}
@@ -231,7 +233,7 @@ of failing rules.`,
 				if s.Failed == 0 && state == "FAILED" {
 					continue
 				}
-				results, err := pc.ListBenchmarkRuleDevices(ctx, benchmarkID, s.RuleID, "", "", state)
+				results, err := compliancebenchmarks.New(c).ListBenchmarkRuleDevices(ctx, benchmarkID, s.RuleID, "", "", state)
 				if err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch devices for rule %q: %v\n", s.RuleTitle, err)
 					continue
@@ -372,16 +374,16 @@ Requires platform gateway auth.`,
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			c := cliCtx.PlatformSDKClient
 
 			// Build lookup maps for resolving declaration identifiers
 			bpNames := make(map[string]string)
-			if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {
+			if bps, err := blueprints.New(c).ListBlueprints(ctx, nil, ""); err == nil {
 				for _, bp := range bps {
 					bpNames[bp.ID] = bp.Name
 				}
 			}
-			devices, err := pc.ListDevices(ctx, nil, "")
+			devices, err := devices.New(c).ListDevices(ctx, nil, "")
 			if err != nil {
 				return err
 			}
@@ -404,7 +406,7 @@ Requires platform gateway auth.`,
 			var deviceErrors []deviceError
 
 			for _, dev := range devices {
-				report, err := pc.GetDeviceDeclarationReport(ctx, dev.ID)
+				report, err := ddmreport.New(c).GetDeviceDeclarationReport(ctx, dev.ID)
 				if err != nil {
 					continue
 				}

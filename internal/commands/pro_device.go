@@ -13,8 +13,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
-	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
 func newDeviceCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -120,7 +124,7 @@ func runDeviceDeepDive(ctx context.Context, cliCtx *registry.CLIContext, identif
 	}
 
 	// 7. Platform sections (blueprints + compliance) when platform auth is active.
-	if cliCtx.PlatformClient != nil {
+	if cliCtx.PlatformSDKClient != nil {
 		serial := strVal(hardware, "serialNumber")
 		platformSections := fetchDevicePlatformSections(ctx, cliCtx, serial)
 		sections = append(sections, platformSections...)
@@ -374,21 +378,24 @@ func boolDisplay(v bool) string {
 // for a device identified by serial number. It resolves the device's platform
 // device groups and cross-references them against blueprints and benchmarks.
 func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContext, serial string) []overviewSection {
-	pc := cliCtx.PlatformClient
+	c := cliCtx.PlatformSDKClient
+	bp := blueprints.New(c)
+	cb := compliancebenchmarks.New(c)
+	dg := devicegroups.New(c)
 	if serial == "" {
 		return nil
 	}
 
 	// Resolve serial to platform device ID
-	r := platform.NewResolver(pc)
-	devID, err := r.ResolveDeviceIDBySerial(ctx, serial)
+	d := devices.New(cliCtx.PlatformSDKClient)
+	devID, err := d.ResolveDeviceIDBySerialNumber(ctx, serial)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to resolve platform device: %v\n", err)
 		return nil
 	}
 
 	// Get device's group memberships
-	deviceGroups, err := pc.ListDeviceGroupsForDevice(ctx, devID)
+	deviceGroups, err := dg.ListDeviceGroupsForDevice(ctx, devID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to fetch platform device groups: %v\n", err)
 		return nil
@@ -412,16 +419,16 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	// DDM declaration report — aggregate by source, show errors
 	go func() {
 		defer wg.Done()
-		report, err := pc.GetDeviceDeclarationReport(ctx, devID)
+		report, err := ddmreport.New(c).GetDeviceDeclarationReport(ctx, devID)
 		if err != nil {
 			return
 		}
 
 		// Build lookup maps
 		bpNames := make(map[string]string)
-		if bps, err := pc.ListBlueprints(ctx, nil, ""); err == nil {
-			for _, bp := range bps {
-				bpNames[bp.ID] = bp.Name
+		if bps, err := bp.ListBlueprints(ctx, nil, ""); err == nil {
+			for _, item := range bps {
+				bpNames[item.ID] = item.Name
 			}
 		}
 		type sourceAgg struct {
@@ -500,13 +507,13 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	// Blueprints scoped to this device's groups
 	go func() {
 		defer wg.Done()
-		bps, err := pc.ListBlueprints(ctx, nil, "")
+		bps, err := bp.ListBlueprints(ctx, nil, "")
 		if err != nil {
 			return
 		}
 		var items []overviewItem
-		for _, bp := range bps {
-			detail, err := pc.GetBlueprint(ctx, bp.ID)
+		for _, item := range bps {
+			detail, err := bp.GetBlueprint(ctx, item.ID)
 			if err != nil {
 				continue
 			}
@@ -525,13 +532,13 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 
 	go func() {
 		defer wg.Done()
-		resp, err := pc.ListBenchmarks(ctx)
+		resp, err := cb.ListBenchmarks(ctx)
 		if err != nil {
 			return
 		}
 		var items []overviewItem
 		for _, b := range resp.Benchmarks {
-			bm, err := pc.GetBenchmark(ctx, b.ID)
+			bm, err := cb.GetBenchmark(ctx, b.ID)
 			if err != nil {
 				continue
 			}

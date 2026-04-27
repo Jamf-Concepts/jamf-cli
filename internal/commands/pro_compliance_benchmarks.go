@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
@@ -78,7 +79,7 @@ func newCBBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			resp, err := cliCtx.PlatformClient.ListBaselines(cmd.Context())
+			resp, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBaselines(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -111,7 +112,7 @@ func newCBListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			resp, err := cliCtx.PlatformClient.ListBenchmarks(cmd.Context())
+			resp, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBenchmarks(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -152,12 +153,12 @@ func newCBGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(cmd.Context(), args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBenchmarkIDByName(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
-			bm, err := cliCtx.PlatformClient.GetBenchmark(cmd.Context(), id)
+			bm, err := cb.GetBenchmark(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -229,8 +230,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// Legacy format with no override: pass IDs through directly.
 				groupIDs = legacyGroupIDs
 			} else {
-				r := platform.NewResolver(cliCtx.PlatformClient)
-				groupIDs, err = cbResolveTargetGroups(ctx, r, input.Target.DeviceGroups, computerGroups)
+				groupIDs, err = cbResolveTargetGroups(ctx, cliCtx.PlatformSDKClient, input.Target.DeviceGroups, computerGroups)
 				if err != nil {
 					return err
 				}
@@ -244,7 +244,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				Target:           compliancebenchmarks.TargetV2{DeviceGroups: groupIDs},
 				EnforcementMode:  input.EnforcementMode,
 			}
-			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
+			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -270,16 +270,16 @@ func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			bm, err := cliCtx.PlatformClient.GetBenchmark(ctx, id)
+			bm, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBenchmark(ctx, id)
 			if err != nil {
 				return err
 			}
-			groups, err := cliCtx.PlatformClient.ListDeviceGroups(ctx, nil, "")
+			groups, err := devicegroups.New(cliCtx.PlatformSDKClient).ListDeviceGroups(ctx, nil, "")
 			if err != nil {
 				return fmt.Errorf("listing device groups for export: %w", err)
 			}
@@ -304,18 +304,18 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			srcID, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			srcID, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			src, err := cliCtx.PlatformClient.GetBenchmark(ctx, srcID)
+			src, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBenchmark(ctx, srcID)
 			if err != nil {
 				return err
 			}
 			var targetGroupIDs []string
 			if len(computerGroups) > 0 {
-				targetGroupIDs, err = cbResolveNameList(ctx, r, computerGroups)
+				targetGroupIDs, err = cbResolveNameList(ctx, cliCtx.PlatformSDKClient, computerGroups)
 				if err != nil {
 					return err
 				}
@@ -331,7 +331,7 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				Target:           compliancebenchmarks.TargetV2{DeviceGroups: targetGroupIDs},
 				EnforcementMode:  src.EnforcementMode,
 			}
-			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
+			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -361,9 +361,9 @@ func newCBDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var id, displayName string
 			switch {
 			case name != "":
-				r := platform.NewResolver(cliCtx.PlatformClient)
+				cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
 				var err error
-				id, err = r.ResolveBenchmarkID(ctx, name)
+				id, err = cb.ResolveBenchmarkIDByName(ctx, name)
 				if err != nil {
 					return err
 				}
@@ -381,7 +381,7 @@ func newCBDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			if err := cliCtx.PlatformClient.DeleteBenchmark(ctx, id); err != nil {
+			if err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).DeleteBenchmark(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Deleted benchmark %q\n", displayName)
@@ -405,12 +405,12 @@ func newCBRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBaselineID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBaselineIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			resp, err := cliCtx.PlatformClient.GetBaselineRules(ctx, id)
+			resp, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBaselineRules(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -448,12 +448,12 @@ func newCBStatsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			stats, err := cliCtx.PlatformClient.ListBenchmarkRulesStats(ctx, id, sort, ruleSearch)
+			stats, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBenchmarkRulesStats(ctx, id, sort, ruleSearch)
 			if err != nil {
 				return err
 			}
@@ -496,12 +496,12 @@ func newCBDeviceResultsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			bmID, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			bmID, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			results, err := cliCtx.PlatformClient.ListBenchmarkRuleDevices(ctx, bmID, args[1], sort, deviceSearch, state)
+			results, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBenchmarkRuleDevices(ctx, bmID, args[1], sort, deviceSearch, state)
 			if err != nil {
 				return err
 			}
@@ -539,12 +539,12 @@ func newCBComplianceCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			pct, err := cliCtx.PlatformClient.GetBenchmarkCompliancePercentage(ctx, id)
+			pct, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBenchmarkCompliancePercentage(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -635,9 +635,10 @@ func cbPortableGroupsValid(groups []benchmarkPortableGroup) bool {
 	return true
 }
 
-// cbResolveTargetGroups resolves group names to IDs.
-// If overrideNames is non-empty it takes precedence over the portable groups from input.
-func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGroups []benchmarkPortableGroup, overrideNames []string) ([]string, error) {
+// cbResolveTargetGroups resolves group names to IDs via the SDK's
+// devicegroups subpackage. If overrideNames is non-empty it takes precedence
+// over the portable groups from input.
+func cbResolveTargetGroups(ctx context.Context, c *jamfplatform.Client, portableGroups []benchmarkPortableGroup, overrideNames []string) ([]string, error) {
 	names := overrideNames
 	if len(names) == 0 {
 		names = make([]string, 0, len(portableGroups))
@@ -645,14 +646,15 @@ func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGr
 			names = append(names, g.Name)
 		}
 	}
-	return cbResolveNameList(ctx, r, names)
+	return cbResolveNameList(ctx, c, names)
 }
 
 // cbResolveNameList resolves a list of device group names to IDs.
-func cbResolveNameList(ctx context.Context, r *platform.Resolver, names []string) ([]string, error) {
+func cbResolveNameList(ctx context.Context, c *jamfplatform.Client, names []string) ([]string, error) {
+	dg := devicegroups.New(c)
 	ids := make([]string, 0, len(names))
 	for _, name := range names {
-		id, err := r.ResolveDeviceGroupID(ctx, name)
+		id, err := dg.ResolveDeviceGroupIDByName(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -665,14 +667,14 @@ func cbResolveNameList(ctx context.Context, r *platform.Resolver, names []string
 // baselineID is the raw API ID (from 'pro compliance-benchmarks baselines').
 // All rules are set to enabled: true as a starting point.
 func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, baselineID string) error {
-	resp, err := cliCtx.PlatformClient.GetBaselineRules(ctx, baselineID)
+	resp, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBaselineRules(ctx, baselineID)
 	if err != nil {
 		return err
 	}
 
 	// Look up title and description from the baselines list.
 	var baselineTitle, baselineDescription string
-	bls, blsErr := cliCtx.PlatformClient.ListBaselines(ctx)
+	bls, blsErr := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBaselines(ctx)
 	if blsErr != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not fetch baseline metadata for title/description: %v\n", blsErr)
 	} else {

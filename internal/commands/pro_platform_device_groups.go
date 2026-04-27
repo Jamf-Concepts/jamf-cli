@@ -55,7 +55,7 @@ func newPDGListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			groups, err := cliCtx.PlatformClient.ListDeviceGroups(cmd.Context(), sortFields, filter)
+			groups, err := devicegroups.New(cliCtx.PlatformSDKClient).ListDeviceGroups(cmd.Context(), sortFields, filter)
 			if err != nil {
 				return err
 			}
@@ -85,12 +85,12 @@ func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveDeviceGroupID(ctx, args[0])
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			id, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			group, err := cliCtx.PlatformClient.GetDeviceGroup(ctx, id)
+			group, err := devicegroups.New(cliCtx.PlatformSDKClient).GetDeviceGroup(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -130,16 +130,16 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("input must include a 'name' field")
 			}
 
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, resolveErr := r.ResolveDeviceGroupID(ctx, createReq.Name)
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			id, resolveErr := dg.ResolveDeviceGroupIDByName(ctx, createReq.Name)
 			if resolveErr != nil {
 				// Not found — create
-				result, err := cliCtx.PlatformClient.CreateDeviceGroup(ctx, &createReq)
+				result, err := devicegroups.New(cliCtx.PlatformSDKClient).CreateDeviceGroup(ctx, &createReq)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created device group %q (id: %s)\n", createReq.Name, result.ID)
-				group, err := cliCtx.PlatformClient.GetDeviceGroup(ctx, result.ID)
+				group, err := devicegroups.New(cliCtx.PlatformSDKClient).GetDeviceGroup(ctx, result.ID)
 				if err != nil {
 					return err
 				}
@@ -160,11 +160,11 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				Description: createReq.Description,
 				Criteria:    createReq.Criteria,
 			}
-			if err := cliCtx.PlatformClient.UpdateDeviceGroup(ctx, id, updateReq); err != nil {
+			if err := devicegroups.New(cliCtx.PlatformSDKClient).UpdateDeviceGroup(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated device group %q\n", createReq.Name)
-			group, err := cliCtx.PlatformClient.GetDeviceGroup(ctx, id)
+			group, err := devicegroups.New(cliCtx.PlatformSDKClient).GetDeviceGroup(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -199,8 +199,8 @@ func newPDGDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveDeviceGroupID(ctx, args[0])
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			id, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
@@ -211,7 +211,7 @@ func newPDGDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			if err := cliCtx.PlatformClient.DeleteDeviceGroup(ctx, id); err != nil {
+			if err := devicegroups.New(cliCtx.PlatformSDKClient).DeleteDeviceGroup(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Deleted device group %q\n", args[0])
@@ -232,12 +232,12 @@ func newPDGMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveDeviceGroupID(ctx, args[0])
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			id, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			members, err := cliCtx.PlatformClient.ListDeviceGroupMembers(ctx, id)
+			members, err := devicegroups.New(cliCtx.PlatformSDKClient).ListDeviceGroupMembers(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -268,15 +268,15 @@ func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("at least one --id is required")
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			groupID, err := r.ResolveDeviceGroupID(ctx, args[0])
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			groupID, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
 			patch := &devicegroups.DeviceGroupMemberPatchRepresentationV1{
 				Added: &ids,
 			}
-			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
+			if err := devicegroups.New(cliCtx.PlatformSDKClient).UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Added %d device(s) to group %q\n", len(ids), args[0])
@@ -301,15 +301,15 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("at least one --id is required")
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			groupID, err := r.ResolveDeviceGroupID(ctx, args[0])
+			dg := devicegroups.New(cliCtx.PlatformSDKClient)
+			groupID, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
 			patch := &devicegroups.DeviceGroupMemberPatchRepresentationV1{
 				Removed: &ids,
 			}
-			if err := cliCtx.PlatformClient.UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
+			if err := devicegroups.New(cliCtx.PlatformSDKClient).UpdateDeviceGroupMembers(ctx, groupID, patch); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Removed %d device(s) from group %q\n", len(ids), args[0])

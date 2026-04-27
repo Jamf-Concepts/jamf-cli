@@ -40,12 +40,15 @@ After modifying a template: `make generate && make test`
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
-| Add/modify DDM component scaffolds | `generator/blueprintcomponents/generator.go` (generator) or `internal/blueprintcomponents/scaffolds.go` (generated output) |
+| Add/modify DDM component scaffolds | `internal/blueprintcomponents/scaffolds.go` — SDK-typed components via `example*()` funcs; raw JSON fallback in `rawScaffolds` for components not yet in SDK |
 | Add a new legacy-to-DDM payload converter | `internal/profileconvert/ddm_<name>.go` (new converter + register in `ddm_converter.go` init) |
 | Add/remove a resource in the `backup`/`diff` commands | `internal/commands/pro_resources.go` (curated allowlist; endpoints come from generated `backup_registry.go`) |
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API command (blueprints, etc.) | `internal/commands/pro_blueprints.go`, `pro_compliance_benchmarks.go`, etc. (wire in `pro.go`) |
-| Change Platform name-to-ID resolution | `internal/platform/resolve.go` |
+| Add or change a generated Platform API resource | drop a spec into `specs/.platform-source/*.json`, then `make sync-platform-specs && make generate` |
+| Change behavior of all generated Platform commands | `generator/platform/template.go` (`resourceTemplate`) |
+| Change Platform spec parsing (tenant prefix, tag grouping) | `generator/parser/platform.go` |
+| Change Platform name-to-ID resolution | `internal/platform/resolve.go` (hand-written, typed); `internal/platform/resolve_generic.go` (generated, untyped) |
 | Add a new Jamf Protect command | `internal/commands/protect_*.go` (new file + wire in `protect.go`) |
 | Change Protect name-to-ID resolution | `internal/protect/resolve.go` |
 | Change Protect YAML import/export schemas | `internal/commands/protect_analytics.go`, `protect_ulf.go` |
@@ -105,7 +108,7 @@ internal/
   auth/                  Auth providers (OAuth2, Platform, Token) — Jamf Pro only
   client/                HTTP client with retry, auth injection, exit-code mapping — Jamf Pro only
   config/                YAML config, secret resolution, auto-migration
-  blueprintcomponents/   Generated DDM component scaffolds (example JSON for each component type)
+  blueprintcomponents/   DDM component scaffolds — SDK-typed structs (10 components) + raw JSON fallback (4 pending SDK support)
   profileconvert/        Mobileconfig/plist → DDM conversion, Apple schema fetching, legacy-to-native DDM payload converters (ddm_*.go)
   scope/                 Classic API scope XML types (shared by profile import and scope resolution)
   platform/              Jamf Platform helpers: name-to-ID Resolver, PrintList/PrintOne output
@@ -123,7 +126,6 @@ docs/site/               GitHub Pages showcase site (HTML/CSS/JS, deployed via G
 generator/
   parser/                Modern API generator (OpenAPI → commands)
   classic/               Classic API generator (YAML manifest → commands)
-  blueprintcomponents/   DDM component scaffold generator
   monolith/              Consolidated OpenAPI splitter: monolith → per-resource specs/*.yaml
   site/                  Site data generator: introspects binary → commands.json
 ```
@@ -137,9 +139,6 @@ specs/*.yaml ──────────────► generator/parser/   �
 
 specs/classic/resources.yaml ► generator/classic/ ──► internal/commands/pro/generated/classic_*.go
                                ParseManifest()        + classic_registry.go
-
-specs/blueprint-               generator/blueprint-   internal/blueprintcomponents/scaffolds.go
-  components/*.json ──────────► components/
 
 All resources ────────────────► smoke_registry.go (every GET for smoke tests)
                                ► backup_registry.go (list+get pairs for backup/diff)

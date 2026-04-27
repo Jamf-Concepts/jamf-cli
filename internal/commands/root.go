@@ -525,7 +525,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
 			// token lifecycle independently from the Pro HTTP client.
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-				cliCtx.PlatformClient = newPlatformSDKClient(
+				cliCtx.PlatformSDKClient = newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
 					!quiet && verboseLevel == 0,
 				)
@@ -1033,7 +1033,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	// When platform credentials are present, also construct the Platform SDK
 	// client for blueprint and DDM report commands.
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
-		cliCtx.PlatformClient = newPlatformSDKClient(
+		cliCtx.PlatformSDKClient = newPlatformSDKClient(
 			platformURL, cid, csecret, tid,
 			!quiet && verboseLevel == 0,
 		)

@@ -19,6 +19,8 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 type overviewSection struct {
@@ -1086,7 +1088,7 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 
 	// ── Platform API metrics (only when platform auth is active) ──────────
 	var platformSection *overviewSection
-	if cliCtx.PlatformClient != nil {
+	if cliCtx.PlatformSDKClient != nil {
 		platformSection = fetchPlatformOverview(ctx, cliCtx)
 	}
 
@@ -1440,7 +1442,9 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 // fetchPlatformOverview fetches Platform API metrics in parallel and returns
 // a "Platform" overview section. Returns nil if all calls fail.
 func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *overviewSection {
-	pc := cliCtx.PlatformClient
+	c := cliCtx.PlatformSDKClient
+	bp := blueprints.New(c)
+	cb := compliancebenchmarks.New(c)
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -1463,7 +1467,7 @@ func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *ov
 
 	// Blueprints: list + count deployed
 	wg.Go(func() {
-		bps, err := pc.ListBlueprints(ctx, nil, "")
+		bps, err := bp.ListBlueprints(ctx, nil, "")
 		if err != nil {
 			send("bp_total", "N/A")
 			return
@@ -1480,7 +1484,7 @@ func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *ov
 
 	// Compliance Benchmarks: list + average compliance
 	wg.Go(func() {
-		resp, err := pc.ListBenchmarks(ctx)
+		resp, err := cb.ListBenchmarks(ctx)
 		if err != nil {
 			send("cb_total", "N/A")
 			return
@@ -1504,7 +1508,7 @@ func fetchPlatformOverview(ctx context.Context, cliCtx *registry.CLIContext) *ov
 		var totalPct float32
 		var pctCount int
 		for _, b := range benchmarks {
-			pct, err := pc.GetBenchmarkCompliancePercentage(ctx, b.ID)
+			pct, err := cb.GetBenchmarkCompliancePercentage(ctx, b.ID)
 			if err != nil {
 				continue
 			}

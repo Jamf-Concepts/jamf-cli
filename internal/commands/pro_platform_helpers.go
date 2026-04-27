@@ -3,9 +3,11 @@
 package commands
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/http/cookiejar"
 	"os"
 	"path/filepath"
@@ -14,21 +16,63 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"gopkg.in/yaml.v3"
 
+	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
+
+// platformVerboseTransport wraps an http.RoundTripper to mirror the verbose
+// logging the Pro HTTP client (internal/client) emits — request/response
+// lines at -v, headers at -vv, bodies at -vvv. Plumbed into the SDK via
+// WithHTTPClient so spec-generated commands log the same way as hand-written
+// Pro commands.
+type platformVerboseTransport struct {
+	inner http.RoundTripper
+	level int
+}
+
+func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.level >= 1 {
+		fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, req.URL)
+	}
+	if t.level >= 2 {
+		jamfclient.LogHeaders(os.Stderr, req.Header, true)
+	}
+	if t.level >= 3 && req.Body != nil && req.Body != http.NoBody {
+		raw, err := io.ReadAll(io.LimitReader(req.Body, jamfclient.BodyLogLimit))
+		_ = req.Body.Close()
+		if err == nil {
+			jamfclient.LogBody(os.Stderr, raw)
+			req.Body = io.NopCloser(bytes.NewReader(raw))
+			req.ContentLength = int64(len(raw))
+		}
+	}
+
+	resp, err := t.inner.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+
+	if t.level >= 1 {
+		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)
+	}
+	if t.level >= 2 {
+		jamfclient.LogHeaders(os.Stderr, resp.Header, false)
+	}
+	if t.level >= 3 && resp.Body != nil {
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jamfclient.BodyLogLimit))
+		_ = resp.Body.Close()
+		jamfclient.LogBody(os.Stderr, preview)
+		resp.Body = io.NopCloser(bytes.NewReader(preview))
+	}
+	return resp, nil
+}
 
 // requirePlatformClient returns an error if the Platform SDK client is not
 // available. Platform commands call this at the top of RunE so users get a
 // clear message instead of a nil-pointer panic.
 func requirePlatformClient(cliCtx *registry.CLIContext) error {
-	if cliCtx.PlatformClient == nil {
+	if cliCtx.PlatformSDKClient == nil {
 		return fmt.Errorf("this command requires platform gateway auth\n\n" +
 			"Set up a platform profile:\n" +
 			"  jamf-cli config add-profile <name> --auth-method platform --url <gateway-url> --tenant-id <id>\n\n" +
@@ -38,205 +82,11 @@ func requirePlatformClient(cliCtx *registry.CLIContext) error {
 	return nil
 }
 
-// platformClientWrapper composes subpackage clients from the v0.7+ SDK into the
-// single registry.PlatformClient interface expected by all command code.
-type platformClientWrapper struct {
-	base *jamfplatform.Client
-	bp   *blueprints.Client
-	cb   *compliancebenchmarks.Client
-	ddm  *ddmreport.Client
-	da   *deviceactions.Client
-	dg   *devicegroups.Client
-	dev  *devices.Client
-}
-
-func newPlatformWrapper(base *jamfplatform.Client) *platformClientWrapper {
-	return &platformClientWrapper{
-		base: base,
-		bp:   blueprints.New(base),
-		cb:   compliancebenchmarks.New(base),
-		ddm:  ddmreport.New(base),
-		da:   deviceactions.New(base),
-		dg:   devicegroups.New(base),
-		dev:  devices.New(base),
-	}
-}
-
-func (w *platformClientWrapper) BaseURL() string { return w.base.BaseURL() }
-func (w *platformClientWrapper) ValidateCredentials(ctx context.Context) error {
-	return w.base.ValidateCredentials(ctx)
-}
-
-// Blueprints
-func (w *platformClientWrapper) ListBlueprints(ctx context.Context, sort []string, search string) ([]blueprints.BlueprintOverview, error) {
-	return w.bp.ListBlueprints(ctx, sort, search)
-}
-
-func (w *platformClientWrapper) GetBlueprint(ctx context.Context, id string) (*blueprints.BlueprintDetail, error) {
-	return w.bp.GetBlueprint(ctx, id)
-}
-
-func (w *platformClientWrapper) CreateBlueprint(ctx context.Context, req *blueprints.CreateBlueprintRequest) (*blueprints.CreateResponse, error) {
-	return w.bp.CreateBlueprint(ctx, req)
-}
-
-func (w *platformClientWrapper) UpdateBlueprint(ctx context.Context, id string, req *blueprints.UpdateBlueprintRequest) error {
-	return w.bp.UpdateBlueprint(ctx, id, req)
-}
-
-func (w *platformClientWrapper) DeleteBlueprint(ctx context.Context, id string) error {
-	return w.bp.DeleteBlueprint(ctx, id)
-}
-
-func (w *platformClientWrapper) DeployBlueprint(ctx context.Context, id string) error {
-	return w.bp.DeployBlueprint(ctx, id)
-}
-
-func (w *platformClientWrapper) UndeployBlueprint(ctx context.Context, id string) error {
-	return w.bp.UndeployBlueprint(ctx, id)
-}
-
-func (w *platformClientWrapper) GetBlueprintReport(ctx context.Context, id string) (*blueprints.BlueprintStatusDetail, error) {
-	return w.bp.GetBlueprintReport(ctx, id)
-}
-
-func (w *platformClientWrapper) ListBlueprintComponents(ctx context.Context) ([]blueprints.ComponentDescription, error) {
-	return w.bp.ListBlueprintComponents(ctx)
-}
-
-func (w *platformClientWrapper) GetBlueprintComponent(ctx context.Context, id string) (*blueprints.ComponentDescription, error) {
-	return w.bp.GetBlueprintComponent(ctx, id)
-}
-
-// Compliance Benchmarks
-func (w *platformClientWrapper) ListBaselines(ctx context.Context) (*compliancebenchmarks.BaselinesResponse, error) {
-	return w.cb.ListBaselines(ctx)
-}
-
-func (w *platformClientWrapper) ListBenchmarks(ctx context.Context) (*compliancebenchmarks.BenchmarksResponseV2, error) {
-	return w.cb.ListBenchmarks(ctx)
-}
-
-func (w *platformClientWrapper) GetBenchmark(ctx context.Context, id string) (*compliancebenchmarks.BenchmarkResponseV2, error) {
-	return w.cb.GetBenchmark(ctx, id)
-}
-
-func (w *platformClientWrapper) CreateBenchmark(ctx context.Context, req *compliancebenchmarks.BenchmarkRequestV2) (*compliancebenchmarks.BenchmarkResponseV2, error) {
-	return w.cb.CreateBenchmark(ctx, req)
-}
-
-func (w *platformClientWrapper) DeleteBenchmark(ctx context.Context, id string) error {
-	return w.cb.DeleteBenchmark(ctx, id)
-}
-
-func (w *platformClientWrapper) GetBaselineRules(ctx context.Context, baselineID string) (*compliancebenchmarks.SourcedRules, error) {
-	return w.cb.GetBaselineRules(ctx, baselineID)
-}
-
-func (w *platformClientWrapper) ListBenchmarkRulesStats(ctx context.Context, benchmarkID string, sort string, ruleSearch string) ([]compliancebenchmarks.RuleResult, error) {
-	return w.cb.ListBenchmarkRulesStats(ctx, benchmarkID, sort, ruleSearch)
-}
-
-func (w *platformClientWrapper) ListBenchmarkRuleDevices(ctx context.Context, benchmarkID string, ruleID string, sort string, deviceSearch string, ruleResult string) ([]compliancebenchmarks.DeviceRuleResult, error) {
-	return w.cb.ListBenchmarkRuleDevices(ctx, benchmarkID, ruleID, sort, deviceSearch, ruleResult)
-}
-
-func (w *platformClientWrapper) GetBenchmarkCompliancePercentage(ctx context.Context, benchmarkID string) (*compliancebenchmarks.CompliancePercentage, error) {
-	return w.cb.GetBenchmarkCompliancePercentage(ctx, benchmarkID)
-}
-
-// Devices
-func (w *platformClientWrapper) ListDevices(ctx context.Context, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error) {
-	return w.dev.ListDevices(ctx, sort, filter)
-}
-
-func (w *platformClientWrapper) GetDevice(ctx context.Context, id string) (*devices.DeviceReadRepresentationV1, error) {
-	return w.dev.GetDevice(ctx, id)
-}
-
-func (w *platformClientWrapper) UpdateDevice(ctx context.Context, id string, payload *devices.DeviceUpdateRepresentationV1) error {
-	return w.dev.UpdateDevice(ctx, id, payload)
-}
-
-func (w *platformClientWrapper) DeleteDevice(ctx context.Context, id string) error {
-	return w.dev.DeleteDevice(ctx, id)
-}
-
-func (w *platformClientWrapper) ListDeviceApplications(ctx context.Context, deviceID string, sort []string, filter string) ([]devices.DeviceInstalledApplicationReadRepresentationV1, error) {
-	return w.dev.ListDeviceApplications(ctx, deviceID, sort, filter)
-}
-
-func (w *platformClientWrapper) ListDevicesForUser(ctx context.Context, userID string, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error) {
-	return w.dev.ListDevicesForUser(ctx, userID, sort, filter)
-}
-
-// Device Groups
-func (w *platformClientWrapper) ListDeviceGroups(ctx context.Context, sort []string, filter string) ([]devicegroups.DeviceGroupListReadRepresentationV1, error) {
-	return w.dg.ListDeviceGroups(ctx, sort, filter)
-}
-
-func (w *platformClientWrapper) GetDeviceGroup(ctx context.Context, id string) (*devicegroups.DeviceGroupReadRepresentationV1, error) {
-	return w.dg.GetDeviceGroup(ctx, id)
-}
-
-func (w *platformClientWrapper) CreateDeviceGroup(ctx context.Context, req *devicegroups.DeviceGroupCreateRepresentationV1) (*devicegroups.HrefRepresentation, error) {
-	return w.dg.CreateDeviceGroup(ctx, req)
-}
-
-func (w *platformClientWrapper) UpdateDeviceGroup(ctx context.Context, id string, req *devicegroups.DeviceGroupUpdateRepresentationV1) error {
-	return w.dg.UpdateDeviceGroup(ctx, id, req)
-}
-
-func (w *platformClientWrapper) DeleteDeviceGroup(ctx context.Context, id string) error {
-	return w.dg.DeleteDeviceGroup(ctx, id)
-}
-
-func (w *platformClientWrapper) ListDeviceGroupMembers(ctx context.Context, id string) ([]string, error) {
-	return w.dg.ListDeviceGroupMembers(ctx, id)
-}
-
-func (w *platformClientWrapper) UpdateDeviceGroupMembers(ctx context.Context, id string, patch *devicegroups.DeviceGroupMemberPatchRepresentationV1) error {
-	return w.dg.UpdateDeviceGroupMembers(ctx, id, patch)
-}
-
-func (w *platformClientWrapper) ListDeviceGroupsForDevice(ctx context.Context, deviceID string) ([]devicegroups.DeviceGroupMemberOfRepresentationV1, error) {
-	return w.dg.ListDeviceGroupsForDevice(ctx, deviceID)
-}
-
-// Device Actions
-func (w *platformClientWrapper) CheckInDevice(ctx context.Context, id string) error {
-	return w.da.CheckInDevice(ctx, id)
-}
-
-func (w *platformClientWrapper) EraseDevice(ctx context.Context, id string, req *deviceactions.EraseDeviceRequest) ([]deviceactions.DeviceCommandResponse, error) {
-	return w.da.EraseDevice(ctx, id, req)
-}
-
-func (w *platformClientWrapper) RestartDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error) {
-	return w.da.RestartDevice(ctx, id)
-}
-
-func (w *platformClientWrapper) ShutdownDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error) {
-	return w.da.ShutdownDevice(ctx, id)
-}
-
-func (w *platformClientWrapper) UnmanageDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error) {
-	return w.da.UnmanageDevice(ctx, id)
-}
-
-// DDM Declaration Reports
-func (w *platformClientWrapper) GetDeviceDeclarationReport(ctx context.Context, deviceID string) (*ddmreport.DeviceReportDto, error) {
-	return w.ddm.GetDeviceDeclarationReport(ctx, deviceID)
-}
-
-func (w *platformClientWrapper) ListDeclarationReportClients(ctx context.Context, declarationIdentifier string, sort []string) ([]ddmreport.DeclarationReportClientDto, error) {
-	return w.ddm.ListDeclarationReportClients(ctx, declarationIdentifier, sort)
-}
-
-// newPlatformSDKClient constructs a registry.PlatformClient with retry, spinner,
-// and token cache — the same configuration used by the main PersistentPreRunE
-// in root.go. This avoids bare SDK clients that lack retry and progress indication.
-func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpinner bool) registry.PlatformClient {
+// newPlatformSDKClient constructs a *jamfplatform.Client used by all platform
+// command code (both hand-written and spec-generated). The SDK transport
+// handles auth, retry, and tenant injection; hand-written commands construct
+// SDK subpackage clients per call (cheap — they share this transport).
+func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpinner bool) *jamfplatform.Client {
 	opts := []jamfplatform.Option{
 		jamfplatform.WithTenantID(tenantID),
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
@@ -256,12 +106,15 @@ func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpin
 	rc.HTTPClient.Timeout = 60 * time.Second
 	rc.HTTPClient.Jar = jar
 	stdClient := rc.StandardClient()
+	if verboseLevel > 0 {
+		stdClient.Transport = &platformVerboseTransport{inner: stdClient.Transport, level: verboseLevel}
+	}
 	if showSpinner {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
 	opts = append(opts, jamfplatform.WithHTTPClient(stdClient))
 
-	return newPlatformWrapper(jamfplatform.NewClient(url, clientID, clientSecret, opts...))
+	return jamfplatform.NewClient(url, clientID, clientSecret, opts...)
 }
 
 // printScaffold marshals the given value to stdout, respecting the -o flag.

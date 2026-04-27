@@ -11,12 +11,7 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
 )
@@ -215,66 +210,6 @@ type ProtectClient interface {
 	AccessToken(ctx context.Context) (*jamfprotect.Token, error)
 }
 
-// PlatformClient defines the interface for Jamf Platform API operations.
-// The SDK's *jamfplatform.Client satisfies this interface directly.
-type PlatformClient interface {
-	// Blueprints
-	ListBlueprints(ctx context.Context, sort []string, search string) ([]blueprints.BlueprintOverview, error)
-	GetBlueprint(ctx context.Context, id string) (*blueprints.BlueprintDetail, error)
-	CreateBlueprint(ctx context.Context, request *blueprints.CreateBlueprintRequest) (*blueprints.CreateResponse, error)
-	UpdateBlueprint(ctx context.Context, id string, request *blueprints.UpdateBlueprintRequest) error
-	DeleteBlueprint(ctx context.Context, id string) error
-	DeployBlueprint(ctx context.Context, id string) error
-	UndeployBlueprint(ctx context.Context, id string) error
-	GetBlueprintReport(ctx context.Context, id string) (*blueprints.BlueprintStatusDetail, error)
-	ListBlueprintComponents(ctx context.Context) ([]blueprints.ComponentDescription, error)
-	GetBlueprintComponent(ctx context.Context, id string) (*blueprints.ComponentDescription, error)
-
-	// Compliance Benchmarks
-	ListBaselines(ctx context.Context) (*compliancebenchmarks.BaselinesResponse, error)
-	ListBenchmarks(ctx context.Context) (*compliancebenchmarks.BenchmarksResponseV2, error)
-	GetBenchmark(ctx context.Context, id string) (*compliancebenchmarks.BenchmarkResponseV2, error)
-	CreateBenchmark(ctx context.Context, request *compliancebenchmarks.BenchmarkRequestV2) (*compliancebenchmarks.BenchmarkResponseV2, error)
-	DeleteBenchmark(ctx context.Context, id string) error
-	GetBaselineRules(ctx context.Context, baselineID string) (*compliancebenchmarks.SourcedRules, error)
-	ListBenchmarkRulesStats(ctx context.Context, benchmarkID string, sort string, ruleSearch string) ([]compliancebenchmarks.RuleResult, error)
-	ListBenchmarkRuleDevices(ctx context.Context, benchmarkID string, ruleID string, sort string, deviceSearch string, ruleResult string) ([]compliancebenchmarks.DeviceRuleResult, error)
-	GetBenchmarkCompliancePercentage(ctx context.Context, benchmarkID string) (*compliancebenchmarks.CompliancePercentage, error)
-
-	// Devices
-	ListDevices(ctx context.Context, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error)
-	GetDevice(ctx context.Context, id string) (*devices.DeviceReadRepresentationV1, error)
-	UpdateDevice(ctx context.Context, id string, payload *devices.DeviceUpdateRepresentationV1) error
-	DeleteDevice(ctx context.Context, id string) error
-	ListDeviceApplications(ctx context.Context, deviceID string, sort []string, filter string) ([]devices.DeviceInstalledApplicationReadRepresentationV1, error)
-	ListDevicesForUser(ctx context.Context, userID string, sort []string, filter string) ([]devices.DeviceListReadRepresentationV1, error)
-
-	// Device Groups
-	ListDeviceGroups(ctx context.Context, sort []string, filter string) ([]devicegroups.DeviceGroupListReadRepresentationV1, error)
-	GetDeviceGroup(ctx context.Context, id string) (*devicegroups.DeviceGroupReadRepresentationV1, error)
-	CreateDeviceGroup(ctx context.Context, request *devicegroups.DeviceGroupCreateRepresentationV1) (*devicegroups.HrefRepresentation, error)
-	UpdateDeviceGroup(ctx context.Context, id string, request *devicegroups.DeviceGroupUpdateRepresentationV1) error
-	DeleteDeviceGroup(ctx context.Context, id string) error
-	ListDeviceGroupMembers(ctx context.Context, id string) ([]string, error)
-	UpdateDeviceGroupMembers(ctx context.Context, id string, patch *devicegroups.DeviceGroupMemberPatchRepresentationV1) error
-	ListDeviceGroupsForDevice(ctx context.Context, deviceID string) ([]devicegroups.DeviceGroupMemberOfRepresentationV1, error)
-
-	// Device Actions
-	CheckInDevice(ctx context.Context, id string) error
-	EraseDevice(ctx context.Context, id string, request *deviceactions.EraseDeviceRequest) ([]deviceactions.DeviceCommandResponse, error)
-	RestartDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
-	ShutdownDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
-	UnmanageDevice(ctx context.Context, id string) ([]deviceactions.DeviceCommandResponse, error)
-
-	// DDM Declaration Reports
-	GetDeviceDeclarationReport(ctx context.Context, deviceID string) (*ddmreport.DeviceReportDto, error)
-	ListDeclarationReportClients(ctx context.Context, declarationIdentifier string, sort []string) ([]ddmreport.DeclarationReportClientDto, error)
-
-	// Client metadata
-	ValidateCredentials(ctx context.Context) error
-	BaseURL() string
-}
-
 // SchoolClient defines the interface for Jamf School API operations.
 // The SDK's *jamfschool.Client satisfies this interface directly.
 type SchoolClient interface {
@@ -356,11 +291,15 @@ type SchoolClient interface {
 // CLIContext holds the shared client and output formatter for all commands.
 // It is populated in PersistentPreRunE after token/URL resolution.
 type CLIContext struct {
-	Client              HTTPClient
-	Output              OutputFormatter
-	AuthProvider        auth.Provider // resolved Pro auth provider (nil for Protect commands)
-	ProtectClient       ProtectClient
-	PlatformClient      PlatformClient
+	Client        HTTPClient
+	Output        OutputFormatter
+	AuthProvider  auth.Provider // resolved Pro auth provider (nil for Protect commands)
+	ProtectClient ProtectClient
+	// PlatformSDKClient is the raw *jamfplatform.Client used by all platform
+	// command code (hand-written and spec-generated). Hand-written commands
+	// construct subpackage clients per call (cheap — they share the
+	// transport); generated commands call .Transport().Do() directly.
+	PlatformSDKClient   *jamfplatform.Client
 	SchoolClient        SchoolClient
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth

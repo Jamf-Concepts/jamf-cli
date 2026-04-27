@@ -22,6 +22,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
@@ -61,7 +62,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			bps, err := cliCtx.PlatformClient.ListBlueprints(cmd.Context(), sortFields, search)
+			bps, err := blueprints.New(cliCtx.PlatformSDKClient).ListBlueprints(cmd.Context(), sortFields, search)
 			if err != nil {
 				return err
 			}
@@ -132,8 +133,7 @@ func resolveBlueprintID(ctx context.Context, cliCtx *registry.CLIContext, args [
 		if len(args) > 0 {
 			return "", fmt.Errorf("specify either <id> or --name, not both")
 		}
-		r := platform.NewResolver(cliCtx.PlatformClient)
-		return r.ResolveBlueprintID(ctx, nameFlag)
+		return blueprints.New(cliCtx.PlatformSDKClient).ResolveBlueprintIDByName(ctx, nameFlag)
 	}
 	if len(args) == 0 {
 		return "", fmt.Errorf("provide a blueprint <id> or use --name")
@@ -166,7 +166,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -269,20 +269,19 @@ Examples:
 			}
 
 			// Check if a blueprint with this name already exists
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, resolveErr := r.ResolveBlueprintID(ctx, createReq.Name)
+			id, resolveErr := blueprints.New(cliCtx.PlatformSDKClient).ResolveBlueprintIDByName(ctx, createReq.Name)
 			if resolveErr != nil && !platform.IsNotFound(resolveErr) {
 				return resolveErr
 			}
 			if resolveErr != nil {
 				// Not found — create with randomized payload IDs
 				createReq.Steps = randomizePayloadIdentifiers(createReq.Steps)
-				result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
+				result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, createReq)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", createReq.Name, result.ID)
-				bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
+				bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
 				if err != nil {
 					return err
 				}
@@ -299,11 +298,11 @@ Examples:
 			}
 
 			updateReq := blueprintCreateToUpdate(createReq)
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated blueprint %q\n", createReq.Name)
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -385,7 +384,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			if err := cliCtx.PlatformClient.DeleteBlueprint(ctx, id); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).DeleteBlueprint(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Deleted blueprint %q\n", label)
@@ -415,18 +414,18 @@ type blueprintExportScope struct {
 // Server-generated fields (id, created, updated, deploymentState) are stripped.
 // Scope contains enriched group objects (id + name + type) for cross-instance portability.
 type blueprintExport struct {
-	Name        string                       `json:"name" yaml:"name"`
-	Description string                       `json:"description,omitempty" yaml:"description,omitempty"`
-	Scope       blueprintExportScope         `json:"scope" yaml:"scope"`
+	Name        string                     `json:"name" yaml:"name"`
+	Description string                     `json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       blueprintExportScope       `json:"scope" yaml:"scope"`
 	Steps       []blueprints.BlueprintStep `json:"steps" yaml:"steps"`
 }
 
-func blueprintToExport(ctx context.Context, pc registry.PlatformClient, bp *blueprints.BlueprintDetail) blueprintExport {
+func blueprintToExport(ctx context.Context, c *jamfplatform.Client, bp *blueprints.BlueprintDetail) blueprintExport {
 	var groupIDs []string
 	if bp.Scope != nil {
 		groupIDs = bp.Scope.DeviceGroups
 	}
-	groups := reverseResolveGroups(ctx, pc, groupIDs)
+	groups := reverseResolveGroups(ctx, c, groupIDs)
 	desc := ""
 	if bp.Description != nil {
 		desc = *bp.Description
@@ -468,11 +467,11 @@ Multi-instance fan-out:
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
-			return printExport(blueprintToExport(ctx, cliCtx.PlatformClient, bp))
+			return printExport(blueprintToExport(ctx, cliCtx.PlatformSDKClient, bp))
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
@@ -515,7 +514,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("aborted")
 				}
 			}
-			if err := cliCtx.PlatformClient.DeployBlueprint(ctx, id); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).DeployBlueprint(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Deployment started for blueprint %q\n", label)
@@ -563,7 +562,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("aborted")
 				}
 			}
-			if err := cliCtx.PlatformClient.UndeployBlueprint(ctx, id); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UndeployBlueprint(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Undeployment started for blueprint %q\n", label)
@@ -590,7 +589,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := cliCtx.PlatformClient.GetBlueprintReport(ctx, id)
+			report, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprintReport(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -637,7 +636,7 @@ func newBlueprintsScopeListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -702,7 +701,7 @@ Examples:
 			}
 
 			// Get current scope
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -737,7 +736,7 @@ Examples:
 					DeviceGroups: newScope,
 				},
 			}
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Added %d group(s) to blueprint scope\n", added)
@@ -791,7 +790,7 @@ Examples:
 			}
 
 			// Get current scope
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -824,7 +823,7 @@ Examples:
 					DeviceGroups: newScope,
 				},
 			}
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Removed %d group(s) from blueprint scope\n", removed)
@@ -894,7 +893,7 @@ func newBlueprintsComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			comps, err := cliCtx.PlatformClient.ListBlueprintComponents(cmd.Context())
+			comps, err := blueprints.New(cliCtx.PlatformSDKClient).ListBlueprintComponents(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -928,14 +927,13 @@ The source scope is copied by default. Use --scope to override device group targ
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			bpClient := blueprints.New(cliCtx.PlatformSDKClient)
 
-			r := platform.NewResolver(pc)
-			sourceID, err := r.ResolveBlueprintID(ctx, args[0])
+			sourceID, err := bpClient.ResolveBlueprintIDByName(ctx, args[0])
 			if err != nil {
 				return fmt.Errorf("source blueprint: %w", err)
 			}
-			source, err := pc.GetBlueprint(ctx, sourceID)
+			source, err := bpClient.GetBlueprint(ctx, sourceID)
 			if err != nil {
 				return fmt.Errorf("source blueprint: %w", err)
 			}
@@ -958,13 +956,13 @@ The source scope is copied by default. Use --scope to override device group targ
 				Steps: steps,
 			}
 
-			result, err := pc.CreateBlueprint(ctx, createReq)
+			result, err := bpClient.CreateBlueprint(ctx, createReq)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Cloned blueprint %q → %q (id: %s)\n", args[0], args[1], result.ID)
 
-			bp, err := pc.GetBlueprint(ctx, result.ID)
+			bp, err := bpClient.GetBlueprint(ctx, result.ID)
 			if err != nil {
 				return err
 			}
@@ -1041,7 +1039,7 @@ func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			comp, err := cliCtx.PlatformClient.GetBlueprintComponent(cmd.Context(), args[0])
+			comp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprintComponent(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -1475,13 +1473,13 @@ Examples:
 
 			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
 
-			result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
+			result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, createReq)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, result.ID)
 
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
 			if err != nil {
 				return err
 			}
@@ -1744,12 +1742,12 @@ func randomizeMapPayloadIDs(m map[string]any) bool {
 // reverseResolveGroups maps platform device group UUIDs to enriched metadata
 // (name, device type) by fetching the full device groups list. Groups that
 // cannot be found (deleted, etc.) are included with their UUID and empty metadata.
-func reverseResolveGroups(ctx context.Context, pc registry.PlatformClient, ids []string) []blueprintExportScopeGroup {
+func reverseResolveGroups(ctx context.Context, c *jamfplatform.Client, ids []string) []blueprintExportScopeGroup {
 	if len(ids) == 0 {
 		return nil
 	}
 
-	allGroups, err := pc.ListDeviceGroups(ctx, nil, "")
+	allGroups, err := devicegroups.New(c).ListDeviceGroups(ctx, nil, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
 	}

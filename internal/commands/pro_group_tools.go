@@ -14,6 +14,10 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
 // newGroupToolsCmd builds the "group-tools" parent command with subcommands.
@@ -285,9 +289,9 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 	addReferencedGroupsFromPrestages(ctx, cliCtx.Client, referenced)
 
 	// Also mark groups referenced by platform blueprints/benchmarks
-	if cliCtx.PlatformClient != nil {
+	if cliCtx.PlatformSDKClient != nil {
 		fmt.Fprintf(os.Stderr, "Checking platform blueprints and benchmarks...\n")
-		addPlatformReferencedGroups(ctx, cliCtx.PlatformClient, referenced)
+		addPlatformReferencedGroups(ctx, cliCtx.PlatformSDKClient, referenced)
 	}
 
 	fmt.Fprintln(os.Stderr)
@@ -312,9 +316,13 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 
 // addPlatformReferencedGroups adds group names referenced by blueprints
 // and compliance benchmarks to the referenced set. Silently skips on errors.
-func addPlatformReferencedGroups(ctx context.Context, pc registry.PlatformClient, referenced map[string]bool) {
+func addPlatformReferencedGroups(ctx context.Context, c *jamfplatform.Client, referenced map[string]bool) {
+	bp := blueprints.New(c)
+	cb := compliancebenchmarks.New(c)
+	dg := devicegroups.New(c)
+
 	// Build ID→name map from platform device groups
-	groups, err := pc.ListDeviceGroups(ctx, nil, "")
+	groups, err := dg.ListDeviceGroups(ctx, nil, "")
 	if err != nil {
 		return
 	}
@@ -324,10 +332,10 @@ func addPlatformReferencedGroups(ctx context.Context, pc registry.PlatformClient
 	}
 
 	// Mark groups referenced by blueprints
-	bps, err := pc.ListBlueprints(ctx, nil, "")
+	bps, err := bp.ListBlueprints(ctx, nil, "")
 	if err == nil {
-		for _, bp := range bps {
-			detail, err := pc.GetBlueprint(ctx, bp.ID)
+		for _, item := range bps {
+			detail, err := bp.GetBlueprint(ctx, item.ID)
 			if err != nil {
 				continue
 			}
@@ -340,7 +348,7 @@ func addPlatformReferencedGroups(ctx context.Context, pc registry.PlatformClient
 	}
 
 	// Mark groups referenced by benchmarks
-	resp, err := pc.ListBenchmarks(ctx)
+	resp, err := cb.ListBenchmarks(ctx)
 	if err == nil {
 		for _, b := range resp.Benchmarks {
 			for _, gid := range b.Target.DeviceGroups {

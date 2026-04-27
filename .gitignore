@@ -47,5 +47,5 @@ docs/site/commands.json
 # Brainstorm sessions
 .superpowers/
 
-# Private spec files (uncomment if you want to track spec files)
-specs/blueprint-components
+# Private spec sources (synced into specs/platform/ via make sync-platform-specs)
+specs/.platform-source/

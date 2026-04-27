@@ -13,7 +13,9 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/deviceactions"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devices"
 )
 
@@ -60,14 +62,21 @@ func flattenDeviceList(d devices.DeviceListReadRepresentationV1) map[string]any 
 	return m
 }
 
-// resolveDeviceID resolves a device identifier that may be a UUID or serial number.
-// UUIDs match the 8-4-4-4-12 hex format; anything else is treated as a serial number.
-func resolveDeviceID(ctx context.Context, client registry.PlatformClient, identifier string) (string, error) {
+// resolveDeviceIDDirect resolves a device identifier (UUID or serial number)
+// via the SDK directly. UUIDs match the 8-4-4-4-12 hex format and pass
+// through; anything else is resolved via a filtered list query.
+func resolveDeviceIDDirect(ctx context.Context, c *jamfplatform.Client, identifier string) (string, error) {
 	if uuidPattern.MatchString(identifier) {
 		return identifier, nil
 	}
-	r := platform.NewResolver(client)
-	return r.ResolveDeviceIDBySerial(ctx, identifier)
+	list, err := devices.New(c).ListDevices(ctx, nil, fmt.Sprintf("serialNumber==%q", identifier))
+	if err != nil {
+		return "", fmt.Errorf("listing devices: %w", err)
+	}
+	if len(list) == 0 {
+		return "", fmt.Errorf("device with serial %q not found: %w", identifier, platform.ErrNotFound)
+	}
+	return list[0].ID, nil
 }
 
 func newPlatformDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -82,7 +91,7 @@ func newPlatformDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			devices, err := cliCtx.PlatformClient.ListDevices(cmd.Context(), sortFields, filter)
+			devices, err := devices.New(cliCtx.PlatformSDKClient).ListDevices(cmd.Context(), sortFields, filter)
 			if err != nil {
 				return err
 			}
@@ -112,11 +121,11 @@ func newPlatformDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
-			dev, err := cliCtx.PlatformClient.GetDevice(ctx, id)
+			dev, err := devices.New(cliCtx.PlatformSDKClient).GetDevice(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -140,7 +149,7 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -167,7 +176,7 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				}
 			}
 
-			if err := cliCtx.PlatformClient.UpdateDevice(ctx, id, &payload); err != nil {
+			if err := devices.New(cliCtx.PlatformSDKClient).UpdateDevice(ctx, id, &payload); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated device %s\n", args[0])
@@ -191,7 +200,7 @@ func newPlatformDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -202,7 +211,7 @@ func newPlatformDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			if err := cliCtx.PlatformClient.DeleteDevice(ctx, id); err != nil {
+			if err := devices.New(cliCtx.PlatformSDKClient).DeleteDevice(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Deleted device %s\n", args[0])
@@ -227,11 +236,11 @@ func newPlatformDevicesAppsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
-			apps, err := cliCtx.PlatformClient.ListDeviceApplications(ctx, id, sortFields, filter)
+			apps, err := devices.New(cliCtx.PlatformSDKClient).ListDeviceApplications(ctx, id, sortFields, filter)
 			if err != nil {
 				return err
 			}
@@ -264,11 +273,11 @@ func newPlatformDevicesGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
-			groups, err := cliCtx.PlatformClient.ListDeviceGroupsForDevice(ctx, id)
+			groups, err := devicegroups.New(cliCtx.PlatformSDKClient).ListDeviceGroupsForDevice(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -301,7 +310,7 @@ func newPlatformDevicesUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			devices, err := cliCtx.PlatformClient.ListDevicesForUser(cmd.Context(), args[0], sortFields, filter)
+			devices, err := devices.New(cliCtx.PlatformSDKClient).ListDevicesForUser(cmd.Context(), args[0], sortFields, filter)
 			if err != nil {
 				return err
 			}
@@ -333,7 +342,7 @@ func newPlatformDevicesCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -341,7 +350,7 @@ func newPlatformDevicesCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would send check-in to device %s\n", args[0])
 				return nil
 			}
-			if err := cliCtx.PlatformClient.CheckInDevice(ctx, id); err != nil {
+			if err := deviceactions.New(cliCtx.PlatformSDKClient).CheckInDevice(ctx, id); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Check-in sent to device %s\n", args[0])
@@ -368,7 +377,7 @@ func newPlatformDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -395,7 +404,7 @@ func newPlatformDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cmd.Flags().Changed("return-to-service") {
 				req.ReturnToService = &returnToService
 			}
-			results, err := cliCtx.PlatformClient.EraseDevice(ctx, id, req)
+			results, err := deviceactions.New(cliCtx.PlatformSDKClient).EraseDevice(ctx, id, req)
 			if err != nil {
 				return err
 			}
@@ -422,7 +431,7 @@ func newPlatformDevicesRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -430,7 +439,7 @@ func newPlatformDevicesRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would restart device %s\n", args[0])
 				return nil
 			}
-			results, err := cliCtx.PlatformClient.RestartDevice(ctx, id)
+			results, err := deviceactions.New(cliCtx.PlatformSDKClient).RestartDevice(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -450,7 +459,7 @@ func newPlatformDevicesShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -458,7 +467,7 @@ func newPlatformDevicesShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "[dry-run] Would shut down device %s\n", args[0])
 				return nil
 			}
-			results, err := cliCtx.PlatformClient.ShutdownDevice(ctx, id)
+			results, err := deviceactions.New(cliCtx.PlatformSDKClient).ShutdownDevice(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -479,7 +488,7 @@ func newPlatformDevicesUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			id, err := resolveDeviceID(ctx, cliCtx.PlatformClient, args[0])
+			id, err := resolveDeviceIDDirect(ctx, cliCtx.PlatformSDKClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -490,7 +499,7 @@ func newPlatformDevicesUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if !proceed {
 				return nil
 			}
-			results, err := cliCtx.PlatformClient.UnmanageDevice(ctx, id)
+			results, err := deviceactions.New(cliCtx.PlatformSDKClient).UnmanageDevice(ctx, id)
 			if err != nil {
 				return err
 			}

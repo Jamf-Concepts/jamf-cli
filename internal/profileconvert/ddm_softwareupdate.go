@@ -128,14 +128,11 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 	return raw, remaining, warnings, nil
 }
 
-// softwareUpdateBaseConfig returns the full component schema parsed from
-// the generated scaffold in blueprintcomponents.Scaffolds. The Jamf UI
-// requires every section to be present — omitting sections causes the
-// panel to render blank. All Included flags are set to false so
-// non-converted sections are visible but not actively managed.
-//
-// Reading from the scaffold means this auto-updates when make generate
-// runs against new OpenAPI specs.
+// softwareUpdateBaseConfig returns the full component schema from
+// blueprintcomponents.Scaffolds. The Jamf UI requires every section to be
+// present — omitting sections causes the panel to render blank. All Included
+// flags are set to false so non-converted sections are visible but not
+// actively managed.
 func softwareUpdateBaseConfig() (map[string]any, error) {
 	raw := blueprintcomponents.Scaffolds["com.jamf.ddm.software-update-settings"]
 	if raw == "" {

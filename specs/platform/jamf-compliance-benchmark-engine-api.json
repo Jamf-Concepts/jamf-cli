@@ -1,0 +1,1300 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Jamf Compliance Benchmarks API - Beta",
+    "version": "latest",
+    "description": "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{region}.apigw.jamf.com/api/compliance-benchmarks",
+      "description": "Jamf Beta API Gateway - prod",
+      "variables": {
+        "region": {
+          "default": "us",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ],
+          "description": "Geographic deployment region"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/tenant/{tenantId}/benchmarks/{id}": {
+      "get": {
+        "tags": [
+          "benchmarks"
+        ],
+        "summary": "Return benchmark for given benchmark ID",
+        "description": "Return benchmark for given benchmark ID (if exists)\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "getBenchmark",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkResponseV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing benchmark ID"
+          },
+          "401": {
+            "description": "Unauthorized request"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "404": {
+            "description": "Benchmark not found"
+          }
+        },
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      },
+      "delete": {
+        "tags": [
+          "benchmarks"
+        ],
+        "summary": "Remove benchmark with given benchmark ID",
+        "description": "Remove benchmark with given benchmark ID and remove associated draft (if any) and artifacts from the MDM\n\n**Required Permissions:** `delete:pro:compliance-benchmarks`",
+        "operationId": "deleteBenchmark",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful operation result"
+          },
+          "400": {
+            "description": "Invalid benchmark request or missing benchmark ID"
+          },
+          "401": {
+            "description": "Unauthorized request"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        },
+        "x-required-privileges": [
+          "delete:pro:compliance-benchmarks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/benchmarks": {
+      "get": {
+        "tags": [
+          "benchmarks"
+        ],
+        "summary": "Return list of tenant benchmarks",
+        "description": "Return list of tenant benchmarks (if any)\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "getTenantBenchmarks",
+        "responses": {
+          "200": {
+            "description": "Successful operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarksResponseV2"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized request"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        },
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      },
+      "post": {
+        "tags": [
+          "benchmarks"
+        ],
+        "summary": "Create a new benchmark from provided benchmark request",
+        "description": "Create a new benchmark from provided benchmark request and deploy associated artifacts to the MDM\n\n**Required Permissions:** `create:pro:compliance-benchmarks`",
+        "operationId": "postBenchmark",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkResponseV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid benchmark request"
+          },
+          "401": {
+            "description": "Unauthorized request"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "409": {
+            "description": "Benchmark with the same title exists already or database write conflict occurred"
+          }
+        },
+        "x-required-privileges": [
+          "create:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/rules": {
+      "get": {
+        "tags": [
+          "rules"
+        ],
+        "summary": "Get list of rules for given baseline",
+        "description": "Return list of the rules for given mSCP baseline together with sources that provide them\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "getRules",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "baselineId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcedRules"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or empty baseline ID"
+          }
+        },
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/baselines": {
+      "get": {
+        "tags": [
+          "baselines"
+        ],
+        "summary": "Return list of the mSCP baselines",
+        "description": "Return list of the mSCP baselines allowed for the Compliance benchmarks\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "getBaselines",
+        "responses": {
+          "200": {
+            "description": "Successful operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselinesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized request"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        },
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/benchmarks/{id}/devices": {
+      "get": {
+        "tags": [
+          "benchmark-reports"
+        ],
+        "summary": "Get devices for a benchmark report rule",
+        "description": "Provide devices filtered report for a specific benchmark rule\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "v1GetDevicesForBenchmarkRule",
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "description": "Tenant's benchmark ID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rule-id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device-search",
+            "description": "Search devices with matching device name or device ID",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": null
+            }
+          },
+          {
+            "name": "rule-result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RuleResultState"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page number (0-based index, default is 0)"
+          },
+          {
+            "name": "page-size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            },
+            "description": "Number of results per page (default is 100)"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Sort order of result (e.g., 'deviceName:asc', 'ruleResult:desc'). Supports chained sorting like 'deviceName,ruleResult:desc'. Ascending order is default and in such a case doesn't require to be specified.",
+            "schema": {
+              "type": "string",
+              "default": "ruleResult:desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRuleDevicesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/benchmarks/{id}/rules": {
+      "get": {
+        "tags": [
+          "benchmark-reports"
+        ],
+        "summary": "Get benchmark rules for a tenant",
+        "description": "Provide benchmark rules stats for a specific benchmark\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "v1GetBenchmarkRulesStats",
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "description": "Tenant's benchmark ID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rule-search",
+            "description": "string to search in rule title and rule id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": null
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page number (0-based index, default is 0)"
+          },
+          {
+            "name": "page-size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "minimum": 1
+            },
+            "description": "Number of results per page (default is 500)"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Sort order of result (e.g., 'ruleTitle:asc', 'passed:desc', 'failed:desc', 'unknown:desc'). Supports chained sorting like 'ruleId,passed:desc'. Ascending order is default and in such a case doesn't require to be specified, such as 'ruleNumber,ruleTitle'.",
+            "schema": {
+              "type": "string",
+              "default": "ruleNumber,ruleTitle"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with benchmark rules list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRulesStatsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/benchmarks/{id}/compliance-percentage": {
+      "get": {
+        "tags": [
+          "benchmark-reports"
+        ],
+        "summary": "Get compliance percentage for a benchmark report",
+        "description": "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "operationId": "v1GetBenchmarkCompliancePercentage",
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:compliance-benchmarks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "description": "Tenant's benchmark ID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with compliance percentage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompliancePercentage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "description": "Benchmark has no applicable rules for reporting calculations"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BenchmarkRequestV2": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "A short, descriptive name for the benchmark",
+            "maxLength": 100,
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "A detailed description of the benchmark",
+            "maxLength": 1000
+          },
+          "sourceBaselineId": {
+            "type": "string",
+            "description": "The identifier of the source baseline from which this benchmark is derived",
+            "minLength": 1
+          },
+          "sources": {
+            "type": "array",
+            "description": "The sources used to create this benchmark",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "minLength": 1
+          },
+          "rules": {
+            "type": "array",
+            "description": "The rules that make up this benchmark",
+            "items": {
+              "$ref": "#/components/schemas/RuleRequest"
+            },
+            "minLength": 1
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetV2",
+            "description": "The target device groups for this benchmark"
+          },
+          "enforcementMode": {
+            "type": "string",
+            "description": "The enforcement mode for this benchmark",
+            "enum": [
+              "MONITOR",
+              "MONITOR_AND_ENFORCE"
+            ]
+          }
+        },
+        "required": [
+          "enforcementMode",
+          "rules",
+          "sourceBaselineId",
+          "sources",
+          "target",
+          "title"
+        ]
+      },
+      "OdvRequest": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "RuleRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "odv": {
+            "$ref": "#/components/schemas/OdvRequest"
+          }
+        },
+        "required": [
+          "enabled",
+          "id"
+        ]
+      },
+      "Source": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "branch",
+          "revision"
+        ]
+      },
+      "TargetV2": {
+        "type": "object",
+        "properties": {
+          "deviceGroups": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "deviceGroups"
+        ]
+      },
+      "BenchmarkResponseV2": {
+        "type": "object",
+        "properties": {
+          "benchmarkId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "baselineId": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleInfo"
+            }
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetV2"
+          },
+          "enforcementMode": {
+            "type": "string",
+            "enum": [
+              "MONITOR",
+              "MONITOR_AND_ENFORCE"
+            ]
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "updateAvailable": {
+            "type": "boolean"
+          },
+          "lastUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canSwitchToEnforce": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "baselineId",
+          "benchmarkId",
+          "canSwitchToEnforce",
+          "deleted",
+          "enforcementMode",
+          "lastUpdatedAt",
+          "rules",
+          "sources",
+          "target",
+          "tenantId",
+          "title",
+          "updateAvailable"
+        ]
+      },
+      "OdvRecommendation": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        }
+      },
+      "OrganizationDefinedValue": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hint": {
+            "type": "string"
+          },
+          "placeholder": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "INTEGER",
+              "STRING",
+              "ENUM",
+              "REGEX"
+            ]
+          },
+          "validation": {
+            "$ref": "#/components/schemas/ValidationConstraints"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "OsInfo": {
+        "type": "object",
+        "properties": {
+          "osType": {
+            "type": "string",
+            "enum": [
+              "MAC_OS",
+              "IOS"
+            ]
+          },
+          "osVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "managementType": {
+            "type": "string",
+            "enum": [
+              "MANAGED",
+              "BYOD"
+            ]
+          }
+        },
+        "required": [
+          "managementType",
+          "osType",
+          "osVersion"
+        ]
+      },
+      "OsSpecificRuleInfo": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "odv": {
+            "$ref": "#/components/schemas/OdvRecommendation"
+          }
+        },
+        "required": [
+          "description",
+          "title"
+        ]
+      },
+      "RuleInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sectionName": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "odv": {
+            "$ref": "#/components/schemas/OrganizationDefinedValue"
+          },
+          "supportedOs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OsInfo"
+            },
+            "uniqueItems": true
+          },
+          "osSpecificDefaults": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OsSpecificRuleInfo"
+            }
+          },
+          "ruleRelation": {
+            "$ref": "#/components/schemas/RuleRelation"
+          },
+          "reportable": {
+            "type": "boolean"
+          },
+          "smartCard": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description",
+          "enabled",
+          "id",
+          "osSpecificDefaults",
+          "sectionName",
+          "supportedOs",
+          "title"
+        ]
+      },
+      "RuleRelation": {
+        "type": "object",
+        "properties": {
+          "dependsOn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflictsWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultDisabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ValidationConstraints": {
+        "type": "object",
+        "properties": {
+          "min": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "max": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "enumValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "regex": {
+            "type": "string"
+          }
+        }
+      },
+      "BenchmarkV2": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "updateAvailable": {
+            "type": "boolean"
+          },
+          "modified": {
+            "type": "boolean"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetV2"
+          },
+          "syncState": {
+            "type": "string",
+            "enum": [
+              "SYNCED",
+              "PENDING",
+              "FAILED",
+              "DELETING",
+              "DELETE_FAILED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "modified",
+          "syncState",
+          "target",
+          "title",
+          "updateAvailable"
+        ]
+      },
+      "BenchmarksResponseV2": {
+        "type": "object",
+        "properties": {
+          "benchmarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkV2"
+            }
+          }
+        },
+        "required": [
+          "benchmarks"
+        ]
+      },
+      "SourcedRules": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleInfo"
+            }
+          }
+        },
+        "required": [
+          "rules",
+          "sources"
+        ]
+      },
+      "BaselineInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "baselineId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "ruleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "baselineId",
+          "description",
+          "id",
+          "ruleCount",
+          "title"
+        ]
+      },
+      "BaselinesResponse": {
+        "type": "object",
+        "properties": {
+          "baselines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BaselineInfo"
+            }
+          }
+        },
+        "required": [
+          "baselines"
+        ]
+      },
+      "BenchmarkRuleDevicesResponse": {
+        "description": "Representation of devices for a benchmark rule. Used for drill-down view controller",
+        "type": "object",
+        "readOnly": true,
+        "properties": {
+          "results": {
+            "type": "array",
+            "minItems": 0,
+            "readOnly": true,
+            "items": {
+              "$ref": "#/components/schemas/DeviceRuleResult"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "readOnly": true,
+            "minimum": 0,
+            "example": 3
+          }
+        }
+      },
+      "DeviceRuleResult": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "description": "Device Platform ID",
+            "type": "string",
+            "minLength": 1,
+            "example": "641dcad2-695f-456b-83e7-ec58f2e14ec6"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RuleResultState"
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "John's MacBook Pro"
+          }
+        },
+        "required": [
+          "deviceId",
+          "state"
+        ]
+      },
+      "RuleResultState": {
+        "type": "string",
+        "enum": [
+          "PASSED",
+          "FAILED",
+          "UNKNOWN"
+        ]
+      },
+      "BenchmarkRulesStatsResponse": {
+        "description": "Representation of rules results for whole benchmark. Used for top-level view controller",
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "readOnly": true,
+            "items": {
+              "$ref": "#/components/schemas/RuleResult"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "readOnly": true,
+            "minimum": 0,
+            "example": 3
+          }
+        }
+      },
+      "RuleResult": {
+        "type": "object",
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "minLength": 1,
+            "example": "supplemental_password_policy"
+          },
+          "ruleTitle": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Password Policy Supplemental"
+          },
+          "ruleNumber": {
+            "type": "string",
+            "description": "Rule number in the benchmark, if applicable. E.g. CIS numbers like '2.5.1.1'.",
+            "example": "2.5.1.1"
+          },
+          "discussion": {
+            "type": "string",
+            "example": "The information system _IS_ configured to allow administrators to modify security settings and system attributes."
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 150
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 40
+          },
+          "unknown": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 10
+          },
+          "passPercentage": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "example": 75
+          },
+          "numberOfDevices": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 200
+          }
+        },
+        "required": [
+          "ruleId",
+          "ruleTitle",
+          "passed",
+          "failed",
+          "unknown",
+          "passPercentage",
+          "numberOfDevices"
+        ]
+      },
+      "CompliancePercentage": {
+        "type": "object",
+        "properties": {
+          "compliancePercentage": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 82.7
+          }
+        },
+        "required": [
+          "compliancePercentage"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "httpStatus": {
+            "type": "integer",
+            "description": "HTTP status of the response",
+            "example": 400,
+            "minimum": 100,
+            "maximum": 599
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Unique identifier for the request, useful for tracing and debugging",
+            "example": "7AF8CEAB-F7EE-45C3-B573-38A4F93C6E7E"
+          },
+          "errors": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "Error-specific code for troubleshooting",
+                  "example": "INVALID_FIELD"
+                },
+                "field": {
+                  "type": "string",
+                  "description": "The field that caused the error",
+                  "example": "name"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "A detailed error message",
+                  "example": "Invalid value for field name"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors",
+          "traceId"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request due to invalid parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "tenantId": {
+        "name": "tenantId",
+        "in": "path",
+        "required": true,
+        "description": "The tenant UUID identifier",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa"
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway."
+      }
+    }
+  }
+}
