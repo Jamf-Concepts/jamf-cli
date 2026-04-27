@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
@@ -92,13 +93,20 @@ func extractItems(raw json.RawMessage) ([]map[string]any, bool) {
 	if err := json.Unmarshal(raw, &arr); err == nil {
 		return arr, false
 	}
-	// Object envelope: pick the single array property.
+	// Object envelope: pick the first array property in sorted key order for
+	// deterministic behaviour when multiple array fields exist (e.g. "rules"
+	// + "sources").
 	var obj map[string]any
 	if err := json.Unmarshal(raw, &obj); err != nil {
 		return nil, false
 	}
-	for _, v := range obj {
-		if items, ok := v.([]any); ok {
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if items, ok := obj[k].([]any); ok {
 			out := make([]map[string]any, 0, len(items))
 			for _, it := range items {
 				if m, ok := it.(map[string]any); ok {

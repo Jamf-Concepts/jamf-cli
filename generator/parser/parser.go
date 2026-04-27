@@ -2014,7 +2014,7 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 
 // isDestructiveAction returns true for operations that modify/delete data
 func isDestructiveAction(opName string) bool {
-	destructive := []string{"delete", "delete-multiple", "erase", "wipe", "remove", "lock", "restart", "shutdown"}
+	destructive := []string{"delete", "delete-multiple", "erase", "wipe", "remove", "lock", "restart", "shutdown", "unmanage"}
 	for _, d := range destructive {
 		if strings.Contains(opName, d) {
 			return true

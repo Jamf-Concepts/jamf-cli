@@ -221,20 +221,25 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			listTableCols = platformTableColumns[r.Name]
 		}
 		ops = append(ops, templateOp{
-			Operation:          &opCopy,
-			GoName:             strcase.ToCamel(opCopy.Name),
-			Short:              shortFromOp(&opCopy),
-			Long:               firstParagraph(opCopy.Description),
-			Use:                buildUse(opCopy.Name, userParams),
-			PathParams:         userParams,
-			HasBody:            opCopy.RequestBody != nil,
-			NeedsConfirm:       opCopy.IsDestructive,
-			UsesMergePatch:     opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
-			SuccessCode:        successCode,
-			HasResult:          hasResult,
-			QueryParams:        buildQueryParams(opCopy.Parameters),
-			Paginate:           hasPaginationParams(opCopy.Parameters),
-			ListArrayKey:       detectListArrayKey(&opCopy),
+			Operation:      &opCopy,
+			GoName:         strcase.ToCamel(opCopy.Name),
+			Short:          shortFromOp(&opCopy),
+			Long:           firstParagraph(opCopy.Description),
+			Use:            buildUse(opCopy.Name, userParams),
+			PathParams:     userParams,
+			HasBody:        opCopy.RequestBody != nil,
+			NeedsConfirm:   opCopy.IsDestructive,
+			UsesMergePatch: opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
+			SuccessCode:    successCode,
+			HasResult:      hasResult,
+			QueryParams:    buildQueryParams(opCopy.Parameters),
+			Paginate:       hasPaginationParams(opCopy.Parameters),
+			ListArrayKey: func() string {
+				if opCopy.Name == "list" || opCopy.IsList {
+					return detectListArrayKey(&opCopy)
+				}
+				return ""
+			}(),
 			ListTableColumns:   listTableCols,
 			Scaffold:           buildScaffold(&opCopy),
 			SupportsNameLookup: supportsName,
@@ -417,11 +422,15 @@ func buildQueryParams(params []*parser.Parameter) []queryParam {
 		case "array":
 			goType = "[]string"
 		}
+		desc := p.Description
+		if desc == "" {
+			desc = "Filter by " + strcase.ToKebab(p.Name)
+		}
 		out = append(out, queryParam{
 			Name:        p.Name,
 			FlagName:    strcase.ToKebab(p.Name),
 			Var:         strcase.ToLowerCamel(strings.ReplaceAll(p.Name, "-", "_")),
-			Description: p.Description,
+			Description: desc,
 			GoType:      goType,
 			Required:    p.Required,
 		})

@@ -9,7 +9,23 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
+
+// RequirePlatformClient returns a descriptive error when client is nil.
+// Generated platform commands call this at the top of RunE so users get
+// clear setup guidance instead of a nil-pointer panic.
+func RequirePlatformClient(client *jamfplatform.Client) error {
+	if client == nil {
+		return fmt.Errorf("this command requires platform gateway auth\n\n" +
+			"Set up a platform profile:\n" +
+			"  jamf-cli config add-profile <name> --auth-method platform --url <gateway-url> --tenant-id <id>\n\n" +
+			"Or use environment variables:\n" +
+			"  JAMF_URL, JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, JAMF_TENANT_ID")
+	}
+	return nil
+}
 
 // ConfirmAction prompts the user to confirm a destructive action. Returns nil
 // on confirmation, an error otherwise. When stdin is not a terminal (e.g. CI),

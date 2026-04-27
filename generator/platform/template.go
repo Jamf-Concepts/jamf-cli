@@ -113,8 +113,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 {{- end }}
-			if cliCtx.PlatformSDKClient == nil {
-				return fmt.Errorf("this command requires platform gateway auth")
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
 			}
 {{- if .SupportsNameLookup }}
 			var resolvedID string
