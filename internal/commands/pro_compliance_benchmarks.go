@@ -4,15 +4,17 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
 // ─── Portable export/import types ────────────────────────────────────────────
@@ -34,13 +36,13 @@ type benchmarkPortableTarget struct {
 // target.deviceGroups carries group names+types for cross-instance portability.
 // apply resolves names to IDs before calling the API.
 type benchmarkPortableInput struct {
-	Title            string                     `json:"title"`
-	Description      string                     `json:"description,omitempty"`
-	SourceBaselineID string                     `json:"sourceBaselineId"`
-	Sources          []jamfplatform.Source      `json:"sources"`
-	Rules            []jamfplatform.RuleRequest `json:"rules"`
-	Target           benchmarkPortableTarget    `json:"target"`
-	EnforcementMode  string                     `json:"enforcementMode"`
+	Title            string                             `json:"title"`
+	Description      string                             `json:"description,omitempty"`
+	SourceBaselineID string                             `json:"sourceBaselineId"`
+	Sources          []compliancebenchmarks.Source      `json:"sources"`
+	Rules            []compliancebenchmarks.RuleRequest `json:"rules"`
+	Target           benchmarkPortableTarget            `json:"target"`
+	EnforcementMode  string                             `json:"enforcementMode"`
 }
 
 // ─── Command wiring ───────────────────────────────────────────────────────────
@@ -52,118 +54,23 @@ func newComplianceBenchmarksCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Create, monitor, and manage mSCP compliance benchmarks. Requires platform gateway auth.",
 	}
 
-	cmd.AddCommand(newCBBaselinesCmd(cliCtx))
-	cmd.AddCommand(newCBListCmd(cliCtx))
-	cmd.AddCommand(newCBGetCmd(cliCtx))
+	// Generated CRUD: list, get, delete (supports --name); skip create — apply covers it
+	for _, sub := range platformgen.NewBenchmarksCmd(cliCtx).Commands() {
+		if sub.Name() == "create" {
+			continue
+		}
+		cmd.AddCommand(sub)
+	}
+
+	// Business logic: portable upsert, export, clone
 	cmd.AddCommand(newCBApplyCmd(cliCtx))
 	cmd.AddCommand(newCBExportCmd(cliCtx))
 	cmd.AddCommand(newCBCloneCmd(cliCtx))
-	cmd.AddCommand(newCBDeleteCmd(cliCtx))
-	cmd.AddCommand(newCBRulesCmd(cliCtx))
-	cmd.AddCommand(newCBStatsCmd(cliCtx))
-	cmd.AddCommand(newCBDeviceResultsCmd(cliCtx))
-	cmd.AddCommand(newCBComplianceCmd(cliCtx))
 
 	return cmd
 }
 
-// ─── Baselines ────────────────────────────────────────────────────────────────
-
-func newCBBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "baselines",
-		Short: "List available mSCP baselines",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			resp, err := cliCtx.PlatformClient.ListBaselines(cmd.Context())
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(resp.Baselines))
-			for _, bl := range resp.Baselines {
-				rows = append(rows, map[string]any{
-					"id":          bl.ID,
-					"baselineId":  bl.BaselineID,
-					"title":       bl.Title,
-					"description": bl.Description,
-					"ruleCount":   bl.RuleCount,
-				})
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-}
-
-// ─── Benchmark CRUD ───────────────────────────────────────────────────────────
-
-func newCBListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List all benchmarks",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			resp, err := cliCtx.PlatformClient.ListBenchmarks(cmd.Context())
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(resp.Benchmarks))
-			for _, bm := range resp.Benchmarks {
-				rows = append(rows, flattenBenchmark(bm))
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-}
-
-func flattenBenchmark(bm jamfplatform.BenchmarkV2) map[string]any {
-	m := map[string]any{
-		"id":              bm.ID,
-		"title":           bm.Title,
-		"description":     bm.Description,
-		"syncState":       bm.SyncState,
-		"updateAvailable": bm.UpdateAvailable,
-		"modified":        bm.Modified,
-	}
-	if bm.Target != nil {
-		m["deviceGroups"] = len(bm.Target.DeviceGroups)
-	}
-	return m
-}
-
-func newCBGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <title>",
-		Short: "Get a benchmark by title",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			bm, err := cliCtx.PlatformClient.GetBenchmark(cmd.Context(), id)
-			if err != nil {
-				return err
-			}
-			return platform.PrintOne(cliCtx.Output, bm)
-		},
-	}
-}
+// ─── Apply ────────────────────────────────────────────────────────────────────
 
 func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
@@ -201,7 +108,7 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// If portable format failed or produced invalid groups, try the old SDK format.
 			var legacyGroupIDs []string
 			if !portableGroupsValid {
-				var legacy jamfplatform.BenchmarkRequestV2
+				var legacy compliancebenchmarks.BenchmarkRequestV2
 				if err := unmarshalInput(data, &legacy); err == nil && len(legacy.Target.DeviceGroups) > 0 {
 					desc := ""
 					if legacy.Description != nil {
@@ -228,22 +135,21 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// Legacy format with no override: pass IDs through directly.
 				groupIDs = legacyGroupIDs
 			} else {
-				r := platform.NewResolver(cliCtx.PlatformClient)
-				groupIDs, err = cbResolveTargetGroups(ctx, r, input.Target.DeviceGroups, computerGroups)
+				groupIDs, err = cbResolveTargetGroups(ctx, cliCtx.PlatformSDKClient, input.Target.DeviceGroups, computerGroups)
 				if err != nil {
 					return err
 				}
 			}
-			req := &jamfplatform.BenchmarkRequestV2{
+			req := &compliancebenchmarks.BenchmarkRequestV2{
 				Title:            input.Title,
 				Description:      &input.Description,
 				SourceBaselineID: input.SourceBaselineID,
 				Sources:          input.Sources,
 				Rules:            input.Rules,
-				Target:           jamfplatform.TargetV2{DeviceGroups: groupIDs},
+				Target:           compliancebenchmarks.TargetV2{DeviceGroups: groupIDs},
 				EnforcementMode:  input.EnforcementMode,
 			}
-			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
+			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -253,10 +159,12 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON/YAML input file (or pipe to stdin)")
 	cmd.Flags().BoolVar(&scaffold, "scaffold", false, "Print a JSON template for the input format")
-	cmd.Flags().StringVar(&scaffoldFromBaseline, "scaffold-from-baseline", "", "Generate scaffold pre-populated with all rules from a baseline (pass baseline ID from 'baselines' list)")
+	cmd.Flags().StringVar(&scaffoldFromBaseline, "scaffold-from-baseline", "", "Generate scaffold pre-populated with all rules from a baseline (pass baseline ID from 'baselines list')")
 	cmd.Flags().StringArrayVar(&computerGroups, "computer-group", nil, "Override target device group by name (repeatable)")
 	return cmd
 }
+
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
@@ -269,20 +177,20 @@ func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			id, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			bm, err := cliCtx.PlatformClient.GetBenchmark(ctx, id)
+			bm, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBenchmark(ctx, id)
 			if err != nil {
 				return err
 			}
-			groups, err := cliCtx.PlatformClient.ListDeviceGroups(ctx, nil, "")
+			groups, err := devicegroups.New(cliCtx.PlatformSDKClient).ListDeviceGroups(ctx, nil, "")
 			if err != nil {
 				return fmt.Errorf("listing device groups for export: %w", err)
 			}
-			groupByID := make(map[string]jamfplatform.DeviceGroupListReadRepresentationV1, len(groups))
+			groupByID := make(map[string]devicegroups.DeviceGroupListReadRepresentationV1, len(groups))
 			for _, g := range groups {
 				groupByID[g.ID] = g
 			}
@@ -290,6 +198,8 @@ func newCBExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 }
+
+// ─── Clone ────────────────────────────────────────────────────────────────────
 
 func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var computerGroups []string
@@ -303,34 +213,34 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			srcID, err := r.ResolveBenchmarkID(ctx, args[0])
+			cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
+			srcID, err := cb.ResolveBenchmarkIDByName(ctx, args[0])
 			if err != nil {
 				return err
 			}
-			src, err := cliCtx.PlatformClient.GetBenchmark(ctx, srcID)
+			src, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBenchmark(ctx, srcID)
 			if err != nil {
 				return err
 			}
 			var targetGroupIDs []string
 			if len(computerGroups) > 0 {
-				targetGroupIDs, err = cbResolveNameList(ctx, r, computerGroups)
+				targetGroupIDs, err = cbResolveNameList(ctx, cliCtx.PlatformSDKClient, computerGroups)
 				if err != nil {
 					return err
 				}
 			} else if src.Target != nil {
 				targetGroupIDs = src.Target.DeviceGroups
 			}
-			req := &jamfplatform.BenchmarkRequestV2{
+			req := &compliancebenchmarks.BenchmarkRequestV2{
 				Title:            args[1],
 				Description:      &src.Description,
 				SourceBaselineID: src.BaselineID,
 				Sources:          src.Sources,
 				Rules:            cbRuleInfosToRequests(src.Rules),
-				Target:           jamfplatform.TargetV2{DeviceGroups: targetGroupIDs},
+				Target:           compliancebenchmarks.TargetV2{DeviceGroups: targetGroupIDs},
 				EnforcementMode:  src.EnforcementMode,
 			}
-			result, err := cliCtx.PlatformClient.CreateBenchmark(ctx, req)
+			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -342,224 +252,6 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCBDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes  bool
-		name string
-	)
-	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
-		Short: "Delete a benchmark",
-		Long:  "Delete a benchmark by ID (primary) or by title with --name.",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			var id, displayName string
-			switch {
-			case name != "":
-				r := platform.NewResolver(cliCtx.PlatformClient)
-				var err error
-				id, err = r.ResolveBenchmarkID(ctx, name)
-				if err != nil {
-					return err
-				}
-				displayName = name
-			case len(args) == 1:
-				id = args[0]
-				displayName = id
-			default:
-				return fmt.Errorf("provide an ID argument or --name flag")
-			}
-			proceed, err := confirmDelete("benchmark", displayName, yes)
-			if err != nil {
-				return err
-			}
-			if !proceed {
-				return nil
-			}
-			if err := cliCtx.PlatformClient.DeleteBenchmark(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Deleted benchmark %q\n", displayName)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&name, "name", "", "Identify the benchmark by title instead of ID")
-	return cmd
-}
-
-// ─── Rules ────────────────────────────────────────────────────────────────────
-
-func newCBRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "rules <baseline-title>",
-		Short: "List rules for a baseline",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBaselineID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-			resp, err := cliCtx.PlatformClient.GetBaselineRules(ctx, id)
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(resp.Rules))
-			for _, rule := range resp.Rules {
-				rows = append(rows, map[string]any{
-					"id":          rule.ID,
-					"title":       rule.Title,
-					"sectionName": rule.SectionName,
-					"enabled":     rule.Enabled,
-				})
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-}
-
-// ─── Reporting ────────────────────────────────────────────────────────────────
-
-func newCBStatsCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		sort       string
-		ruleSearch string
-	)
-	cmd := &cobra.Command{
-		Use:   "stats <title>",
-		Short: "Show per-rule compliance stats for a benchmark",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-			stats, err := cliCtx.PlatformClient.ListBenchmarkRulesStats(ctx, id, sort, ruleSearch)
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(stats))
-			for _, s := range stats {
-				rows = append(rows, map[string]any{
-					"ruleId":         s.RuleID,
-					"ruleTitle":      s.RuleTitle,
-					"passed":         s.Passed,
-					"failed":         s.Failed,
-					"unknown":        s.Unknown,
-					"passPercentage": s.PassPercentage,
-					"devices":        s.NumberOfDevices,
-				})
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Sort fields (e.g. ruleTitle:asc)")
-	cmd.Flags().StringVar(&ruleSearch, "search", "", "Filter rules by keyword")
-	return cmd
-}
-
-func newCBDeviceResultsCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		sort         string
-		deviceSearch string
-		state        string
-	)
-	cmd := &cobra.Command{
-		Use:   "device-results <title> <rule-id>",
-		Short: "Show device compliance for a specific rule",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			bmID, err := r.ResolveBenchmarkID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-			results, err := cliCtx.PlatformClient.ListBenchmarkRuleDevices(ctx, bmID, args[1], sort, deviceSearch, state)
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(results))
-			for _, d := range results {
-				row := map[string]any{
-					"deviceId": d.DeviceID,
-					"state":    d.State,
-				}
-				if d.DeviceName != nil {
-					row["deviceName"] = *d.DeviceName
-				}
-				rows = append(rows, row)
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Sort fields")
-	cmd.Flags().StringVar(&deviceSearch, "search", "", "Filter devices by keyword")
-	cmd.Flags().StringVar(&state, "state", "", "Filter by rule result (PASSED, FAILED, UNKNOWN)")
-	return cmd
-}
-
-func newCBComplianceCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{
-		Use:   "compliance <title>",
-		Short: "Show overall compliance percentage for a benchmark",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, err := r.ResolveBenchmarkID(ctx, args[0])
-			if err != nil {
-				return err
-			}
-			pct, err := cliCtx.PlatformClient.GetBenchmarkCompliancePercentage(ctx, id)
-			if err != nil {
-				return err
-			}
-			m := map[string]any{
-				"benchmark":            args[0],
-				"compliancePercentage": pct.CompliancePercentage,
-			}
-			data, err := json.Marshal(m)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // benchmarkScaffold returns a static template for apply input.
@@ -567,8 +259,8 @@ func benchmarkScaffold() *benchmarkPortableInput {
 	return &benchmarkPortableInput{
 		Title:            "My Benchmark",
 		SourceBaselineID: "<baseline-id>",
-		Sources:          []jamfplatform.Source{{Branch: "main"}},
-		Rules:            []jamfplatform.RuleRequest{{ID: "<rule-id>", Enabled: true}},
+		Sources:          []compliancebenchmarks.Source{{Branch: "main"}},
+		Rules:            []compliancebenchmarks.RuleRequest{{ID: "<rule-id>", Enabled: true}},
 		Target: benchmarkPortableTarget{
 			DeviceGroups: []benchmarkPortableGroup{
 				{Name: "<device-group-name>", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -581,7 +273,7 @@ func benchmarkScaffold() *benchmarkPortableInput {
 // benchmarkToPortable converts a benchmark API response to the portable export format.
 // Device group IDs are replaced with name+type for cross-instance portability.
 // Rules are converted from the detailed info format to the request format.
-func benchmarkToPortable(bm *jamfplatform.BenchmarkResponseV2, groupByID map[string]jamfplatform.DeviceGroupListReadRepresentationV1) *benchmarkPortableInput {
+func benchmarkToPortable(bm *compliancebenchmarks.BenchmarkResponseV2, groupByID map[string]devicegroups.DeviceGroupListReadRepresentationV1) *benchmarkPortableInput {
 	var deviceGroups []string
 	if bm.Target != nil {
 		deviceGroups = bm.Target.DeviceGroups
@@ -610,12 +302,12 @@ func benchmarkToPortable(bm *jamfplatform.BenchmarkResponseV2, groupByID map[str
 }
 
 // cbRuleInfosToRequests converts detailed rule info (from API responses) to request format.
-func cbRuleInfosToRequests(rules []jamfplatform.RuleInfo) []jamfplatform.RuleRequest {
-	reqs := make([]jamfplatform.RuleRequest, 0, len(rules))
+func cbRuleInfosToRequests(rules []compliancebenchmarks.RuleInfo) []compliancebenchmarks.RuleRequest {
+	reqs := make([]compliancebenchmarks.RuleRequest, 0, len(rules))
 	for _, rule := range rules {
-		req := jamfplatform.RuleRequest{ID: rule.ID, Enabled: rule.Enabled}
+		req := compliancebenchmarks.RuleRequest{ID: rule.ID, Enabled: rule.Enabled}
 		if rule.ODV != nil {
-			req.ODV = &jamfplatform.OdvRequest{Value: rule.ODV.Value}
+			req.ODV = &compliancebenchmarks.ODVRequest{Value: rule.ODV.Value}
 		}
 		reqs = append(reqs, req)
 	}
@@ -634,9 +326,10 @@ func cbPortableGroupsValid(groups []benchmarkPortableGroup) bool {
 	return true
 }
 
-// cbResolveTargetGroups resolves group names to IDs.
-// If overrideNames is non-empty it takes precedence over the portable groups from input.
-func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGroups []benchmarkPortableGroup, overrideNames []string) ([]string, error) {
+// cbResolveTargetGroups resolves group names to IDs via the SDK's
+// devicegroups subpackage. If overrideNames is non-empty it takes precedence
+// over the portable groups from input.
+func cbResolveTargetGroups(ctx context.Context, c *jamfplatform.Client, portableGroups []benchmarkPortableGroup, overrideNames []string) ([]string, error) {
 	names := overrideNames
 	if len(names) == 0 {
 		names = make([]string, 0, len(portableGroups))
@@ -644,14 +337,15 @@ func cbResolveTargetGroups(ctx context.Context, r *platform.Resolver, portableGr
 			names = append(names, g.Name)
 		}
 	}
-	return cbResolveNameList(ctx, r, names)
+	return cbResolveNameList(ctx, c, names)
 }
 
 // cbResolveNameList resolves a list of device group names to IDs.
-func cbResolveNameList(ctx context.Context, r *platform.Resolver, names []string) ([]string, error) {
+func cbResolveNameList(ctx context.Context, c *jamfplatform.Client, names []string) ([]string, error) {
+	dg := devicegroups.New(c)
 	ids := make([]string, 0, len(names))
 	for _, name := range names {
-		id, err := r.ResolveDeviceGroupID(ctx, name)
+		id, err := dg.ResolveDeviceGroupIDByName(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -661,17 +355,17 @@ func cbResolveNameList(ctx context.Context, r *platform.Resolver, names []string
 }
 
 // cbScaffoldFromBaseline fetches baseline rules and emits a scaffold with all rules pre-populated.
-// baselineID is the raw API ID (from 'pro compliance-benchmarks baselines').
+// baselineID is the raw API ID (from 'pro compliance-benchmarks baselines list').
 // All rules are set to enabled: true as a starting point.
 func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, baselineID string) error {
-	resp, err := cliCtx.PlatformClient.GetBaselineRules(ctx, baselineID)
+	resp, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).GetBaselineRules(ctx, baselineID)
 	if err != nil {
 		return err
 	}
 
 	// Look up title and description from the baselines list.
 	var baselineTitle, baselineDescription string
-	bls, blsErr := cliCtx.PlatformClient.ListBaselines(ctx)
+	bls, blsErr := compliancebenchmarks.New(cliCtx.PlatformSDKClient).ListBaselines(ctx)
 	if blsErr != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not fetch baseline metadata for title/description: %v\n", blsErr)
 	} else {
@@ -683,9 +377,9 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 			}
 		}
 	}
-	rules := make([]jamfplatform.RuleRequest, 0, len(resp.Rules))
+	rules := make([]compliancebenchmarks.RuleRequest, 0, len(resp.Rules))
 	for _, rule := range resp.Rules {
-		req := jamfplatform.RuleRequest{ID: rule.ID, Enabled: true}
+		req := compliancebenchmarks.RuleRequest{ID: rule.ID, Enabled: true}
 		if rule.ODV != nil {
 			val := rule.ODV.Placeholder
 			if val == "" {
@@ -694,7 +388,7 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 			if val == "" {
 				val = "<odv-value>"
 			}
-			req.ODV = &jamfplatform.OdvRequest{Value: val}
+			req.ODV = &compliancebenchmarks.ODVRequest{Value: val}
 		}
 		rules = append(rules, req)
 	}

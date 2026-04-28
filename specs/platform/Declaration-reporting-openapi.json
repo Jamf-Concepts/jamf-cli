@@ -1,0 +1,556 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Declaration Reporting Service API",
+    "version": "1.0.0",
+    "description": "API for accessing device and declaration status reports",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{region}.apigw.jamf.com/api/ddm/report",
+      "description": "Jamf Beta API Gateway - prod",
+      "variables": {
+        "region": {
+          "default": "us",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ],
+          "description": "Geographic deployment region"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "device report"
+    },
+    {
+      "name": "declaration report"
+    }
+  ],
+  "paths": {
+    "/v1/tenant/{tenantId}/devices/{deviceId}": {
+      "get": {
+        "tags": [
+          "device-reports"
+        ],
+        "summary": "Get device report declarations",
+        "description": "Get a device report containing all the declarations reported for the provided deviceId.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "operationId": "getDeviceReport",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "description": "The platform deviceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the device report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many requests - bulkhead limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:declaration-reporting",
+          "read:school:declaration-reporting"
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}": {
+      "get": {
+        "tags": [
+          "declaration-reports"
+        ],
+        "summary": "Get declaration report devices",
+        "description": "Get a declaration report containing all the devices and users currently reporting the provided declarationIdentifier. Supports pagination.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "operationId": "getDeclarationReport",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "declarationIdentifier",
+            "in": "path",
+            "description": "The declarationIdentifier present on a status report",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the declaration report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeclarationReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many requests - bulkhead limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:declaration-reporting",
+          "read:school:declaration-reporting"
+        ],
+        "x-authentication-required": true
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DeviceReportChannelDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "The channel of the client from which the report is sent",
+            "example": "SYSTEM"
+          },
+          "declarations": {
+            "type": "array",
+            "description": "The declarations associated with the channel",
+            "items": {
+              "$ref": "#/components/schemas/StatusReportDeclarationDto"
+            }
+          },
+          "lastReportTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The last report received from the channel"
+          }
+        },
+        "required": [
+          "lastReportTime"
+        ]
+      },
+      "DeviceReportDto": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "description": "The channels associated with the device",
+            "items": {
+              "$ref": "#/components/schemas/DeviceReportChannelDto"
+            }
+          }
+        }
+      },
+      "StatusReportDeclarationDto": {
+        "type": "object",
+        "externalDocs": {
+          "description": "Apple Documentation: Status Management Declarations",
+          "url": "https://developer.apple.com/documentation/devicemanagement/statusmanagementdeclarationsdeclarationobject"
+        },
+        "properties": {
+          "declarationIdentifier": {
+            "type": "string",
+            "description": "The identifier of the declaration",
+            "example": "ea6ddcb3-729f-42b1-a67d-940008419baa"
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the declaration",
+            "enum": [
+              "ASSET",
+              "MANAGEMENT",
+              "CONFIGURATION",
+              "ACTIVATION",
+              "UNKNOWN"
+            ],
+            "example": "CONFIGURATION"
+          },
+          "status": {
+            "type": "string",
+            "description": "The installation status of the declaration",
+            "enum": [
+              "PENDING",
+              "INSTALLED",
+              "AWAIT_SYNC",
+              "ERROR",
+              "UNKNOWN"
+            ],
+            "example": "PENDING"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "The active state of the declaration",
+            "example": true
+          },
+          "validityState": {
+            "type": "string",
+            "description": "The validity state of the declaration",
+            "enum": [
+              "VALID",
+              "INVALID",
+              "UNKNOWN"
+            ],
+            "example": "VALID"
+          },
+          "serverToken": {
+            "type": "string",
+            "description": "The server token for the declaration",
+            "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when this declaration status was last updated for the device"
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Reasons associated with the declaration, if any",
+            "items": {
+              "$ref": "#/components/schemas/StatusReportDeclarationReasonDto"
+            }
+          }
+        },
+        "required": [
+          "active",
+          "declarationIdentifier",
+          "serverToken",
+          "status",
+          "type",
+          "validityState"
+        ]
+      },
+      "StatusReportDeclarationReasonDetailDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The reason detail key",
+            "example": "Identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "The description of the detail key",
+            "example": "f5d98fac-5f8a-4bde-b1f8-308a062dd591"
+          }
+        },
+        "required": [
+          "description",
+          "key"
+        ]
+      },
+      "StatusReportDeclarationReasonDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The reason code",
+            "example": "Error.ConfigurationAlreadyPresent"
+          },
+          "description": {
+            "type": "string",
+            "description": "The description of the reason",
+            "example": "Configuration cannot be applied as another is already present"
+          },
+          "details": {
+            "type": "array",
+            "description": "Details associated with the reason, if any",
+            "items": {
+              "$ref": "#/components/schemas/StatusReportDeclarationReasonDetailDto"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "httpStatus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "HTTP status of the response",
+            "example": 400,
+            "maximum": 599,
+            "minimum": 100
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Trace ID",
+            "example": "3e3819a63ae0f231"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDto"
+            }
+          }
+        },
+        "required": [
+          "errors"
+        ]
+      },
+      "ErrorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "id of object with error",
+            "example": "2b7b22dc-a0d4-48d2-a02d-8fdd88e1397c"
+          },
+          "code": {
+            "type": "string",
+            "description": "Error-specific code that can be used to identify localization string, etc.",
+            "example": "INVALID_FIELD"
+          },
+          "field": {
+            "type": "string",
+            "description": "Name of the field that caused the error.",
+            "example": "name"
+          },
+          "description": {
+            "type": "string",
+            "description": "A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and its localized text.",
+            "example": "Field name is required."
+          }
+        }
+      },
+      "DeclarationReportClientDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "The platform deviceId",
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          "channel": {
+            "type": "string",
+            "description": "The platform channel",
+            "example": "SYSTEM"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "The active state of the declaration",
+            "example": true
+          },
+          "validityState": {
+            "type": "string",
+            "description": "The validity state of the declaration",
+            "enum": [
+              "VALID",
+              "INVALID",
+              "UNKNOWN"
+            ],
+            "example": "VALID"
+          },
+          "serverToken": {
+            "type": "string",
+            "description": "The server token for the declaration",
+            "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when this declaration status was last updated for the device"
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Reasons associated with the declaration, if any",
+            "items": {
+              "$ref": "#/components/schemas/StatusReportDeclarationReasonDto"
+            }
+          }
+        },
+        "required": [
+          "active",
+          "channel",
+          "deviceId",
+          "serverToken",
+          "validityState"
+        ]
+      },
+      "DeclarationReportDto": {
+        "type": "object",
+        "properties": {
+          "declarationIdentifier": {
+            "type": "string",
+            "description": "The identifier of the declaration",
+            "example": "ea6ddcb3-729f-42b1-a67d-940008419baa"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total number of clients reporting the declaration"
+          },
+          "results": {
+            "type": "array",
+            "description": "The clients reporting the declaration",
+            "items": {
+              "$ref": "#/components/schemas/DeclarationReportClientDto"
+            }
+          }
+        },
+        "required": [
+          "declarationIdentifier",
+          "results",
+          "totalCount"
+        ]
+      }
+    },
+    "parameters": {
+      "tenantId": {
+        "name": "tenantId",
+        "in": "path",
+        "required": true,
+        "description": "The tenant UUID identifier",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa"
+        }
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "type": "oauth2",
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://{region}.apigw.jamf.com/oauth2/token",
+            "scopes": {}
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2ClientCredentials": []
+    }
+  ]
+}

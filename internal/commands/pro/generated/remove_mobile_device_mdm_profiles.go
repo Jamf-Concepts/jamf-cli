@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +29,10 @@ func NewRemoveMobileDeviceMdmProfilesCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "unmanage <id>",
@@ -37,6 +41,30 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// Confirmation for destructive action
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "Would unmanage resource %s\n", args[0])
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will unmanage resource %s. Type 'yes' to confirm: ", args[0])
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
 
 			// Build request path
 			path := "/v2/mobile-devices/{id}/unmanage"
@@ -72,9 +100,16 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 			}
 			defer resp.Body.Close()
 
-			return ctx.Output.PrintResponse(resp)
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
 		},
 	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
 	return cmd
 }

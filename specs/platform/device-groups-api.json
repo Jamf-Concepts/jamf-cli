@@ -1,0 +1,1026 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Device Groups API",
+    "description": "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
+    "version": "1.0.0",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    }
+  },
+  "paths": {
+    "/v1/tenant/{tenantId}/device-groups": {
+      "get": {
+        "summary": "Get all device groups",
+        "description": "Retrieve a paginated list of all device groups for the tenant\n\n**Required Permissions:** `read:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/PageIndex"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Filter query in RSQL format. Includes all results, by default.</br> Fields allowed in the query: `name`, `description`, `deviceType`, `groupType`.</br> This param can be combined with paging.</br> Example: `name==\"*Managed*\" and deviceType==\"MOBILE\"`",
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of device groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeviceGroupResponseRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:device-groups"
+        ]
+      },
+      "post": {
+        "summary": "Create a new device group",
+        "description": "Create a new device group in Jamf Pro\n\n**Required Permissions:** `create:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceGroupCreateRepresentationV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device group created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrefRepresentation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Device group already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "create:pro:device-groups"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/device-groups/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DeviceGroupId"
+        }
+      ],
+      "get": {
+        "summary": "Get a device group by ID",
+        "description": "Retrieve a specific device group by its ID\n\n**Required Permissions:** `read:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "responses": {
+          "200": {
+            "description": "Device group found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceGroupReadRepresentationV1"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested device group could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:device-groups"
+        ]
+      },
+      "patch": {
+        "summary": "Update a device group",
+        "description": "Update an existing device group\n\n**Required Permissions:** `update:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceGroupUpdateRepresentationV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Device group updated successfully"
+          },
+          "404": {
+            "description": "The requested device group could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "update:pro:device-groups"
+        ]
+      },
+      "delete": {
+        "summary": "Delete a device group",
+        "description": "Delete an existing device group\n\n**Required Permissions:** `delete:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "responses": {
+          "204": {
+            "description": "Device group deleted successfully"
+          },
+          "404": {
+            "description": "The requested device group could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "delete:pro:device-groups"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/device-groups/{id}/members": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DeviceGroupId"
+        }
+      ],
+      "get": {
+        "summary": "Get group members",
+        "description": "Retrieve all members of a device group\n\n**Required Permissions:** `read:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of group members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeviceGroupMemberReadRepresentation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested device group could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:device-groups"
+        ]
+      },
+      "patch": {
+        "summary": "Update device group members",
+        "description": "Add devices to or remove devices from a static device group. Cannot be used with smart groups.\n\n**Required Permissions:** `update:pro:device-groups`",
+        "tags": [
+          "device-groups"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceGroupMemberPatchRepresentationV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Device group members updated successfully"
+          },
+          "404": {
+            "description": "The requested device group could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-action": true,
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "update:pro:device-groups"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/devices/{id}/device-groups": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DeviceId"
+        }
+      ],
+      "get": {
+        "summary": "Get device groups for a device",
+        "description": "Retrieve all device groups to which a specific device ID belongs<br/> If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.\n\n**Required Permissions:** `read:pro:device-groups`",
+        "tags": [
+          "devices"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of device groups for the specified device ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeviceGroupMemberOfResponseRepresentation"
+                }
+              }
+            }
+          }
+        },
+        "x-authentication-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter id"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:device-groups"
+        ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "DeviceGroupId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the device group, in UUID format",
+        "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+      },
+      "DeviceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the device, in UUID format",
+        "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+      },
+      "PageIndex": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "default": 0
+        },
+        "description": "Page number (0-based)"
+      },
+      "PageSize": {
+        "name": "page-size",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "default": 100
+        },
+        "description": "Number of items per page"
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": "name"
+        },
+        "description": "Fields to sort by and their orders.</br> Fields allowed for sorting: `name`, `description`, `deviceType`, `groupType`.",
+        "example": "name,description:desc"
+      },
+      "tenantId": {
+        "name": "tenantId",
+        "in": "path",
+        "required": true,
+        "description": "The tenant UUID identifier",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa"
+        }
+      }
+    },
+    "schemas": {
+      "DeviceGroupListReadRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The ID of the device group, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the device group",
+            "example": "Some Device Group"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the device group",
+            "example": "A custom group of devices",
+            "default": ""
+          },
+          "deviceType": {
+            "$ref": "#/components/schemas/DeviceTypeV1"
+          },
+          "groupType": {
+            "$ref": "#/components/schemas/GroupTypeV1"
+          },
+          "memberCount": {
+            "type": "integer",
+            "description": "Number of devices in the group",
+            "default": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "deviceType",
+          "groupType",
+          "memberCount"
+        ]
+      },
+      "DeviceGroupReadRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The ID of the device group, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the device group",
+            "example": "Some Device Group"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the device group",
+            "example": "A custom group of devices",
+            "default": ""
+          },
+          "deviceType": {
+            "$ref": "#/components/schemas/DeviceTypeV1"
+          },
+          "groupType": {
+            "$ref": "#/components/schemas/GroupTypeV1"
+          },
+          "memberCount": {
+            "type": "integer",
+            "description": "Number of devices in the group",
+            "default": 0
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceGroupCriteriaRepresentationV1"
+            },
+            "description": "Criteria used to calculate the group's members, if applicable",
+            "default": null,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "deviceType",
+          "groupType",
+          "memberCount"
+        ]
+      },
+      "DeviceGroupCreateRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the device group",
+            "example": "New Device Group"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the device group",
+            "example": "A custom group of devices",
+            "default": ""
+          },
+          "deviceType": {
+            "$ref": "#/components/schemas/DeviceTypeV1"
+          },
+          "groupType": {
+            "$ref": "#/components/schemas/GroupTypeV1"
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceGroupCriteriaRepresentationV1"
+            },
+            "description": "The criteria used to calculate the group's members. Can only be used if `groupType` is `SMART`.\n",
+            "default": []
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The IDs of the devices to be added to the group, in UUID format. Can only be used if `groupType` is `STATIC`.\n",
+            "default": []
+          }
+        },
+        "required": [
+          "name",
+          "deviceType",
+          "groupType"
+        ]
+      },
+      "DeviceGroupUpdateRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the device group",
+            "example": "Some Device Group",
+            "nullable": false
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the device group",
+            "example": "A custom group of devices",
+            "default": ""
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceGroupCriteriaRepresentationV1"
+            },
+            "description": "The criteria used to calculate the group's members. Can only be used if `groupType` is `SMART`.\n",
+            "default": []
+          }
+        }
+      },
+      "DeviceGroupCriteriaRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "integer",
+            "description": "Order of the criteria in the group. All criteria must have a unique, sequential order starting from 0.\n",
+            "example": 0
+          },
+          "attributeName": {
+            "type": "string",
+            "description": "Name of the attribute used in the criteria",
+            "example": "Device Name"
+          },
+          "operator": {
+            "type": "string",
+            "description": "Operator used for the criteria",
+            "example": "IS"
+          },
+          "attributeValue": {
+            "type": "string",
+            "description": "Value of the attribute used in the criteria",
+            "example": "Some Device Name"
+          },
+          "joinType": {
+            "$ref": "#/components/schemas/JoinTypeV1"
+          },
+          "hasOpeningParenthesis": {
+            "type": "boolean",
+            "description": "Indicates if the criteria starts with an opening parenthesis",
+            "default": false
+          },
+          "hasClosingParenthesis": {
+            "type": "boolean",
+            "description": "Indicates if the criteria ends with a closing parenthesis",
+            "default": false
+          }
+        },
+        "required": [
+          "order",
+          "attributeName",
+          "operator",
+          "attributeValue",
+          "joinType"
+        ]
+      },
+      "DeviceGroupMemberOfRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The ID of the device group, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+          },
+          "groupName": {
+            "type": "string",
+            "description": "Name of the device group",
+            "example": "Some Device Group"
+          }
+        },
+        "required": [
+          "groupId",
+          "groupName"
+        ]
+      },
+      "DeviceTypeV1": {
+        "type": "string",
+        "description": "Type of device",
+        "enum": [
+          "COMPUTER",
+          "MOBILE"
+        ]
+      },
+      "GroupTypeV1": {
+        "type": "string",
+        "description": "Type of the device group",
+        "enum": [
+          "SMART",
+          "STATIC"
+        ]
+      },
+      "JoinTypeV1": {
+        "type": "string",
+        "description": "Type of join for criteria",
+        "enum": [
+          "AND",
+          "OR"
+        ]
+      },
+      "DeviceGroupMemberPatchRepresentationV1": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 0,
+            "description": "List of device IDs to be added to the group, in UUID format",
+            "default": []
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 0,
+            "description": "List of device IDs to be removed from the group, in UUID format",
+            "default": []
+          }
+        }
+      },
+      "ListDeviceGroupMemberReadRepresentation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ListResponseRepresentation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "minItems": 0,
+                "example": [
+                  "616e6479-6973-6173-7461-6c6c696f6e21",
+                  "616e6479-6973-6173-7461-6c6c696f6e22"
+                ],
+                "description": "List of device group members"
+              }
+            },
+            "required": [
+              "results"
+            ]
+          }
+        ]
+      },
+      "HrefRepresentation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The ID of the resource, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21"
+          },
+          "href": {
+            "type": "string",
+            "description": "URL of the resource",
+            "example": "/v1/device-groups/616e6479-6973-6173-7461-6c6c696f6e21"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ]
+      },
+      "PaginatedResponseRepresentation": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number (0-based)",
+            "example": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "Number of items per page",
+            "example": 20
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of results across all pages",
+            "example": 150
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "Total number of pages",
+            "example": 8
+          },
+          "hasNext": {
+            "type": "boolean",
+            "description": "Whether there is a next page",
+            "example": true
+          },
+          "hasPrevious": {
+            "type": "boolean",
+            "description": "Whether there is a previous page",
+            "example": false
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "totalPages",
+          "hasNext",
+          "hasPrevious"
+        ]
+      },
+      "ListResponseRepresentation": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "description": "Total number of results across all pages",
+            "example": 5
+          }
+        },
+        "required": [
+          "totalCount"
+        ]
+      },
+      "PaginatedDeviceGroupResponseRepresentation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponseRepresentation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DeviceGroupListReadRepresentationV1"
+                },
+                "minItems": 0,
+                "description": "List of device groups for the current page"
+              }
+            },
+            "required": [
+              "results"
+            ]
+          }
+        ]
+      },
+      "ListDeviceGroupMemberOfResponseRepresentation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ListResponseRepresentation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DeviceGroupMemberOfRepresentationV1"
+                },
+                "minItems": 0,
+                "description": "List of device groups for the specified device"
+              }
+            },
+            "required": [
+              "results"
+            ]
+          }
+        ]
+      },
+      "ApiErrorRepresentation": {
+        "type": "object",
+        "properties": {
+          "httpStatus": {
+            "type": "integer",
+            "description": "HTTP status of the response",
+            "example": 400
+          },
+          "traceId": {
+            "type": "string",
+            "example": "ecf2ca07e23c0abc12393472f2b783df"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorCauseRepresentation"
+            }
+          }
+        },
+        "required": [
+          "httpStatus",
+          "traceId",
+          "errors"
+        ]
+      },
+      "ApiErrorCauseRepresentation": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error-specific code that can be used to identify localization string, etc.",
+            "example": "INVALID_FIELD"
+          },
+          "field": {
+            "type": "string",
+            "description": "Name of the field that caused the error.",
+            "example": "Name"
+          },
+          "description": {
+            "type": "string",
+            "description": "A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and its localized text",
+            "example": "I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours"
+          },
+          "id": {
+            "type": "string",
+            "description": "id of object with error. Optional.",
+            "example": "3"
+          }
+        },
+        "required": [
+          "code",
+          "field",
+          "description"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway."
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{region}.apigw.jamf.com/api/device-groups",
+      "description": "Jamf Beta API Gateway - prod",
+      "variables": {
+        "region": {
+          "default": "us",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ],
+          "description": "Geographic deployment region"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

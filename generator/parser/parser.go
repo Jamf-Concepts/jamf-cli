@@ -1438,6 +1438,13 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 					}
 				}
 			}
+			// Capture the JSON response schema (when present) so downstream
+			// generators can tell whether the operation returns a body to
+			// unmarshal. We don't deeply parse the schema here — the presence
+			// signal alone is enough for many generation decisions.
+			if jsonContent, ok := respRef.Value.Content["application/json"]; ok && jsonContent != nil && jsonContent.Schema != nil && jsonContent.Schema.Value != nil {
+				resp.Schema = parseSchema("", jsonContent.Schema.Value)
+			}
 			operation.Responses[code] = resp
 		}
 	}
@@ -2007,7 +2014,7 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 
 // isDestructiveAction returns true for operations that modify/delete data
 func isDestructiveAction(opName string) bool {
-	destructive := []string{"delete", "delete-multiple", "erase", "wipe", "remove", "lock", "restart", "shutdown"}
+	destructive := []string{"delete", "delete-multiple", "erase", "wipe", "remove", "lock", "restart", "shutdown", "unmanage"}
 	for _, d := range destructive {
 		if strings.Contains(opName, d) {
 			return true

@@ -18,11 +18,14 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
+	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
 func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -32,14 +35,18 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Create, deploy, and manage Jamf Platform blueprints. Requires platform gateway auth.",
 	}
 
-	cmd.AddCommand(newBlueprintsListCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsGetCmd(cliCtx))
+	// Generated CRUD and actions: list, get, delete, patch, deploy, undeploy, report
+	// skip create — apply covers it with portable format + scope resolution + randomize-IDs
+	for _, sub := range platformgen.NewBlueprintsCmd(cliCtx).Commands() {
+		if sub.Name() == "create" {
+			continue
+		}
+		cmd.AddCommand(sub)
+	}
+
+	// Business logic: portable upsert, export, scope management, clone, components, profile import
 	cmd.AddCommand(newBlueprintsApplyCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeleteCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsExportCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeployCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsUndeployCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCloneCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsScopeCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsComponentsCmd(cliCtx))
@@ -48,58 +55,7 @@ func newBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		sortFields []string
-		search     string
-	)
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all blueprints",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			bps, err := cliCtx.PlatformClient.ListBlueprints(cmd.Context(), sortFields, search)
-			if err != nil {
-				return err
-			}
-			rows := make([]map[string]any, 0, len(bps))
-			for _, bp := range bps {
-				rows = append(rows, flattenBlueprintOverview(bp))
-			}
-			data, err := json.Marshal(rows)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
-		},
-	}
-	cmd.Flags().StringSliceVar(&sortFields, "sort", nil, "Sort fields (e.g. name:asc)")
-	cmd.Flags().StringVar(&search, "search", "", "Search filter")
-	return cmd
-}
-
-func flattenBlueprintOverview(bp jamfplatform.BlueprintOverview) map[string]any {
-	m := map[string]any{
-		"id":      bp.ID,
-		"name":    bp.Name,
-		"created": bp.Created,
-		"updated": bp.Updated,
-	}
-	if bp.Description != nil {
-		m["description"] = *bp.Description
-	}
-	if bp.DeploymentState != nil {
-		m["state"] = bp.DeploymentState.State
-		if bp.DeploymentState.LastDeployment != nil {
-			m["lastDeployed"] = bp.DeploymentState.LastDeployment.Started
-		}
-	}
-	return m
-}
-
-func flattenBlueprintDetail(bp jamfplatform.BlueprintDetail) map[string]any {
+func flattenBlueprintDetail(bp blueprints.BlueprintDetail) map[string]any {
 	m := map[string]any{
 		"id":      bp.ID,
 		"name":    bp.Name,
@@ -131,8 +87,7 @@ func resolveBlueprintID(ctx context.Context, cliCtx *registry.CLIContext, args [
 		if len(args) > 0 {
 			return "", fmt.Errorf("specify either <id> or --name, not both")
 		}
-		r := platform.NewResolver(cliCtx.PlatformClient)
-		return r.ResolveBlueprintID(ctx, nameFlag)
+		return blueprints.New(cliCtx.PlatformSDKClient).ResolveBlueprintIDByName(ctx, nameFlag)
 	}
 	if len(args) == 0 {
 		return "", fmt.Errorf("provide a blueprint <id> or use --name")
@@ -149,31 +104,6 @@ func blueprintLabel(args []string, nameFlag string) string {
 		return args[0]
 	}
 	return "<unknown>"
-}
-
-func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:   "get [<id>]",
-		Short: "Get a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			id, err := resolveBlueprintID(cmd.Context(), cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
-			if err != nil {
-				return err
-			}
-			return printResult(cliCtx.Output, bp, flattenBlueprintDetail(*bp))
-		},
-	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
 }
 
 func newBlueprintsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -217,14 +147,14 @@ Examples:
 			if scaffold {
 				bp := blueprintScaffold()
 				if len(components) > 0 {
-					var comps []jamfplatform.Component
+					var comps []blueprints.Component
 					for _, c := range components {
 						id := resolveComponentIdentifier(c)
 						jsonStr, ok := blueprintcomponents.Scaffolds[id]
 						if !ok {
 							return fmt.Errorf("unknown component: %s\nRun 'jamf-cli pro blueprints components list' to see available components", c)
 						}
-						comps = append(comps, jamfplatform.Component{
+						comps = append(comps, blueprints.Component{
 							Identifier:    id,
 							Configuration: json.RawMessage(jsonStr),
 						})
@@ -268,20 +198,19 @@ Examples:
 			}
 
 			// Check if a blueprint with this name already exists
-			r := platform.NewResolver(cliCtx.PlatformClient)
-			id, resolveErr := r.ResolveBlueprintID(ctx, createReq.Name)
+			id, resolveErr := blueprints.New(cliCtx.PlatformSDKClient).ResolveBlueprintIDByName(ctx, createReq.Name)
 			if resolveErr != nil && !platform.IsNotFound(resolveErr) {
 				return resolveErr
 			}
 			if resolveErr != nil {
 				// Not found — create with randomized payload IDs
 				createReq.Steps = randomizePayloadIdentifiers(createReq.Steps)
-				result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
+				result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, createReq)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", createReq.Name, result.ID)
-				bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
+				bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
 				if err != nil {
 					return err
 				}
@@ -298,11 +227,11 @@ Examples:
 			}
 
 			updateReq := blueprintCreateToUpdate(createReq)
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated blueprint %q\n", createReq.Name)
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -323,31 +252,31 @@ Examples:
 
 // blueprintCreateToUpdate converts a create request to an update request
 // for merge-patch semantics.
-func blueprintCreateToUpdate(c *jamfplatform.CreateBlueprintRequest) *jamfplatform.UpdateBlueprintRequest {
-	update := &jamfplatform.UpdateBlueprintRequest{
+func blueprintCreateToUpdate(c *blueprints.CreateBlueprintRequest) *blueprints.UpdateBlueprintRequest {
+	update := &blueprints.UpdateBlueprintRequest{
 		Name:        &c.Name,
 		Description: c.Description,
 		Steps:       &c.Steps,
 	}
 	if len(c.Scope.DeviceGroups) > 0 {
-		update.Scope = &jamfplatform.BlueprintScope{
+		update.Scope = &blueprints.BlueprintScope{
 			DeviceGroups: c.Scope.DeviceGroups,
 		}
 	}
 	return update
 }
 
-func blueprintScaffold() *jamfplatform.CreateBlueprintRequest {
+func blueprintScaffold() *blueprints.CreateBlueprintRequest {
 	stepName := "Step 1"
-	return &jamfplatform.CreateBlueprintRequest{
+	return &blueprints.CreateBlueprintRequest{
 		Name: "My Blueprint",
-		Scope: jamfplatform.CreateScope{
+		Scope: blueprints.CreateScope{
 			DeviceGroups: []string{"<device-group-id>"},
 		},
-		Steps: []jamfplatform.BlueprintStep{
+		Steps: []blueprints.BlueprintStep{
 			{
 				Name: &stepName,
-				Components: []jamfplatform.Component{
+				Components: []blueprints.Component{
 					{
 						Identifier:    "<component-identifier>",
 						Configuration: json.RawMessage(`{}`),
@@ -356,44 +285,6 @@ func blueprintScaffold() *jamfplatform.CreateBlueprintRequest {
 			},
 		},
 	}
-}
-
-func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
-		Short: "Delete a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			proceed, err := confirmDelete("blueprint", label, yes)
-			if err != nil {
-				return err
-			}
-			if !proceed {
-				return nil
-			}
-			if err := cliCtx.PlatformClient.DeleteBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Deleted blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
 }
 
 // blueprintExportScopeGroup represents a device group in the portable export format.
@@ -414,18 +305,18 @@ type blueprintExportScope struct {
 // Server-generated fields (id, created, updated, deploymentState) are stripped.
 // Scope contains enriched group objects (id + name + type) for cross-instance portability.
 type blueprintExport struct {
-	Name        string                       `json:"name" yaml:"name"`
-	Description string                       `json:"description,omitempty" yaml:"description,omitempty"`
-	Scope       blueprintExportScope         `json:"scope" yaml:"scope"`
-	Steps       []jamfplatform.BlueprintStep `json:"steps" yaml:"steps"`
+	Name        string                     `json:"name" yaml:"name"`
+	Description string                     `json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       blueprintExportScope       `json:"scope" yaml:"scope"`
+	Steps       []blueprints.BlueprintStep `json:"steps" yaml:"steps"`
 }
 
-func blueprintToExport(ctx context.Context, pc registry.PlatformClient, bp *jamfplatform.BlueprintDetail) blueprintExport {
+func blueprintToExport(ctx context.Context, c *jamfplatform.Client, bp *blueprints.BlueprintDetail) blueprintExport {
 	var groupIDs []string
 	if bp.Scope != nil {
 		groupIDs = bp.Scope.DeviceGroups
 	}
-	groups := reverseResolveGroups(ctx, pc, groupIDs)
+	groups := reverseResolveGroups(ctx, c, groupIDs)
 	desc := ""
 	if bp.Description != nil {
 		desc = *bp.Description
@@ -467,144 +358,11 @@ Multi-instance fan-out:
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
-			return printExport(blueprintToExport(ctx, cliCtx.PlatformClient, bp))
-		},
-	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "deploy [<id>]",
-		Short: "Deploy a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			if !yes {
-				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would deploy blueprint %q\n", label)
-					return nil
-				}
-				if noInput {
-					return fmt.Errorf("deploy requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will deploy blueprint %q. Type 'yes' to confirm: ", label)
-				var confirm string
-				if _, err := fmt.Scanln(&confirm); err != nil {
-					return fmt.Errorf("reading confirmation: %w", err)
-				}
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-			if err := cliCtx.PlatformClient.DeployBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Deployment started for blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var (
-		yes      bool
-		nameFlag string
-	)
-	cmd := &cobra.Command{
-		Use:   "undeploy [<id>]",
-		Short: "Undeploy a blueprint by ID or name",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			if !yes {
-				if dryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would undeploy blueprint %q\n", label)
-					return nil
-				}
-				if noInput {
-					return fmt.Errorf("undeploy requires --yes when --no-input is set")
-				}
-				fmt.Fprintf(os.Stderr, "This will undeploy blueprint %q. Type 'yes' to confirm: ", label)
-				var confirm string
-				if _, err := fmt.Scanln(&confirm); err != nil {
-					return fmt.Errorf("reading confirmation: %w", err)
-				}
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-			if err := cliCtx.PlatformClient.UndeployBlueprint(ctx, id); err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Undeployment started for blueprint %q\n", label)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
-	return cmd
-}
-
-func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:   "report [<id>]",
-		Short: "Get deployment status report for a blueprint",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requirePlatformClient(cliCtx); err != nil {
-				return err
-			}
-			ctx := cmd.Context()
-			id, err := resolveBlueprintID(ctx, cliCtx, args, nameFlag)
-			if err != nil {
-				return err
-			}
-			report, err := cliCtx.PlatformClient.GetBlueprintReport(ctx, id)
-			if err != nil {
-				return err
-			}
-			label := blueprintLabel(args, nameFlag)
-			m := map[string]any{
-				"blueprint": label,
-				"succeeded": report.Succeeded,
-				"failed":    report.Failed,
-				"pending":   report.Pending,
-			}
-			data, err := json.Marshal(m)
-			if err != nil {
-				return fmt.Errorf("marshalling output: %w", err)
-			}
-			return cliCtx.Output.PrintRaw(data)
+			return printExport(blueprintToExport(ctx, cliCtx.PlatformSDKClient, bp))
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Look up blueprint by name")
@@ -636,7 +394,7 @@ func newBlueprintsScopeListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bp, err := cliCtx.PlatformClient.GetBlueprint(cmd.Context(), id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
@@ -701,7 +459,7 @@ Examples:
 			}
 
 			// Get current scope
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -731,12 +489,12 @@ Examples:
 				return nil
 			}
 
-			updateReq := &jamfplatform.UpdateBlueprintRequest{
-				Scope: &jamfplatform.BlueprintScope{
+			updateReq := &blueprints.UpdateBlueprintRequest{
+				Scope: &blueprints.BlueprintScope{
 					DeviceGroups: newScope,
 				},
 			}
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Added %d group(s) to blueprint scope\n", added)
@@ -790,7 +548,7 @@ Examples:
 			}
 
 			// Get current scope
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, id)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, id)
 			if err != nil {
 				return err
 			}
@@ -818,12 +576,12 @@ Examples:
 				return nil
 			}
 
-			updateReq := &jamfplatform.UpdateBlueprintRequest{
-				Scope: &jamfplatform.BlueprintScope{
+			updateReq := &blueprints.UpdateBlueprintRequest{
+				Scope: &blueprints.BlueprintScope{
 					DeviceGroups: newScope,
 				},
 			}
-			if err := cliCtx.PlatformClient.UpdateBlueprint(ctx, id, updateReq); err != nil {
+			if err := blueprints.New(cliCtx.PlatformSDKClient).UpdateBlueprint(ctx, id, updateReq); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Removed %d group(s) from blueprint scope\n", removed)
@@ -893,7 +651,7 @@ func newBlueprintsComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			comps, err := cliCtx.PlatformClient.ListBlueprintComponents(cmd.Context())
+			comps, err := blueprints.New(cliCtx.PlatformSDKClient).ListBlueprintComponents(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -927,14 +685,13 @@ The source scope is copied by default. Use --scope to override device group targ
 				return err
 			}
 			ctx := cmd.Context()
-			pc := cliCtx.PlatformClient
+			bpClient := blueprints.New(cliCtx.PlatformSDKClient)
 
-			r := platform.NewResolver(pc)
-			sourceID, err := r.ResolveBlueprintID(ctx, args[0])
+			sourceID, err := bpClient.ResolveBlueprintIDByName(ctx, args[0])
 			if err != nil {
 				return fmt.Errorf("source blueprint: %w", err)
 			}
-			source, err := pc.GetBlueprint(ctx, sourceID)
+			source, err := bpClient.GetBlueprint(ctx, sourceID)
 			if err != nil {
 				return fmt.Errorf("source blueprint: %w", err)
 			}
@@ -948,22 +705,22 @@ The source scope is copied by default. Use --scope to override device group targ
 			}
 			steps := randomizePayloadIdentifiers(source.Steps)
 
-			createReq := &jamfplatform.CreateBlueprintRequest{
+			createReq := &blueprints.CreateBlueprintRequest{
 				Name:        args[1],
 				Description: source.Description,
-				Scope: jamfplatform.CreateScope{
+				Scope: blueprints.CreateScope{
 					DeviceGroups: groups,
 				},
 				Steps: steps,
 			}
 
-			result, err := pc.CreateBlueprint(ctx, createReq)
+			result, err := bpClient.CreateBlueprint(ctx, createReq)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Cloned blueprint %q → %q (id: %s)\n", args[0], args[1], result.ID)
 
-			bp, err := pc.GetBlueprint(ctx, result.ID)
+			bp, err := bpClient.GetBlueprint(ctx, result.ID)
 			if err != nil {
 				return err
 			}
@@ -1040,7 +797,7 @@ func newBlueprintsComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			comp, err := cliCtx.PlatformClient.GetBlueprintComponent(cmd.Context(), args[0])
+			comp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprintComponent(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -1347,7 +1104,7 @@ Examples:
 
 			// Step 3: Convert mobileconfig to blueprint components.
 			displayName := profileconvert.ProfileDisplayName([]byte(mobileconfig))
-			var components []jamfplatform.Component
+			var components []blueprints.Component
 
 			if noConvert {
 				// Legacy mode: wrap all payloads in a single configuration-profile component.
@@ -1371,7 +1128,7 @@ Examples:
 				}
 				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
 				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
-				components = append(components, jamfplatform.Component{
+				components = append(components, blueprints.Component{
 					Identifier:    "com.jamf.ddm-configuration-profile",
 					Configuration: config,
 				})
@@ -1421,13 +1178,13 @@ Examples:
 				}
 
 				for _, nc := range ddmResult.NativeComponents {
-					components = append(components, jamfplatform.Component{
+					components = append(components, blueprints.Component{
 						Identifier:    nc.Identifier,
 						Configuration: nc.Configuration,
 					})
 				}
 				if ddmResult.ProfileConfig != nil {
-					components = append(components, jamfplatform.Component{
+					components = append(components, blueprints.Component{
 						Identifier:    "com.jamf.ddm-configuration-profile",
 						Configuration: ddmResult.ProfileConfig,
 					})
@@ -1459,12 +1216,12 @@ Examples:
 			}
 
 			importStepName := "Step 1"
-			createReq := &jamfplatform.CreateBlueprintRequest{
+			createReq := &blueprints.CreateBlueprintRequest{
 				Name: name,
-				Scope: jamfplatform.CreateScope{
+				Scope: blueprints.CreateScope{
 					DeviceGroups: scopeGroups,
 				},
-				Steps: []jamfplatform.BlueprintStep{
+				Steps: []blueprints.BlueprintStep{
 					{
 						Name:       &importStepName,
 						Components: components,
@@ -1474,13 +1231,13 @@ Examples:
 
 			fmt.Fprintln(os.Stderr, profileconvert.ConflictWarning)
 
-			result, err := cliCtx.PlatformClient.CreateBlueprint(ctx, createReq)
+			result, err := blueprints.New(cliCtx.PlatformSDKClient).CreateBlueprint(ctx, createReq)
 			if err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Created blueprint %q (id: %s)\n", name, result.ID)
 
-			bp, err := cliCtx.PlatformClient.GetBlueprint(ctx, result.ID)
+			bp, err := blueprints.New(cliCtx.PlatformSDKClient).GetBlueprint(ctx, result.ID)
 			if err != nil {
 				return err
 			}
@@ -1683,10 +1440,10 @@ func extractPayloadsFromXML(xmlStr string) string {
 // randomizePayloadIdentifiers walks through blueprint steps and replaces
 // payloadIdentifier values in legacy configuration profile components
 // (com.jamf.ddm-configuration-profile) with fresh UUIDs.
-func randomizePayloadIdentifiers(steps []jamfplatform.BlueprintStep) []jamfplatform.BlueprintStep {
-	out := make([]jamfplatform.BlueprintStep, len(steps))
+func randomizePayloadIdentifiers(steps []blueprints.BlueprintStep) []blueprints.BlueprintStep {
+	out := make([]blueprints.BlueprintStep, len(steps))
 	for i, step := range steps {
-		comps := make([]jamfplatform.Component, len(step.Components))
+		comps := make([]blueprints.Component, len(step.Components))
 		for j, comp := range step.Components {
 			comps[j] = comp
 			if len(comp.Configuration) == 0 {
@@ -1702,7 +1459,7 @@ func randomizePayloadIdentifiers(steps []jamfplatform.BlueprintStep) []jamfplatf
 				}
 			}
 		}
-		out[i] = jamfplatform.BlueprintStep{
+		out[i] = blueprints.BlueprintStep{
 			Name:                step.Name,
 			Components:          comps,
 			ActivationPredicate: step.ActivationPredicate,
@@ -1743,16 +1500,16 @@ func randomizeMapPayloadIDs(m map[string]any) bool {
 // reverseResolveGroups maps platform device group UUIDs to enriched metadata
 // (name, device type) by fetching the full device groups list. Groups that
 // cannot be found (deleted, etc.) are included with their UUID and empty metadata.
-func reverseResolveGroups(ctx context.Context, pc registry.PlatformClient, ids []string) []blueprintExportScopeGroup {
+func reverseResolveGroups(ctx context.Context, c *jamfplatform.Client, ids []string) []blueprintExportScopeGroup {
 	if len(ids) == 0 {
 		return nil
 	}
 
-	allGroups, err := pc.ListDeviceGroups(ctx, nil, "")
+	allGroups, err := devicegroups.New(c).ListDeviceGroups(ctx, nil, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: could not list device groups (%v), export will contain UUIDs only (not portable)\n", err)
 	}
-	groupMap := make(map[string]jamfplatform.DeviceGroupListReadRepresentationV1, len(allGroups))
+	groupMap := make(map[string]devicegroups.DeviceGroupListReadRepresentationV1, len(allGroups))
 	for _, g := range allGroups {
 		groupMap[g.ID] = g
 	}
@@ -1817,13 +1574,13 @@ func deviceTypeToGroupType(deviceType string) string {
 // enriched group objects). When the portable format is detected, group names
 // are resolved to UUIDs on the target instance. scopeOverrideIDs, if non-empty,
 // replaces the file's scope entirely.
-func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.HTTPClient, scopeOverrideIDs []string) (*jamfplatform.CreateBlueprintRequest, error) {
+func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.HTTPClient, scopeOverrideIDs []string) (*blueprints.CreateBlueprintRequest, error) {
 	// Probe the scope format via a generic unmarshal to avoid type coercion
 	// issues between JSON objects and YAML strings.
 	portable := isPortableScopeFormat(data)
 
 	if !portable {
-		var req jamfplatform.CreateBlueprintRequest
+		var req blueprints.CreateBlueprintRequest
 		if err := unmarshalInput(data, &req); err != nil {
 			return nil, fmt.Errorf("parsing input: %w", err)
 		}
@@ -1856,9 +1613,9 @@ func parseBlueprintApplyInput(ctx context.Context, data []byte, client registry.
 		}
 	}
 
-	req := &jamfplatform.CreateBlueprintRequest{
+	req := &blueprints.CreateBlueprintRequest{
 		Name: exp.Name,
-		Scope: jamfplatform.CreateScope{
+		Scope: blueprints.CreateScope{
 			DeviceGroups: groupIDs,
 		},
 		Steps: exp.Steps,

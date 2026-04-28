@@ -19,6 +19,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 // diffChangeKind classifies a single diff result.
@@ -317,20 +319,21 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			return false
 		}
 
-		pc := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && verboseLevel == 0)
+		sdk := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(), !quiet && verboseLevel == 0)
 
 		if wantPlatform("blueprints") {
-			bps, err := pc.ListBlueprints(ctx, nil, "")
+			bp := blueprints.New(sdk)
+			bps, err := bp.ListBlueprints(ctx, nil, "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: could not list blueprints: %v\n", err)
 			} else {
 				objects := make(map[string]map[string]any)
-				for _, bp := range bps {
-					detail, err := pc.GetBlueprint(ctx, bp.ID)
+				for _, item := range bps {
+					detail, err := bp.GetBlueprint(ctx, item.ID)
 					if err != nil {
 						continue
 					}
-					exp := blueprintToExport(ctx, pc, detail)
+					exp := blueprintToExport(ctx, sdk, detail)
 					objects[detail.Name] = normaliseViaJSON(structToMap(exp))
 				}
 				if len(objects) > 0 {
@@ -340,13 +343,14 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 		}
 
 		if wantPlatform("compliance-benchmarks") {
-			resp, err := pc.ListBenchmarks(ctx)
+			cb := compliancebenchmarks.New(sdk)
+			resp, err := cb.ListBenchmarks(ctx)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: could not list benchmarks: %v\n", err)
 			} else {
 				objects := make(map[string]map[string]any)
 				for _, b := range resp.Benchmarks {
-					bm, err := pc.GetBenchmark(ctx, b.ID)
+					bm, err := cb.GetBenchmark(ctx, b.ID)
 					if err != nil {
 						continue
 					}

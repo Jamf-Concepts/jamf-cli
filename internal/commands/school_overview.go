@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 )
 
 // runSchoolOverview executes all Jamf School API calls in parallel and returns
@@ -83,11 +84,11 @@ func runSchoolOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]overv
 		send("dep_devices", formatCount(len(depDevices)), err)
 	})
 
-	// Platform (only when PlatformClient is configured)
-	if pc := cliCtx.PlatformClient; pc != nil {
+	// Platform (only when PlatformSDKClient is configured)
+	if pc := cliCtx.PlatformSDKClient; pc != nil {
 		wg.Go(func() {
-			blueprints, err := pc.ListBlueprints(ctx, nil, "")
-			send("blueprints", formatCount(len(blueprints)), err)
+			bps, err := blueprints.New(pc).ListBlueprints(ctx, nil, "")
+			send("blueprints", formatCount(len(bps)), err)
 		})
 	}
 
@@ -137,7 +138,7 @@ func runSchoolOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]overv
 	}
 
 	// Only show Platform section when platform credentials are configured
-	if cliCtx.PlatformClient != nil {
+	if cliCtx.PlatformSDKClient != nil {
 		sections = append(sections, overviewSection{
 			Name: "Platform",
 			Items: []overviewItem{

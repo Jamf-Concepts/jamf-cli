@@ -284,6 +284,12 @@ var proGroupMap = map[string]string{
 	"platform-devices":       groupPlatform,
 	"platform-device-groups": groupPlatform,
 	"ddm-reports":            groupPlatform,
+	"baselines":              groupPlatform,
+	"benchmark-reports":      groupPlatform,
+	"blueprint-components":   groupPlatform,
+	"device-actions":         groupPlatform,
+	"rules":                  groupPlatform,
+	"platform-users":         groupPlatform,
 
 	// Classic - Computers
 	"classic-policies":                   groupClassicComputers,

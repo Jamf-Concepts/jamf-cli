@@ -5,6 +5,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
+	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -35,6 +36,17 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPlatformDevicesCmd(cliCtx))
 	cmd.AddCommand(newPlatformDeviceGroupsCmd(cliCtx))
 	cmd.AddCommand(newDDMReportsCmd(cliCtx))
+
+	// Spec-generated Platform API commands. Resources without a hand-written
+	// equivalent are wired here; resources that collide (blueprints,
+	// compliance-benchmarks/benchmarks, platform-devices/devices,
+	// platform-device-groups/device-groups) stay served by the existing
+	// hand-written commands until those migrate to call generated functions.
+	cmd.AddCommand(platformgen.NewBaselinesCmd(cliCtx))
+	cmd.AddCommand(platformgen.NewBenchmarkReportsCmd(cliCtx))
+	cmd.AddCommand(platformgen.NewBlueprintComponentsCmd(cliCtx))
+	cmd.AddCommand(platformgen.NewRulesCmd(cliCtx))
+	cmd.AddCommand(platformgen.NewPlatformUsersCmd(cliCtx))
 
 	// Generated modern API commands
 	generated.RegisterCommands(cmd, cliCtx)

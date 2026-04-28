@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -366,6 +367,37 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 
 // bodyLogLimit is the maximum number of body bytes written to stderr at -vvv.
 const bodyLogLimit = 64 << 10 // 64 KB
+
+// BodyLogLimit is the truncation cap used by LogBody.
+const BodyLogLimit = bodyLogLimit
+
+// LogHeaders is the exported alias of logHeaders, callable from other packages
+// that wrap HTTP transports (e.g. the Platform Gateway client wired through
+// the SDK).
+func LogHeaders(w io.Writer, h http.Header, redactAuth bool) {
+	logHeaders(w, h, redactAuth)
+}
+
+// LogBody is the exported alias of logBody.
+func LogBody(w io.Writer, data []byte) {
+	logBody(w, data)
+}
+
+// tokenFieldRe matches JSON string values for sensitive auth fields so they can
+// be replaced with "[REDACTED]" before logging. Handles access_token,
+// refresh_token, and id_token — the fields returned by OAuth2 token endpoints.
+var tokenFieldRe = regexp.MustCompile(`("(?:access_token|refresh_token|id_token)"\s*:\s*)"[^"]*"`)
+
+// RedactTokenBody replaces OAuth2 token values in raw JSON with "[REDACTED]"
+// so response bodies are safe to log at -vvv. Non-JSON data is returned as-is.
+func RedactTokenBody(data []byte) []byte {
+	if !bytes.Contains(data, []byte("access_token")) &&
+		!bytes.Contains(data, []byte("refresh_token")) &&
+		!bytes.Contains(data, []byte("id_token")) {
+		return data
+	}
+	return tokenFieldRe.ReplaceAll(data, []byte(`$1"[REDACTED]"`))
+}
 
 // logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
 // the Authorization header value is replaced with "[redacted]".

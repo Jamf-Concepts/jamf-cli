@@ -16,6 +16,8 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
 
 // Concurrency defaults for the backup command. The API can be pushed to 429s
@@ -249,7 +251,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	}
 
 	// Platform resources (blueprints, compliance-benchmarks) via SDK
-	if cliCtx.PlatformClient != nil {
+	if cliCtx.PlatformSDKClient != nil {
 		wantPlatform := func(name string) bool {
 			if len(nameFilter) == 0 {
 				return true
@@ -537,7 +539,7 @@ func normalizeViaJSON(v any) (map[string]any, error) {
 
 // backupBlueprints exports all blueprints via the Platform SDK.
 func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta) (int, []backupFailure) {
-	pc := cliCtx.PlatformClient
+	bp := blueprints.New(cliCtx.PlatformSDKClient)
 	ext := ".yaml"
 	if opts.Format == "json" {
 		ext = ".json"
@@ -548,7 +550,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		return 0, []backupFailure{{Resource: "blueprints", Path: subDir, Error: err.Error()}}
 	}
 
-	bps, err := pc.ListBlueprints(ctx, nil, "")
+	bps, err := bp.ListBlueprints(ctx, nil, "")
 	if err != nil {
 		return 0, []backupFailure{{Resource: "blueprints", Path: "list", Error: err.Error()}}
 	}
@@ -557,16 +559,16 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 	exported := 0
 	slugSeen := make(map[string]bool)
 
-	for _, bp := range bps {
-		detail, err := pc.GetBlueprint(ctx, bp.ID)
+	for _, item := range bps {
+		detail, err := bp.GetBlueprint(ctx, item.ID)
 		if err != nil {
-			failures = append(failures, backupFailure{Resource: "blueprints", Path: bp.ID, Error: err.Error()})
+			failures = append(failures, backupFailure{Resource: "blueprints", Path: item.ID, Error: err.Error()})
 			continue
 		}
 
-		obj, err := normalizeViaJSON(blueprintToExport(ctx, pc, detail))
+		obj, err := normalizeViaJSON(blueprintToExport(ctx, cliCtx.PlatformSDKClient, detail))
 		if err != nil {
-			failures = append(failures, backupFailure{Resource: "blueprints", Path: bp.ID, Error: err.Error()})
+			failures = append(failures, backupFailure{Resource: "blueprints", Path: item.ID, Error: err.Error()})
 			continue
 		}
 		obj["_meta"] = newMeta("blueprints")
@@ -587,7 +589,7 @@ func backupBlueprints(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 
 // backupBenchmarks exports all compliance benchmarks via the Platform SDK.
 func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions, newMeta func(string) backupMeta) (int, []backupFailure) {
-	pc := cliCtx.PlatformClient
+	cb := compliancebenchmarks.New(cliCtx.PlatformSDKClient)
 	ext := ".yaml"
 	if opts.Format == "json" {
 		ext = ".json"
@@ -598,7 +600,7 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		return 0, []backupFailure{{Resource: "compliance-benchmarks", Path: subDir, Error: err.Error()}}
 	}
 
-	resp, err := pc.ListBenchmarks(ctx)
+	resp, err := cb.ListBenchmarks(ctx)
 	if err != nil {
 		return 0, []backupFailure{{Resource: "compliance-benchmarks", Path: "list", Error: err.Error()}}
 	}
@@ -608,7 +610,7 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 	slugSeen := make(map[string]bool)
 
 	for _, b := range resp.Benchmarks {
-		bm, err := pc.GetBenchmark(ctx, b.ID)
+		bm, err := cb.GetBenchmark(ctx, b.ID)
 		if err != nil {
 			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: b.ID, Error: err.Error()})
 			continue
