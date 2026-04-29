@@ -29,6 +29,9 @@ func NewAppInstallerDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAppInstallerDeploymentsCreateCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsUpdateCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsDeleteCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsComputersCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsInstallationRetryCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsInstallationSummaryCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsApplyCmd(ctx))
 
 	return cmd
@@ -40,7 +43,7 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all App Installer deployments",
-		Long:  "Retrieves all App Installer deployment configurations",
+		Long:  "Retrieves all App Installer deployment configurations (enabled or not)",
 		Example: `  # List all app-installer-deployments
   jamf-cli pro app-installer-deployments list
 
@@ -161,7 +164,8 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "selectedVersion": "",
+  "notificationSettings": {},
+  "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
@@ -240,7 +244,8 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "selectedVersion": "",
+  "notificationSettings": {},
+  "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
@@ -418,6 +423,182 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
+func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "computers [<id>]",
+		Short: "Get computers for an App Installer deployment",
+		Long:  "Retrieves per-computer installation status for a deployment",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/computers"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "installation-retry [<id>]",
+		Short: "Retry all failed installations for a deployment",
+		Long:  "Issues a retry for all failed App Installer installations in a deployment",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/computers/installation-retry"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "installation-summary [<id>]",
+		Short: "Get installation summary for an App Installer deployment",
+		Long:  "Retrieves aggregate installation status counts for a deployment",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/installation-summary"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
 func newAppInstallerDeploymentsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile     string
@@ -458,7 +639,8 @@ If not, a new resource is created.`,
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "selectedVersion": "",
+  "notificationSettings": {},
+  "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
   "updateBehavior": ""
