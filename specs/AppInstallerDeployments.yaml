@@ -9,16 +9,14 @@ paths:
       tags:
       - app-installer-deployments
       summary: Get all App Installer deployments
-      description: Retrieves all App Installer deployment configurations
+      description: Retrieves all App Installer deployment configurations (enabled or not)
       responses:
         200:
           description: Successful response
           content:
             'application/json':
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AppInstallerDeployment'
+                $ref: '#/components/schemas/AppInstallerDeploymentSearchResults'
       x-required-privileges:
       - Read App Installers
     post:
@@ -31,15 +29,15 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/AppInstallerDeployment'
+              $ref: '#/components/schemas/AppInstallerDeploymentCreate'
         required: true
       responses:
-        201:
+        200:
           description: Deployment created
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AppInstallerDeploymentResponse'
+                $ref: '#/components/schemas/AppInstallerDeploymentRef'
       x-required-privileges:
       - Create App Installers
   /v1/app-installers/deployments/{id}:
@@ -83,7 +81,7 @@ paths:
         content:
           'application/json':
             schema:
-              $ref: '#/components/schemas/AppInstallerDeployment'
+              $ref: '#/components/schemas/AppInstallerDeploymentCreate'
         required: true
       responses:
         200:
@@ -91,7 +89,7 @@ paths:
           content:
             'application/json':
               schema:
-                $ref: '#/components/schemas/AppInstallerDeploymentResponse'
+                $ref: '#/components/schemas/AppInstallerDeployment'
       x-required-privileges:
       - Update App Installers
     delete:
@@ -111,8 +109,122 @@ paths:
           description: Deployment deleted
       x-required-privileges:
       - Delete App Installers
+  /v1/app-installers/deployments/{id}/computers:
+    get:
+      tags:
+      - app-installer-deployments
+      summary: Get computers for an App Installer deployment
+      description: Retrieves per-computer installation status for a deployment
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/DeploymentComputerSearchResults'
+        404:
+          description: Deployment not found
+      x-required-privileges:
+      - Read App Installers
+  /v1/app-installers/deployments/{id}/installation-summary:
+    get:
+      tags:
+      - app-installer-deployments
+      summary: Get installation summary for an App Installer deployment
+      description: Retrieves aggregate installation status counts for a deployment
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/InstallationSummary'
+        404:
+          description: Deployment not found
+      x-required-privileges:
+      - Read App Installers
+  /v1/app-installers/deployments/{id}/computers/installation-retry:
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Retry all failed installations for a deployment
+      description: Issues a retry for all failed App Installer installations in a deployment
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Retry submitted
+        404:
+          description: Deployment not found
+      x-action: true
+      x-required-privileges:
+      - Update App Installers
 components:
   schemas:
+    AppInstallerDeploymentSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppInstallerDeploymentListItem'
+    AppInstallerDeploymentListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        enabled:
+          type: boolean
+        selectedVersion:
+          type: string
+        latestVersion:
+          type: string
+          readOnly: true
+        deploymentType:
+          type: string
+          enum:
+          - INSTALL_AUTOMATICALLY
+          - SELF_SERVICE
+        updateBehavior:
+          type: string
+          enum:
+          - AUTOMATIC
+          - MANUAL
+        site:
+          $ref: '#/components/schemas/IdName'
+        smartGroup:
+          $ref: '#/components/schemas/IdName'
+        category:
+          $ref: '#/components/schemas/IdName'
+        computerStatuses:
+          $ref: '#/components/schemas/ComputerStatuses'
+        bundleId:
+          type: string
+          readOnly: true
     AppInstallerDeployment:
       type: object
       properties:
@@ -121,7 +233,6 @@ components:
           readOnly: true
         name:
           type: string
-          description: Display name for this deployment
         enabled:
           type: boolean
         appTitleId:
@@ -137,23 +248,165 @@ components:
           enum:
           - AUTOMATIC
           - MANUAL
-        categoryId:
-          type: string
         siteId:
           type: string
         smartGroupId:
           type: string
         installPredefinedConfigProfiles:
           type: boolean
+        titleAvailableInAis:
+          type: boolean
+          readOnly: true
+        triggerAdminNotifications:
+          type: boolean
+        notificationSettings:
+          $ref: '#/components/schemas/NotificationSettings'
+        selfServiceSettings:
+          $ref: '#/components/schemas/SelfServiceSettings'
         selectedVersion:
           type: string
         latestAvailableVersion:
           type: string
           readOnly: true
-    AppInstallerDeploymentResponse:
+        versionRemoved:
+          type: boolean
+          readOnly: true
+    AppInstallerDeploymentCreate:
+      type: object
+      required:
+      - name
+      - appTitleId
+      - deploymentType
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+        appTitleId:
+          type: string
+          description: ID of the App Installer title to deploy
+        siteId:
+          type: string
+        categoryId:
+          type: string
+        smartGroupId:
+          type: string
+        deploymentType:
+          type: string
+          enum:
+          - INSTALL_AUTOMATICALLY
+          - SELF_SERVICE
+        updateBehavior:
+          type: string
+          enum:
+          - AUTOMATIC
+          - MANUAL
+        notificationSettings:
+          $ref: '#/components/schemas/NotificationSettings'
+        selfServiceSettings:
+          $ref: '#/components/schemas/SelfServiceSettings'
+        installPredefinedConfigProfiles:
+          type: boolean
+    NotificationSettings:
+      type: object
+      properties:
+        notificationMessage:
+          type: string
+        notificationInterval:
+          type: integer
+        deadlineMessage:
+          type: string
+        deadline:
+          type: integer
+        quitDelay:
+          type: integer
+        completeMessage:
+          type: string
+        relaunch:
+          type: boolean
+        suppress:
+          type: boolean
+    SelfServiceSettings:
+      type: object
+      properties:
+        includeInFeaturedCategory:
+          type: boolean
+        includeInComplianceCategory:
+          type: boolean
+        forceViewDescription:
+          type: boolean
+        description:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SelfServiceCategory'
+    SelfServiceCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        featured:
+          type: boolean
+    DeploymentComputerSearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeploymentComputer'
+    DeploymentComputer:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        retryable:
+          type: boolean
+        computerName:
+          type: string
+    InstallationSummary:
+      type: object
+      properties:
+        installed:
+          type: integer
+        available:
+          type: integer
+        inProgress:
+          type: integer
+        failed:
+          type: integer
+        unqualified:
+          type: integer
+    ComputerStatuses:
+      type: object
+      properties:
+        installed:
+          type: integer
+        available:
+          type: integer
+        inProgress:
+          type: integer
+        failed:
+          type: integer
+        unqualified:
+          type: integer
+    AppInstallerDeploymentRef:
       type: object
       properties:
         id:
           type: string
         href:
+          type: string
+    IdName:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
           type: string

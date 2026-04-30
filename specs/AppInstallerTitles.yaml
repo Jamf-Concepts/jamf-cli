@@ -85,3 +85,28 @@ components:
           type: string
         architecture:
           type: string
+        packageSigningIdentity:
+          type: string
+        installerPackageHashType:
+          type: string
+        installerPackageHash:
+          type: string
+        originalMediaSources:
+          type: array
+          items:
+            $ref: '#/components/schemas/OriginalMediaSource'
+        launchDaemonIncluded:
+          type: boolean
+        notificationAvailable:
+          type: boolean
+        suppressAutoUpdate:
+          type: boolean
+    OriginalMediaSource:
+      type: object
+      properties:
+        hashType:
+          type: string
+        hash:
+          type: string
+        url:
+          type: string
