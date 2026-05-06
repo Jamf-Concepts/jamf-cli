@@ -138,7 +138,6 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -266,7 +265,6 @@ func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -326,6 +324,5 @@ func newClientCheckInAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

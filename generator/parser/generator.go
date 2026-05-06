@@ -1484,6 +1484,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -1507,6 +1510,18 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
@@ -1514,8 +1529,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
@@ -1525,8 +1539,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -1561,6 +1574,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				for _, id := range memberIDs {
 					bulk = append(bulk, bulkEntry{id: id, label: id})
 				}
+				noInputGrp, _ := cmd.Flags().GetBool("no-input")
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
@@ -1568,8 +1582,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputGrp {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
@@ -1579,8 +1592,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -2172,7 +2184,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
-	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all {{ $.Name }} from a Classic API group (name or ID)")
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
@@ -2213,7 +2225,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opEmitsRenameFlag . $ }}
 	cmd.Flags().StringVar(&flagRename, "name", "", "Canonical name to apply to the {{ $.NameSingular }} via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body has no name field)")
 {{- end }}
-
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("from-file", "{{ .Flag }}")
+{{ end }}{{- if $.GroupsClassicPath }}
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("group", "{{ .Flag }}")
+{{ end }}{{- end }}{{- end }}
 	return cmd
 }
 {{ end }}

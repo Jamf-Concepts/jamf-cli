@@ -140,6 +140,5 @@ func newRemoteAdministrationConfigurationsListCmd(ctx *registry.CLIContext) *cob
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }

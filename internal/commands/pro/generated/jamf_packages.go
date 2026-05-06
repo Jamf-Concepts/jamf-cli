@@ -64,6 +64,5 @@ func newJamfPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagApplication, "application", "", "The Jamf Application key. The only supported values are protect and connect.")
-
 	return cmd
 }

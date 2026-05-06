@@ -156,6 +156,5 @@ func newManagedSoftwareUpdatesUpdateStatusesCmd(ctx *registry.CLIContext) *cobra
 	}
 
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Managed Software Updates collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: osUpdatesStatusId, device.deviceId, device.objectType, downloaded, downloadPercentComplete, productKey, status, deferralsRemaining, maxDeferrals, nextScheduledInstall, created and updated.")
-
 	return cmd
 }

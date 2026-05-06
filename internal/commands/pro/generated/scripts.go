@@ -165,7 +165,6 @@ func newScriptsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter scripts collection. Default search is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'info', 'notes', 'priority', 'categoryId', 'categoryName', 'parameter4' up to 'parameter11', 'osRequirements', 'scriptContents'. This param can be combined with paging and sorting. Example: filter=categoryName==\"Category\" and name==\"*script name*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -478,6 +477,9 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -494,6 +496,18 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete script %q (id: %s)\n", e.label, e.id)
@@ -501,8 +515,7 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d scripts. Type 'yes' to confirm: ", len(bulk))
@@ -512,8 +525,7 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -619,6 +631,8 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up script by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }

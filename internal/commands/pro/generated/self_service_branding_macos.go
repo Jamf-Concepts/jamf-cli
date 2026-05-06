@@ -157,7 +157,6 @@ func newSelfServiceBrandingMacosListCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,brandingName:asc ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -292,7 +291,6 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -426,6 +424,9 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -442,6 +443,18 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete self-service-branding-macos %q (id: %s)\n", e.label, e.id)
@@ -449,8 +462,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d self-service-branding-macos. Type 'yes' to confirm: ", len(bulk))
@@ -460,8 +472,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -567,6 +578,8 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up self-service-branding-macos by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }

@@ -157,7 +157,6 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter session history items collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: sessionId, deviceId, sessionAdminId. This param can be combined with paging and sorting. Example: sessionAdminId==\"*Andrzej*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -303,6 +302,5 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }

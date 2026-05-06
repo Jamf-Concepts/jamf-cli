@@ -102,7 +102,6 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }
 

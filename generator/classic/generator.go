@@ -835,11 +835,14 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var resolvedID string
 {{ range extraLookups .Lookups }}{{ if ne . "name" }}					if resolvedID == "" {
-							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/{{ $.Path }}/{{ . }}", "{{ $.Singular }}", entry)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/{{ $.Path }}/{{ . }}", entry)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via {{ . }}: %w", entry, lookupErr)
 							}
@@ -858,6 +861,18 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %q (id: %s)\n", e.label, e.id)
@@ -868,7 +883,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "This will delete %d {{ .Name }}. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ .Name }}. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -1029,8 +1044,11 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasDeleteByName . }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-{{ end }}{{ if .GroupPath }}	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
-{{ end }}
+{{ end }}{{ if .GroupPath }}	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all {{ .Name }} from a Classic API group (name or ID)")
+{{ end }}{{ if hasDeleteByName . }}	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+{{ if .GroupPath }}	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+{{ end }}{{ end }}
 	return cmd
 }
 {{ end }}
@@ -1344,14 +1362,14 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		}
 	}
 
-	// Filter by exact name match
+	// Filter by case-insensitive name match (consistent with classicFindIDByName).
 	type classicMatch struct {
 		id string
 	}
 	var matches []classicMatch
 	for _, item := range items {
 		itemName, _ := item["name"].(string)
-		if itemName == name {
+		if strings.EqualFold(itemName, name) {
 			if id := extractIDString(item, "id"); id != "" {
 				matches = append(matches, classicMatch{id: id})
 			}
@@ -1391,7 +1409,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // resolveClassicLookupToID resolves a Classic API resource by a path-based lookup
 // (e.g. /JSSResource/mobiledevices/serialnumber/{value}) and returns its numeric id.
 // Returns ("", nil) when not found; ("", err) on failure.
-func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, wrapperKey, value string) (string, error) {
+func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, value string) (string, error) {
 	path := fmt.Sprintf("%s/%s", basePath, url.PathEscape(value))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {

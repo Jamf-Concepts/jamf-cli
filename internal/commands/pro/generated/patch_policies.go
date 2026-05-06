@@ -161,7 +161,6 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Policy collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, policyName, policyEnabled, policyTargetVersion, policyDeploymentMethod, softwareTitle, softwareTitleConfigurationId, pending, completed, deferred, and failed. This param can be combined with paging and sorting.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -203,6 +202,9 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -219,6 +221,18 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-policy %q (id: %s)\n", e.label, e.id)
@@ -226,8 +240,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d patch-policies. Type 'yes' to confirm: ", len(bulk))
@@ -237,8 +250,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -344,6 +356,8 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-policy by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
@@ -470,7 +484,6 @@ func newPatchPoliciesPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Policy collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, enabled, targetPatchVersion, deploymentMethod, softwareTitleId, softwareTitleConfigurationId, killAppsDelayMinutes, killAppsMessage, isDowngrade, isPatchUnknownVersion, notificationHeader, selfServiceEnforceDeadline, selfServiceDeadline, installButtonText, selfServiceDescription, iconId, reminderFrequency, reminderEnabled. This param can be combined with paging and sorting.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 

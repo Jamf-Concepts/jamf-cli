@@ -148,14 +148,14 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		}
 	}
 
-	// Filter by exact name match
+	// Filter by case-insensitive name match (consistent with classicFindIDByName).
 	type classicMatch struct {
 		id string
 	}
 	var matches []classicMatch
 	for _, item := range items {
 		itemName, _ := item["name"].(string)
-		if itemName == name {
+		if strings.EqualFold(itemName, name) {
 			if id := extractIDString(item, "id"); id != "" {
 				matches = append(matches, classicMatch{id: id})
 			}
@@ -194,7 +194,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // resolveClassicLookupToID resolves a Classic API resource by a path-based lookup
 // (e.g. /JSSResource/mobiledevices/serialnumber/{value}) and returns its numeric id.
 // Returns ("", nil) when not found; ("", err) on failure.
-func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, wrapperKey, value string) (string, error) {
+func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, value string) (string, error) {
 	path := fmt.Sprintf("%s/%s", basePath, url.PathEscape(value))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {

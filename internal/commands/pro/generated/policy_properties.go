@@ -117,6 +117,5 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

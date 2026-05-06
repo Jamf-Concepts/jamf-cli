@@ -281,25 +281,28 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/serialnumber", "mobile_device", entry)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/serialnumber", entry)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via serialnumber: %w", entry, lookupErr)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/macaddress", "mobile_device", entry)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/macaddress", entry)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via macaddress: %w", entry, lookupErr)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/udid", "mobile_device", entry)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/udid", entry)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
 							}
@@ -318,6 +321,18 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device %q (id: %s)\n", e.label, e.id)
@@ -328,7 +343,7 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "This will delete %d mobiledevices. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobiledevices. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -466,7 +481,10 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all mobiledevices from a Classic API group (name or ID)")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
 
 	return cmd
 }

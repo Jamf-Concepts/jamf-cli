@@ -87,7 +87,6 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -149,7 +148,6 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -212,6 +210,5 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

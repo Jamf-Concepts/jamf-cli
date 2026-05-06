@@ -94,6 +94,5 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Enables the 'verbose' response, which includes information about the commands queued as well as information about commands that failed to queue.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

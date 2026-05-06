@@ -118,6 +118,5 @@ func newEraseDeviceComputersEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

@@ -206,7 +206,6 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -340,6 +339,9 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -356,6 +358,18 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced-mobile-device-searche %q (id: %s)\n", e.label, e.id)
@@ -363,8 +377,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d advanced-mobile-device-searches. Type 'yes' to confirm: ", len(bulk))
@@ -374,8 +387,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -482,6 +494,8 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced-mobile-device-searche by name")
 
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+
 	return cmd
 }
 
@@ -578,7 +592,6 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -628,7 +641,6 @@ func newAdvancedMobileDeviceSearchesChoicesCmd(ctx *registry.CLIContext) *cobra.
 	cmd.Flags().StringVar(&flagCriteria, "criteria", "", "")
 	cmd.Flags().StringVar(&flagSite, "site", "-1", "")
 	cmd.Flags().StringVar(&flagContains, "contains", "null", "")
-
 	return cmd
 }
 

@@ -117,7 +117,6 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -195,7 +194,6 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }
 
@@ -323,7 +321,6 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including ID, name, etc. Can be combined with paging and sorting. Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -383,7 +380,6 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -517,7 +513,6 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 			"cdnType=", "directory=", "downloadUrl=", "expirationSeconds=", "keyPairId=", "master=", "password=", "privateKey=", "requireSignedUrls=", "secondaryAuthRequired=", "secondaryAuthStatusCode=", "secondaryAuthTimeToLive=", "uploadUrl=", "username=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-
 	return cmd
 }
 
@@ -581,7 +576,6 @@ func newCloudDistributionPointsActionCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd.Flags().StringVar(&flagFileName, "file-name", "", "Name of the file to mark failure for.")
 	cmd.Flags().StringVar(&flagType, "type", "", "Type of file to mark failure for. Possible values are PACKAGE, EBOOK, MOBILE_DEVICE_APP.")
-
 	return cmd
 }
 
@@ -707,7 +701,6 @@ func newCloudDistributionPointsFilesCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Filters results. Use RSQL format for query. Allows for many fields, including fileName and type<br/> Can be combined with paging and sorting.<br/> Fields allowed in the query: fileName, inventoryId and type <br/> Default filter is an empty query and returns all results from the requested page.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -764,7 +757,6 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *registry.CLIContext) *co
 	}
 
 	cmd.Flags().StringVar(&flagFileName, "file-name", "", "Name of the file to check the availability of. If available, the inventory and status will be updated in Jamf Pro. If no file is specified, it will force an immediate inventory refresh at a rate-limit of once every 15 seconds.")
-
 	return cmd
 }
 

@@ -74,6 +74,5 @@ func newSelfServiceBrandingImagesUploadCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
-
 	return cmd
 }

@@ -172,7 +172,6 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=categoryName==\"Category\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -324,7 +323,6 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -475,6 +473,9 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				noInputBulk, _ := cmd.Flags().GetBool("no-input")
 				for _, entry := range entries {
 					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
 						bulk = append(bulk, bulkEntry{id: entry, label: entry})
 					} else {
 						var rid string
@@ -491,6 +492,18 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
 				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
 				if flagDryRun {
 					for _, e := range bulk {
 						fmt.Fprintf(os.Stderr, "[dry-run] Would delete inventory-preload %q (id: %s)\n", e.label, e.id)
@@ -498,8 +511,7 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return nil
 				}
 				if !flagYes {
-					noInput, _ := cmd.Flags().GetBool("no-input")
-					if noInput {
+					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
 					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d inventory-preloads. Type 'yes' to confirm: ", len(bulk))
@@ -509,8 +521,7 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						return fmt.Errorf("aborted")
 					}
 				}
-				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
-				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
 				for _, e := range bulk {
@@ -616,6 +627,8 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up inventory-preload by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
@@ -744,7 +757,6 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allows filtering inventory preload history records. Default search is empty query - returning all results for the requested page. All inventory preload history fields are supported.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=username==\"admin\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -804,7 +816,6 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -925,7 +936,6 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Allowing to filter inventory preload records. Default search is empty query - returning all results for the requested page. All inventory preload fields are supported, however fields added by extension attributes are not supported. If filtering by deviceType, use '0' for Computer and '1' for Mobile Device.  Query in the RSQL format, allowing '==', '!=', '>', '<', and '=in='.  Example: 'filter=categoryName==\"Category\"' ")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }
 
@@ -982,7 +992,6 @@ func newInventoryPreloadsCsvCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }
 
@@ -1099,7 +1108,6 @@ func newInventoryPreloadsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }
 
@@ -1152,7 +1160,6 @@ func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
-
 	return cmd
 }
 
@@ -1209,7 +1216,6 @@ func newInventoryPreloadsCsvTemplateCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }
 
@@ -1262,7 +1268,6 @@ func newInventoryPreloadsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
-
 	return cmd
 }
 

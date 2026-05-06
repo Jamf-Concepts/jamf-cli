@@ -157,7 +157,6 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter, for a list of commands. All url must contain minimum one filter field. Fields allowed in the query: uuid, clientManagementId, command, status, clientType, dateSent, validAfter, dateCompleted, profileId, profileIdentifier, and active. This param can be combined with paging. Please note that any date filters must be used with gt, lt, ge, le Example: clientManagementId==fb511aae-c557-474f-a9c1-5dc845b90d0f;status==Pending;command==INSTALL_PROFILE;uuid==9e18f849-e689-4f2d-b616-a99d3da7db42;clientType==COMPUTER_USER;profileId==1;profileIdentifier==18cc61c2-01fc-11ed-b939-0242ac120002;dateCompleted=ge=2021-08-04T14:25:18.26Z;dateCompleted=le=2021-08-04T14:25:18.26Z;validAfter=ge=2021-08-05T14:25:18.26Z;active==true")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -220,7 +219,6 @@ func newMdmCommandsBlankPushCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -286,6 +284,5 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

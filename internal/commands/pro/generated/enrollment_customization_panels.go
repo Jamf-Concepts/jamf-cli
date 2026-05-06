@@ -110,7 +110,6 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -185,7 +184,6 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -266,7 +264,6 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }
 
@@ -326,7 +323,6 @@ func newEnrollmentCustomizationPanelsParseMarkdownCmd(ctx *registry.CLIContext) 
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
