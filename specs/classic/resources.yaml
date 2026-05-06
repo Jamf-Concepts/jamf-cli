@@ -97,6 +97,7 @@ resources:
     cli_name: classic-mobile-devices
     singular: mobile_device
     lookups: [id, name, serialnumber, macaddress, udid]
+    groups_path: mobiledevicegroups
 
   - name: mobiledevicecommands
     path: mobiledevicecommands

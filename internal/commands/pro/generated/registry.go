@@ -895,3 +895,6 @@ func isNumericID(s string) bool {
 	}
 	return true
 }
+
+// fetchClassicGroupMemberIDs and classicFindIDByName are defined in classic_registry.go
+// (same package, generated from classicRegistryTemplate).

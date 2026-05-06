@@ -220,6 +220,20 @@ func templateFuncs() template.FuncMap {
 			}
 			return false
 		},
+		"anyHasGroupPath": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if r.GroupPath != "" {
+					return true
+				}
+			}
+			return false
+		},
+		"groupMembersKey": func(groupPath string) string {
+			return groupMembersKey(groupPath)
+		},
+		"groupMemberKey": func(groupPath string) string {
+			return groupMemberKey(groupPath)
+		},
 		"hasFetchMergePut": func(r ClassicResource) bool {
 			for _, ff := range r.FileFields {
 				if ff.FetchMergePut {
@@ -264,6 +278,28 @@ func extraLookups(lookups []string) []string {
 		}
 	}
 	return extra
+}
+
+func groupMembersKey(groupPath string) string {
+	switch groupPath {
+	case "computergroups":
+		return "computers"
+	case "mobiledevicegroups":
+		return "mobile_devices"
+	default:
+		return "members"
+	}
+}
+
+func groupMemberKey(groupPath string) string {
+	switch groupPath {
+	case "computergroups":
+		return "computer"
+	case "mobiledevicegroups":
+		return "mobile_device"
+	default:
+		return "member"
+	}
 }
 
 // classicResourceTemplate generates a single Go file per Classic API resource.
@@ -772,6 +808,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagDryRun bool
 {{ if hasDeleteByName . }}		flagName string
 		fromFile string
+{{ end }}{{ if .GroupPath }}		flagGroup string
 {{ end }}	)
 
 	cmd := &cobra.Command{
@@ -857,7 +894,59 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				cooldown.Record(ctx.ProfileName)
 				return nil
 			}
-
+{{ if .GroupPath }}
+			// --group: delete all members of the named mobile device group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/{{ .GroupPath }}", "{{ groupMembersKey .GroupPath }}", "{{ groupMemberKey .GroupPath }}", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGroup, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGroup {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ .Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGroup, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} id: %s\n", e.id)
+					} else {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+{{ end }}
 			// Resolve ID from --name or positional arg
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -940,6 +1029,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasDeleteByName . }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+{{ end }}{{ if .GroupPath }}	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
 {{ end }}
 	return cmd
 }
@@ -1136,7 +1226,7 @@ const classicRegistryTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
-{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyHasGroupPath .) }}
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -1145,10 +1235,10 @@ import (
 	"path/filepath"
 	"strings"
 {{- end }}
-{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
+{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) (anyHasGroupPath .) }}
 	"fmt"
 {{- end }}
-{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) (anyHasGroupPath .) }}
 	"bytes"
 {{- end }}
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyClassicExtraLookups .) }}
@@ -1827,6 +1917,112 @@ func extractClassicListSubset(body []byte, subset string) ([]map[string]any, err
 		items = []map[string]any{}
 	}
 	return items, nil
+}
+{{ end }}
+{{ if anyHasGroupPath . }}
+// fetchClassicGroupMemberIDs resolves a Classic API group by name (or numeric ID)
+// and returns the member resource IDs. groupsPath is e.g. "/JSSResource/mobiledevicegroups";
+// membersKey is the XML container element ("mobile_devices"); memberKey is the XML
+// singular element ("mobile_device").
+func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupsPath, membersKey, memberKey, nameOrID string) ([]string, error) {
+	groupID := nameOrID
+	if !isNumericID(nameOrID) {
+		resp, err := client.Do(ctx, "GET", groupsPath, nil)
+		if err != nil {
+			return nil, fmt.Errorf("listing groups: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		if err != nil {
+			return nil, err
+		}
+		groupID = classicFindIDByName(body, nameOrID)
+		if groupID == "" {
+			return nil, fmt.Errorf("group %q not found", nameOrID)
+		}
+	}
+
+	resp, err := client.Do(ctx, "GET", groupsPath+"/id/"+groupID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching group %s: %w", groupID, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var ids []string
+	var curID string
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+		case xml.EndElement:
+			n := len(stack)
+			if n >= 2 && stack[n-1] == memberKey && stack[n-2] == membersKey && curID != "" {
+				ids = append(ids, curID)
+				curID = ""
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n >= 3 && stack[n-1] == "id" && stack[n-2] == memberKey && stack[n-3] == membersKey {
+				curID = strings.TrimSpace(string(t))
+			}
+		}
+	}
+	return ids, nil
+}
+
+// classicFindIDByName parses a Classic API XML list response and returns the
+// <id> of the first item whose <name> matches (case-insensitive).
+func classicFindIDByName(body []byte, name string) string {
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var curID, curName string
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			if len(stack) == 2 {
+				curID = ""
+				curName = ""
+			}
+		case xml.EndElement:
+			n := len(stack)
+			if n == 2 && strings.EqualFold(curName, name) && curID != "" {
+				return curID
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n == 3 {
+				val := strings.TrimSpace(string(t))
+				switch stack[n-1] {
+				case "id":
+					curID = val
+				case "name":
+					curName = val
+				}
+			}
+		}
+	}
+	return ""
 }
 {{ end }}
 `

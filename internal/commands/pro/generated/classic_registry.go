@@ -717,3 +717,108 @@ func extractClassicListSubset(body []byte, subset string) ([]map[string]any, err
 	}
 	return items, nil
 }
+
+// fetchClassicGroupMemberIDs resolves a Classic API group by name (or numeric ID)
+// and returns the member resource IDs. groupsPath is e.g. "/JSSResource/mobiledevicegroups";
+// membersKey is the XML container element ("mobile_devices"); memberKey is the XML
+// singular element ("mobile_device").
+func fetchClassicGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupsPath, membersKey, memberKey, nameOrID string) ([]string, error) {
+	groupID := nameOrID
+	if !isNumericID(nameOrID) {
+		resp, err := client.Do(ctx, "GET", groupsPath, nil)
+		if err != nil {
+			return nil, fmt.Errorf("listing groups: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		if err != nil {
+			return nil, err
+		}
+		groupID = classicFindIDByName(body, nameOrID)
+		if groupID == "" {
+			return nil, fmt.Errorf("group %q not found", nameOrID)
+		}
+	}
+
+	resp, err := client.Do(ctx, "GET", groupsPath+"/id/"+groupID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching group %s: %w", groupID, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var ids []string
+	var curID string
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+		case xml.EndElement:
+			n := len(stack)
+			if n >= 2 && stack[n-1] == memberKey && stack[n-2] == membersKey && curID != "" {
+				ids = append(ids, curID)
+				curID = ""
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n >= 3 && stack[n-1] == "id" && stack[n-2] == memberKey && stack[n-3] == membersKey {
+				curID = strings.TrimSpace(string(t))
+			}
+		}
+	}
+	return ids, nil
+}
+
+// classicFindIDByName parses a Classic API XML list response and returns the
+// <id> of the first item whose <name> matches (case-insensitive).
+func classicFindIDByName(body []byte, name string) string {
+	dec := xml.NewDecoder(bytes.NewReader(body))
+	var stack []string
+	var curID, curName string
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			stack = append(stack, t.Name.Local)
+			if len(stack) == 2 {
+				curID = ""
+				curName = ""
+			}
+		case xml.EndElement:
+			n := len(stack)
+			if n == 2 && strings.EqualFold(curName, name) && curID != "" {
+				return curID
+			}
+			if n > 0 {
+				stack = stack[:n-1]
+			}
+		case xml.CharData:
+			n := len(stack)
+			if n == 3 {
+				val := strings.TrimSpace(string(t))
+				switch stack[n-1] {
+				case "id":
+					curID = val
+				case "name":
+					curName = val
+				}
+			}
+		}
+	}
+	return ""
+}

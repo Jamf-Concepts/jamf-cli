@@ -585,6 +585,12 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			// in the OpenAPI spec rather than on the individual operation.
 			return pathParam(op.Path)
 		},
+		"groupMembersKey": func(groupsPath string) string {
+			return groupMembersKey(groupsPath)
+		},
+		"groupMemberKey": func(groupsPath string) string {
+			return groupMemberKey(groupsPath)
+		},
 	}).Parse(resourceTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -610,7 +616,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 
 // GenerateRegistry generates the registry file that registers all commands
 func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
-	tmpl, err := template.New("registry").Parse(registryTemplate)
+	tmpl, err := template.New("registry").Funcs(template.FuncMap{
+		"anyHasGroupSupport": func(resources []*Resource) bool {
+			for _, r := range resources {
+				if r.GroupsClassicPath != "" {
+					return true
+				}
+			}
+			return false
+		},
+	}).Parse(registryTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
 	}
@@ -1378,6 +1393,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 		fromFile string
 {{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+		flagGroup string
+{{- end }}
 {{- if eq .Name "delete-multiple" }}
 		flagIds []string
 {{- end }}
@@ -1522,6 +1540,60 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
 					}
 					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+{{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/{{ $.GroupsClassicPath }}", "{{ groupMembersKey $.GroupsClassicPath }}", "{{ groupMemberKey $.GroupsClassicPath }}", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} id: %s\n", e.id)
 				}
 				cooldown.Record(ctx.ProfileName)
 				return nil
@@ -2099,6 +2171,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if and .IsDestructive (opHasNameLookup . $) }}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 {{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
+{{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 {{- end }}
@@ -2398,6 +2473,32 @@ If not, a new resource is created.` + "`" + `,
 }
 {{ end }}
 `
+
+// groupMembersKey returns the XML container key for group members given the
+// Classic API group list path (e.g. "computergroups" → "computers").
+func groupMembersKey(groupsPath string) string {
+	switch groupsPath {
+	case "computergroups":
+		return "computers"
+	case "mobiledevicegroups":
+		return "mobile_devices"
+	default:
+		return "members"
+	}
+}
+
+// groupMemberKey returns the XML singular member key given the Classic API
+// group list path (e.g. "computergroups" → "computer").
+func groupMemberKey(groupsPath string) string {
+	switch groupsPath {
+	case "computergroups":
+		return "computer"
+	case "mobiledevicegroups":
+		return "mobile_device"
+	default:
+		return "member"
+	}
+}
 
 const registryTemplate = `// Copyright 2026, Jamf Software LLC
 // Code generated by jamf-cli generator. DO NOT EDIT.
@@ -3143,4 +3244,6 @@ func isNumericID(s string) bool {
 	}
 	return true
 }
+// fetchClassicGroupMemberIDs and classicFindIDByName are defined in classic_registry.go
+// (same package, generated from classicRegistryTemplate).
 `

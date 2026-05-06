@@ -58,13 +58,21 @@ var resourceLookupFields = map[string][]LookupField{
 	},
 }
 
-// ApplyLookupFields sets LookupFields on resources that have alternate identifier
-// fields defined in resourceLookupFields. Must be called after DeduplicateVersioned
-// so resource names are in their final canonical form.
+// resourceGroupPaths maps canonical resource names to the Classic API group list
+// path (without /JSSResource/ prefix) for --group flag support on delete.
+var resourceGroupPaths = map[string]string{
+	"computers-inventory": "computergroups",
+}
+
+// ApplyLookupFields sets LookupFields and GroupsClassicPath on resources.
+// Must be called after DeduplicateVersioned so resource names are canonical.
 func ApplyLookupFields(resources []*Resource) {
 	for _, r := range resources {
 		if fields, ok := resourceLookupFields[r.Name]; ok {
 			r.LookupFields = fields
+		}
+		if path, ok := resourceGroupPaths[r.Name]; ok {
+			r.GroupsClassicPath = path
 		}
 	}
 }

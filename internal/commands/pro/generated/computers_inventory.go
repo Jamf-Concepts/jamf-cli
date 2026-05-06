@@ -368,6 +368,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagYes    bool
 		flagDryRun bool
 		fromFile   string
+		flagGroup  string
 		flagName   string
 		flagSerial string
 		flagUdid   string
@@ -466,6 +467,58 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
 					}
 					fmt.Fprintf(os.Stderr, "Deleted computers-inventory %q (id: %s)\n", e.label, e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/computergroups", "computers", "computer", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("/v3/computers-inventory/{id}", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory id: %s\n", e.id)
 				}
 				cooldown.Record(ctx.ProfileName)
 				return nil
@@ -580,6 +633,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")

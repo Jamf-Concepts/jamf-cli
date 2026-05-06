@@ -249,6 +249,7 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagDryRun bool
 		flagName   string
 		fromFile   string
+		flagGroup  string
 	)
 
 	cmd := &cobra.Command{
@@ -354,6 +355,58 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
+			// --group: delete all members of the named mobile device group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/mobiledevicegroups", "mobile_devices", "mobile_device", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGroup, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGroup {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobiledevices from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGroup, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(e.id))
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+						fmt.Fprintf(os.Stderr, "Deleted mobile_device id: %s\n", e.id)
+					} else {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+
 			// Resolve ID from --name or positional arg
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -413,6 +466,7 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all members of this group (name or ID)")
 
 	return cmd
 }

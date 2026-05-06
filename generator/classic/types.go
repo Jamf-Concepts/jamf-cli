@@ -25,6 +25,10 @@ type ClassicResource struct {
 	// Used for /accounts (returns users + groups combined under <accounts>).
 	// Empty for normal list endpoints.
 	ListSubset string
+	// GroupPath is the Classic API path (without /JSSResource/) for the group
+	// list/detail endpoints, e.g. "mobiledevicegroups". When set, delete gets
+	// a --group flag that resolves members and deletes them in bulk.
+	GroupPath string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a
