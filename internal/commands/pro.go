@@ -78,6 +78,13 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// that the generated multipart template can't produce.
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
+	// Add handwritten jcds commands to generated parent (multi-step orchestration).
+	addSubcommand(cmd, []string{"jcds"}, newJcdsDownloadCmd(cliCtx))
+	addSubcommand(cmd, []string{"jcds"}, newJcdsSyncCmd(cliCtx))
+
+	// Also expose sync under packages — JCDS is the backing store for packages.
+	addSubcommand(cmd, []string{"packages"}, newJcdsSyncCmd(cliCtx))
+
 	// Add device action subcommands to generated resource parents
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))

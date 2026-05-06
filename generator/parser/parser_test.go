@@ -2162,8 +2162,7 @@ func TestApplyCreateOpOverrides(t *testing.T) {
 	}
 	if got == nil {
 		t.Fatal("target op not found after ApplyCreateOpOverrides")
-	}
-	if got.Name != "create" {
+	} else if got.Name != "create" {
 		t.Errorf("op name = %q, want %q", got.Name, "create")
 	}
 	// Untouched ops keep their names.
