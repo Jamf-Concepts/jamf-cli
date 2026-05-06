@@ -926,6 +926,64 @@ func TestResolveAuth_ProfileNotFound(t *testing.T) {
 	}
 }
 
+func TestResolveAuth_URLNormalization(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfgYaml string
+		envURL  string
+		wantURL string
+	}{
+		{
+			name: "trailing slash in stored profile stripped",
+			cfgYaml: `default-profile: test
+profiles:
+  test:
+    url: https://example.jamfcloud.com/
+    auth-method: token
+    token: "env:TEST_URL_NORM_TOKEN"
+`,
+			wantURL: "https://example.jamfcloud.com",
+		},
+		{
+			name:    "bare hostname in JAMF_URL gets https",
+			cfgYaml: `profiles: {}`,
+			envURL:  "example.jamfcloud.com",
+			wantURL: "https://example.jamfcloud.com",
+		},
+		{
+			name:    "JAMF_URL trailing slash stripped",
+			cfgYaml: `profiles: {}`,
+			envURL:  "https://example.jamfcloud.com/",
+			wantURL: "https://example.jamfcloud.com",
+		},
+	}
+
+	t.Setenv("TEST_URL_NORM_TOKEN", "test-token")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupConfigProfile(t, tt.cfgYaml)
+			if tt.envURL != "" {
+				t.Setenv("JAMF_URL", tt.envURL)
+				t.Setenv("JAMF_TOKEN", "tok")
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				t.Fatalf("Load error: %v", err)
+			}
+
+			url, _, err := resolveAuth(cfg)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if url != tt.wantURL {
+				t.Errorf("url = %q, want %q", url, tt.wantURL)
+			}
+		})
+	}
+}
+
 // --- cliOutput.PrintResponse test ---
 
 func TestCLIOutputPrintResponse(t *testing.T) {

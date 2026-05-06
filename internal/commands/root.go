@@ -289,6 +289,13 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		tok = strings.TrimSpace(string(data))
 	}
 
+	// Normalize: strip trailing slash (silently fixes profiles saved before this
+	// check was added) and add https:// to bare hostnames in env/flag inputs.
+	url = strings.TrimRight(url, "/")
+	if url != "" && !strings.Contains(url, "://") {
+		url = "https://" + url
+	}
+
 	// Validate
 	if url == "" {
 		return "", nil, exitcode.New(exitcode.Usage, "server URL is required: use --url, JAMF_URL env var, or jamf-cli config add-profile")

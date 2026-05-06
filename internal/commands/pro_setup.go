@@ -401,13 +401,26 @@ func applyPrivilegeFilter(all []string, opt scopeOption) []string {
 	return result
 }
 
-// normalizeURL ensures the URL has a scheme (defaults to https) and no trailing slash.
-func normalizeURL(rawURL string) string {
+// normalizeURL ensures the URL has an https scheme (added when absent) and no
+// trailing slash. Returns an error for explicit http:// — credentials must not
+// travel in plaintext.
+func normalizeURL(rawURL string) (string, error) {
 	rawURL = strings.TrimRight(rawURL, "/")
-	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+	if !strings.Contains(rawURL, "://") {
 		rawURL = "https://" + rawURL
 	}
-	return rawURL
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+	switch parsed.Scheme {
+	case "https":
+		return rawURL, nil
+	case "http":
+		return "", fmt.Errorf("http:// is not allowed; use https:// to protect credentials in transit")
+	default:
+		return "", fmt.Errorf("URL scheme %q is not supported; use https://", parsed.Scheme)
+	}
 }
 
 // extractSubdomain returns the hostname portion before the first dot.
@@ -446,7 +459,10 @@ func readURLsFromFile(path string) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		normalized := normalizeURL(line)
+		normalized, err := normalizeURL(line)
+		if err != nil {
+			return nil, fmt.Errorf("invalid URL %q: %w", line, err)
+		}
 		if seen[normalized] {
 			continue
 		}
@@ -631,7 +647,11 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 
 			// Normalize all URLs
 			for i, u := range urls {
-				urls[i] = normalizeURL(u)
+				normalized, err := normalizeURL(u)
+				if err != nil {
+					return fmt.Errorf("invalid URL %q: %w", u, err)
+				}
+				urls[i] = normalized
 			}
 
 			// Gather credentials interactively — once for all instances.

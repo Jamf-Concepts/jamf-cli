@@ -248,6 +248,12 @@ func newConfigAddProfileCmd() *cobra.Command {
 				return fmt.Errorf("invalid --auth-method %q: must be token, oauth2, or platform", authMethod)
 			}
 
+			// Validate and normalize URL before prompting for credentials.
+			normalizedURL, err := normalizeURL(profileURL)
+			if err != nil {
+				return fmt.Errorf("invalid --url: %w", err)
+			}
+
 			w := cmd.OutOrStdout()
 			reader := bufio.NewReader(os.Stdin)
 
@@ -314,7 +320,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			p := config.Profile{
-				URL:        profileURL,
+				URL:        normalizedURL,
 				AuthMethod: authMethod,
 				TenantID:   profileTenantID,
 			}
