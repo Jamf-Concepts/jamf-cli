@@ -426,6 +426,10 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				outputFmt = cfg.DefaultOutput
 			}
 
+			if outputFmt == string(output.FormatJSONMulti) && os.Getenv("JAMF_CLI_MULTI_CAPTURE") == "" {
+				return fmt.Errorf("output format %q is reserved for internal use", outputFmt)
+			}
+
 			// Build output formatter (shared by all products and by skipped
 			// commands like config/completion/version).
 			if outFile != "" {

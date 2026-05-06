@@ -248,27 +248,55 @@ func TestFormatSectionTitle(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// stripOutputFlag
+// parseOutputFlag
 // ---------------------------------------------------------------------------
 
-func TestStripOutputFlag(t *testing.T) {
+func TestParseOutputFlag(t *testing.T) {
 	tests := []struct {
-		name  string
-		input []string
-		want  int
+		name         string
+		input        []string
+		wantValue    string
+		wantStripped int
 	}{
-		{"no flag", []string{"pro", "comp", "list"}, 3},
-		{"-o json", []string{"pro", "comp", "list", "-o", "json"}, 3},
-		{"-o=json", []string{"pro", "comp", "list", "-o=json"}, 3},
-		{"-ojson", []string{"pro", "comp", "list", "-ojson"}, 3},
-		{"--output table", []string{"pro", "comp", "list", "--output", "table"}, 3},
-		{"--output=yaml", []string{"pro", "comp", "list", "--output=yaml"}, 3},
-		{"middle", []string{"pro", "-o", "csv", "comp", "list"}, 3},
+		{"no flag", []string{"pro", "comp", "list"}, "", 3},
+		{"-o json", []string{"pro", "comp", "list", "-o", "json"}, "json", 3},
+		{"-o=json", []string{"pro", "comp", "list", "-o=json"}, "json", 3},
+		{"-ojson", []string{"pro", "comp", "list", "-ojson"}, "json", 3},
+		{"--output table", []string{"pro", "comp", "list", "--output", "table"}, "table", 3},
+		{"--output=yaml", []string{"pro", "comp", "list", "--output=yaml"}, "yaml", 3},
+		{"middle", []string{"pro", "-o", "csv", "comp", "list"}, "csv", 3},
+		{"first wins", []string{"pro", "-o", "json", "list", "-o", "table"}, "json", 2},
 	}
 	for _, tc := range tests {
-		got := stripOutputFlag(tc.input)
-		if len(got) != tc.want {
-			t.Errorf("%s: stripOutputFlag(%v) = %d args, want %d: %v", tc.name, tc.input, len(got), tc.want, got)
+		val, stripped := parseOutputFlag(tc.input)
+		if val != tc.wantValue {
+			t.Errorf("%s: value = %q, want %q", tc.name, val, tc.wantValue)
 		}
+		if len(stripped) != tc.wantStripped {
+			t.Errorf("%s: stripped = %d args, want %d: %v", tc.name, len(stripped), tc.wantStripped, stripped)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// mergedListKey unwrap (printAggregated JSON path)
+// ---------------------------------------------------------------------------
+
+func TestTryAggregate_FlatArray_UsesConstantKey(t *testing.T) {
+	results := []childResult{
+		{profileName: "pro-a", stdout: []byte(`[{"id":"1","name":"Mac"}]`)},
+	}
+	merged := tryAggregate(results)
+	if merged == nil {
+		t.Fatal("expected aggregation, got nil")
+	}
+	if _, ok := merged[mergedListKey]; !ok {
+		t.Errorf("expected key %q in merged map, got keys: %v", mergedListKey, func() []string {
+			var keys []string
+			for k := range merged {
+				keys = append(keys, k)
+			}
+			return keys
+		}())
 	}
 }
