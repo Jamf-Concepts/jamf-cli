@@ -13,51 +13,45 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
 
-// NewClassicRestrictedSoftwareCmd creates the classic-restricted-software command group
-func NewClassicRestrictedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicMobileDevicesCmd creates the classic-mobile-devices command group
+func NewClassicMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-restricted-software",
-		Short: "Restricted software entries (Classic API)",
-		Long:  `Manage restricted software entries via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-mobile-devices",
+		Short: "Mobile device inventory records (Classic API)",
+		Long:  `Manage mobile device inventory records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicRestrictedSoftwareListCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesListCmd(ctx))
 
-	cmd.AddCommand(newClassicRestrictedSoftwareGetCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesGetCmd(ctx))
 
-	cmd.AddCommand(newClassicRestrictedSoftwareCreateCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesCreateCmd(ctx))
 
-	cmd.AddCommand(newClassicRestrictedSoftwareUpdateCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesUpdateCmd(ctx))
 
-	cmd.AddCommand(newClassicRestrictedSoftwareDeleteCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesDeleteCmd(ctx))
 
-	cmd.AddCommand(newClassicRestrictedSoftwareApplyCmd(ctx))
-
-	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:     "restrictedsoftware",
-		SingularKey: "restricted_software",
-	}))
+	cmd.AddCommand(newClassicMobileDevicesApplyCmd(ctx))
 
 	return cmd
 }
 
-func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List all restrictedsoftware",
-		Example: `  # List all restrictedsoftware
-  jamf-cli pro classic-restricted-software list
+		Short: "List all mobiledevices",
+		Example: `  # List all mobiledevices
+  jamf-cli pro classic-mobile-devices list
 
-  # List restrictedsoftware and extract IDs
-  jamf-cli pro classic-restricted-software list --field id`,
+  # List mobiledevices and extract IDs
+  jamf-cli pro classic-mobile-devices list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/restrictedsoftware", nil)
+			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevices", nil)
 			if err != nil {
 				return err
 			}
@@ -86,7 +80,7 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["restrictedsoftware"]; ok {
+				if inner, ok := wrapper["mobiledevices"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -95,22 +89,25 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 }
 
-func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagName         string
+		flagSerialnumber string
+		flagMacaddress   string
+		flagUdid         string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get a restricted_software by ID",
-		Example: `  # Get a restricted_software by ID
-  jamf-cli pro classic-restricted-software get 1
+		Short: "Get a mobile_device by ID",
+		Example: `  # Get a mobile_device by ID
+  jamf-cli pro classic-mobile-devices get 1
 
-  # Get a restricted_software by name
-  jamf-cli pro classic-restricted-software get --name "Example"
+  # Get a mobile_device by name
+  jamf-cli pro classic-mobile-devices get --name "Example"
 
-  # Get a restricted_software and output as YAML
-  jamf-cli pro classic-restricted-software get 1 -o yaml`,
+  # Get a mobile_device and output as YAML
+  jamf-cli pro classic-mobile-devices get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -118,11 +115,17 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/restrictedsoftware/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
+			} else if flagSerialnumber != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/serialnumber/%s", url.PathEscape(flagSerialnumber))
+			} else if flagMacaddress != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/macaddress/%s", url.PathEscape(flagMacaddress))
+			} else if flagUdid != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/udid/%s", url.PathEscape(flagUdid))
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(args[0]))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -148,7 +151,7 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["restricted_software"]; ok {
+				if inner, ok := wrapper["mobile_device"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -156,18 +159,21 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up restricted_software by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device by serialnumber")
+	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device by macaddress")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device by udid")
 
 	return cmd
 }
 
-func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a restricted_software",
-		Long:  "Create a new restricted_software. Reads XML body from stdin.",
-		Example: `  # Create a restricted_software from XML
-  cat restricted_software.xml | jamf-cli pro classic-restricted-software create`,
+		Short: "Create a mobile_device",
+		Long:  "Create a new mobile_device. Reads XML body from stdin.",
+		Example: `  # Create a mobile_device from XML
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,7 +185,7 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/restrictedsoftware/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledevices/id/0", body)
 
 			if err != nil {
 				return err
@@ -192,15 +198,15 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update a restricted_software",
-		Long:  "Update an existing restricted_software by ID. Reads XML body from stdin.",
-		Example: `  # Update a restricted_software from XML
-  cat restricted_software.xml | jamf-cli pro classic-restricted-software update 1`,
+		Short: "Update a mobile_device",
+		Long:  "Update an existing mobile_device by ID. Reads XML body from stdin.",
+		Example: `  # Update a mobile_device from XML
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -215,9 +221,9 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/restrictedsoftware/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(args[0]))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
@@ -232,12 +238,12 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up restricted_software by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 
 	return cmd
 }
 
-func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -247,15 +253,15 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
-		Short: "Delete a restricted_software",
-		Example: `  # Delete a restricted_software (with confirmation)
-  jamf-cli pro classic-restricted-software delete 1
+		Short: "Delete a mobile_device",
+		Example: `  # Delete a mobile_device (with confirmation)
+  jamf-cli pro classic-mobile-devices delete 1
 
   # Delete by name
-  jamf-cli pro classic-restricted-software delete --name "Example" --yes
+  jamf-cli pro classic-mobile-devices delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro classic-restricted-software delete 1 --yes`,
+  jamf-cli pro classic-mobile-devices delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -278,21 +284,42 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", entry, noInputBulk)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/serialnumber", "mobile_device", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serialnumber: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/macaddress", "mobile_device", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via macaddress: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/udid", "mobile_device", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							return fmt.Errorf("no restricted_software found matching %q", entry)
+							return fmt.Errorf("no mobile_device found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
 					}
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete restricted_software %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -300,7 +327,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "This will delete %d restrictedsoftware. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "This will delete %d mobiledevices. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -311,14 +338,14 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					return err
 				}
 				for _, e := range bulk {
-					delPath := fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(e.id))
+					delPath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted restricted_software %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted mobile_device %q (id: %s)\n", e.label, e.id)
 					} else {
 						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
 					}
@@ -331,12 +358,12 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if id == "" {
-					return fmt.Errorf("no restricted_software found with name %q", flagName)
+					return fmt.Errorf("no mobile_device found with name %q", flagName)
 				}
 				resolvedID = id
 			} else if len(args) > 0 {
@@ -346,14 +373,14 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete restricted_software %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete restricted_software %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete mobile_device %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -364,7 +391,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			if err := cooldown.Enforce(ctx.ProfileName, noInput, ctx.DestructiveCooldown); err != nil {
 				return err
 			}
-			path := fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(resolvedID))
+			path := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(resolvedID))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
@@ -384,13 +411,13 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up restricted_software by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 
 	return cmd
 }
 
-func newClassicRestrictedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile   string
 		flagYes    bool
@@ -399,20 +426,20 @@ func newClassicRestrictedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a restricted_software by name",
-		Long: `Create or replace a restricted_software. Reads XML from --from-file or stdin.
+		Short: "Create or replace a mobile_device by name",
+		Long: `Create or replace a mobile_device. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a restricted_software from an XML file
-  jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml
+		Example: `  # Apply a mobile_device from an XML file
+  jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml
 
   # Apply from stdin
-  cat restricted_software.xml | jamf-cli pro classic-restricted-software apply
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices apply
 
   # Apply without replacement confirmation
-  jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml --yes`,
+  jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -427,14 +454,14 @@ If not, a new resource is created.`,
 			// input (body typically empty); fall back to XML name if flag absent.
 			var name string
 
-			name, err = extractClassicName(data, "restricted_software")
+			name, err = extractClassicName(data, "mobile_device")
 			if err != nil {
 				return err
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -443,29 +470,29 @@ If not, a new resource is created.`,
 				// Not found — create (not allowed for fetch-merge-put resources)
 
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create restricted_software %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile_device %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/restrictedsoftware/id/0", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledevices/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created restricted_software %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created mobile_device %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace restricted_software %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile_device %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("restricted_software %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("mobile_device %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "restricted_software %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "mobile_device %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -473,13 +500,13 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := fmt.Sprintf("/JSSResource/restrictedsoftware/id/%s", url.PathEscape(id))
+			updatePath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced restricted_software %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced mobile_device %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

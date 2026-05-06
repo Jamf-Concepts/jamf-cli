@@ -220,7 +220,8 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf(
 						"  # Save to file\n  %s %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s %s %s%s > output.bin",
 						bin, resourceName, op.Name, idArg,
-						bin, resourceName, op.Name, idArg)
+						bin, resourceName, op.Name, idArg,
+					)
 				}
 				return ""
 			}
@@ -1374,6 +1375,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagYes bool
 		flagDryRun bool
 {{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+		fromFile string
+{{- end }}
 {{- if eq .Name "delete-multiple" }}
 		flagIds []string
 {{- end }}
@@ -1444,6 +1448,83 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+{{ range $.LookupFields }}					if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via {{ .Flag }}: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+{{ end }}					if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no {{ $.NameSingular }} found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+				if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -2014,6 +2095,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .IsDestructive }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+{{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 {{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
@@ -3027,5 +3111,36 @@ func resolveFieldValue(obj map[string]any, field string) any {
 		return nil
 	}
 	return m[parts[len(parts)-1]]
+}
+
+// readDeleteFile reads a file of IDs or names for bulk delete.
+// Lines beginning with '#' and blank lines are ignored.
+func readDeleteFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", path, err)
+	}
+	var entries []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		entries = append(entries, line)
+	}
+	return entries, nil
+}
+
+// isNumericID returns true when s consists entirely of ASCII digits.
+func isNumericID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 `

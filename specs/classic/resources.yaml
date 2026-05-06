@@ -91,6 +91,13 @@ resources:
     singular: advanced_computer_search
 
   # ── Mobile Devices ────────────────────────────────────────────────
+  - name: mobiledevices
+    path: mobiledevices
+    description: Mobile device inventory records
+    cli_name: classic-mobile-devices
+    singular: mobile_device
+    lookups: [id, name, serialnumber, macaddress, udid]
+
   - name: mobiledevicecommands
     path: mobiledevicecommands
     description: Mobile device management commands

@@ -304,6 +304,7 @@ var proGroupMap = map[string]string{
 	"classic-advanced-computer-searches": groupClassicComputers,
 
 	// Classic - Mobile Devices
+	"classic-mobile-devices":               groupClassicMobile,
 	"classic-mobile-commands":              groupClassicMobile,
 	"classic-mobile-config-profiles":       groupClassicMobile,
 	"classic-mobile-provisioning-profiles": groupClassicMobile,

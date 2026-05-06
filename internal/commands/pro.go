@@ -120,6 +120,14 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileLogOutUserCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnlockUserAccountCmd(cliCtx))
 
+	// Wire classic-mobile-devices delete under mobile-devices
+	for _, sub := range generated.NewClassicMobileDevicesCmd(cliCtx).Commands() {
+		if sub.Name() == "delete" {
+			addSubcommand(cmd, []string{"mobile-devices"}, sub)
+			break
+		}
+	}
+
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)
 	applyProGroups(cmd)

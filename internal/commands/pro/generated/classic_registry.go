@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -50,6 +51,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicMobileAppsCmd(ctx))
 	root.AddCommand(NewClassicMobileCommandsCmd(ctx))
 	root.AddCommand(NewClassicMobileConfigProfilesCmd(ctx))
+	root.AddCommand(NewClassicMobileDevicesCmd(ctx))
 	root.AddCommand(NewClassicMobileHistoryCmd(ctx))
 	root.AddCommand(NewClassicMobileInvitationsCmd(ctx))
 	root.AddCommand(NewClassicMobileProvisioningProfilesCmd(ctx))
@@ -187,6 +189,38 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+
+// resolveClassicLookupToID resolves a Classic API resource by a path-based lookup
+// (e.g. /JSSResource/mobiledevices/serialnumber/{value}) and returns its numeric id.
+// Returns ("", nil) when not found; ("", err) on failure.
+func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, wrapperKey, value string) (string, error) {
+	path := fmt.Sprintf("%s/%s", basePath, url.PathEscape(value))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		if exitcode.CodeFrom(err) == exitcode.NotFound {
+			return "", nil
+		}
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("reading lookup response: %w", err)
+	}
+	// Classic API resources return <id> either as a direct child of the root
+	// element or nested under <general> (e.g. mobile_device, computer).
+	var result struct {
+		IDDirect  string `xml:"id"`
+		IDGeneral string `xml:"general>id"`
+	}
+	if err := xml.NewDecoder(bytes.NewReader(body)).Decode(&result); err != nil {
+		return "", nil
+	}
+	if result.IDDirect != "" {
+		return result.IDDirect, nil
+	}
+	return result.IDGeneral, nil
 }
 
 // fetchClassicProfileByName fetches a Classic config profile by name and returns

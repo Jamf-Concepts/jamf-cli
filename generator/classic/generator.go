@@ -210,6 +210,16 @@ func templateFuncs() template.FuncMap {
 			}
 			return false
 		},
+		"anyClassicExtraLookups": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				for _, l := range r.Lookups {
+					if l != "id" && l != "name" {
+						return true
+					}
+				}
+			}
+			return false
+		},
 		"hasFetchMergePut": func(r ClassicResource) bool {
 			for _, ff := range r.FileFields {
 				if ff.FetchMergePut {
@@ -760,7 +770,8 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
-{{ if hasDeleteByName . }}		flagName   string
+{{ if hasDeleteByName . }}		flagName string
+		fromFile string
 {{ end }}	)
 
 	cmd := &cobra.Command{
@@ -773,6 +784,80 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 {{ if hasDeleteByName . }}
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var resolvedID string
+{{ range extraLookups .Lookups }}{{ if ne . "name" }}					if resolvedID == "" {
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/{{ $.Path }}/{{ . }}", "{{ $.Singular }}", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via {{ . }}: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+{{ end }}{{ end }}					if resolvedID == "" {
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							return fmt.Errorf("no {{ .Singular }} found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
+					}
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ .Singular }} %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "This will delete %d {{ .Name }}. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} %q (id: %s)\n", e.label, e.id)
+					} else {
+						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+
 			// Resolve ID from --name or positional arg
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
@@ -854,6 +939,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasDeleteByName . }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
 {{ end }}
 	return cmd
 }
@@ -1062,10 +1148,10 @@ import (
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
 	"fmt"
 {{- end }}
-{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) }}
 	"bytes"
 {{- end }}
-{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyClassicExtraLookups .) }}
 	"net/url"
 {{- end }}
 {{- if anyHasCustomPayload . }}
@@ -1075,6 +1161,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+{{- if anyClassicExtraLookups . }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+{{- end }}
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
@@ -1206,6 +1295,39 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+{{ end }}
+{{ if anyClassicExtraLookups . }}
+// resolveClassicLookupToID resolves a Classic API resource by a path-based lookup
+// (e.g. /JSSResource/mobiledevices/serialnumber/{value}) and returns its numeric id.
+// Returns ("", nil) when not found; ("", err) on failure.
+func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, wrapperKey, value string) (string, error) {
+	path := fmt.Sprintf("%s/%s", basePath, url.PathEscape(value))
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		if exitcode.CodeFrom(err) == exitcode.NotFound {
+			return "", nil
+		}
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("reading lookup response: %w", err)
+	}
+	// Classic API resources return <id> either as a direct child of the root
+	// element or nested under <general> (e.g. mobile_device, computer).
+	var result struct {
+		IDDirect  string ` + "`" + `xml:"id"` + "`" + `
+		IDGeneral string ` + "`" + `xml:"general>id"` + "`" + `
+	}
+	if err := xml.NewDecoder(bytes.NewReader(body)).Decode(&result); err != nil {
+		return "", nil
+	}
+	if result.IDDirect != "" {
+		return result.IDDirect, nil
+	}
+	return result.IDGeneral, nil
 }
 {{ end }}
 {{ if anyIsConfigProfile . }}
