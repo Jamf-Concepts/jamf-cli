@@ -459,6 +459,32 @@ profiles:
 
 // --- add-profile validation tests ---
 
+func TestAddProfile_HTTPURLRejected(t *testing.T) {
+	setupTempConfig(t)
+
+	oldNoInput := noInput
+	noInput = true
+	defer func() { noInput = oldNoInput }()
+
+	cmd := newConfigAddProfileCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{
+		"test-profile",
+		"--url", "http://example.jamfcloud.com",
+		"--auth-method", "token",
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for http:// URL")
+	}
+	if !strings.Contains(err.Error(), "http://") {
+		t.Errorf("error = %q, want to mention http://", err.Error())
+	}
+}
+
 func TestAddProfile_ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name    string

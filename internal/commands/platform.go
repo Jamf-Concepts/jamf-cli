@@ -96,7 +96,10 @@ Create API client credentials in the Jamf Account portal
 			if gatewayURL == "" {
 				return fmt.Errorf("gateway URL is required")
 			}
-			gatewayURL = normalizeURL(gatewayURL)
+			gatewayURL, err := normalizeURL(gatewayURL)
+			if err != nil {
+				return fmt.Errorf("invalid gateway URL: %w", err)
+			}
 
 			// 3. Client credentials (interactive only)
 			_, _ = fmt.Fprint(w, "\nClient ID: ")
@@ -127,7 +130,8 @@ Create API client credentials in the Jamf Account portal
 
 			// 5. Validate credentials
 			_, _ = fmt.Fprint(w, "\nValidating credentials... ")
-			pc := jamfplatform.NewClient(gatewayURL, clientID, clientSecret,
+			pc := jamfplatform.NewClient(
+				gatewayURL, clientID, clientSecret,
 				jamfplatform.WithTenantID(tenantID),
 			)
 			if err := pc.ValidateCredentials(context.Background()); err != nil {
