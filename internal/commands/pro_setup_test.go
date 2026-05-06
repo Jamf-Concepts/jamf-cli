@@ -886,6 +886,26 @@ func TestReadURLsFromFile_NotFound(t *testing.T) {
 	}
 }
 
+func TestReadURLsFromFile_HTTPSchemeRejected(t *testing.T) {
+	f, err := os.CreateTemp("", "urls-http-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	_, _ = f.WriteString("https://school1.jamfcloud.com\n")
+	_, _ = f.WriteString("http://school2.jamfcloud.com\n")
+	_ = f.Close()
+
+	_, err = readURLsFromFile(f.Name())
+	if err == nil {
+		t.Fatal("expected error for http:// URL in file")
+	}
+	if !strings.Contains(err.Error(), "http://") {
+		t.Errorf("error = %q, want to mention http://", err.Error())
+	}
+}
+
 func TestEscapeRSQL(t *testing.T) {
 	tests := []struct {
 		input string
@@ -908,22 +928,38 @@ func TestEscapeRSQL(t *testing.T) {
 }
 
 func TestNormalizeURL(t *testing.T) {
-	tests := []struct {
+	okTests := []struct {
 		input string
 		want  string
 	}{
 		{"example.jamfcloud.com", "https://example.jamfcloud.com"},
 		{"https://example.jamfcloud.com", "https://example.jamfcloud.com"},
-		{"http://localhost:8080", "http://localhost:8080"},
 		{"example.jamfcloud.com/", "https://example.jamfcloud.com"},
 		{"https://example.jamfcloud.com/", "https://example.jamfcloud.com"},
+		{"example.jamfcloud.com:8443", "https://example.jamfcloud.com:8443"},
+		{"example.jamfcloud.com:8443/", "https://example.jamfcloud.com:8443"},
 	}
-
-	for _, tt := range tests {
+	for _, tt := range okTests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := normalizeURL(tt.input)
+			got, err := normalizeURL(tt.input)
+			if err != nil {
+				t.Fatalf("normalizeURL(%q) unexpected error: %v", tt.input, err)
+			}
 			if got != tt.want {
 				t.Errorf("normalizeURL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+
+	errTests := []string{
+		"http://example.jamfcloud.com",
+		"http://localhost:8080",
+	}
+	for _, input := range errTests {
+		t.Run("err_"+input, func(t *testing.T) {
+			_, err := normalizeURL(input)
+			if err == nil {
+				t.Errorf("normalizeURL(%q) expected error, got nil", input)
 			}
 		})
 	}

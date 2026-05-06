@@ -64,7 +64,10 @@ portal (account.jamf.com).`,
 			if setupURL == "" {
 				return fmt.Errorf("URL is required")
 			}
-			setupURL = normalizeURL(setupURL)
+			setupURL, err := normalizeURL(setupURL)
+			if err != nil {
+				return fmt.Errorf("invalid URL: %w", err)
+			}
 
 			// Credentials are always collected interactively to prevent
 			// exposure in shell history and process listings.
@@ -187,7 +190,11 @@ func collectPlatformCredentials(w io.Writer, reader *bufio.Reader, store keychai
 	if gatewayURL == "" {
 		return prof, fmt.Errorf("gateway URL is required")
 	}
-	prof.PlatformURL = normalizeURL(gatewayURL)
+	gatewayURL, err := normalizeURL(gatewayURL)
+	if err != nil {
+		return prof, fmt.Errorf("invalid gateway URL: %w", err)
+	}
+	prof.PlatformURL = gatewayURL
 
 	// Tenant ID
 	_, _ = fmt.Fprint(w, "Tenant ID: ")

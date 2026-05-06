@@ -60,7 +60,10 @@ Settings > API Clients before running this command.`,
 			if setupURL == "" {
 				return fmt.Errorf("URL is required")
 			}
-			setupURL = normalizeURL(setupURL)
+			setupURL, err := normalizeURL(setupURL)
+			if err != nil {
+				return fmt.Errorf("invalid URL: %w", err)
+			}
 
 			// Credentials are always collected interactively to prevent
 			// exposure in shell history and process listings.
