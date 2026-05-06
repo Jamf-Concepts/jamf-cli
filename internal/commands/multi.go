@@ -111,6 +111,14 @@ Examples:
 
 			if shouldAggregate {
 				// Aggregate mode: capture JSON from each child, merge, re-render
+				desiredFmt, captureArgs := parseOutputFlag(innerArgs)
+				// For structured output (json/yaml) capture full data; for display formats
+				// capture with json-multi which applies column selection so re-rendered
+				// tables match the columns from a direct command.
+				captureFmt := "json-multi"
+				if desiredFmt == "json" || desiredFmt == "yaml" {
+					captureFmt = "json"
+				}
 				results := make([]childResult, len(profiles))
 				for i, profileName := range profiles {
 					url := ""
@@ -120,10 +128,9 @@ Examples:
 
 					_, _ = fmt.Fprintf(w, "  [%d/%d] %s...\n", i+1, len(profiles), profileName)
 
-					// Force JSON output for capture — strip any user -o flag first
-					captureArgs := stripOutputFlag(innerArgs)
-					cmdArgs := append([]string{"--profile", profileName, "-o", "json"}, captureArgs...)
+					cmdArgs := append([]string{"--profile", profileName, "-o", captureFmt}, captureArgs...)
 					child := exec.Command(executable, cmdArgs...)
+					child.Env = append(os.Environ(), "JAMF_CLI_MULTI_CAPTURE=1")
 					var stdout bytes.Buffer
 					child.Stdout = &stdout
 					child.Stderr = cmd.ErrOrStderr()
@@ -146,7 +153,7 @@ Examples:
 				}
 
 				if aggregated := tryAggregate(results); aggregated != nil {
-					if err := printAggregated(cmd, aggregated); err != nil {
+					if err := printAggregated(cmd, aggregated, desiredFmt); err != nil {
 						return err
 					}
 				} else {
@@ -222,6 +229,10 @@ Examples:
 // Aggregation
 // ---------------------------------------------------------------------------
 
+// mergedListKey is the internal key used when wrapping a flat list result for
+// aggregation. Referenced in both tryAggregate (wrap) and printAggregated (unwrap).
+const mergedListKey = "results"
+
 // tryAggregate attempts to parse and merge JSON output from multiple children.
 // Returns nil if the output isn't aggregatable (non-JSON, or not a structured
 // report format).
@@ -266,7 +277,7 @@ func tryAggregate(results []childResult) map[string]any {
 				profileName string
 				profileURL  string
 				data        map[string]any
-			}{r.profileName, r.profileURL, map[string]any{"results": asAny}})
+			}{r.profileName, r.profileURL, map[string]any{mergedListKey: asAny}})
 			continue
 		}
 
@@ -373,12 +384,17 @@ type childResult struct {
 	err         error
 }
 
-// printAggregated renders the merged report using the current output format.
-func printAggregated(cmd *cobra.Command, merged map[string]any) error {
-	// Default to table for aggregated reports (same as individual report commands)
-	renderFmt := outputFmt
-	if !cmd.Flags().Changed("output") {
-		renderFmt = "table"
+// printAggregated renders the merged report using the desired output format.
+// desiredFmt is extracted from the inner command args; empty string defaults to table.
+func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
+	renderFmt := desiredFmt
+	if renderFmt == "" {
+		// No -o in inner args — check if multi itself had -o set, else default to table
+		if cmd.Flags().Changed("output") {
+			renderFmt = outputFmt
+		} else {
+			renderFmt = "table"
+		}
 	}
 	formatter := output.New(renderFmt, noColor, wide)
 
@@ -394,6 +410,13 @@ func printAggregated(cmd *cobra.Command, merged map[string]any) error {
 				jsonMerged[k] = rows
 			} else {
 				jsonMerged[k] = v
+			}
+		}
+		// For plain list commands the merge wraps rows in {mergedListKey: [...]}.
+		// Unwrap to a flat array so json/yaml output matches single-instance output.
+		if len(jsonMerged) == 1 {
+			if results, ok := jsonMerged[mergedListKey]; ok {
+				return formatter.Print(results)
 			}
 		}
 		return formatter.Print([]map[string]any{jsonMerged})
@@ -500,10 +523,10 @@ func summaryFieldShouldSum(field string) bool {
 	return true
 }
 
-// stripOutputFlag removes -o/--output and its value from args so the forced
-// -o json for capture isn't overridden by the user's flag.
-func stripOutputFlag(args []string) []string {
-	var result []string
+// parseOutputFlag extracts the -o/--output value from args and returns it along
+// with a copy of args with all -o/--output occurrences removed. Handles all
+// flag forms: -o json, -o=json, -ojson, --output json, --output=json.
+func parseOutputFlag(args []string) (value string, stripped []string) {
 	skip := false
 	for i, arg := range args {
 		if skip {
@@ -511,21 +534,33 @@ func stripOutputFlag(args []string) []string {
 			continue
 		}
 		if arg == "-o" || arg == "--output" {
-			// Skip this flag and its next arg (the value)
+			if i+1 < len(args) && value == "" {
+				value = args[i+1]
+			}
 			skip = true
 			continue
 		}
-		if strings.HasPrefix(arg, "-o=") || strings.HasPrefix(arg, "--output=") {
+		if after, ok := strings.CutPrefix(arg, "-o="); ok {
+			if value == "" {
+				value = after
+			}
 			continue
 		}
-		// Handle -o<value> (no space)
-		if strings.HasPrefix(arg, "-o") && len(arg) > 2 && !strings.HasPrefix(arg, "--") {
+		if after, ok := strings.CutPrefix(arg, "--output="); ok {
+			if value == "" {
+				value = after
+			}
 			continue
 		}
-		_ = i
-		result = append(result, arg)
+		if !strings.HasPrefix(arg, "--") && strings.HasPrefix(arg, "-o") && len(arg) > 2 {
+			if value == "" {
+				value = arg[2:]
+			}
+			continue
+		}
+		stripped = append(stripped, arg)
 	}
-	return result
+	return
 }
 
 // hasAggregatableSections returns true if a single-object JSON response
