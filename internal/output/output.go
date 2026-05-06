@@ -41,13 +41,14 @@ const (
 type Format string
 
 const (
-	FormatTable Format = "table"
-	FormatJSON  Format = "json"
-	FormatCSV   Format = "csv"
-	FormatYAML  Format = "yaml"
-	FormatPlain Format = "plain"
-	FormatXML   Format = "xml" // Classic API native format — pretty-printed XML
-	FormatRaw   Format = "raw" // Exact wire bytes, no conversion or formatting
+	FormatTable     Format = "table"
+	FormatJSON      Format = "json"
+	FormatJSONMulti Format = "json-multi" // internal: like json but triggers column selection in selectTableColumns
+	FormatCSV       Format = "csv"
+	FormatYAML      Format = "yaml"
+	FormatPlain     Format = "plain"
+	FormatXML       Format = "xml" // Classic API native format — pretty-printed XML
+	FormatRaw       Format = "raw" // Exact wire bytes, no conversion or formatting
 )
 
 // nowFunc is the function used to get the current time. Override in tests.
@@ -314,7 +315,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		}
 	}
 
-	if f.format == FormatJSON {
+	if f.format == FormatJSON || f.format == FormatJSONMulti {
 		// Pretty-print JSON so compact API responses become readable
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
