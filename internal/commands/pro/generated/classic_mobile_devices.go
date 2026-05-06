@@ -17,41 +17,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewClassicRemovableMacAddressesCmd creates the classic-removable-mac-addresses command group
-func NewClassicRemovableMacAddressesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClassicMobileDevicesCmd creates the classic-mobile-devices command group
+func NewClassicMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-removable-mac-addresses",
-		Short: "Removable MAC addresses for storage control (Classic API)",
-		Long:  `Manage removable mac addresses for storage control via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:   "classic-mobile-devices",
+		Short: "Mobile device inventory records (Classic API)",
+		Long:  `Manage mobile device inventory records via the Jamf Pro Classic API (/JSSResource/).`,
 	}
 
-	cmd.AddCommand(newClassicRemovableMacAddressesListCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesListCmd(ctx))
 
-	cmd.AddCommand(newClassicRemovableMacAddressesGetCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesGetCmd(ctx))
 
-	cmd.AddCommand(newClassicRemovableMacAddressesCreateCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesCreateCmd(ctx))
 
-	cmd.AddCommand(newClassicRemovableMacAddressesUpdateCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesUpdateCmd(ctx))
 
-	cmd.AddCommand(newClassicRemovableMacAddressesDeleteCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesDeleteCmd(ctx))
 
-	cmd.AddCommand(newClassicRemovableMacAddressesApplyCmd(ctx))
+	cmd.AddCommand(newClassicMobileDevicesApplyCmd(ctx))
 
 	return cmd
 }
 
-func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List all removablemacaddresses",
-		Example: `  # List all removablemacaddresses
-  jamf-cli pro classic-removable-mac-addresses list
+		Short: "List all mobiledevices",
+		Example: `  # List all mobiledevices
+  jamf-cli pro classic-mobile-devices list
 
-  # List removablemacaddresses and extract IDs
-  jamf-cli pro classic-removable-mac-addresses list --field id`,
+  # List mobiledevices and extract IDs
+  jamf-cli pro classic-mobile-devices list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/removablemacaddresses", nil)
+			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevices", nil)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 			// JSON fallback
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["removablemacaddresses"]; ok {
+				if inner, ok := wrapper["mobiledevices"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -89,22 +89,25 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 }
 
-func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagName         string
+		flagSerialnumber string
+		flagMacaddress   string
+		flagUdid         string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get a removable_mac_address by ID",
-		Example: `  # Get a removable_mac_address by ID
-  jamf-cli pro classic-removable-mac-addresses get 1
+		Short: "Get a mobile_device by ID",
+		Example: `  # Get a mobile_device by ID
+  jamf-cli pro classic-mobile-devices get 1
 
-  # Get a removable_mac_address by name
-  jamf-cli pro classic-removable-mac-addresses get --name "Example"
+  # Get a mobile_device by name
+  jamf-cli pro classic-mobile-devices get --name "Example"
 
-  # Get a removable_mac_address and output as YAML
-  jamf-cli pro classic-removable-mac-addresses get 1 -o yaml`,
+  # Get a mobile_device and output as YAML
+  jamf-cli pro classic-mobile-devices get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -112,11 +115,17 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
+			} else if flagSerialnumber != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/serialnumber/%s", url.PathEscape(flagSerialnumber))
+			} else if flagMacaddress != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/macaddress/%s", url.PathEscape(flagMacaddress))
+			} else if flagUdid != "" {
+				path = fmt.Sprintf("/JSSResource/mobiledevices/udid/%s", url.PathEscape(flagUdid))
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -142,7 +151,7 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			}
 			var wrapper map[string]json.RawMessage
 			if err := json.Unmarshal(body, &wrapper); err == nil {
-				if inner, ok := wrapper["removable_mac_address"]; ok {
+				if inner, ok := wrapper["mobile_device"]; ok {
 					return ctx.Output.PrintRaw(inner)
 				}
 			}
@@ -150,18 +159,21 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device by serialnumber")
+	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device by macaddress")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device by udid")
 
 	return cmd
 }
 
-func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a removable_mac_address",
-		Long:  "Create a new removable_mac_address. Reads XML body from stdin.",
-		Example: `  # Create a removable_mac_address from XML
-  cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses create`,
+		Short: "Create a mobile_device",
+		Long:  "Create a new mobile_device. Reads XML body from stdin.",
+		Example: `  # Create a mobile_device from XML
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -173,7 +185,7 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 				return fmt.Errorf("request body required on stdin (pipe XML input)")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/removablemacaddresses/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledevices/id/0", body)
 
 			if err != nil {
 				return err
@@ -186,15 +198,15 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update a removable_mac_address",
-		Long:  "Update an existing removable_mac_address by ID. Reads XML body from stdin.",
-		Example: `  # Update a removable_mac_address from XML
-  cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses update 1`,
+		Short: "Update a mobile_device",
+		Long:  "Update an existing mobile_device by ID. Reads XML body from stdin.",
+		Example: `  # Update a mobile_device from XML
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -209,9 +221,9 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/removablemacaddresses/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
 			} else if len(args) > 0 {
-				path = fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(args[0]))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
 				return fmt.Errorf("provide an <id> argument or --name")
 			}
@@ -226,30 +238,31 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 
 	return cmd
 }
 
-func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
 		flagName   string
 		fromFile   string
+		flagGroup  string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
-		Short: "Delete a removable_mac_address",
-		Example: `  # Delete a removable_mac_address (with confirmation)
-  jamf-cli pro classic-removable-mac-addresses delete 1
+		Short: "Delete a mobile_device",
+		Example: `  # Delete a mobile_device (with confirmation)
+  jamf-cli pro classic-mobile-devices delete 1
 
   # Delete by name
-  jamf-cli pro classic-removable-mac-addresses delete --name "Example" --yes
+  jamf-cli pro classic-mobile-devices delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro classic-removable-mac-addresses delete 1 --yes`,
+  jamf-cli pro classic-mobile-devices delete 1 --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -275,14 +288,35 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", entry, noInputBulk)
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/serialnumber", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serialnumber: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/macaddress", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via macaddress: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, lookupErr := resolveClassicLookupToID(reqCtx, ctx.Client, "/JSSResource/mobiledevices/udid", entry)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							return fmt.Errorf("no removable_mac_address found matching %q", entry)
+							return fmt.Errorf("no mobile_device found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
 					}
@@ -301,7 +335,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete removable_mac_address %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -309,7 +343,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d removablemacaddresses. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobiledevices. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -320,16 +354,68 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 					return err
 				}
 				for _, e := range bulk {
-					delPath := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(e.id))
+					delPath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-						fmt.Fprintf(os.Stderr, "Deleted removable_mac_address %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "Deleted mobile_device %q (id: %s)\n", e.label, e.id)
 					} else {
 						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+
+			// --group: delete all members of the named mobile device group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/mobiledevicegroups", "mobile_devices", "mobile_device", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGroup, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGroup {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobiledevices from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGroup, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(e.id))
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+						fmt.Fprintf(os.Stderr, "Deleted mobile_device id: %s\n", e.id)
+					} else {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
 					}
 				}
 				cooldown.Record(ctx.ProfileName)
@@ -340,12 +426,12 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if id == "" {
-					return fmt.Errorf("no removable_mac_address found with name %q", flagName)
+					return fmt.Errorf("no mobile_device found with name %q", flagName)
 				}
 				resolvedID = id
 			} else if len(args) > 0 {
@@ -355,14 +441,14 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would delete removable_mac_address %s\n", resolvedID)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile_device %s\n", resolvedID)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "This will delete removable_mac_address %s. Type 'yes' to confirm: ", resolvedID)
+				fmt.Fprintf(os.Stderr, "This will delete mobile_device %s. Type 'yes' to confirm: ", resolvedID)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -373,7 +459,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 			if err := cooldown.Enforce(ctx.ProfileName, noInput, ctx.DestructiveCooldown); err != nil {
 				return err
 			}
-			path := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(resolvedID))
+			path := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(resolvedID))
 
 			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
 			if err != nil {
@@ -393,14 +479,17 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all mobiledevices from a Classic API group (name or ID)")
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
 
 	return cmd
 }
 
-func newClassicRemovableMacAddressesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClassicMobileDevicesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile   string
 		flagYes    bool
@@ -409,20 +498,20 @@ func newClassicRemovableMacAddressesApplyCmd(ctx *registry.CLIContext) *cobra.Co
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a removable_mac_address by name",
-		Long: `Create or replace a removable_mac_address. Reads XML from --from-file or stdin.
+		Short: "Create or replace a mobile_device by name",
+		Long: `Create or replace a mobile_device. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a removable_mac_address from an XML file
-  jamf-cli pro classic-removable-mac-addresses apply --from-file removable_mac_address.xml
+		Example: `  # Apply a mobile_device from an XML file
+  jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml
 
   # Apply from stdin
-  cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses apply
+  cat mobile_device.xml | jamf-cli pro classic-mobile-devices apply
 
   # Apply without replacement confirmation
-  jamf-cli pro classic-removable-mac-addresses apply --from-file removable_mac_address.xml --yes`,
+  jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 
@@ -437,14 +526,14 @@ If not, a new resource is created.`,
 			// input (body typically empty); fall back to XML name if flag absent.
 			var name string
 
-			name, err = extractClassicName(data, "removable_mac_address")
+			name, err = extractClassicName(data, "mobile_device")
 			if err != nil {
 				return err
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "removablemacaddresses", "removablemacaddresses", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledevices", "mobiledevices", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -453,29 +542,29 @@ If not, a new resource is created.`,
 				// Not found — create (not allowed for fetch-merge-put resources)
 
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create removable_mac_address %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile_device %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/removablemacaddresses/id/0", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledevices/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created removable_mac_address %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created mobile_device %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace removable_mac_address %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace mobile_device %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("removable_mac_address %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("mobile_device %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "removable_mac_address %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "mobile_device %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -483,13 +572,13 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := fmt.Sprintf("/JSSResource/removablemacaddresses/id/%s", url.PathEscape(id))
+			updatePath := fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced removable_mac_address %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced mobile_device %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

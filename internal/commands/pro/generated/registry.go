@@ -864,3 +864,37 @@ func resolveFieldValue(obj map[string]any, field string) any {
 	}
 	return m[parts[len(parts)-1]]
 }
+
+// readDeleteFile reads a file of IDs or names for bulk delete.
+// Lines beginning with '#' and blank lines are ignored.
+func readDeleteFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", path, err)
+	}
+	var entries []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		entries = append(entries, line)
+	}
+	return entries, nil
+}
+
+// isNumericID returns true when s consists entirely of ASCII digits.
+func isNumericID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// fetchClassicGroupMemberIDs and classicFindIDByName are defined in classic_registry.go
+// (same package, generated from classicRegistryTemplate).

@@ -188,7 +188,6 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter computer inventory collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'general.name', 'udid', 'id', 'general.assetTag', 'general.barcode1', 'general.barcode2', 'general.enrolledViaAutomatedDeviceEnrollment', 'general.lastIpAddress', 'general.itunesStoreAccountActive', 'general.jamfBinaryVersion', 'general.lastContactTime', 'general.lastEnrolledDate', 'general.lastCloudBackupDate', 'general.reportDate', 'general.lastReportedIp', 'general.lastReportedIpV4', 'general.lastReportedIpV6', 'general.managementId', 'general.remoteManagement.managed', 'general.mdmCapable.capable', 'general.mdmCertificateExpiration', 'general.platform', 'general.supervised', 'general.userApprovedMdm', 'general.declarativeDeviceManagementEnabled',  'general.lastLoggedInUsernameSelfService', 'general.lastLoggedInUsernameSelfServiceTimestamp',  'general.mdmCapable.capable', 'general.mdmCertificateExpiration', 'general.platform', 'general.supervised', 'general.userApprovedMdm', 'general.declarativeDeviceManagementEnabled', 'general.lastLoggedInUsernameBinary', 'general.lastLoggedInUsernameBinaryTimestamp', 'hardware.bleCapable', 'hardware.macAddress', 'hardware.make', 'hardware.model', 'hardware.modelIdentifier', 'hardware.serialNumber', 'hardware.supportsIosAppInstalls','hardware.appleSilicon', 'operatingSystem.activeDirectoryStatus', 'operatingSystem.fileVault2Status', 'operatingSystem.build', 'operatingSystem.supplementalBuildVersion', 'operatingSystem.rapidSecurityResponse', 'operatingSystem.name', 'operatingSystem.version', 'security.activationLockEnabled', 'security.recoveryLockEnabled','security.firewallEnabled','userAndLocation.buildingId', 'userAndLocation.departmentId', 'userAndLocation.email', 'userAndLocation.realname', 'userAndLocation.phone', 'userAndLocation.position','userAndLocation.room', 'userAndLocation.username', 'diskEncryption.fileVault2Enabled', 'purchasing.appleCareId', 'purchasing.lifeExpectancy', 'purchasing.purchased', 'purchasing.leased', 'purchasing.vendor', 'purchasing.warrantyDate',  This param can be combined with paging and sorting. Example: 'filter=general.name==\"Orchard\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -359,7 +358,6 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -367,6 +365,8 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
+		fromFile   string
+		flagGroup  string
 		flagName   string
 		flagSerial string
 		flagUdid   string
@@ -387,6 +387,152 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "udid", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no computers-inventory found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("/v3/computers-inventory/{id}", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory %q (id: %s)\n", e.label, e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/computergroups", "computers", "computer", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGrp, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGrp {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("/v3/computers-inventory/{id}", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory id: %s\n", e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -496,9 +642,20 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all computers-inventory from a Classic API group (name or ID)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+	cmd.MarkFlagsMutuallyExclusive("group", "serial")
+	cmd.MarkFlagsMutuallyExclusive("group", "udid")
 
 	return cmd
 }
@@ -762,7 +919,6 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 

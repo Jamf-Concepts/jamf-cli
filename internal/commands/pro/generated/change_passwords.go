@@ -83,6 +83,5 @@ func newChangePasswordsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

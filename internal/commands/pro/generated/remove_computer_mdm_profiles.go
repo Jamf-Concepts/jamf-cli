@@ -110,6 +110,5 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }

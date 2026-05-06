@@ -98,6 +98,5 @@ func newApiRolesPrivilegesSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "The partial or complete privilege name we are searching for")
 	cmd.Flags().StringVar(&flagLimit, "limit", "15", "Limit the query results, defaults to 15")
-
 	return cmd
 }

@@ -47,6 +47,7 @@ type Resource struct {
 	NameLookupPath    string        // Override list path for name resolution (when the standard list endpoint ignores RSQL)
 	NameLookupIDField string        // Override ID field extracted from NameLookupPath response (when it differs from IDField)
 	HasVersionLock    bool          // True when PUT/POST request body includes versionLock (optimistic locking for prestages)
+	GroupsClassicPath string        // When set, delete gets --group resolved via Classic API group list (e.g. "computergroups")
 	FileFields        []FileField   // File-sourced request-body fields (attached via --script-file, --token-file, etc.)
 	TableColumns      []TableColumn // Preferred columns for list table output (when set, overrides generic column selection)
 	DefaultSections   []string      // Default --section values for list (when set, fetches these sections for table output)

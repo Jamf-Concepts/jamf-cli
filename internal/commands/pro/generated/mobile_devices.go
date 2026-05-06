@@ -171,7 +171,6 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 

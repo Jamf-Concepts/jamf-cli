@@ -102,7 +102,6 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -521,6 +520,5 @@ func newLocalAdminPasswordsSetPasswordCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

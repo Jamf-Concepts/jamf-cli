@@ -174,6 +174,5 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			"computerApplicationSearchMethod=", "computerApplicationUsageSearchMethod=", "computerLocalUserAccountSearchMethod=", "computerPackageReceiptSearchMethod=", "computerPeripheralSearchMethod=", "computerPrinterSearchMethod=", "computerSearchMethod=", "computerServiceSearchMethod=", "computerSoftwareUpdateSearchMethod=", "configProfilesSortingMethod=", "dateFormat=", "disablePageLeaveCheck=", "disableRelativeDates=", "disableShortcutsTooltips=", "disableTablePagination=", "language=", "mobileDeviceAppSearchMethod=", "mobileDeviceSearchMethod=", "resultsPerPage=", "timezone=", "userAllContentSearchMethod=", "userEbookSearchMethod=", "userInterfaceDisplayTheme=", "userMacAppStoreAppSearchMethod=", "userMobileDeviceAppSearchMethod=", "userSearchMethod=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-
 	return cmd
 }

@@ -110,6 +110,5 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-
 	return cmd
 }

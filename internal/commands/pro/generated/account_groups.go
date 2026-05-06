@@ -154,7 +154,6 @@ func newAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format to filter account groups collection. An empty query returns all results for the requested page. Supported fields: id, name, siteId, ldapServerId. Multiple conditions can be combined using logical operators. This parameter can be used with paging and sorting parameters. Example: name==\"Admins\" and siteId==-1 ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 

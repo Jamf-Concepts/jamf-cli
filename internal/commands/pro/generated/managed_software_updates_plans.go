@@ -164,7 +164,6 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Managed Software Updates collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: planUuid, device.deviceId, device.objectType, updateAction, versionType, specificVersion, maxDeferrals, recipeId, forceInstallLocalDateTime, state.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -294,7 +293,6 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -359,7 +357,6 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 

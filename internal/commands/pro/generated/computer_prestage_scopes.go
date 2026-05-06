@@ -186,7 +186,6 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -297,7 +296,6 @@ func newComputerPrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -373,6 +371,5 @@ func newComputerPrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

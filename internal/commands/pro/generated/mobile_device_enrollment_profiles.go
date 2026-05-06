@@ -81,6 +81,5 @@ func newMobileDeviceEnrollmentProfilesDownloadProfileCmd(ctx *registry.CLIContex
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }

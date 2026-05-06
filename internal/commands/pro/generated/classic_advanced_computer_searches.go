@@ -236,6 +236,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 		flagYes    bool
 		flagDryRun bool
 		flagName   string
+		fromFile   string
 	)
 
 	cmd := &cobra.Command{
@@ -252,6 +253,88 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var resolvedID string
+						if resolvedID == "" {
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "advancedcomputersearches", "advancedcomputersearches", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							resolvedID = id
+						}
+						if resolvedID == "" {
+							return fmt.Errorf("no advanced_computer_search found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: resolvedID, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete advanced_computer_search %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d advancedcomputersearches. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(e.id))
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+						fmt.Fprintf(os.Stderr, "Deleted advanced_computer_search %q (id: %s)\n", e.label, e.id)
+					} else {
+						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
 
 			// Resolve ID from --name or positional arg
 			var resolvedID string
@@ -311,6 +394,8 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced_computer_search by name")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }

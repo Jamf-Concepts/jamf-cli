@@ -61,7 +61,6 @@ func newLdapRsGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagQ, "q", "null", "Will perform a \"contains\" search on the names of access groups")
-
 	return cmd
 }
 

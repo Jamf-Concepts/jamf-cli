@@ -139,7 +139,6 @@ func newIconsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
 	_ = cmd.MarkFlagRequired("file")
-
 	return cmd
 }
 

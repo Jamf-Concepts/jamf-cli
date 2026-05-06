@@ -220,7 +220,8 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf(
 						"  # Save to file\n  %s %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s %s %s%s > output.bin",
 						bin, resourceName, op.Name, idArg,
-						bin, resourceName, op.Name, idArg)
+						bin, resourceName, op.Name, idArg,
+					)
 				}
 				return ""
 			}
@@ -584,6 +585,12 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			// in the OpenAPI spec rather than on the individual operation.
 			return pathParam(op.Path)
 		},
+		"groupMembersKey": func(groupsPath string) string {
+			return groupMembersKey(groupsPath)
+		},
+		"groupMemberKey": func(groupsPath string) string {
+			return groupMemberKey(groupsPath)
+		},
 	}).Parse(resourceTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -609,7 +616,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 
 // GenerateRegistry generates the registry file that registers all commands
 func (g *Generator) GenerateRegistry(resources []*Resource) (string, error) {
-	tmpl, err := template.New("registry").Parse(registryTemplate)
+	tmpl, err := template.New("registry").Funcs(template.FuncMap{
+		"anyHasGroupSupport": func(resources []*Resource) bool {
+			for _, r := range resources {
+				if r.GroupsClassicPath != "" {
+					return true
+				}
+			}
+			return false
+		},
+	}).Parse(registryTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
 	}
@@ -1374,6 +1390,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagYes bool
 		flagDryRun bool
 {{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+		fromFile string
+{{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+		flagGroup string
+{{- end }}
 {{- if eq .Name "delete-multiple" }}
 		flagIds []string
 {{- end }}
@@ -1444,6 +1466,149 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+{{ range $.LookupFields }}					if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ .RSQLField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via {{ .Flag }}: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+{{ end }}					if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "{{ nameLookupPath $ }}", "{{ $.NameField }}", "{{ lookupIDField $ }}", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no {{ $.NameSingular }} found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }}. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
+			}
+{{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/{{ $.GroupsClassicPath }}", "{{ groupMembersKey $.GroupsClassicPath }}", "{{ groupMemberKey $.GroupsClassicPath }}", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGrp, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete {{ $.NameSingular }} id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGrp {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d {{ $.Name }} from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				for _, e := range bulk {
+					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						return fmt.Errorf("deleting id %s: %w", e.id, err)
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+					}
+					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} id: %s\n", e.id)
+				}
+				cooldown.Record(ctx.ProfileName)
+				return nil
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -2015,6 +2180,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{- end }}
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+{{- end }}
+{{- if and .IsDestructive $.GroupsClassicPath }}
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all {{ $.Name }} from a Classic API group (name or ID)")
+{{- end }}
 {{- if eq .Name "delete-multiple" }}
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 {{- end }}
@@ -2054,7 +2225,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if opEmitsRenameFlag . $ }}
 	cmd.Flags().StringVar(&flagRename, "name", "", "Canonical name to apply to the {{ $.NameSingular }} via a follow-up PUT to {{ resourceUpdatePath $ }} (this endpoint's body has no name field)")
 {{- end }}
-
+{{- if and .IsDestructive (opHasNameLookup . $) }}
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("from-file", "{{ .Flag }}")
+{{ end }}{{- if $.GroupsClassicPath }}
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+{{ range $.LookupFields }}	cmd.MarkFlagsMutuallyExclusive("group", "{{ .Flag }}")
+{{ end }}{{- end }}{{- end }}
 	return cmd
 }
 {{ end }}
@@ -2314,6 +2492,32 @@ If not, a new resource is created.` + "`" + `,
 }
 {{ end }}
 `
+
+// groupMembersKey returns the XML container key for group members given the
+// Classic API group list path (e.g. "computergroups" → "computers").
+func groupMembersKey(groupsPath string) string {
+	switch groupsPath {
+	case "computergroups":
+		return "computers"
+	case "mobiledevicegroups":
+		return "mobile_devices"
+	default:
+		return "members"
+	}
+}
+
+// groupMemberKey returns the XML singular member key given the Classic API
+// group list path (e.g. "computergroups" → "computer").
+func groupMemberKey(groupsPath string) string {
+	switch groupsPath {
+	case "computergroups":
+		return "computer"
+	case "mobiledevicegroups":
+		return "mobile_device"
+	default:
+		return "member"
+	}
+}
 
 const registryTemplate = `// Copyright 2026, Jamf Software LLC
 // Code generated by jamf-cli generator. DO NOT EDIT.
@@ -3028,4 +3232,37 @@ func resolveFieldValue(obj map[string]any, field string) any {
 	}
 	return m[parts[len(parts)-1]]
 }
+
+// readDeleteFile reads a file of IDs or names for bulk delete.
+// Lines beginning with '#' and blank lines are ignored.
+func readDeleteFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", path, err)
+	}
+	var entries []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		entries = append(entries, line)
+	}
+	return entries, nil
+}
+
+// isNumericID returns true when s consists entirely of ASCII digits.
+func isNumericID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+// fetchClassicGroupMemberIDs and classicFindIDByName are defined in classic_registry.go
+// (same package, generated from classicRegistryTemplate).
 `

@@ -29,6 +29,7 @@ type manifestResource struct {
 	Scope       bool     `yaml:"scope"`
 	IDPath      string   `yaml:"id_path"`
 	ListSubset  string   `yaml:"list_subset"`
+	GroupsPath  string   `yaml:"groups_path"`
 }
 
 // ParseManifest reads the Classic API YAML manifest and returns a sorted
@@ -118,6 +119,7 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		HasCustomPayload: entry.Path == "osxconfigurationprofiles",
 		FileFields:       classicFileFields[entry.Path],
 		ListSubset:       entry.ListSubset,
+		GroupPath:        entry.GroupsPath,
 	}, nil
 }
 

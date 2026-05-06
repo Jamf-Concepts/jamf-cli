@@ -186,7 +186,6 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringSliceVar(&flagIds, "ids", nil, "IDs to delete (comma-separated)")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -297,7 +296,6 @@ func newMobileDevicePrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobr
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
 
@@ -373,6 +371,5 @@ func newMobileDevicePrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobr
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

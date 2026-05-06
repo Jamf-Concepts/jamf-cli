@@ -178,7 +178,6 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }
 
@@ -235,7 +234,6 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-
 	return cmd
 }
 

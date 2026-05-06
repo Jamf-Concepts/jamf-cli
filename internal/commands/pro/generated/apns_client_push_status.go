@@ -153,7 +153,6 @@ func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *c
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter results. Fields allowed in the query: deviceType, disabledAt, managementId. This param can be combined with paging and sorting.  Example: filter=deviceType==\"MOBILE_DEVICE\" Example: filter=disabledAt>2024-11-01T00:00:00Z Example: filter=deviceType==\"COMPUTER\";disabledAt>2024-01-01T00:00:00Z ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-
 	return cmd
 }
 
@@ -296,6 +295,5 @@ func newApnsClientPushStatusEnableClientCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
