@@ -130,6 +130,7 @@ Examples:
 
 					cmdArgs := append([]string{"--profile", profileName, "-o", captureFmt}, captureArgs...)
 					child := exec.Command(executable, cmdArgs...)
+					child.Env = append(os.Environ(), "JAMF_CLI_MULTI_CAPTURE=1")
 					var stdout bytes.Buffer
 					child.Stdout = &stdout
 					child.Stderr = cmd.ErrOrStderr()
