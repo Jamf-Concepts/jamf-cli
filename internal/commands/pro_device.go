@@ -517,10 +517,14 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 			if err != nil {
 				continue
 			}
-			if !scopeOverlaps(detail.Scope.DeviceGroups, groupIDs) {
+			if detail.Scope == nil || !scopeOverlaps(detail.Scope.DeviceGroups, groupIDs) {
 				continue
 			}
-			items = append(items, overviewItem{detail.Name, detail.DeploymentState.State, ""})
+			state := ""
+			if detail.DeploymentState != nil {
+				state = detail.DeploymentState.State
+			}
+			items = append(items, overviewItem{detail.Name, state, ""})
 		}
 		if len(items) == 0 {
 			items = []overviewItem{{Resource: "(none)", Value: ""}}
@@ -542,7 +546,7 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 			if err != nil {
 				continue
 			}
-			if !scopeOverlaps(bm.Target.DeviceGroups, groupIDs) {
+			if bm.Target == nil || !scopeOverlaps(bm.Target.DeviceGroups, groupIDs) {
 				continue
 			}
 			items = append(items, overviewItem{bm.Title, bm.EnforcementMode, ""})
