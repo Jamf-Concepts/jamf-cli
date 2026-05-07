@@ -40,5 +40,11 @@ jobs:
       - name: Verify site supports all products
         run: ./scripts/verify-site-products.sh
 
+      - name: Verify site JS files parse
+        run: |
+          for f in docs/site/*.js; do
+            node --check "$f" || { echo "JS syntax error in $f"; exit 1; }
+          done
+
       - name: Verify site output (generator runs, artifacts well-formed, pillar coverage)
         run: make verify-site-output

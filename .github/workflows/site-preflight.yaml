@@ -1,0 +1,66 @@
+name: Site Preflight
+
+# Simulates the deploy-site workflow's "build CLI from latest release tag,
+# overlay docs/site + generator/site + internal/commands/groups.go from
+# current SHA" strategy at PR time. Catches the failure class where the
+# workflow YAML invokes a generator flag that the older tag's binary code
+# doesn't recognise (PR #186 → #187 was the canonical example).
+#
+# Triggers only when files that would actually be overlaid are touched —
+# no point running this on README-only PRs.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/site/**'
+      - 'generator/site/**'
+      - 'internal/commands/groups.go'
+      - '.github/workflows/site-preflight.yaml'
+      - '.github/workflows/deploy-site.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Simulate deploy-site overlay (build from latest tag, overlay PR head)
+        run: |
+          PR_SHA=$(git rev-parse HEAD)
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          echo "PR HEAD:    $PR_SHA"
+          echo "Latest tag: $LATEST_TAG"
+          git checkout "$LATEST_TAG"
+          # Same overlay set as deploy-site.yaml. Keep this list in sync.
+          git checkout "$PR_SHA" -- \
+            docs/site \
+            generator/site \
+            internal/commands/groups.go
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build CLI (from overlaid working tree)
+        run: make build
+
+      - name: Generate site artifacts (deploy-parity invocation)
+        run: |
+          go run ./generator/site/main.go \
+            --binary ./bin/jamf-cli \
+            --output ./docs/site/commands.json \
+            --llms-output ./docs/site/llms.txt \
+            --llms-full-output ./docs/site/llms-full.txt
+
+      - name: Verify site supports all products
+        run: ./scripts/verify-site-products.sh
+
+      - name: Verify site output (artifacts well-formed, pillar coverage)
+        run: make verify-site-output

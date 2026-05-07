@@ -82,3 +82,26 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Smoke test deployed site
+        # Post-deploy assertion that everything we promised got served.
+        # Catches regressions like a broken upload step, missing assets,
+        # or a Pages config that swallowed our llms.txt / sitemap.xml.
+        run: |
+          URL="${{ steps.deployment.outputs.page_url }}"
+          URL="${URL%/}"
+          fail=0
+          for path in "" /commands.json /llms.txt /llms-full.txt /robots.txt /sitemap.xml; do
+            target="${URL}${path}"
+            if curl -fsSLI --retry 3 --retry-delay 2 -o /dev/null "$target"; then
+              echo "  OK   $target"
+            else
+              echo "  FAIL $target"
+              fail=1
+            fi
+          done
+          if [ $fail -ne 0 ]; then
+            echo "One or more deployed artifacts returned non-2xx."
+            exit 1
+          fi
+          echo "All deployed artifacts return 200."
