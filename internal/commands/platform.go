@@ -28,6 +28,8 @@ func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPlatformSetupCmd())
 	cmd.AddCommand(newPlatformAuthCmd(cliCtx))
 
+	applyPlatformGroups(cmd)
+
 	return cmd
 }
 

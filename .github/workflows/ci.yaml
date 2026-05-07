@@ -39,3 +39,6 @@ jobs:
 
       - name: Verify site supports all products
         run: ./scripts/verify-site-products.sh
+
+      - name: Verify site output (generator runs, artifacts well-formed, pillar coverage)
+        run: make verify-site-output

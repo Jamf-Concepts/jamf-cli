@@ -658,7 +658,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Determine product for this child's subtree.
 		childProduct := product
-		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" {
+		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "platform" {
 			childProduct = child.Name()
 		}
 
