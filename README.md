@@ -1,10 +1,10 @@
 # jamf-cli
 
-Unified CLI for the Jamf platform. Supports Jamf Pro and Jamf Protect.
+Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. 1,200+ commands. Full API coverage. Zero clicks.
 
 **[Documentation Wiki](https://github.com/Jamf-Concepts/jamf-cli/wiki)** — full guides, configuration reference, and workflow recipes.
 
-**[Command Explorer](https://jamf-concepts.github.io/jamf-cli/)** — interactive showcase of all commands, searchable and filterable. Auto-updated on every merge.
+**[Command Explorer](https://jamf-concepts.github.io/jamf-cli/)** — interactive showcase of every command, searchable and filterable. Press ⌘K (or Ctrl+K) for a fuzzy command palette. Auto-updated on every merge.
 
 ![jamf-cli demo](docs/demo.gif)
 
@@ -86,6 +86,23 @@ jamf-cli pro report security -o table
 jamf-cli multi --filter 'pro-*' -- pro buildings apply --from-file building.json --yes
 ```
 
+### Jamf Platform (via Gateway)
+
+```bash
+# List blueprints (DDM-based config delivery)
+jamf-cli pro blueprints list -o table
+
+# Apply a blueprint by name (creates if new, replaces if existing)
+jamf-cli pro blueprints apply --from-file passcode-policy.json
+
+# Compliance benchmarks: list and check device-level compliance
+jamf-cli pro compliance-benchmarks list -o table
+jamf-cli pro compliance-benchmarks device-results --name "macOS CIS Level 1"
+
+# Cross-product Platform device lookup (auto-detects serial vs UUID)
+jamf-cli pro platform-devices get --serial C02X1234
+```
+
 See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide) for the full walkthrough.
 
 ## Features
@@ -98,6 +115,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Device actions** — Erase, remove MDM, redeploy framework, blank push, DDM sync, renew MDM, lock, enable/disable Remote Desktop (computers); erase, unmanage, restart, shutdown, update inventory (mobile devices). Target by serial number, name, ID, group, or file. Destructive bulk operations require `--confirm-destructive`
 - **`device`** — Aggregated device deep-dive: identity, hardware, OS, security posture, user info, MDM command history, policy logs
 - **`report security`** — Fleet security posture: FileVault, Gatekeeper, SIP, firewall rates, OS version distribution, flagged devices
+- **JCDS file ops** — Upload, download, sync, and list packages on the Jamf Cloud Distribution Service: `jamf-cli pro jcds upload`, `pro jcds download`, `pro jcds sync`, `pro jcds files`
 
 ### Jamf Platform (via Gateway)
 
@@ -117,6 +135,13 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Downloads** — Installer packages, configuration profiles (.mobileconfig), and certificates
 - **Granular mutations** — Add/remove rules on USB control sets, analytics on sets, exceptions on sets
 
+### Jamf School
+
+- **Full coverage** — Devices, device groups, users, groups, classes, profiles, apps, locations, iBeacons, DEP devices
+- **`overview`** — Instance dashboard for the school environment
+- **Blueprints + DDM** — Same Platform-Gateway-backed Blueprints and DDM Reports as Jamf Pro, scoped to the school tenant
+- **`apply` upsert** — Idempotent name-based create-or-replace across every resource
+
 ### Cross-product
 
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
@@ -127,6 +152,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results
 - **Dry-run mode** — `--dry-run` previews writes without executing
+- **`--from-file` bulk operations** — `apply`, `delete`, and other write commands accept `--from-file <path>` for newline-separated names or a CSV. Pair with `--yes` and `--confirm-destructive` for unattended bulk cleanup
 - **`multi`** — Run any command against multiple profiles: `jamf-cli multi --filter 'pro-*' -- pro comp list`. Supports glob patterns, file input (profile names or URLs), and interactive selection
 - **Destructive safeguards** — Delete and replace operations require `--yes` confirmation
 - **`setup`** — Bootstrap API roles and OAuth2 credentials from a username/password. Idempotent (safe to re-run): updates roles and integrations in place without rotating credentials. Use `--rotate-credentials` to explicitly regenerate secrets. Supports multi-instance setup via `--from-file` for MSPs
