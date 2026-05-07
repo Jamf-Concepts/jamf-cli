@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-platform-specs verify-site smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -162,6 +162,24 @@ site: build
 # Verify site has support for all product namespaces (CI-safe)
 verify-site: build
 	@./scripts/verify-site-products.sh
+
+# Verify generator output is well-formed and the static site is consistent
+# with it: commands.json schema, llms.txt llmstxt.org compliance, JSON-LD
+# in index.html parses, every Pro group is assigned to a pillar in
+# catalog.js. Runs the generator end-to-end into /tmp so the working tree
+# stays clean. (CI-safe.)
+verify-site-output: build
+	@mkdir -p /tmp/jamf-cli-site
+	@go run ./generator/site \
+		--binary ./bin/jamf-cli \
+		--output /tmp/jamf-cli-site/commands.json \
+		--llms-output /tmp/jamf-cli-site/llms.txt \
+		--llms-full-output /tmp/jamf-cli-site/llms-full.txt
+	@./scripts/verify-site-output.sh \
+		--commands-json /tmp/jamf-cli-site/commands.json \
+		--llms-txt /tmp/jamf-cli-site/llms.txt \
+		--llms-full-txt /tmp/jamf-cli-site/llms-full.txt \
+		--site-dir docs/site
 
 # Verify generated code is up to date (CI-safe)
 verify-generated:
