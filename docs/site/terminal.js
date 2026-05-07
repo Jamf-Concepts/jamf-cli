@@ -93,10 +93,10 @@
       commandSpan.textContent += text[charIndex];
       schedule(function () {
         typeChars(text, commandSpan, charIndex + 1);
-      }, 40);
+      }, 55);
     } else {
       terminalEl.classList.remove('typing');
-      schedule(startCommand, 2000);
+      schedule(startCommand, 3500);
     }
   }
 

@@ -1,0 +1,45 @@
+# jamf-cli showcase site — fully open, indexable by search engines and AI agents.
+# llms.txt and llms-full.txt are the canonical AI-friendly entry points.
+
+User-agent: *
+Allow: /
+
+# Explicit allow for major AI crawlers (opt-in matches the default; listing
+# them here makes the policy unambiguous if upstream defaults change).
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+Sitemap: https://jamf-concepts.github.io/jamf-cli/sitemap.xml

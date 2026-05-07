@@ -1,8 +1,40 @@
 (function () {
   'use strict';
 
+  // Pillars chunk the 28+ groups into 7 high-level sections so visitors can
+  // form a mental map without memorising every group name. Order within each
+  // pillar is preserved from GROUP_ORDER. Groups not listed here render
+  // without a pillar divider (Protect-specific groups, etc.).
+  var PILLARS = [
+    { label: 'Quick Access',       groups: ['Getting Started', 'Power Commands', 'Configuration', 'Shell Completion', 'Utilities', 'Core Commands'] },
+    { label: 'Devices',            groups: ['Computer Management', 'Mobile Device Management', 'Enrollment', 'Inventory & Search', 'Organization'] },
+    { label: 'Software & Content', groups: ['Apps & Patching', 'Distribution & JCDS', 'Scripts & Policies', 'Self Service', 'Jamf App Integrations'] },
+    { label: 'Identity & Access',  groups: ['Users & Groups', 'Admin Accounts', 'Identity Providers', 'Admin SSO', 'API Access'] },
+    { label: 'Infrastructure',     groups: ['MDM & Certificates', 'OS Updates', 'Security', 'Server Health', 'System Integrations'] },
+    { label: 'Platform API',       groups: ['Platform - Configuration', 'Platform - Compliance', 'Platform - Devices & Users', 'Platform'] },
+    { label: 'Classic API',        groups: ['Classic - Computers', 'Classic - Mobile Devices', 'Classic - Configuration', 'Classic - Administration', 'Classic - Patch Management'] }
+  ];
+
+  // Reverse-index built lazily on first use: { groupName: pillarLabel }
+  var _pillarIndex = null;
+  function pillarFor(groupName) {
+    if (_pillarIndex === null) {
+      _pillarIndex = {};
+      for (var i = 0; i < PILLARS.length; i++) {
+        for (var j = 0; j < PILLARS[i].groups.length; j++) {
+          _pillarIndex[PILLARS[i].groups[j]] = PILLARS[i].label;
+        }
+      }
+    }
+    return _pillarIndex[groupName] || null;
+  }
+
   var GROUP_ORDER = [
     'Getting Started',
+    'Platform - Configuration',
+    'Platform - Compliance',
+    'Platform - Devices & Users',
+    'Platform',
     'Configuration',
     'Shell Completion',
     'Utilities',
@@ -10,12 +42,23 @@
     'Computer Management',
     'Mobile Device Management',
     'Enrollment',
+    'Apps & Patching',
+    'Distribution & JCDS',
+    'Scripts & Policies',
+    'Self Service',
+    'Jamf App Integrations',
     'Inventory & Search',
     'Organization',
-    'Users & Security',
-    'Content & Configuration',
+    'Users & Groups',
+    'Admin Accounts',
+    'Identity Providers',
+    'Admin SSO',
+    'API Access',
     'MDM & Certificates',
-    'Server Administration',
+    'OS Updates',
+    'Security',
+    'Server Health',
+    'System Integrations',
     'Classic - Computers',
     'Classic - Mobile Devices',
     'Classic - Configuration',
@@ -118,15 +161,22 @@
     var proCount = 0;
     var protectCount = 0;
     var schoolCount = 0;
+    var platformCount = 0;
+    var productCount = 0;
     for (var i = 0; i < data.commands.length; i++) {
-      if (data.commands[i].product === 'pro') proCount++;
-      else if (data.commands[i].product === 'protect') protectCount++;
-      else if (data.commands[i].product === 'school') schoolCount++;
+      var p = data.commands[i].product;
+      var g = data.commands[i].group || '';
+      if (p === 'pro') proCount++;
+      else if (p === 'protect') protectCount++;
+      else if (p === 'school') schoolCount++;
+      if (p === 'platform' || g.indexOf('Platform') === 0) platformCount++;
+      if (p) productCount++;
     }
-    var coreCount = count - proCount - protectCount - schoolCount;
+    var coreCount = count - productCount;
     animateCount('stat-pro', proCount);
     animateCount('stat-protect', protectCount);
     animateCount('stat-school', schoolCount);
+    animateCount('stat-platform', platformCount);
     animateCount('stat-core', coreCount);
 
     // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
@@ -275,35 +325,73 @@
       }
     }
 
-    // Render shared groups first (no divider)
-    for (var s = 0; s < sharedGroups.length; s++) {
-      catalog.appendChild(renderGroup(sharedGroups[s], hasSearch));
-    }
+    // Render shared groups first (no product divider). Pillars apply here
+    // because shared groups include the Quick Access cluster (Configuration,
+    // Shell Completion, Utilities).
+    renderGroupsWithPillars(catalog, sharedGroups, function () { return hasSearch; }, true);
 
-    // Render each product's groups under a divider
+    // Render each product's groups under a divider. Pillars only apply to
+    // Jamf Pro — Protect/School/Platform have far fewer groups and pillar
+    // chunking actively misleads (a lone "Platform API" header above
+    // School's Platform group makes everything below it look like Platform).
     var productOrder = Object.keys(PRODUCT_LABELS);
     for (var pi = 0; pi < productOrder.length; pi++) {
       var prod = productOrder[pi];
       if (!productGroups[prod] || productGroups[prod].length === 0) continue;
       catalog.appendChild(renderProductDivider(prod));
-      for (var g = 0; g < productGroups[prod].length; g++) {
-        var expandGroup = hasSearch || productGroups[prod][g].name === 'Getting Started';
-        catalog.appendChild(renderGroup(productGroups[prod][g], expandGroup));
-      }
+      renderGroupsWithPillars(catalog, productGroups[prod], function (g) {
+        return hasSearch || g.name === 'Getting Started';
+      }, prod === 'pro');
     }
 
-    // Any remaining products not in PRODUCT_LABELS
+    // Any remaining products not in PRODUCT_LABELS (defensive — none today).
+    // No pillars: same reasoning as above.
     var allProds = Object.keys(productGroups);
     for (var r = 0; r < allProds.length; r++) {
       if (PRODUCT_LABELS[allProds[r]]) continue;
       catalog.appendChild(renderProductDivider(allProds[r]));
-      for (var rg = 0; rg < productGroups[allProds[r]].length; rg++) {
-        catalog.appendChild(renderGroup(productGroups[allProds[r]][rg], hasSearch));
-      }
+      renderGroupsWithPillars(catalog, productGroups[allProds[r]], function () { return hasSearch; }, false);
     }
   }
 
+  // Iterate a list of groups. When enablePillars is true, emit a pillar
+  // divider before the first group of each pillar transition; groups without
+  // a registered pillar render without a divider. expandFn(group) returns
+  // the start-expanded boolean.
+  function renderGroupsWithPillars(parent, groups, expandFn, enablePillars) {
+    var lastPillar = null;
+    for (var i = 0; i < groups.length; i++) {
+      var pillar = enablePillars ? pillarFor(groups[i].name) : null;
+      if (pillar && pillar !== lastPillar) {
+        parent.appendChild(renderPillarDivider(pillar));
+        lastPillar = pillar;
+      } else if (!pillar) {
+        // Reset so the next pillared group emits a divider even after a
+        // gap of pillar-less groups.
+        lastPillar = null;
+      }
+      parent.appendChild(renderGroup(groups[i], !!expandFn(groups[i])));
+    }
+  }
+
+  function renderPillarDivider(label) {
+    var div = document.createElement('div');
+    div.className = 'pillar-divider';
+    div.setAttribute('role', 'separator');
+    div.setAttribute('aria-label', label);
+    var lbl = document.createElement('span');
+    lbl.className = 'pillar-label';
+    lbl.textContent = label;
+    div.appendChild(lbl);
+    var rule = document.createElement('span');
+    rule.className = 'pillar-rule';
+    rule.setAttribute('aria-hidden', 'true');
+    div.appendChild(rule);
+    return div;
+  }
+
   var PRODUCT_LABELS = {
+    platform: 'Jamf Platform',
     pro: 'Jamf Pro',
     protect: 'Jamf Protect',
     school: 'Jamf School'
@@ -390,6 +478,13 @@
 
     if (product && product !== 'all') {
       results = results.filter(function (cmd) {
+        if (product === 'platform') {
+          // Platform tab cross-cuts by group: every command in any
+          // "Platform - …" or "Platform" group counts, regardless of
+          // owning product (so Pro and School Platform commands surface
+          // here too). Top-level platform setup/auth match by product.
+          return cmd.product === 'platform' || (cmd.group && cmd.group.indexOf('Platform') === 0);
+        }
         return cmd.product === product;
       });
     }
@@ -489,6 +584,19 @@
       header.appendChild(dot);
     }
 
+    // Right-aligned "Jamf Platform" pill on every Platform-* / Platform group
+    // header so the cross-cut sections stand out wherever they appear (under
+    // Pro or School dividers in the All view, or in the Platform tab itself).
+    // JAMF_ICON_SVG is a hardcoded constant — using insertAdjacentHTML to
+    // satisfy lint without re-encoding the SVG via createElementNS.
+    if (group.name && group.name.indexOf('Platform') === 0) {
+      var platBadge = document.createElement('span');
+      platBadge.className = 'platform-section-badge';
+      platBadge.insertAdjacentHTML('beforeend', JAMF_ICON_SVG);
+      platBadge.appendChild(document.createTextNode(' Jamf Platform'));
+      header.appendChild(platBadge);
+    }
+
     // Show product badges if group has commands from multiple products, or for Core/shared groups
     if (productKeys.length > 1 || (productKeys.length === 1 && group.name === 'Core Commands')) {
       var badgeWrap = document.createElement('span');
@@ -510,6 +618,10 @@
     // Store commands as data for lazy rendering
     commandsDiv._commands = group.commands;
     commandsDiv._rendered = false;
+    // When the group is auto-expanded (search active or "Expand all"), pop
+    // resource sub-buckets open too so matches stay visible — collapsing
+    // them would defeat the search.
+    commandsDiv._expandResources = expanded;
 
     if (expanded) {
       renderGroupCommands(commandsDiv);
@@ -533,12 +645,132 @@
   function renderGroupCommands(commandsDiv) {
     if (commandsDiv._rendered) return;
     var cmds = commandsDiv._commands;
-    for (var i = 0; i < cmds.length; i++) {
-      var pair = renderCommandRow(cmds[i]);
-      commandsDiv.appendChild(pair.row);
-      commandsDiv.appendChild(pair.detail);
+    var bucketed = bucketByResource(cmds);
+
+    if (shouldBucket(bucketed)) {
+      // Free-floating commands (e.g. "pro overview") render flat, before any
+      // resource buckets, so they read like quick-access shortcuts.
+      appendLeafCommands(commandsDiv, bucketed.loose);
+      for (var b = 0; b < bucketed.order.length; b++) {
+        var resource = bucketed.order[b];
+        commandsDiv.appendChild(renderResourceBucket(
+          resource,
+          bucketed.buckets[resource],
+          !!commandsDiv._expandResources
+        ));
+      }
+    } else {
+      appendLeafCommands(commandsDiv, cmds);
     }
     commandsDiv._rendered = true;
+  }
+
+  // Split a group's commands into resource buckets keyed by the second word
+  // of the command path (e.g. "pro mobile-devices list" → "mobile-devices").
+  // Two-word paths like "pro overview" have no resource and are returned as
+  // "loose" commands rendered flat above the buckets.
+  function bucketByResource(cmds) {
+    var buckets = {};
+    var order = [];
+    var loose = [];
+    for (var i = 0; i < cmds.length; i++) {
+      var parts = cmds[i].command.split(' ');
+      if (parts.length < 3) {
+        loose.push(cmds[i]);
+        continue;
+      }
+      var resource = parts[1];
+      if (!buckets[resource]) {
+        buckets[resource] = [];
+        order.push(resource);
+      }
+      buckets[resource].push(cmds[i]);
+    }
+    return { buckets: buckets, order: order, loose: loose };
+  }
+
+  // Heuristic: only sub-bucket when there's actually structure to surface.
+  // Tiny groups (Getting Started, Core Commands, etc.) and groups where every
+  // "resource" has just one command would gain nothing from extra chrome.
+  function shouldBucket(b) {
+    var resourcesWithMultiple = 0;
+    var totalBucketed = 0;
+    for (var r in b.buckets) {
+      totalBucketed += b.buckets[r].length;
+      if (b.buckets[r].length >= 2) resourcesWithMultiple++;
+    }
+    return totalBucketed >= 8 && resourcesWithMultiple >= 2;
+  }
+
+  function appendLeafCommands(div, cmds) {
+    for (var i = 0; i < cmds.length; i++) {
+      var pair = renderCommandRow(cmds[i]);
+      div.appendChild(pair.row);
+      div.appendChild(pair.detail);
+    }
+  }
+
+  function renderResourceBucket(name, cmds, startExpanded) {
+    var bucket = document.createElement('div');
+    bucket.className = 'resource-bucket';
+
+    var hdr = document.createElement('div');
+    hdr.className = 'resource-header';
+    hdr.setAttribute('role', 'button');
+    hdr.setAttribute('tabindex', '0');
+    hdr.setAttribute('aria-expanded', String(!!startExpanded));
+
+    var ch = document.createElement('span');
+    ch.className = 'resource-chevron';
+    ch.textContent = '▶';
+    hdr.appendChild(ch);
+
+    var label = document.createElement('span');
+    label.className = 'resource-name';
+    label.textContent = name;
+    hdr.appendChild(label);
+
+    var count = document.createElement('span');
+    count.className = 'resource-count-badge';
+    count.textContent = cmds.length;
+    hdr.appendChild(count);
+
+    bucket.appendChild(hdr);
+
+    var inner = document.createElement('div');
+    inner.className = 'resource-commands';
+    inner.style.display = startExpanded ? '' : 'none';
+    inner._commands = cmds;
+    inner._rendered = false;
+    if (startExpanded) {
+      appendLeafCommands(inner, cmds);
+      inner._rendered = true;
+    }
+
+    hdr.addEventListener('click', function () { toggleResource(hdr, inner); });
+    hdr.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleResource(hdr, inner);
+      }
+    });
+
+    bucket.appendChild(inner);
+    return bucket;
+  }
+
+  function toggleResource(hdr, inner) {
+    var expanded = hdr.getAttribute('aria-expanded') === 'true';
+    hdr.setAttribute('aria-expanded', String(!expanded));
+    if (!expanded) {
+      if (!inner._rendered) {
+        appendLeafCommands(inner, inner._commands);
+        inner._rendered = true;
+      }
+      inner.style.display = '';
+    } else {
+      inner.style.display = 'none';
+    }
   }
 
   function toggleGroup(header, commandsDiv) {
@@ -617,20 +849,31 @@
       descLine.appendChild(prodBadge);
     }
 
-    var rowChevron = document.createElement('span');
-    rowChevron.className = 'row-chevron';
-    rowChevron.textContent = '\u203A';
-    descLine.appendChild(rowChevron);
-
-    // Cross-product reference badge
+    // Cross-product flow: when a command crosses products (e.g. `pro
+    // jamf-protect add-history-note` is a Pro command that operates on
+    // Protect data), render a small connector arrow + the related-product
+    // badge directly next to the source badge so the relationship reads as
+    // "Pro \u2192 Protect", not as two unrelated chips.
     var relatedProduct = detectRelatedProduct(cmd);
     if (relatedProduct) {
+      var prodArrow = document.createElement('span');
+      prodArrow.className = 'cmd-product-arrow';
+      prodArrow.textContent = '\u203A';
+      prodArrow.setAttribute('aria-hidden', 'true');
+      descLine.appendChild(prodArrow);
+
       var xrefBadge = document.createElement('span');
       xrefBadge.className = 'xref-badge';
       xrefBadge.setAttribute('data-product', relatedProduct);
       xrefBadge.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[relatedProduct] || relatedProduct);
       descLine.appendChild(xrefBadge);
     }
+
+    // Row expand chevron \u2014 separate concern, always lives at the far right.
+    var rowChevron = document.createElement('span');
+    rowChevron.className = 'row-chevron';
+    rowChevron.textContent = '\u203A';
+    descLine.appendChild(rowChevron);
 
     row.appendChild(descLine);
 

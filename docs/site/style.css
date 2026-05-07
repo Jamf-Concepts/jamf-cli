@@ -1,3 +1,326 @@
+/* ===== Hero first-load reveal ===== */
+/* One-time orchestrated cascade — fades + slides each hero element in
+   on a stagger so the page feels composed, not assembled. Skipped under
+   prefers-reduced-motion. `backwards` fill keeps elements invisible
+   during their delay, so the cascade starts cleanly. */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#hero .hero-icon,
+#hero h1,
+#hero .subtitle,
+#hero .stat-cards .stat-card,
+#hero .stat-secondary,
+#hero #terminal,
+#hero .hero-install {
+  animation: reveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+#hero .hero-icon          { animation-delay: 0.05s; }
+#hero h1                  { animation-delay: 0.18s; }
+#hero .subtitle           { animation-delay: 0.32s; }
+#hero .stat-cards .stat-card:nth-child(1) { animation-delay: 0.44s; }
+#hero .stat-cards .stat-card:nth-child(2) { animation-delay: 0.52s; }
+#hero .stat-cards .stat-card:nth-child(3) { animation-delay: 0.60s; }
+#hero .stat-cards .stat-card:nth-child(4) { animation-delay: 0.68s; }
+#hero .stat-secondary     { animation-delay: 0.78s; }
+#hero #terminal           { animation-delay: 0.90s; }
+#hero .hero-install       { animation-delay: 1.05s; }
+
+@media (prefers-reduced-motion: reduce) {
+  #hero .hero-icon,
+  #hero h1,
+  #hero .subtitle,
+  #hero .stat-cards .stat-card,
+  #hero .stat-secondary,
+  #hero #terminal,
+  #hero .hero-install {
+    animation: none;
+  }
+}
+
+/* Hero glyph twinkle — cathode flicker. Driven by inline JS in
+   index.html (random glyph picked every 1.5–3.5s, occasional satellite).
+   The keyframe brightens the glyph (cyan → white → cyan) and blooms a
+   drop-shadow glow at peak, then decays. Asymmetric easing — snappy
+   attack, slow decay — mirrors how phosphors actually behave. */
+@keyframes glyph-twinkle {
+  0%   { fill: currentColor; filter: none; transform: scale(1); }
+  18%  { fill: #6ec5ff; filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
+  42%  { fill: #ffffff; filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
+  68%  { fill: #6ec5ff; filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
+  100% { fill: currentColor; filter: none; transform: scale(1); }
+}
+
+.hero-glyph.twinkle {
+  animation: glyph-twinkle 1.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+  transform-box: fill-box;       /* scale SVG <text> around its own bbox */
+  will-change: transform, filter, fill;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-glyph.twinkle { animation: none; }
+}
+
+/* ===== Cmd+K Command Palette ===== */
+.cmd-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 1rem 1rem;
+}
+.cmd-palette.open { display: flex; }
+
+.palette-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 20, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes paletteRise {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.palette-window {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: paletteRise 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.palette-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.palette-prompt {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-weight: 600;
+  color: var(--brand-blue);
+  font-size: 1rem;
+}
+.palette-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.95rem;
+  padding: 0;
+}
+.palette-input::placeholder { color: var(--text-secondary); }
+.palette-kbd, .palette-footer kbd {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+
+.palette-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.palette-list {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-item.selected {
+  background: rgba(18, 104, 236, 0.10);
+  position: relative;
+}
+.palette-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--brand-blue);
+}
+.palette-item-prefix {
+  color: var(--text-secondary);
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+.palette-item-name {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-item-name mark {
+  background: rgba(18, 104, 236, 0.25);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.palette-item-tag {
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--border);
+  color: var(--text-secondary);
+}
+.palette-item-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
+.palette-item-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
+.palette-item-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
+.palette-item-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
+
+.palette-empty {
+  padding: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+  list-style: none;
+}
+
+.palette-preview {
+  flex: 0 0 280px;
+  padding: 0.85rem 1rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.palette-cmd {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+  word-break: break-word;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+.palette-cmd-dollar { color: var(--brand-blue); }
+.palette-desc {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 0.6rem;
+}
+.palette-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+.palette-tag {
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+.palette-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
+.palette-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
+.palette-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
+.palette-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
+.palette-group {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05rem 0.4rem;
+}
+.palette-section {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0.5rem 0 0.35rem;
+}
+.palette-flags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.palette-flags code,
+.palette-aliases code {
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+.palette-aliases { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+.palette-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  position: relative;
+}
+.palette-footer-lbl { margin-right: 0.5rem; }
+.palette-footer.copied::after {
+  content: 'Copied to clipboard';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--brand-blue);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  animation: fadeIn 0.15s;
+}
+
+@media (max-width: 600px) {
+  .palette-preview { display: none; }
+  .palette-list { border-right: none; }
+}
+
 /* ===== Reset ===== */
 *,
 *::before,
@@ -30,21 +353,27 @@ html {
   --terminal-prompt: #ffffffbd;
 
   /* Product colors — add new products here */
-  --product-pro: #1268ec;
+  --product-pro: #06b6d4;
   --product-protect: #00b300;
   --product-school: #F59E0B;
+  --product-platform: #1268ec;
   /* --product-connect: #a135d7; */
 
   /* Indicator colors */
   --new-indicator: #ff9500;
 
-  /* Light mode */
-  --page-bg: #ffffff;
-  --card-bg: #f5f7f8;
+  /* Light mode — "cool paper terminal":
+       * page slightly cool-grey instead of warm near-white (less eye-blast)
+       * cards recede ~6% from the page so the catalog reads as set INTO
+         the surface, not floating on bleach-white
+       * text stays high-contrast but trades pure black for a cool dark
+         grey (#1a1d23) — easier on long sessions, still WCAG AA */
+  --page-bg: #f4f5f8;
+  --card-bg: #e9ebf0;
   --border: #1419201f;
-  --text-primary: #000000de;
-  --text-secondary: #000000bd;
-  --tab-inactive-bg: #f5f7f8;
+  --text-primary: #1a1d23;
+  --text-secondary: #5a6068;
+  --tab-inactive-bg: #e9ebf0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +386,7 @@ html {
     --tab-inactive-bg: #1f242b;
     --link-blue: #7b79e8;
     --product-protect: #32d74b;
+    --product-pro: #22d3ee;
   }
 }
 
@@ -70,22 +400,24 @@ html {
   --tab-inactive-bg: #1f242b;
   --link-blue: #7b79e8;
   --product-protect: #32d74b;
+  --product-pro: #22d3ee;
 }
 
 /* ===== Typography ===== */
 body {
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   color: var(--text-primary);
   background: var(--page-bg);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
 }
 
 code,
 pre,
 .mono {
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
 a {
@@ -121,10 +453,23 @@ nav.scrolled {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   text-decoration: none;
+}
+
+.nav-brand::after {
+  content: '_';
+  margin-left: -0.1em;
+  color: var(--brand-blue);
+  animation: blink 1.05s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-brand::after { animation: none; opacity: 0.6; }
 }
 
 .nav-icon {
@@ -151,10 +496,20 @@ nav.scrolled {
 }
 
 .nav-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
   transition: color 0.15s;
+}
+
+.nav-icon-sm {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: currentColor;
 }
 
 /* External link indicator — auto-applied to target="_blank" links in nav and footer */
@@ -239,6 +594,35 @@ a[target="_blank"]:hover::after {
   z-index: 1;
 }
 
+/* Light-mode hero refinements:
+     * boost the pattern opacity — the brand-blue glyphs at 0.12 disappear
+       on a light bg because the multiplier kills the already-subtle pattern
+     * add a subtle radial gradient at the top to break up the flat sheet
+       without introducing a new color (just brand-blue at 5% alpha) */
+:root[data-theme="light"] .hero-pattern,
+:root:not([data-theme="dark"]) .hero-pattern {
+  opacity: 0.30;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .hero-pattern { opacity: 0.12; }
+}
+
+:root[data-theme="dark"] .hero-pattern { opacity: 0.12; }
+
+:root[data-theme="light"] #hero,
+:root:not([data-theme="dark"]) #hero {
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(18, 104, 236, 0.05) 0%, transparent 65%),
+    var(--page-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #hero { background: var(--page-bg); }
+}
+
+:root[data-theme="dark"] #hero { background: var(--page-bg); }
+
 .hero-pattern-svg {
   width: 100%;
   height: 100%;
@@ -278,14 +662,14 @@ a[target="_blank"]:hover::after {
 .stat-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 1.5rem 2rem;
   min-width: 150px;
   flex: 1;
   max-width: 200px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
   cursor: pointer;
 }
 
@@ -301,39 +685,41 @@ a.stat-card:hover {
 
 .stat-card[data-product="total"] {
   border-color: var(--product-pro);
-  box-shadow: 0 2px 12px rgba(18, 104, 236, 0.15);
 }
 .stat-card[data-product="total"] .stat-value { color: var(--brand-blue); }
 
 .stat-card[data-product="pro"] {
-  border-color: rgba(18, 104, 236, 0.4);
-  box-shadow: 0 2px 12px rgba(18, 104, 236, 0.08);
+  border-color: rgba(6, 182, 212, 0.45);
 }
 .stat-card[data-product="pro"] .stat-value { color: var(--product-pro); }
 
 .stat-card[data-product="protect"] {
-  border-color: rgba(0, 179, 0, 0.4);
-  box-shadow: 0 2px 12px rgba(0, 179, 0, 0.08);
+  border-color: rgba(0, 179, 0, 0.45);
 }
 .stat-card[data-product="protect"] .stat-value { color: var(--product-protect); }
 
 .stat-card[data-product="school"] {
-  border-color: rgba(245, 158, 11, 0.4);
-  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.45);
 }
 .stat-card[data-product="school"] .stat-value { color: var(--product-school); }
 
+.stat-card[data-product="platform"] {
+  border-color: rgba(18, 104, 236, 0.45);
+}
+.stat-card[data-product="platform"] .stat-value { color: var(--product-platform); }
+
 .stat-card[data-product="core"] {
   border-color: var(--border);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 .stat-card[data-product="core"] .stat-value { color: var(--text-secondary); }
 
 .stat-card .stat-value {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
   display: block;
-  line-height: 1.2;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum", "ss01";
 }
 
 .stat-card .stat-label {
@@ -341,6 +727,7 @@ a.stat-card:hover {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .stat-card .stat-label .product-icon {
@@ -357,6 +744,10 @@ a.stat-card:hover {
 
 .stat-card[data-product="school"] .stat-label .product-icon {
   color: var(--product-school);
+}
+
+.stat-card[data-product="platform"] .stat-label .product-icon {
+  color: var(--product-platform);
 }
 
 .stat-secondary {
@@ -452,7 +843,7 @@ a.stat-card:hover {
 
 #terminal-output {
   padding: 1rem 1.25rem;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.85rem;
   line-height: 1.65;
   color: var(--terminal-text);
@@ -477,7 +868,8 @@ a.stat-card:hover {
   display: inline-block;
   width: 8px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
   animation: blink 1s step-end infinite;
   vertical-align: text-bottom;
   margin-left: 2px;
@@ -508,7 +900,7 @@ a.stat-card:hover {
   border: 1px solid var(--terminal-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.85rem;
   color: var(--terminal-text);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -535,7 +927,7 @@ a.stat-card:hover {
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
   color: rgba(255, 255, 255, 0.6);
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -595,7 +987,7 @@ a.stat-card:hover {
 }
 
 .commands-sticky.stuck {
-  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 14px -12px rgba(0, 0, 0, 0.18);
 }
 
 .commands-sticky.stuck::after {
@@ -650,6 +1042,8 @@ a.stat-card:hover {
 .tab[data-filter="protect"].active { background: var(--product-protect); border-color: var(--product-protect); color: #fff; }
 .tab[data-filter="school"] { color: var(--product-school); }
 .tab[data-filter="school"].active { background: var(--product-school); border-color: var(--product-school); color: #fff; }
+.tab[data-filter="platform"] { color: var(--product-platform); }
+.tab[data-filter="platform"].active { background: var(--product-platform); border-color: var(--product-platform); color: #fff; }
 
 /* Search */
 .catalog-controls {
@@ -664,7 +1058,7 @@ a.stat-card:hover {
 }
 
 .toggle-all-btn {
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-secondary);
@@ -690,7 +1084,7 @@ a.stat-card:hover {
   background: var(--card-bg);
   color: var(--text-primary);
   font-size: 0.9rem;
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   outline: none;
   transition: border-color 0.15s;
 }
@@ -734,6 +1128,144 @@ a.stat-card:hover {
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
+}
+
+/* Noscript fallback — visible only when JS is disabled (and to crawlers
+   that ignore <noscript>, harmless). Provides direct links to the
+   AI/markdown/JSON dumps so non-JS clients still find the catalog. */
+.noscript-fallback {
+  max-width: 720px;
+  margin: 1.5rem auto;
+  padding: 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+.noscript-fallback p {
+  margin-bottom: 0.75rem;
+}
+.noscript-fallback ul {
+  margin-left: 1.25rem;
+  line-height: 1.8;
+}
+.noscript-fallback a {
+  color: var(--brand-blue);
+  text-decoration: underline;
+}
+
+/* Pillar dividers — running-header style labels that chunk the 28+ groups
+   into ~7 conceptual pillars (Devices, Software & Content, Identity & Access,
+   etc). Geist Mono + heavy tracking + fading hairline keeps them quiet
+   enough to ignore when scanning rows, present enough to anchor your
+   position when orienting. Editorial, not navigational. */
+.pillar-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 1.75rem 0 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.pillar-divider:first-child {
+  margin-top: 0.25rem;
+}
+
+.pillar-label {
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pillar-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--border), transparent 75%);
+}
+
+/* Pillar labels were nearly invisible in light mode at 0.6 opacity against
+   the page; small bump to 0.7 fixes legibility without making them shouty. */
+:root[data-theme="light"] .pillar-label,
+:root:not([data-theme="dark"]) .pillar-label {
+  opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pillar-label { opacity: 0.6; }
+}
+
+:root[data-theme="dark"] .pillar-label { opacity: 0.6; }
+
+/* Resource sub-buckets — when a group has 8+ commands across 2+ resources,
+   catalog.js sub-buckets the leaf commands by resource (second word of the
+   command path). Each bucket is its own collapsible row with a count badge,
+   indented under the parent group with a left rule for visual hierarchy. */
+.resource-bucket {
+  margin: 0.15rem 0 0.15rem 0.5rem;
+  border-left: 2px solid var(--border);
+}
+
+.resource-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  user-select: none;
+  border-radius: 0 4px 4px 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.resource-header:hover,
+.resource-header:focus-visible {
+  background: rgba(18, 104, 236, 0.06);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.resource-chevron {
+  display: inline-block;
+  font-size: 0.55rem;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.resource-header[aria-expanded="true"] .resource-chevron {
+  transform: rotate(90deg);
+}
+
+.resource-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-count-badge {
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.05rem 0.4rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.resource-commands {
+  padding: 0.1rem 0 0.1rem 0.5rem;
 }
 
 /* Catalog */
@@ -782,6 +1314,8 @@ a.stat-card:hover {
 .product-divider[data-product="protect"]::after { background: var(--product-protect); opacity: 0.3; }
 .product-divider[data-product="school"] .product-divider-label { color: var(--product-school); }
 .product-divider[data-product="school"]::after { background: var(--product-school); opacity: 0.3; }
+.product-divider[data-product="platform"] .product-divider-label { color: var(--product-platform); }
+.product-divider[data-product="platform"]::after { background: var(--product-platform); opacity: 0.3; }
 
 /* Count badge on group headers */
 .group-count-badge {
@@ -889,8 +1423,8 @@ a.stat-card:hover {
 }
 
 .catalog-group.getting-started[data-product="pro"] .catalog-group-header {
-  border: 1px solid rgba(18, 104, 236, 0.3);
-  box-shadow: 0 0 6px rgba(18, 104, 236, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.15);
 }
 
 .catalog-group.getting-started[data-product="protect"] .catalog-group-header {
@@ -901,11 +1435,15 @@ a.stat-card:hover {
   border: 1px solid rgba(245, 158, 11, 0.3);
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
 }
+.catalog-group.getting-started[data-product="platform"] .catalog-group-header {
+  border: 1px solid rgba(18, 104, 236, 0.3);
+  box-shadow: 0 0 6px rgba(18, 104, 236, 0.15);
+}
 
 .catalog-group[data-product="pro"] .catalog-group-header {
   border-left-color: var(--product-pro);
   color: var(--product-pro);
-  background: #1268ec0d;
+  background: #06b6d40d;
 }
 .catalog-group[data-product="protect"] .catalog-group-header {
   border-left-color: var(--product-protect);
@@ -917,16 +1455,24 @@ a.stat-card:hover {
   color: var(--product-school);
   background: #FEF3C7;
 }
+.catalog-group[data-product="platform"] .catalog-group-header {
+  border-left-color: var(--product-platform);
+  color: var(--product-platform);
+  background: #1268ec0d;
+}
 
 @media (prefers-color-scheme: dark) {
   .catalog-group[data-product="pro"] .catalog-group-header {
-    background: #1268ec1a;
+    background: #22d3ee1a;
   }
   .catalog-group[data-product="protect"] .catalog-group-header {
     background: #32d74b1a;
   }
   .catalog-group[data-product="school"] .catalog-group-header {
     background: #271d08;
+  }
+  .catalog-group[data-product="platform"] .catalog-group-header {
+    background: #1268ec1a;
   }
 }
 
@@ -985,6 +1531,14 @@ a.stat-card:hover {
   padding-left: 0.5rem;
 }
 
+/* When the row already carries a cross-product flow (`Pro › Protect`), the
+   row-expand chevron at the far right reads as a redundant second arrow.
+   Hide it on those rows — the whole row is still clickable, and the xref
+   itself is the visual cue that this command is interesting. */
+.command-desc-line:has(.xref-badge) .row-chevron {
+  display: none;
+}
+
 .command-row:hover .row-chevron {
   opacity: 0.6;
 }
@@ -1019,7 +1573,7 @@ a.stat-card:hover {
 }
 
 .command-name {
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.95rem;
   color: var(--brand-blue);
 }
@@ -1073,7 +1627,7 @@ a.stat-card:hover {
 
 .command-name.copied::after {
   content: 'Copied!';
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   font-style: normal;
@@ -1084,7 +1638,7 @@ a.stat-card:hover {
 .new-badge {
   display: inline-flex;
   align-items: center;
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   font-size: 0.6rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -1116,6 +1670,7 @@ a.stat-card:hover {
 .command-row[data-product="pro"] .command-name { color: var(--product-pro); }
 .command-row[data-product="protect"] .command-name { color: var(--product-protect); }
 .command-row[data-product="school"] .command-name { color: var(--product-school); }
+.command-row[data-product="platform"] .command-name { color: var(--product-platform); }
 /* .command-row[data-product="connect"] .command-name { color: var(--product-connect); } */
 
 .command-desc {
@@ -1186,7 +1741,7 @@ a.stat-card:hover {
 
 .cmd-product-badge[data-product="pro"] {
   color: var(--product-pro);
-  background: rgba(18, 104, 236, 0.08);
+  background: rgba(6, 182, 212, 0.08);
 }
 
 .cmd-product-badge[data-product="protect"] {
@@ -1197,6 +1752,55 @@ a.stat-card:hover {
 .cmd-product-badge[data-product="school"] {
   color: var(--product-school);
   background: rgba(245, 158, 11, 0.08);
+}
+
+.cmd-product-badge[data-product="platform"] {
+  color: var(--product-platform);
+  background: rgba(18, 104, 236, 0.08);
+}
+
+/* Right-aligned "Jamf Platform" pill on Platform-* group headers — mirrors
+   the cmd-product-badge style on command rows. Uses --text-primary so the
+   text and icon auto-flip to black in light / white in dark, against a
+   subtle theme-neutral background pulled from --border. */
+.platform-section-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: var(--text-primary);
+  background: var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.platform-section-badge .product-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-primary);
+}
+
+/* Cross-product flow connector — sits between the source product badge
+   and the xref badge to read as "Pro → Protect". Inline-flex with
+   align-items:center so the glyph aligns to the badges' visual center
+   instead of the typographic baseline. */
+.cmd-product-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  user-select: none;
 }
 
 /* Cross-product reference badge */
@@ -1235,7 +1839,7 @@ a.stat-card:hover {
 
 .detail-parent-link {
   color: var(--brand-blue);
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.8rem;
   text-decoration: none;
 }
@@ -1253,7 +1857,7 @@ a.stat-card:hover {
 
 .sibling-link {
   display: inline-block;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.25rem 0.6rem;
@@ -1333,7 +1937,7 @@ pre.example-command.copied {
 pre.example-command.copied::after {
   content: 'Copied!';
   float: right;
-  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--terminal-success);
@@ -1354,7 +1958,7 @@ pre.example-command.copied::after {
 /* Flag pills */
 .flag-pill {
   display: inline-block;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
   background: rgba(142, 142, 147, 0.08);
   color: #8e8e93;
@@ -1368,7 +1972,7 @@ pre.example-command.copied::after {
 /* Alias badge */
 .alias-badge {
   display: inline-block;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
   background: rgba(142, 142, 147, 0.08);
   color: #8e8e93;
@@ -1442,7 +2046,7 @@ pre.example-command.copied::after {
   border: 1px solid var(--terminal-border);
   border-radius: 6px;
   padding: 0.6rem 0.75rem;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.75rem;
   overflow-x: auto;
   flex: 1;
@@ -1665,7 +2269,7 @@ footer .footer-meta {
 .kbd-row kbd,
 .footer-kbd {
   display: inline-block;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.7rem;
   background: var(--card-bg);
   color: var(--text-primary);
@@ -1980,7 +2584,7 @@ footer .footer-meta {
   background: rgba(255, 255, 255, 0.1);
 }
 :root[data-theme="dark"] .commands-sticky.stuck {
-  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 18px -14px rgba(0, 0, 0, 0.55);
 }
 
 /* Manual Light Mode — reset dark media query overrides */
