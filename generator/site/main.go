@@ -123,7 +123,7 @@ func renderLLMSTxt(d siteData) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# jamf-cli\n\n")
 	fmt.Fprintf(&b, "> Unified, scriptable command-line interface for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. %s commands. Full API coverage. Zero clicks.\n\n", thousands(d.CommandCount))
-	fmt.Fprintf(&b, "jamf-cli is the official CLI for managing Apple devices via Jamf. One binary, three auth methods (OAuth2 client credentials, bearer token, Platform Gateway), full coverage of every Jamf API surface. Generated from the live binary on %s — version %s.\n\n", d.GeneratedAt.Format("2006-01-02"), d.Version)
+	fmt.Fprintf(&b, "jamf-cli is the official CLI for managing Apple devices via Jamf. One binary, three auth methods (OAuth2 client credentials, bearer token, Platform Gateway), full coverage of every Jamf API surface. Auto-generated from the live binary on every deploy — see commands.json for build metadata (version, generation timestamp).\n\n")
 
 	fmt.Fprintf(&b, "## Install\n\n")
 	fmt.Fprintf(&b, "- [Homebrew](https://github.com/Jamf-Concepts/jamf-cli#install): `brew install Jamf-Concepts/tap/jamf-cli`\n")
