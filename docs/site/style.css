@@ -769,6 +769,41 @@ a.stat-card:hover {
   color: var(--border);
 }
 
+/* Stat-card tooltip — used on the Platform card to disclose that its count
+   overlaps with Pro (Pro commands routed through the Platform Gateway are
+   surfaced under both lenses). */
+.stat-card[data-tip] {
+  position: relative;
+}
+
+.stat-card[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  font-weight: 400;
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
+  width: max-content;
+  max-width: 280px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.stat-card[data-tip]:hover::after,
+.stat-card[data-tip]:focus-visible::after {
+  opacity: 1;
+}
+
 .stat-tip {
   position: relative;
   cursor: help;

@@ -183,10 +183,6 @@ func renderLLMSFullTxt(d siteData) string {
 	fmt.Fprintf(&b, "---\n\n")
 
 	// Group by product, then by group title, then alphabetical command path.
-	type bucket struct {
-		group string
-		cmds  []siteCommand
-	}
 	byProduct := map[string]map[string][]siteCommand{}
 	for _, c := range d.Commands {
 		p := c.Product

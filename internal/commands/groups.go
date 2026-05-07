@@ -66,7 +66,11 @@ const (
 	//   groupUsers          → end-user records (people assigned to devices)
 	//   groupAdminAccounts  → Jamf Pro admin accounts, prefs, password/login state
 	//   groupIdentityEndUser→ end-user identity providers (Cloud LDAP, Cloud IdP, Cloud Azure)
-	//   groupAdminSSO       → admin SSO into the Pro UI (also OIDC for Blueprints)
+	//   groupAdminSSO       → admin SSO into the Pro UI: SAML and OIDC IdP config
+	//                         (the same OIDC SSO is what Jamf Account requires before
+	//                         Blueprints and Compliance Benchmarks become available,
+	//                         but it lives here because it's the admin-login mechanism
+	//                         itself, not a Platform-only setting)
 	//   groupAPIAccess      → modern OAuth2 client-credentials API auth
 	groupUsers           = "users"
 	groupAdminAccounts   = "admin-accounts"
@@ -309,8 +313,11 @@ var proGroupMap = map[string]string{
 	"cloud-azures":              groupIdentityEndUser,
 	"cloud-azure-defaults":      groupIdentityEndUser,
 
-	// Admin SSO — single sign-on into the Pro UI for administrators (also
-	// the OIDC config that Blueprints requires).
+	// Admin SSO — single sign-on into the Pro UI for administrators. SAML
+	// lives here (`sso-*`) and so does OIDC (`oidcs`); both are IdP-side
+	// admin-login config. Enabling OIDC SSO via Jamf Account is the
+	// prerequisite that gates Blueprints and Compliance Benchmarks, but the
+	// config itself is an Identity & Access concern, not a Platform one.
 	"sso-failovers":     groupAdminSSO,
 	"sso-settings-cert": groupAdminSSO,
 	"sso-settings":      groupAdminSSO,
