@@ -32,7 +32,21 @@ jobs:
         run: |
           LATEST_TAG=$(git describe --tags --abbrev=0)
           git checkout "$LATEST_TAG"
-          git checkout ${{ github.sha }} -- docs/site
+          # Build the CLI from the latest release tag (so deployed catalog
+          # reflects the released CLI), but pull these from main so site-only
+          # changes ship without waiting for a release:
+          #   docs/site/             — site UI, llms.txt seed, robots/sitemap
+          #   generator/site/        — generator must know about flags this
+          #                            workflow invokes (e.g. --llms-output)
+          #   internal/commands/groups.go — group taxonomy used when rendering
+          #                            commands.json. Pure data + apply-funcs;
+          #                            safe to override on top of older binary
+          #                            code. Entries for commands that don't
+          #                            exist in the tag silently no-op.
+          git checkout ${{ github.sha }} -- \
+            docs/site \
+            generator/site \
+            internal/commands/groups.go
 
       - uses: actions/setup-go@v6
         with:
