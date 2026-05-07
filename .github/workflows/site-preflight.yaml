@@ -37,11 +37,15 @@ jobs:
           echo "PR HEAD:    $PR_SHA"
           echo "Latest tag: $LATEST_TAG"
           git checkout "$LATEST_TAG"
-          # Same overlay set as deploy-site.yaml. Keep this list in sync.
+          # Same overlay set as deploy-site.yaml — keep this list in sync —
+          # PLUS scripts/verify-site-output.sh, which is post-v1.16.1 and
+          # so doesn't exist on the tag we just checked out. (deploy-site
+          # itself doesn't need it.)
           git checkout "$PR_SHA" -- \
             docs/site \
             generator/site \
-            internal/commands/groups.go
+            internal/commands/groups.go \
+            scripts/verify-site-output.sh
 
       - uses: actions/setup-go@v6
         with:
@@ -63,4 +67,13 @@ jobs:
         run: ./scripts/verify-site-products.sh
 
       - name: Verify site output (artifacts well-formed, pillar coverage)
-        run: make verify-site-output
+        # Call the script directly against the artifacts we generated above,
+        # rather than `make verify-site-output` — the make target was added
+        # after v1.16.1 and so isn't available in the tag's Makefile (and
+        # we don't overlay the Makefile, only the site/generator surface).
+        run: |
+          ./scripts/verify-site-output.sh \
+            --commands-json docs/site/commands.json \
+            --llms-txt docs/site/llms.txt \
+            --llms-full-txt docs/site/llms-full.txt \
+            --site-dir docs/site
