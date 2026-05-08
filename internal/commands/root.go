@@ -587,16 +587,8 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 
-	// Version command
-	cmd.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("jamf-cli %s\n", version)
-			fmt.Printf("  commit: %s\n", commit)
-			fmt.Printf("  built:  %s\n", date)
-		},
-	})
+	// Version command (extracted to version.go so it can pull in provenance).
+	cmd.AddCommand(newVersionCmd(version, commit, date))
 
 	// Config command group
 	cmd.AddCommand(newConfigCmd(cliCtx))
