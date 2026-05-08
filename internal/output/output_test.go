@@ -596,14 +596,14 @@ func TestSortedKeys_NoIdNoName(t *testing.T) {
 	}
 }
 
-// --- normalizeJSON tests ---
+// --- normalizeForTabular tests ---
 
-func TestNormalizeJSON_SliceOfMaps(t *testing.T) {
+func TestNormalizeForTabular_SliceOfMaps(t *testing.T) {
 	input := []any{
 		map[string]any{"id": float64(1)},
 		map[string]any{"id": float64(2)},
 	}
-	result := normalizeJSON(input)
+	result := normalizeForTabular(input)
 	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)
@@ -613,9 +613,9 @@ func TestNormalizeJSON_SliceOfMaps(t *testing.T) {
 	}
 }
 
-func TestNormalizeJSON_SingleMap(t *testing.T) {
+func TestNormalizeForTabular_SingleMap(t *testing.T) {
 	input := map[string]any{"id": float64(1), "name": "test"}
-	result := normalizeJSON(input)
+	result := normalizeForTabular(input)
 	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)
@@ -625,9 +625,9 @@ func TestNormalizeJSON_SingleMap(t *testing.T) {
 	}
 }
 
-func TestNormalizeJSON_ScalarString(t *testing.T) {
+func TestNormalizeForTabular_ScalarString(t *testing.T) {
 	input := "hello"
-	result := normalizeJSON(input)
+	result := normalizeForTabular(input)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -637,14 +637,14 @@ func TestNormalizeJSON_ScalarString(t *testing.T) {
 	}
 }
 
-func TestNormalizeJSON_MixedArray(t *testing.T) {
+func TestNormalizeForTabular_MixedArray(t *testing.T) {
 	// Mixed array should return raw data, not drop non-map items
 	input := []any{
 		map[string]any{"id": "1"},
 		"stray string",
 		map[string]any{"id": "2"},
 	}
-	result := normalizeJSON(input)
+	result := normalizeForTabular(input)
 	// Should return the original data unchanged (not []map[string]interface{})
 	arr, ok := result.([]any)
 	if !ok {
@@ -655,9 +655,9 @@ func TestNormalizeJSON_MixedArray(t *testing.T) {
 	}
 }
 
-func TestNormalizeJSON_EmptySlice(t *testing.T) {
+func TestNormalizeForTabular_EmptySlice(t *testing.T) {
 	input := []any{}
-	result := normalizeJSON(input)
+	result := normalizeForTabular(input)
 	slice, ok := result.([]map[string]any)
 	if !ok {
 		t.Fatalf("expected []map[string]interface{}, got %T", result)

@@ -56,15 +56,22 @@ var nowFunc = time.Now
 
 // Formatter handles output formatting
 type Formatter struct {
-	format  Format
-	writer  io.Writer
-	noColor bool
-	wide    bool
+	format    Format
+	writer    io.Writer
+	noColor   bool
+	wide      bool
+	projector Projector
 }
 
 // SetWriter replaces the output destination.
 func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
+}
+
+// SetProjector configures field-level projection (e.g. --compact) applied
+// before format-specific rendering. A zero-value projector is a no-op.
+func (f *Formatter) SetProjector(p Projector) {
+	f.projector = p
 }
 
 // Format returns the current output format string.
@@ -129,6 +136,7 @@ func New(format string, noColor bool, wide bool) *Formatter {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
+	data = f.applyProjection(data)
 	switch f.format {
 	case FormatJSON:
 		return f.printJSON(data)
@@ -141,6 +149,41 @@ func (f *Formatter) Print(data any) error {
 	default:
 		return f.printTable(data)
 	}
+}
+
+// applyProjection runs the configured Projector over rows when data is
+// shaped as a list/object of maps. Other shapes (scalars, mixed arrays)
+// pass through unchanged so projection never breaks unusual responses.
+//
+// Handles all three shapes that PrintRaw and direct Print callers produce:
+// pre-normalized []map[string]any, raw json.Unmarshal []any of maps, and
+// single map[string]any (preserved as object so JSON output stays an object).
+func (f *Formatter) applyProjection(data any) any {
+	if f.projector.IsZero() {
+		return data
+	}
+	switch v := data.(type) {
+	case []map[string]any:
+		return f.projector.Apply(v)
+	case map[string]any:
+		projected := f.projector.Apply([]map[string]any{v})
+		if len(projected) == 1 {
+			return projected[0]
+		}
+		return data
+	case []any:
+		rows := make([]map[string]any, 0, len(v))
+		for _, item := range v {
+			m, ok := item.(map[string]any)
+			if !ok {
+				// Mixed array — projection can't apply uniformly.
+				return data
+			}
+			rows = append(rows, m)
+		}
+		return f.projector.Apply(rows)
+	}
+	return data
 }
 
 func (f *Formatter) printJSON(data any) error {
@@ -315,8 +358,10 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		}
 	}
 
-	if f.format == FormatJSON || f.format == FormatJSONMulti {
-		// Pretty-print JSON so compact API responses become readable
+	if (f.format == FormatJSON || f.format == FormatJSONMulti) && f.projector.IsZero() {
+		// Fast path: indent the wire bytes directly. This preserves the API's
+		// key ordering, which json.Encode on a parsed map[string]any would lose
+		// (Go encodes maps with alphabetically sorted keys).
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
 			// Not valid JSON, print as-is
@@ -328,7 +373,6 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return err
 	}
 
-	// For non-JSON formats: parse, normalize, then format
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
@@ -336,12 +380,23 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return writeErr
 	}
 
-	return f.Print(normalizeJSON(parsed))
+	// JSON and YAML preserve the parsed shape natively (object stays object,
+	// array stays array). Tabular formats (table/csv/plain) require rows, so
+	// coerce via normalizeForTabular. Print's applyProjection handles both
+	// map[string]any and []map[string]any.
+	switch f.format {
+	case FormatJSON, FormatJSONMulti, FormatYAML:
+		return f.Print(parsed)
+	default:
+		return f.Print(normalizeForTabular(parsed))
+	}
 }
 
-// normalizeJSON converts parsed JSON types into the []map[string]interface{}
-// form that table/csv/plain formatters expect.
-func normalizeJSON(data any) any {
+// normalizeForTabular converts parsed JSON types into the []map[string]any
+// form that table/csv/plain formatters expect. Single objects are wrapped
+// into a one-element slice. Not used for JSON/YAML output, which preserves
+// the parsed shape.
+func normalizeForTabular(data any) any {
 	switch v := data.(type) {
 	case []any:
 		// Convert []interface{} of objects to []map[string]interface{}
