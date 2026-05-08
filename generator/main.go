@@ -195,6 +195,10 @@ func main() {
 	fmt.Println()
 	fmt.Printf("Successfully generated %d resource command(s)\n", len(resources))
 
+	// Track which spec files contributed to the Pro generated package; we
+	// emit provenance.go after Classic also runs (Classic adds its manifest).
+	proSpecSources := append([]string(nil), specs...)
+
 	// ── Classic API generation ─────────────────────────────────────
 	var classicResources []classic.ClassicResource
 	classicManifest := filepath.Join(specsDir, "classic", "resources.yaml")
@@ -231,7 +235,18 @@ func main() {
 
 		fmt.Println()
 		fmt.Printf("Successfully generated %d classic resource command(s)\n", len(classicResources))
+
+		proSpecSources = append(proSpecSources, classicManifest)
 	}
+
+	// Emit Pro provenance now that both modern and classic generation have
+	// finished and we know every spec that contributed.
+	if err := writeProvenanceFile(outputDir, "generated", proSpecSources); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing Pro provenance: %v\n", err)
+		os.Exit(1)
+	}
+	generatedFiles["provenance.go"] = true
+	fmt.Printf("Generated: %s\n", filepath.Join(outputDir, "provenance.go"))
 
 	// ── Platform Gateway commands ────────────────────────────────
 	platformSpecsDir := filepath.Join(specsDir, "platform")
@@ -265,6 +280,15 @@ func main() {
 		}
 		fmt.Println()
 		fmt.Printf("Successfully generated %d platform resource file(s)\n", len(platformFiles))
+
+		// Emit platform provenance using the spec files actually consumed.
+		platformSpecs, _ := filepath.Glob(filepath.Join(platformSpecsDir, "*.json"))
+		if err := writeProvenanceFile(platformOutputDir, "generated", platformSpecs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing Platform provenance: %v\n", err)
+			os.Exit(1)
+		}
+		platformGenerated["provenance.go"] = true
+		fmt.Printf("Generated: %s\n", filepath.Join(platformOutputDir, "provenance.go"))
 
 		// Remove stale files in the platform output dir that this run did not
 		// produce — keeps the directory in sync when resources are dropped

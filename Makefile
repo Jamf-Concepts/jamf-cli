@@ -134,9 +134,9 @@ sync-platform-specs:
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 ifneq ($(JAMF_MONOLITH_SPEC),)
-	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated --monolith $(JAMF_MONOLITH_SPEC)
+	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith $(JAMF_MONOLITH_SPEC)
 else
-	go run ./generator/main.go --specs ./specs --output ./internal/commands/pro/generated
+	go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 endif
 	@go fmt ./internal/commands/pro/generated/...
 	@-go fmt ./internal/blueprintcomponents/... 2>/dev/null
