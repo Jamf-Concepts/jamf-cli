@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -59,12 +60,14 @@ type doctorReport struct {
 }
 
 type profileReport struct {
-	Name        string         `json:"name"`
-	Source      string         `json:"source"`
-	Product     string         `json:"product,omitempty"`
-	URL         string         `json:"url"`
-	AuthMethod  string         `json:"authMethod"`
-	Credentials []credentialOK `json:"credentials,omitempty"`
+	Name         string         `json:"name"`
+	Source       string         `json:"source"`
+	Product      string         `json:"product,omitempty"`
+	URL          string         `json:"url"`
+	EffectiveURL string         `json:"effectiveUrl,omitempty"` // URL after --url/JAMF_URL override
+	URLSource    string         `json:"urlSource,omitempty"`    // "profile", "JAMF_URL env", "--url flag"
+	AuthMethod   string         `json:"authMethod"`
+	Credentials  []credentialOK `json:"credentials,omitempty"`
 }
 
 type credentialOK struct {
@@ -73,6 +76,9 @@ type credentialOK struct {
 	Resolved    bool   `json:"resolved"`
 	Fingerprint string `json:"fingerprint,omitempty"`
 	Error       string `json:"error,omitempty"`
+	// EnvOverride names the env var that, if set, would shadow this
+	// profile credential at auth time. Empty when nothing shadows it.
+	EnvOverride string `json:"envOverride,omitempty"`
 }
 
 type envEntry struct {
@@ -127,19 +133,24 @@ func buildDoctorReport(cfg *config.Config, args []string, version string) doctor
 	profileName, source := resolveProfileNameForDoctor(cfg, args)
 	if profileName != "" {
 		if p, ok := cfg.Profiles[profileName]; ok {
+			effURL, urlSrc := resolveEffectiveURL(p.URL)
 			pr := profileReport{
-				Name:        profileName,
-				Source:      source,
-				Product:     p.Product,
-				URL:         p.URL,
-				AuthMethod:  defaultIfEmpty(p.AuthMethod, "token"),
-				Credentials: probeProfileCredentials(p),
+				Name:         profileName,
+				Source:       source,
+				Product:      p.Product,
+				URL:          p.URL,
+				EffectiveURL: effURL,
+				URLSource:    urlSrc,
+				AuthMethod:   defaultIfEmpty(p.AuthMethod, "token"),
+				Credentials:  probeProfileCredentials(p),
 			}
 			report.Profile = &pr
 
-			// Connectivity probe — only when we have a URL to hit.
-			if p.URL != "" {
-				ci := probeConnectivity(p.URL)
+			// Connectivity probe — hit the effective URL the auth chain
+			// would actually use, not just the profile's. This is the
+			// "shadowed by env var" failure mode.
+			if effURL != "" {
+				ci := probeConnectivity(effURL, version)
 				report.Connectivity = &ci
 			}
 		} else {
@@ -147,10 +158,53 @@ func buildDoctorReport(cfg *config.Config, args []string, version string) doctor
 				fmt.Sprintf("profile %q not found in config — run `jamf-cli config list` to see available profiles", profileName))
 		}
 	} else if !report.ConfigPresent {
-		report.Notes = append(report.Notes,
-			"no config file present — run `jamf-cli pro setup` (or `protect setup` / `school setup`) to create a profile")
+		// Distinguish bare "no config" from "no config but env-var auth".
+		// The CI/CD pattern documented in CLAUDE.md is to set JAMF_URL
+		// + JAMF_TOKEN/CLIENT_ID and skip config entirely; misdirecting
+		// those users to `pro setup` is unhelpful.
+		if hasEnvVarAuth() {
+			report.Notes = append(report.Notes,
+				"no config file present — operating in env-var mode (JAMF_URL + credential env detected)")
+		} else {
+			report.Notes = append(report.Notes,
+				"no config file present — run `jamf-cli pro setup` (or `protect setup` / `school setup`) to create a profile")
+		}
 	}
 	return report
+}
+
+// resolveEffectiveURL mirrors resolveAuth's URL precedence: --url flag >
+// JAMF_URL env > profile URL. Returns the effective URL and a source
+// label so the report can show how the auth chain would resolve it.
+func resolveEffectiveURL(profileURL string) (effective, sourceLabel string) {
+	if serverURL != "" {
+		return serverURL, "--url flag"
+	}
+	if env := os.Getenv("JAMF_URL"); env != "" {
+		return env, "JAMF_URL env var"
+	}
+	return profileURL, "profile"
+}
+
+// hasEnvVarAuth reports whether any product's "URL + credential" env-var
+// pair is set. Used to decide which no-config note to emit.
+func hasEnvVarAuth() bool {
+	pairs := []struct{ urlVar, credVars string }{
+		{"JAMF_URL", "JAMF_TOKEN|JAMF_CLIENT_ID"},
+		{"JAMFPROTECT_URL", "JAMFPROTECT_CLIENT_ID"},
+		{"JAMFSCHOOL_URL", "JAMFSCHOOL_API_KEY"},
+	}
+	for _, pr := range pairs {
+		if os.Getenv(pr.urlVar) == "" {
+			continue
+		}
+		for _, c := range strings.Split(pr.credVars, "|") {
+			if os.Getenv(c) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // resolveProfileNameForDoctor mirrors the precedence used elsewhere in
@@ -189,6 +243,16 @@ func probeEnvVars() []envEntry {
 	return entries
 }
 
+// credentialOverrideEnv maps a profile credential field to the env var
+// that, if set, would shadow it during auth. Mirrors resolveAuth's
+// precedence so the report tells the truth about what will be used.
+var credentialOverrideEnv = map[string]string{
+	"token":         "JAMF_TOKEN",
+	"client-id":     "JAMF_CLIENT_ID",
+	"client-secret": "JAMF_CLIENT_SECRET",
+	"api-key":       "JAMFSCHOOL_API_KEY",
+}
+
 func probeProfileCredentials(p config.Profile) []credentialOK {
 	creds := []credentialOK{}
 	if p.Token != "" {
@@ -202,6 +266,11 @@ func probeProfileCredentials(p config.Profile) []credentialOK {
 	}
 	if p.APIKey != "" {
 		creds = append(creds, resolveCredential("api-key", p.APIKey))
+	}
+	for i, c := range creds {
+		if envVar, ok := credentialOverrideEnv[c.Field]; ok && os.Getenv(envVar) != "" {
+			creds[i].EnvOverride = envVar
+		}
 	}
 	sort.Slice(creds, func(i, j int) bool { return creds[i].Field < creds[j].Field })
 	return creds
@@ -229,8 +298,11 @@ func resolveCredential(field, ref string) credentialOK {
 // probeConnectivity does a minimal unauthenticated HEAD against the
 // profile URL — pure reachability + TLS + DNS check, no auth context.
 // 5s budget is small enough to surface obvious problems and large
-// enough that a slow proxy doesn't trip it.
-func probeConnectivity(url string) connectivityInfo {
+// enough that a slow proxy doesn't trip it. Sets a User-Agent (some
+// Jamf reverse proxies/CDNs reject UA-less requests) and stops at the
+// first redirect rather than following — for a reachability check, a
+// 301/302 to a login page is more informative than its target.
+func probeConnectivity(url, version string) connectivityInfo {
 	url = strings.TrimRight(url, "/")
 	if !strings.Contains(url, "://") {
 		url = "https://" + url
@@ -246,7 +318,17 @@ func probeConnectivity(url string) connectivityInfo {
 		ci.Error = err.Error()
 		return ci
 	}
-	resp, err := http.DefaultClient.Do(req)
+	if version == "" {
+		version = "0.0.0"
+	}
+	req.Header.Set("User-Agent", "jamf-cli/"+version+" (doctor)")
+
+	client := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
 	ci.LatencyMS = time.Since(start).Milliseconds()
 	if err != nil {
 		ci.Error = err.Error()
@@ -277,6 +359,12 @@ func defaultIfEmpty(s, fallback string) string {
 // renderDoctorReport prints either JSON (when -o json/yaml) or a
 // human-readable summary. Routed through the formatter so --out-file
 // and other global flags work as expected.
+//
+// Format routing: json + yaml go through the formatter (yaml falls
+// through normalizeJSON which wraps single objects — acceptable for a
+// keyed report). Everything else (table, csv, xml, raw, plain, default)
+// renders the human text block; table-shaped formats don't fit a
+// keyed-by-row report cleanly.
 func renderDoctorReport(cliCtx *registry.CLIContext, report doctorReport) error {
 	formatStr := outputFmt
 	if formatStr == "json" || formatStr == "yaml" {
@@ -286,14 +374,32 @@ func renderDoctorReport(cliCtx *registry.CLIContext, report doctorReport) error 
 		}
 		return cliCtx.Output.PrintRaw(data)
 	}
-	return printDoctorHuman(os.Stdout, report)
+	w := writerFor(cliCtx)
+	return printDoctorHuman(w, report)
+}
+
+// writerFor returns the formatter's writer (which honours --out-file
+// when set) so command-private renderers stay consistent with the
+// global output routing. Falls back to os.Stdout if the formatter or
+// its writer is somehow nil — keeps the doctor command robust even
+// when registered before PersistentPreRunE wired up the output.
+func writerFor(cliCtx *registry.CLIContext) io.Writer {
+	if cliCtx == nil || cliCtx.Output == nil {
+		return os.Stdout
+	}
+	if co, ok := cliCtx.Output.(*cliOutput); ok && co.Formatter != nil {
+		if w := co.Writer(); w != nil {
+			return w
+		}
+	}
+	return os.Stdout
 }
 
 // printDoctorHuman renders the report as a sectioned text block similar
 // to `kubectl cluster-info`. We avoid reaching back into the formatter
 // for table rendering because the data is keyed-by-row, not rows-of-
 // records — table layout doesn't fit.
-func printDoctorHuman(w *os.File, r doctorReport) error {
+func printDoctorHuman(w io.Writer, r doctorReport) error {
 	p := func(format string, args ...any) {
 		_, _ = fmt.Fprintf(w, format, args...)
 	}
@@ -313,6 +419,12 @@ func printDoctorHuman(w *os.File, r doctorReport) error {
 			p("  product:     %s\n", r.Profile.Product)
 		}
 		p("  url:         %s\n", r.Profile.URL)
+		// Surface "shadowed by env var" — the headline failure mode the
+		// doctor command exists to diagnose. Only emit when the
+		// effective URL differs from the profile URL.
+		if r.Profile.EffectiveURL != "" && r.Profile.EffectiveURL != r.Profile.URL {
+			p("  effective:   %s  (via %s)\n", r.Profile.EffectiveURL, r.Profile.URLSource)
+		}
 		p("  auth-method: %s\n", r.Profile.AuthMethod)
 		for _, c := range r.Profile.Credentials {
 			p("  %-12s %s\n", c.Field+":", credentialLine(c))
@@ -363,12 +475,17 @@ func envLine(e envEntry) string {
 }
 
 func credentialLine(c credentialOK) string {
+	var base string
 	switch {
 	case c.Error != "":
-		return fmt.Sprintf("%s  (UNRESOLVABLE: %s)", c.Reference, c.Error)
+		base = fmt.Sprintf("%s  (UNRESOLVABLE: %s)", c.Reference, c.Error)
 	case c.Resolved:
-		return fmt.Sprintf("%s  (resolved, fingerprint: %s)", c.Reference, c.Fingerprint)
+		base = fmt.Sprintf("%s  (resolved, fingerprint: %s)", c.Reference, c.Fingerprint)
 	default:
-		return c.Reference
+		base = c.Reference
 	}
+	if c.EnvOverride != "" {
+		base += fmt.Sprintf("  [shadowed at runtime by %s]", c.EnvOverride)
+	}
+	return base
 }

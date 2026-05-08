@@ -67,6 +67,12 @@ func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
 }
 
+// Writer returns the current output destination. Power commands that
+// render their own text (e.g. `doctor`) need it to honour --out-file.
+func (f *Formatter) Writer() io.Writer {
+	return f.writer
+}
+
 // Format returns the current output format string.
 func (f *Formatter) Format() string {
 	return string(f.format)

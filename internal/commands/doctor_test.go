@@ -3,6 +3,9 @@
 package commands
 
 import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -205,5 +208,158 @@ func TestProbeProfileCredentials_ResolvesEnvRef(t *testing.T) {
 	}
 	if c.Fingerprint != "toke••••" {
 		t.Errorf("expected toke•••• fingerprint, got %q", c.Fingerprint)
+	}
+}
+
+// TestBuildDoctorReport_FlagsEnvVarShadowingURL is the headline case the
+// doctor command exists to diagnose: profile points at one host but
+// JAMF_URL silently routes commands somewhere else.
+func TestBuildDoctorReport_FlagsEnvVarShadowingURL(t *testing.T) {
+	origProfile, origServerURL := profile, serverURL
+	t.Cleanup(func() { profile, serverURL = origProfile, origServerURL })
+	profile = "dev"
+	serverURL = "" // exercise the env-var path, not --url
+
+	t.Setenv("JAMF_URL", "https://override.example.jamfcloud.com")
+	t.Setenv("JAMF_PROFILE", "")
+
+	cfg := &config.Config{
+		Profiles: map[string]config.Profile{
+			"dev": {URL: "https://dev.example.jamfcloud.com"},
+		},
+	}
+	report := buildDoctorReport(cfg, nil, "test")
+
+	if report.Profile == nil {
+		t.Fatalf("expected profile to populate, got nil")
+	}
+	if report.Profile.URL != "https://dev.example.jamfcloud.com" {
+		t.Errorf("URL should still show profile value, got %q", report.Profile.URL)
+	}
+	if report.Profile.EffectiveURL != "https://override.example.jamfcloud.com" {
+		t.Errorf("EffectiveURL should reflect JAMF_URL override, got %q", report.Profile.EffectiveURL)
+	}
+	if report.Profile.URLSource != "JAMF_URL env var" {
+		t.Errorf("URLSource should label the env var, got %q", report.Profile.URLSource)
+	}
+
+	// The connectivity probe must hit the effective URL — that's the
+	// host real commands would actually talk to.
+	if report.Connectivity == nil {
+		t.Fatalf("expected connectivity info, got nil")
+	}
+	if !strings.HasPrefix(report.Connectivity.URL, "https://override.example.jamfcloud.com") {
+		t.Errorf("connectivity probe should target effective URL, got %q", report.Connectivity.URL)
+	}
+}
+
+func TestBuildDoctorReport_NoEffectiveOverride_WhenURLsAlign(t *testing.T) {
+	origProfile, origServerURL := profile, serverURL
+	t.Cleanup(func() { profile, serverURL = origProfile, origServerURL })
+	profile = "dev"
+	serverURL = ""
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_PROFILE", "")
+
+	cfg := &config.Config{
+		Profiles: map[string]config.Profile{
+			"dev": {URL: "https://dev.example.jamfcloud.com"},
+		},
+	}
+	report := buildDoctorReport(cfg, nil, "test")
+	if report.Profile.EffectiveURL != report.Profile.URL {
+		t.Errorf("effective should equal profile URL when nothing overrides, got %q vs %q",
+			report.Profile.EffectiveURL, report.Profile.URL)
+	}
+	if report.Profile.URLSource != "profile" {
+		t.Errorf("URLSource should be 'profile', got %q", report.Profile.URLSource)
+	}
+}
+
+// TestProbeProfileCredentials_FlagsEnvOverride covers the symmetric case
+// for credentials: profile says env:FOO but JAMF_TOKEN env wins at auth.
+func TestProbeProfileCredentials_FlagsEnvOverride(t *testing.T) {
+	t.Setenv("JAMF_TOKEN", "actual-token-from-env")
+	p := config.Profile{Token: "keychain:foo/bar"}
+
+	creds := probeProfileCredentials(p)
+	if len(creds) != 1 {
+		t.Fatalf("expected 1 credential, got %d", len(creds))
+	}
+	if creds[0].EnvOverride != "JAMF_TOKEN" {
+		t.Errorf("expected EnvOverride=JAMF_TOKEN, got %q", creds[0].EnvOverride)
+	}
+}
+
+func TestBuildDoctorReport_NoConfigButEnvAuth_NotesEnvMode(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	origProfile := profile
+	t.Cleanup(func() { profile = origProfile })
+	profile = ""
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("JAMF_URL", "https://ci.example.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "ci-token")
+
+	cfg := &config.Config{Profiles: map[string]config.Profile{}}
+	report := buildDoctorReport(cfg, nil, "test")
+
+	found := false
+	for _, n := range report.Notes {
+		if strings.Contains(n, "env-var mode") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected env-var-mode note, got notes=%v", report.Notes)
+	}
+}
+
+// TestPrintDoctorHuman_RoutesThroughInjectedWriter — fix (2): --out-file
+// must capture the human-format output, not just JSON/YAML.
+func TestPrintDoctorHuman_RoutesThroughInjectedWriter(t *testing.T) {
+	var buf bytes.Buffer
+	r := doctorReport{
+		Version:    "1.2.3",
+		ConfigPath: "/tmp/conf.yaml",
+		Profile: &profileReport{
+			Name:         "dev",
+			Source:       "config default-profile",
+			URL:          "https://dev.example",
+			EffectiveURL: "https://prod.example",
+			URLSource:    "JAMF_URL env var",
+			AuthMethod:   "oauth2",
+		},
+	}
+	if err := printDoctorHuman(&buf, r); err != nil {
+		t.Fatalf("printDoctorHuman: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "jamf-cli 1.2.3") {
+		t.Errorf("expected version header, got: %s", out)
+	}
+	if !strings.Contains(out, "https://prod.example") || !strings.Contains(out, "JAMF_URL env var") {
+		t.Errorf("expected effective URL line, got: %s", out)
+	}
+}
+
+// TestProbeConnectivity_SetsUserAgentAndStopsAtRedirect covers fix (3).
+func TestProbeConnectivity_SetsUserAgentAndStopsAtRedirect(t *testing.T) {
+	var gotUA string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		http.Redirect(w, r, "/login", http.StatusFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	ci := probeConnectivity(srv.URL, "9.9.9")
+	if ci.Error != "" {
+		t.Fatalf("unexpected error: %q", ci.Error)
+	}
+	if ci.StatusCode != http.StatusFound {
+		t.Errorf("expected 302 (no redirect follow), got %d", ci.StatusCode)
+	}
+	if !strings.Contains(gotUA, "jamf-cli/9.9.9") {
+		t.Errorf("expected User-Agent with version, got %q", gotUA)
 	}
 }
