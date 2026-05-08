@@ -1041,6 +1041,35 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 
 // --- spinnerClient tests ---
 
+func TestShouldShowSpinner(t *testing.T) {
+	cases := []struct {
+		name    string
+		quiet   bool
+		noColor bool
+		verbose int
+		want    bool
+	}{
+		{"defaults show spinner", false, false, 0, true},
+		{"quiet suppresses", true, false, 0, false},
+		{"no-color suppresses", false, true, 0, false},
+		{"verbose suppresses", false, false, 1, false},
+		{"quiet wins over no-color", true, true, 0, false},
+		{"verbose wins alone", false, false, 2, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(resetGlobals)
+			quiet = tc.quiet
+			noColor = tc.noColor
+			verboseLevel = tc.verbose
+			if got := shouldShowSpinner(); got != tc.want {
+				t.Errorf("shouldShowSpinner()=%v want=%v (quiet=%v noColor=%v verbose=%d)",
+					got, tc.want, tc.quiet, tc.noColor, tc.verbose)
+			}
+		})
+	}
+}
+
 func TestSpinnerClient_PassesThrough(t *testing.T) {
 	mock := &mockHTTPClient{}
 	sc := &spinnerClient{inner: mock}
