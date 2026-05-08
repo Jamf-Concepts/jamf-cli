@@ -56,15 +56,22 @@ var nowFunc = time.Now
 
 // Formatter handles output formatting
 type Formatter struct {
-	format  Format
-	writer  io.Writer
-	noColor bool
-	wide    bool
+	format    Format
+	writer    io.Writer
+	noColor   bool
+	wide      bool
+	projector Projector
 }
 
 // SetWriter replaces the output destination.
 func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
+}
+
+// SetProjector configures field-level projection (e.g. --compact) applied
+// before format-specific rendering. A zero-value projector is a no-op.
+func (f *Formatter) SetProjector(p Projector) {
+	f.projector = p
 }
 
 // Format returns the current output format string.
@@ -129,6 +136,7 @@ func New(format string, noColor bool, wide bool) *Formatter {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
+	data = f.applyProjection(data)
 	switch f.format {
 	case FormatJSON:
 		return f.printJSON(data)
@@ -141,6 +149,26 @@ func (f *Formatter) Print(data any) error {
 	default:
 		return f.printTable(data)
 	}
+}
+
+// applyProjection runs the configured Projector over rows when data is
+// shaped as a list/object of maps. Other shapes (scalars, mixed arrays)
+// pass through unchanged so projection never breaks unusual responses.
+func (f *Formatter) applyProjection(data any) any {
+	if f.projector.IsZero() {
+		return data
+	}
+	switch v := data.(type) {
+	case []map[string]any:
+		return f.projector.Apply(v)
+	case map[string]any:
+		projected := f.projector.Apply([]map[string]any{v})
+		if len(projected) == 1 {
+			return projected[0]
+		}
+		return data
+	}
+	return data
 }
 
 func (f *Formatter) printJSON(data any) error {
@@ -315,7 +343,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		}
 	}
 
-	if f.format == FormatJSON || f.format == FormatJSONMulti {
+	if (f.format == FormatJSON || f.format == FormatJSONMulti) && f.projector.IsZero() {
 		// Pretty-print JSON so compact API responses become readable
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
@@ -328,12 +356,22 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return err
 	}
 
-	// For non-JSON formats: parse, normalize, then format
+	// For non-JSON formats — and JSON output with projection — parse,
+	// normalize, then format. Projection in Print() applies before rendering.
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
 		_, writeErr := f.writer.Write(data)
 		return writeErr
+	}
+
+	// Shape-preserving JSON output: keep single objects as objects,
+	// arrays as arrays, instead of routing through normalizeJSON which
+	// always emits arrays.
+	if f.format == FormatJSON || f.format == FormatJSONMulti {
+		if obj, ok := parsed.(map[string]any); ok {
+			return f.printJSON(f.applyProjection(obj))
+		}
 	}
 
 	return f.Print(normalizeJSON(parsed))
