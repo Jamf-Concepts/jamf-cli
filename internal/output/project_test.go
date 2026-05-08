@@ -15,6 +15,112 @@ func TestProjector_IsZero(t *testing.T) {
 	if (Projector{Compact: true}).IsZero() {
 		t.Error("Compact=true should not report IsZero")
 	}
+	if (Projector{Select: []string{"id"}}).IsZero() {
+		t.Error("Select set should not report IsZero")
+	}
+}
+
+func TestProjector_Select_KeepsExactPaths(t *testing.T) {
+	rows := []map[string]any{{
+		"id":     1.0,
+		"name":   "device-01",
+		"serial": "ABC123",
+		"udid":   "uuid-1",
+	}}
+	got := Projector{Select: []string{"id", "serial"}}.Apply(rows)
+	if len(got[0]) != 2 {
+		t.Errorf("expected 2 fields, got %d: %v", len(got[0]), got[0])
+	}
+	if got[0]["id"] != 1.0 || got[0]["serial"] != "ABC123" {
+		t.Errorf("expected id and serial only, got %v", got[0])
+	}
+	if _, ok := got[0]["name"]; ok {
+		t.Errorf("name should be dropped, got %v", got[0])
+	}
+}
+
+func TestProjector_Select_PrefixMatch(t *testing.T) {
+	// Multiple top-level sections so flattenRows keeps "general." prefix.
+	rows := []map[string]any{{
+		"id": 1.0,
+		"general": map[string]any{
+			"name":     "device-01",
+			"platform": "Mac",
+		},
+		"location": map[string]any{
+			"username": "alice",
+		},
+	}}
+	got := Projector{Select: []string{"general"}}.Apply(rows)
+	if got[0]["general.name"] != "device-01" {
+		t.Errorf("expected general.name, got %v", got[0])
+	}
+	if got[0]["general.platform"] != "Mac" {
+		t.Errorf("expected general.platform, got %v", got[0])
+	}
+	if _, ok := got[0]["location.username"]; ok {
+		t.Errorf("location should be dropped, got %v", got[0])
+	}
+	if _, ok := got[0]["id"]; ok {
+		t.Errorf("id was not selected, should be dropped, got %v", got[0])
+	}
+}
+
+func TestProjector_Select_DotPath(t *testing.T) {
+	rows := []map[string]any{{
+		"id": 1.0,
+		"general": map[string]any{
+			"name":     "device-01",
+			"platform": "Mac",
+		},
+		"location": map[string]any{
+			"username": "alice",
+		},
+	}}
+	got := Projector{Select: []string{"general.name", "id"}}.Apply(rows)
+	if got[0]["general.name"] != "device-01" {
+		t.Errorf("expected general.name, got %v", got[0])
+	}
+	if got[0]["id"] != 1.0 {
+		t.Errorf("expected id, got %v", got[0])
+	}
+	if _, ok := got[0]["general.platform"]; ok {
+		t.Errorf("general.platform was not selected, got %v", got[0])
+	}
+}
+
+func TestProjector_Select_MissingPath_OmitsSilently(t *testing.T) {
+	rows := []map[string]any{{"id": 1.0, "name": "a"}}
+	got := Projector{Select: []string{"id", "nonexistent"}}.Apply(rows)
+	if got[0]["id"] != 1.0 {
+		t.Errorf("expected id, got %v", got[0])
+	}
+	if _, ok := got[0]["nonexistent"]; ok {
+		t.Errorf("missing path should be omitted, got %v", got[0])
+	}
+}
+
+func TestProjector_Select_EmptyAfterTrim_ReturnsRows(t *testing.T) {
+	rows := []map[string]any{{"id": 1.0, "name": "a"}}
+	got := Projector{Select: []string{"  ", ""}}.Apply(rows)
+	if len(got) != 1 || got[0]["id"] != 1.0 || got[0]["name"] != "a" {
+		t.Errorf("all-whitespace select should pass through, got %v", got)
+	}
+}
+
+func TestProjector_SelectAndCompact_SelectWins(t *testing.T) {
+	rows := []map[string]any{{
+		"id":       1.0,
+		"name":     "a",
+		"profiles": []any{"p1"},
+	}}
+	got := Projector{Compact: true, Select: []string{"profiles"}}.Apply(rows)
+	if _, ok := got[0]["profiles"]; !ok {
+		t.Errorf("Select should override Compact and keep profiles, got %v", got[0])
+	}
+	if _, ok := got[0]["id"]; ok {
+		t.Errorf("Select should drop unselected fields, got %v", got[0])
+	}
 }
 
 func TestProjector_Apply_NoOp(t *testing.T) {

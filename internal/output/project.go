@@ -2,18 +2,22 @@
 
 package output
 
+import "strings"
+
 // Projector applies field-level projection to flattened rows before
 // format-specific rendering. Compact keeps only scalar fields after
-// flattening, dropping arrays and nested remnants. The projector is shared
-// by every output format (json, table, csv, yaml, plain) so --compact
+// flattening, dropping arrays and nested remnants. Select keeps only the
+// listed dot paths. When both are set, Select wins. The projector is shared
+// by every output format (json, table, csv, yaml, plain) so projection
 // behaves consistently.
 type Projector struct {
 	Compact bool
+	Select  []string
 }
 
 // IsZero reports whether the projector has no rules configured.
 func (p Projector) IsZero() bool {
-	return !p.Compact
+	return !p.Compact && len(p.Select) == 0
 }
 
 // Apply returns rows projected per the configured rules.
@@ -24,10 +28,49 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 		return rows
 	}
 	flat := flattenRows(rows)
-	if p.Compact {
+	switch {
+	case len(p.Select) > 0:
+		return projectSelect(flat, p.Select)
+	case p.Compact:
 		return projectCompact(flat)
 	}
 	return flat
+}
+
+// projectSelect keeps only the requested dot paths.
+// A path matches a flattened key directly OR a flattened key prefixed with
+// "<path>." — so --select general returns every general.* field, and
+// --select general.name returns just that one. Missing paths are silently
+// omitted (a row may end up empty if no path matched).
+func projectSelect(rows []map[string]any, paths []string) []map[string]any {
+	cleaned := make([]string, 0, len(paths))
+	for _, p := range paths {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			cleaned = append(cleaned, p)
+		}
+	}
+	if len(cleaned) == 0 {
+		return rows
+	}
+	out := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		projected := make(map[string]any, len(cleaned))
+		for _, p := range cleaned {
+			if v, ok := row[p]; ok {
+				projected[p] = v
+				continue
+			}
+			prefix := p + "."
+			for k, v := range row {
+				if strings.HasPrefix(k, prefix) {
+					projected[k] = v
+				}
+			}
+		}
+		out[i] = projected
+	}
+	return out
 }
 
 // projectCompact keeps only scalar values from flattened rows.
