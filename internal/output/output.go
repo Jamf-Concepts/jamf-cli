@@ -56,16 +56,42 @@ var nowFunc = time.Now
 
 // Formatter handles output formatting
 type Formatter struct {
-	format  Format
-	writer  io.Writer
-	noColor bool
-	wide    bool
+	format    Format
+	writer    io.Writer
+	stderr    io.Writer
+	noColor   bool
+	wide      bool
+	quiet     bool
+	projector Projector
 }
 
 // SetWriter replaces the output destination.
 func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
 }
+
+// Writer returns the current output destination. Power commands that
+// render their own text (e.g. `doctor`) need it to honour --out-file.
+func (f *Formatter) Writer() io.Writer {
+	return f.writer
+}
+
+// SetProjector configures field-level projection (e.g. --compact) applied
+// before format-specific rendering. A zero-value projector is a no-op.
+func (f *Formatter) SetProjector(p Projector) {
+	f.projector = p
+}
+
+// SetQuiet suppresses advisory output written to stderr (e.g. the
+// list-size hint). Errors and primary output on stdout are unaffected.
+func (f *Formatter) SetQuiet(q bool) {
+	f.quiet = q
+}
+
+// listHintThreshold is the minimum row count that triggers the
+// "narrow output" hint on stderr. Below this, lists are short enough
+// that the hint is more noise than help.
+const listHintThreshold = 50
 
 // Format returns the current output format string.
 func (f *Formatter) Format() string {
@@ -129,18 +155,97 @@ func New(format string, noColor bool, wide bool) *Formatter {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
+	data = f.applyProjection(data)
+
+	rowCount := -1
+	if rows, ok := data.([]map[string]any); ok {
+		rowCount = len(rows)
+	}
+
+	var err error
 	switch f.format {
 	case FormatJSON:
-		return f.printJSON(data)
+		err = f.printJSON(data)
 	case FormatYAML:
-		return f.printYAML(data)
+		err = f.printYAML(data)
 	case FormatCSV:
-		return f.printCSV(data)
+		err = f.printCSV(data)
 	case FormatPlain:
-		return f.printPlain(data)
+		err = f.printPlain(data)
 	default:
-		return f.printTable(data)
+		err = f.printTable(data)
 	}
+
+	if err == nil {
+		f.maybePrintListHint(rowCount)
+	}
+	return err
+}
+
+// maybePrintListHint writes a one-line stderr hint suggesting how to
+// narrow large list output. Skipped in --quiet mode, when the count is
+// below threshold, and for table format (which already shows "(N total)"
+// in its summary header).
+func (f *Formatter) maybePrintListHint(rowCount int) {
+	if f.quiet || rowCount < listHintThreshold {
+		return
+	}
+	if f.format == FormatTable || f.format == "" {
+		return
+	}
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = fmt.Fprintf(w,
+		"hint: %d results returned. Narrow with --select=<fields>, --compact, or command-specific filter flags.\n",
+		rowCount)
+}
+
+// topLevelArrayCount returns the element count when data is a JSON array
+// at the top level, or -1 otherwise. Used to size the list hint without
+// double-decoding into a typed value.
+func topLevelArrayCount(data []byte) int {
+	var arr []json.RawMessage
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return -1
+	}
+	return len(arr)
+}
+
+// applyProjection runs the configured Projector over rows when data is
+// shaped as a list/object of maps. Other shapes (scalars, mixed arrays)
+// pass through unchanged so projection never breaks unusual responses.
+//
+// Handles all three shapes that PrintRaw and direct Print callers produce:
+// pre-normalized []map[string]any, raw json.Unmarshal []any of maps, and
+// single map[string]any (preserved as object so JSON output stays an object).
+func (f *Formatter) applyProjection(data any) any {
+	if f.projector.IsZero() {
+		return data
+	}
+	switch v := data.(type) {
+	case []map[string]any:
+		return f.projector.Apply(v)
+	case map[string]any:
+		projected := f.projector.Apply([]map[string]any{v})
+		if len(projected) == 1 {
+			return projected[0]
+		}
+		return data
+	case []any:
+		rows := make([]map[string]any, 0, len(v))
+		for _, item := range v {
+			m, ok := item.(map[string]any)
+			if !ok {
+				// Mixed array — projection can't apply uniformly.
+				return data
+			}
+			rows = append(rows, m)
+		}
+		return f.projector.Apply(rows)
+	}
+	return data
 }
 
 func (f *Formatter) printJSON(data any) error {
@@ -315,8 +420,10 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		}
 	}
 
-	if f.format == FormatJSON || f.format == FormatJSONMulti {
-		// Pretty-print JSON so compact API responses become readable
+	if (f.format == FormatJSON || f.format == FormatJSONMulti) && f.projector.IsZero() {
+		// Fast path: indent the wire bytes directly. This preserves the API's
+		// key ordering, which json.Encode on a parsed map[string]any would lose
+		// (Go encodes maps with alphabetically sorted keys).
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
 			// Not valid JSON, print as-is
@@ -324,11 +431,13 @@ func (f *Formatter) PrintRaw(data []byte) error {
 			return writeErr
 		}
 		buf.WriteByte('\n')
-		_, err := f.writer.Write(buf.Bytes())
-		return err
+		if _, err := f.writer.Write(buf.Bytes()); err != nil {
+			return err
+		}
+		f.maybePrintListHint(topLevelArrayCount(data))
+		return nil
 	}
 
-	// For non-JSON formats: parse, normalize, then format
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
@@ -336,12 +445,23 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return writeErr
 	}
 
-	return f.Print(normalizeJSON(parsed))
+	// JSON and YAML preserve the parsed shape natively (object stays object,
+	// array stays array). Tabular formats (table/csv/plain) require rows, so
+	// coerce via normalizeForTabular. Print's applyProjection handles both
+	// map[string]any and []map[string]any.
+	switch f.format {
+	case FormatJSON, FormatJSONMulti, FormatYAML:
+		return f.Print(parsed)
+	default:
+		return f.Print(normalizeForTabular(parsed))
+	}
 }
 
-// normalizeJSON converts parsed JSON types into the []map[string]interface{}
-// form that table/csv/plain formatters expect.
-func normalizeJSON(data any) any {
+// normalizeForTabular converts parsed JSON types into the []map[string]any
+// form that table/csv/plain formatters expect. Single objects are wrapped
+// into a one-element slice. Not used for JSON/YAML output, which preserves
+// the parsed shape.
+func normalizeForTabular(data any) any {
 	switch v := data.(type) {
 	case []any:
 		// Convert []interface{} of objects to []map[string]interface{}
@@ -472,6 +592,38 @@ func flattenRows(rows []map[string]any) []map[string]any {
 		result[i] = flat
 	}
 	return stripCommonPrefix(result)
+}
+
+// flattenRowsRaw flattens nested objects to dot keys WITHOUT calling
+// stripCommonPrefix. Used by --select so user-supplied dot paths match
+// faithfully even when every dotted key shares a single top-level
+// segment (e.g. a singleton GET shaped as {"general": {...}}).
+//
+// Mirrors flattenRows' zero-allocation fast path: if no row contains a
+// nested object, the input slice is returned unchanged.
+func flattenRowsRaw(rows []map[string]any) []map[string]any {
+	needsFlatten := false
+	for _, row := range rows {
+		for _, v := range row {
+			if m, ok := v.(map[string]any); ok && len(m) > 0 {
+				needsFlatten = true
+				break
+			}
+		}
+		if needsFlatten {
+			break
+		}
+	}
+	if !needsFlatten {
+		return rows
+	}
+	result := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		flat := make(map[string]any)
+		flattenMap(flat, "", row)
+		result[i] = flat
+	}
+	return result
 }
 
 // flattenMap recursively flattens nested maps into dot-notation keys.
