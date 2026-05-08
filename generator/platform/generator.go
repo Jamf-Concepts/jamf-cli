@@ -19,10 +19,14 @@ import (
 // and merges resources sharing the same name (e.g. "devices" appears in
 // device-groups-api.json and device-inventory-api.json — operations from both
 // merge into a single Resource).
-func LoadResources(specsDir string) ([]*parser.Resource, error) {
+//
+// Returns the merged resources plus the sorted list of spec files actually
+// consumed, so callers (notably the provenance writer) don't have to re-glob
+// and risk drifting from what was parsed.
+func LoadResources(specsDir string) ([]*parser.Resource, []string, error) {
 	files, err := filepath.Glob(filepath.Join(specsDir, "*.json"))
 	if err != nil {
-		return nil, fmt.Errorf("globbing platform specs: %w", err)
+		return nil, nil, fmt.Errorf("globbing platform specs: %w", err)
 	}
 	sort.Strings(files)
 
@@ -30,7 +34,7 @@ func LoadResources(specsDir string) ([]*parser.Resource, error) {
 	for _, f := range files {
 		resources, err := parser.ParsePlatformSpec(f)
 		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", filepath.Base(f), err)
+			return nil, nil, fmt.Errorf("parsing %s: %w", filepath.Base(f), err)
 		}
 		for _, r := range resources {
 			if existing, ok := merged[r.Name]; ok {
@@ -51,7 +55,7 @@ func LoadResources(specsDir string) ([]*parser.Resource, error) {
 	for _, n := range names {
 		out = append(out, merged[n])
 	}
-	return out, nil
+	return out, files, nil
 }
 
 // mergeInto folds src's operations and schemas into dst. Operations are
