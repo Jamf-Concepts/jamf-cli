@@ -70,6 +70,12 @@ func (f *Formatter) SetWriter(w io.Writer) {
 	f.writer = w
 }
 
+// Writer returns the current output destination. Power commands that
+// render their own text (e.g. `doctor`) need it to honour --out-file.
+func (f *Formatter) Writer() io.Writer {
+	return f.writer
+}
+
 // SetProjector configures field-level projection (e.g. --compact) applied
 // before format-specific rendering. A zero-value projector is a no-op.
 func (f *Formatter) SetProjector(p Projector) {

@@ -464,6 +464,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"diff":       true,
 				"setup":      true,
 				"multi":      true,
+				"doctor":     true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
@@ -591,6 +592,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Config command group
 	cmd.AddCommand(newConfigCmd(cliCtx))
+
+	// Doctor — diagnostic command, no auth required.
+	cmd.AddCommand(newDoctorCmd(cliCtx))
 
 	// Completion command
 	cmd.AddCommand(newCompletionCmd())
