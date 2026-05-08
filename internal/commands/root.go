@@ -447,6 +447,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				formatter.SetWriter(outFileHandle)
 			}
 			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
+			formatter.SetQuiet(quiet)
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Skip auth for commands that don't need it. Most are matched
