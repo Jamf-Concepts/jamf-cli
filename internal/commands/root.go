@@ -42,6 +42,7 @@ var (
 	dryRun       bool
 	wide         bool
 	compact      bool
+	selectFields []string
 	outFile      string
 	fieldName    string
 	serverURL    string
@@ -445,7 +446,8 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if outFileHandle != nil {
 				formatter.SetWriter(outFileHandle)
 			}
-			formatter.SetProjector(output.Projector{Compact: compact})
+			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
+			formatter.SetQuiet(quiet)
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Skip auth for commands that don't need it. Most are matched
@@ -462,6 +464,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				"diff":       true,
 				"setup":      true,
 				"multi":      true,
+				"doctor":     true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
@@ -567,6 +570,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
 	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents; ignored when --field is set)")
+	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
 
@@ -580,6 +584,9 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 
 	// Config command group
 	cmd.AddCommand(newConfigCmd(cliCtx))
+
+	// Doctor — diagnostic command, no auth required.
+	cmd.AddCommand(newDoctorCmd(cliCtx))
 
 	// Completion command
 	cmd.AddCommand(newCompletionCmd())
