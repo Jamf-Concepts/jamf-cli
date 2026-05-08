@@ -41,6 +41,7 @@ var (
 	noColor      bool
 	dryRun       bool
 	wide         bool
+	compact      bool
 	outFile      string
 	fieldName    string
 	serverURL    string
@@ -444,6 +445,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if outFileHandle != nil {
 				formatter.SetWriter(outFileHandle)
 			}
+			formatter.SetProjector(output.Projector{Compact: compact})
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Skip auth for commands that don't need it. Most are matched
@@ -564,6 +566,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
+	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents; ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
 
