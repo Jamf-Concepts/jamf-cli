@@ -138,6 +138,14 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 	return current, true
 }
 
+// shouldShowSpinner reports whether HTTP clients should be wrapped to display
+// the loading spinner. The spinner is suppressed when the user has asked for
+// quiet output, has opted out of ANSI escapes via NO_COLOR or --no-color, or
+// has requested verbose logging (which would interleave with the animation).
+func shouldShowSpinner() bool {
+	return !quiet && !noColor && verboseLevel == 0
+}
+
 // spinnerClient wraps an HTTPClient to show a loading spinner during requests.
 type spinnerClient struct {
 	inner registry.HTTPClient
@@ -515,7 +523,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if dryRun {
 				httpClient = &dryRunClient{inner: httpClient}
 			}
-			if !quiet && verboseLevel == 0 {
+			if shouldShowSpinner() {
 				httpClient = &spinnerClient{inner: httpClient}
 			}
 			cliCtx.Client = httpClient
@@ -543,7 +551,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				cliCtx.PlatformSDKClient = newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
-					!quiet && verboseLevel == 0,
+					shouldShowSpinner(),
 				)
 			}
 
@@ -926,7 +934,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	rc.HTTPClient.Jar = jar
 
 	stdClient := rc.StandardClient()
-	if !quiet && verboseLevel == 0 {
+	if shouldShowSpinner() {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
 
@@ -1033,7 +1041,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	rc.HTTPClient.Jar = jar
 
 	stdClient := rc.StandardClient()
-	if !quiet && verboseLevel == 0 {
+	if shouldShowSpinner() {
 		stdClient.Transport = &spinnerTransport{inner: stdClient.Transport}
 	}
 
@@ -1048,7 +1056,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
 		cliCtx.PlatformSDKClient = newPlatformSDKClient(
 			platformURL, cid, csecret, tid,
-			!quiet && verboseLevel == 0,
+			shouldShowSpinner(),
 		)
 	}
 
