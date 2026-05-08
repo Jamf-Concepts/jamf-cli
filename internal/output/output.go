@@ -210,6 +210,10 @@ func topLevelArrayCount(data []byte) int {
 // applyProjection runs the configured Projector over rows when data is
 // shaped as a list/object of maps. Other shapes (scalars, mixed arrays)
 // pass through unchanged so projection never breaks unusual responses.
+//
+// Handles all three shapes that PrintRaw and direct Print callers produce:
+// pre-normalized []map[string]any, raw json.Unmarshal []any of maps, and
+// single map[string]any (preserved as object so JSON output stays an object).
 func (f *Formatter) applyProjection(data any) any {
 	if f.projector.IsZero() {
 		return data
@@ -223,6 +227,17 @@ func (f *Formatter) applyProjection(data any) any {
 			return projected[0]
 		}
 		return data
+	case []any:
+		rows := make([]map[string]any, 0, len(v))
+		for _, item := range v {
+			m, ok := item.(map[string]any)
+			if !ok {
+				// Mixed array — projection can't apply uniformly.
+				return data
+			}
+			rows = append(rows, m)
+		}
+		return f.projector.Apply(rows)
 	}
 	return data
 }
@@ -400,7 +415,9 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	}
 
 	if (f.format == FormatJSON || f.format == FormatJSONMulti) && f.projector.IsZero() {
-		// Pretty-print JSON so compact API responses become readable
+		// Fast path: indent the wire bytes directly. This preserves the API's
+		// key ordering, which json.Encode on a parsed map[string]any would lose
+		// (Go encodes maps with alphabetically sorted keys).
 		var buf bytes.Buffer
 		if err := json.Indent(&buf, data, "", "  "); err != nil {
 			// Not valid JSON, print as-is
@@ -415,8 +432,6 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return nil
 	}
 
-	// For non-JSON formats — and JSON output with projection — parse,
-	// normalize, then format. Projection in Print() applies before rendering.
 	var parsed any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON, print as-is
@@ -424,21 +439,23 @@ func (f *Formatter) PrintRaw(data []byte) error {
 		return writeErr
 	}
 
-	// Shape-preserving JSON output: keep single objects as objects,
-	// arrays as arrays, instead of routing through normalizeJSON which
-	// always emits arrays.
-	if f.format == FormatJSON || f.format == FormatJSONMulti {
-		if obj, ok := parsed.(map[string]any); ok {
-			return f.printJSON(f.applyProjection(obj))
-		}
+	// JSON and YAML preserve the parsed shape natively (object stays object,
+	// array stays array). Tabular formats (table/csv/plain) require rows, so
+	// coerce via normalizeForTabular. Print's applyProjection handles both
+	// map[string]any and []map[string]any.
+	switch f.format {
+	case FormatJSON, FormatJSONMulti, FormatYAML:
+		return f.Print(parsed)
+	default:
+		return f.Print(normalizeForTabular(parsed))
 	}
-
-	return f.Print(normalizeJSON(parsed))
 }
 
-// normalizeJSON converts parsed JSON types into the []map[string]interface{}
-// form that table/csv/plain formatters expect.
-func normalizeJSON(data any) any {
+// normalizeForTabular converts parsed JSON types into the []map[string]any
+// form that table/csv/plain formatters expect. Single objects are wrapped
+// into a one-element slice. Not used for JSON/YAML output, which preserves
+// the parsed shape.
+func normalizeForTabular(data any) any {
 	switch v := data.(type) {
 	case []any:
 		// Convert []interface{} of objects to []map[string]interface{}
