@@ -18,12 +18,20 @@ func TestLoadResources_LiveSpecs(t *testing.T) {
 		t.Fatalf("resolving specs dir: %v", err)
 	}
 
-	resources, err := LoadResources(specsDir)
+	resources, files, err := LoadResources(specsDir)
 	if err != nil {
 		t.Fatalf("LoadResources: %v", err)
 	}
 	if len(resources) == 0 {
 		t.Fatal("expected resources, got 0 — is specs/platform/ populated?")
+	}
+	if len(files) == 0 {
+		t.Fatal("LoadResources returned no consumed spec files")
+	}
+	for i := 1; i < len(files); i++ {
+		if files[i-1] >= files[i] {
+			t.Errorf("consumed files not sorted: %q >= %q", files[i-1], files[i])
+		}
 	}
 
 	seenNames := make(map[string]bool, len(resources))

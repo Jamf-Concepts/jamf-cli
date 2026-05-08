@@ -262,7 +262,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		platformResources, err := platform.LoadResources(platformSpecsDir)
+		platformResources, platformSpecs, err := platform.LoadResources(platformSpecsDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading platform specs: %v\n", err)
 			os.Exit(1)
@@ -281,8 +281,8 @@ func main() {
 		fmt.Println()
 		fmt.Printf("Successfully generated %d platform resource file(s)\n", len(platformFiles))
 
-		// Emit platform provenance using the spec files actually consumed.
-		platformSpecs, _ := filepath.Glob(filepath.Join(platformSpecsDir, "*.json"))
+		// Emit platform provenance using the spec files LoadResources
+		// actually consumed (no re-glob — single source of truth).
 		if err := writeProvenanceFile(platformOutputDir, "generated", platformSpecs); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing Platform provenance: %v\n", err)
 			os.Exit(1)
