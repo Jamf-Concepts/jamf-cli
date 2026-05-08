@@ -49,9 +49,11 @@ func projectCompact(rows []map[string]any) []map[string]any {
 }
 
 // isScalar reports whether v is a primitive worth keeping in --compact mode.
+// nil is excluded so null fields are dropped, matching flattenMap's behavior
+// for nested nulls and keeping compact output free of empty values.
 func isScalar(v any) bool {
 	switch v.(type) {
-	case nil, bool, string, float64, float32,
+	case bool, string, float64, float32,
 		int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
 		return true
