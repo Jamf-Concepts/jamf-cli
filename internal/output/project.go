@@ -23,18 +23,22 @@ func (p Projector) IsZero() bool {
 // Apply returns rows projected per the configured rules.
 // Always flattens nested objects to dot keys so projection sees a flat shape.
 // Empty rows pass through unchanged.
+//
+// Select uses flattenRowsRaw (no common-prefix stripping) so user-supplied
+// dot paths like "general.name" still match on single-section responses
+// where stripCommonPrefix would otherwise rewrite "general.name" → "name"
+// and silently produce empty projections.
 func (p Projector) Apply(rows []map[string]any) []map[string]any {
 	if p.IsZero() || len(rows) == 0 {
 		return rows
 	}
-	flat := flattenRows(rows)
 	switch {
 	case len(p.Select) > 0:
-		return projectSelect(flat, p.Select)
+		return projectSelect(flattenRowsRaw(rows), p.Select)
 	case p.Compact:
-		return projectCompact(flat)
+		return projectCompact(flattenRows(rows))
 	}
-	return flat
+	return flattenRows(rows)
 }
 
 // projectSelect keeps only the requested dot paths.

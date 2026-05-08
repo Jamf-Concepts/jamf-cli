@@ -588,6 +588,38 @@ func flattenRows(rows []map[string]any) []map[string]any {
 	return stripCommonPrefix(result)
 }
 
+// flattenRowsRaw flattens nested objects to dot keys WITHOUT calling
+// stripCommonPrefix. Used by --select so user-supplied dot paths match
+// faithfully even when every dotted key shares a single top-level
+// segment (e.g. a singleton GET shaped as {"general": {...}}).
+//
+// Mirrors flattenRows' zero-allocation fast path: if no row contains a
+// nested object, the input slice is returned unchanged.
+func flattenRowsRaw(rows []map[string]any) []map[string]any {
+	needsFlatten := false
+	for _, row := range rows {
+		for _, v := range row {
+			if m, ok := v.(map[string]any); ok && len(m) > 0 {
+				needsFlatten = true
+				break
+			}
+		}
+		if needsFlatten {
+			break
+		}
+	}
+	if !needsFlatten {
+		return rows
+	}
+	result := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		flat := make(map[string]any)
+		flattenMap(flat, "", row)
+		result[i] = flat
+	}
+	return result
+}
+
 // flattenMap recursively flattens nested maps into dot-notation keys.
 func flattenMap(dst map[string]any, prefix string, src map[string]any) {
 	for k, v := range src {

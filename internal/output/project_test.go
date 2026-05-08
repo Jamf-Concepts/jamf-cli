@@ -90,6 +90,49 @@ func TestProjector_Select_DotPath(t *testing.T) {
 	}
 }
 
+// Regression: a singleton GET shaped as {"general": {...}} (single
+// top-level section) used to return empty rows because stripCommonPrefix
+// rewrote "general.name" → "name" before projectSelect ran. The Select
+// path now uses flattenRowsRaw (no stripping) so user-supplied dot paths
+// like "general.name" continue to match in this shape.
+func TestProjector_Select_SingleSection_KeepsDottedKeys(t *testing.T) {
+	rows := []map[string]any{{
+		"general": map[string]any{
+			"name":     "MacBook",
+			"id":       float64(123),
+			"platform": "Mac",
+		},
+	}}
+	got := Projector{Select: []string{"general.name"}}.Apply(rows)
+	if got[0]["general.name"] != "MacBook" {
+		t.Errorf("expected general.name=MacBook, got %v", got[0])
+	}
+	if _, ok := got[0]["general.id"]; ok {
+		t.Errorf("general.id was not selected, got %v", got[0])
+	}
+	if _, ok := got[0]["name"]; ok {
+		t.Errorf("Select must not strip prefix; got bare 'name': %v", got[0])
+	}
+}
+
+// Selecting a parent path on a single-section response should still match
+// every child via the prefix-match branch — used to return empty.
+func TestProjector_Select_SingleSection_ParentPath(t *testing.T) {
+	rows := []map[string]any{{
+		"general": map[string]any{
+			"name":     "MacBook",
+			"platform": "Mac",
+		},
+	}}
+	got := Projector{Select: []string{"general"}}.Apply(rows)
+	if got[0]["general.name"] != "MacBook" {
+		t.Errorf("expected general.name=MacBook, got %v", got[0])
+	}
+	if got[0]["general.platform"] != "Mac" {
+		t.Errorf("expected general.platform=Mac, got %v", got[0])
+	}
+}
+
 func TestProjector_Select_MissingPath_OmitsSilently(t *testing.T) {
 	rows := []map[string]any{{"id": 1.0, "name": "a"}}
 	got := Projector{Select: []string{"id", "nonexistent"}}.Apply(rows)
