@@ -567,8 +567,8 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
-	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents)")
-	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only (e.g., --select id,general.name,udid)")
+	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents; ignored when --field is set)")
+	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
 
