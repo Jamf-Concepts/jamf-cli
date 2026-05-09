@@ -588,7 +588,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 
 	// Version command (extracted to version.go so it can pull in provenance).
-	cmd.AddCommand(newVersionCmd(version, commit, date))
+	cmd.AddCommand(newVersionCmd(cliCtx, version, commit, date))
 
 	// Config command group
 	cmd.AddCommand(newConfigCmd(cliCtx))
