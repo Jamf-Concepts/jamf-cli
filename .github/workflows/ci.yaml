@@ -31,6 +31,10 @@ jobs:
       - name: Verify generated code is up-to-date
         run: make verify-generated
 
+      - name: Lint dead code (warn-only)
+        run: make lint-dead
+        continue-on-error: true
+
       - name: Build
         run: make build
 
