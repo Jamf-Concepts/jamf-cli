@@ -453,6 +453,7 @@ var proGroupMap = map[string]string{
 	"classic-distribution-points":     groupClassicAdmin,
 	"classic-software-update-servers": groupClassicAdmin,
 	"classic-licensed-software":       groupClassicAdmin,
+	"classic-user-groups":             groupClassicAdmin,
 	"classic-user-ext-attrs":          groupClassicAdmin,
 	"classic-vpp-accounts":            groupClassicAdmin,
 	"classic-vpp-assignments":         groupClassicAdmin,

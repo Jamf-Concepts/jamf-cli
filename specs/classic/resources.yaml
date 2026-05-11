@@ -290,6 +290,12 @@ resources:
     cli_name: classic-licensed-software
     singular: licensed_software
 
+  - name: usergroups
+    path: usergroups
+    description: JSS user groups (referenced in policy/ebook scope limitations)
+    cli_name: classic-user-groups
+    singular: user_group
+
   - name: userextensionattributes
     path: userextensionattributes
     description: User extension attributes

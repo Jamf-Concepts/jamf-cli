@@ -71,6 +71,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicSmtpServerCmd(ctx))
 	root.AddCommand(NewClassicSoftwareUpdateServersCmd(ctx))
 	root.AddCommand(NewClassicUserExtAttrsCmd(ctx))
+	root.AddCommand(NewClassicUserGroupsCmd(ctx))
 	root.AddCommand(NewClassicVppAccountsCmd(ctx))
 	root.AddCommand(NewClassicVppAssignmentsCmd(ctx))
 	root.AddCommand(NewClassicVppInvitationsCmd(ctx))
