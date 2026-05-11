@@ -395,6 +395,89 @@ func TestExtractID(t *testing.T) {
 	}
 }
 
+func TestBackupInventoryPreloadCSV_Success(t *testing.T) {
+	csvBody := "Serial Number,Asset Tag\nC02XG0XXJHX2,ASSET001\nC02YH1ZZJHX3,ASSET002\n"
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v2/inventory-preload/csv": {200, csvBody},
+		},
+	}
+
+	outDir := t.TempDir()
+	n, failures := backupInventoryPreloadCSV(context.Background(), mock, backupOptions{OutputDir: outDir})
+
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures, got %v", failures)
+	}
+	if n != 1 {
+		t.Errorf("expected 1 exported, got %d", n)
+	}
+
+	outPath := filepath.Join(outDir, "inventory-preloads", "inventory-preload-all.csv")
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("expected CSV file at %s: %v", outPath, err)
+	}
+	if string(content) != csvBody {
+		t.Errorf("CSV content mismatch: got %q, want %q", string(content), csvBody)
+	}
+}
+
+func TestBackupInventoryPreloadCSV_HTTPError(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v2/inventory-preload/csv": {403, `{"httpStatus":403,"errors":[]}`},
+		},
+	}
+
+	outDir := t.TempDir()
+	n, failures := backupInventoryPreloadCSV(context.Background(), mock, backupOptions{OutputDir: outDir})
+
+	if n != 0 {
+		t.Errorf("expected 0 exported on error, got %d", n)
+	}
+	if len(failures) == 0 {
+		t.Fatal("expected failures on HTTP 403")
+	}
+	if failures[0].Resource != "inventory-preloads" {
+		t.Errorf("failure resource = %q, want %q", failures[0].Resource, "inventory-preloads")
+	}
+	if !strings.Contains(failures[0].Error, "403") {
+		t.Errorf("failure error should mention 403, got %q", failures[0].Error)
+	}
+}
+
+func TestBackup_InventoryPreloadFilter(t *testing.T) {
+	csvBody := "Serial Number\nABC123\n"
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v2/inventory-preload/csv": {200, csvBody},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "inventory-preloads",
+		Concurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	outPath := filepath.Join(outDir, "inventory-preloads", "inventory-preload-all.csv")
+	if _, err := os.Stat(outPath); os.IsNotExist(err) {
+		t.Error("inventory-preload-all.csv should exist")
+	}
+}
+
 func TestUnwrapClassicDetail(t *testing.T) {
 	// Single-key wrapper
 	wrapped := map[string]any{

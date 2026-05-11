@@ -134,8 +134,12 @@ func TestBackupFilterNames(t *testing.T) {
 	if len(names) == 0 {
 		t.Fatal("BackupFilterNames should not be empty")
 	}
-	// Must contain the canonical user-facing filter tokens.
-	required := []string{"policies", "profiles", "scripts", "extension-attributes", "accounts"}
+	// Must contain both curated and non-standard filter tokens.
+	required := []string{
+		"policies", "profiles", "scripts", "extension-attributes", "accounts",
+		"mac-apps", "mobile-apps",
+		"inventory-preloads", "blueprints", "compliance-benchmarks",
+	}
 	for _, r := range required {
 		if !slices.Contains(names, r) {
 			t.Errorf("BackupFilterNames missing %q (got %v)", r, names)

@@ -199,7 +199,7 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/inventory-preload/records", "serialNumber", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -380,7 +380,7 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/inventory-preload/records", "serialNumber", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -480,7 +480,7 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "serialNumber", "id", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -545,12 +545,12 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "serialNumber", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no inventory-preload found with name %q", flagName)
+					return fmt.Errorf("no inventory-preload found with serialNumber %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -1284,7 +1284,7 @@ func newInventoryPreloadsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create or replace a inventory-preload by name",
 		Long: `Create or replace a inventory-preload. Reads JSON or YAML from --from-file or stdin.
 
-The name field in the input is used to check if the resource
+The serialNumber field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a inventory-preload from a JSON file
@@ -1346,14 +1346,14 @@ If not, a new resource is created.`,
 			}
 
 			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
+			name, err := extractJSONField(data, "serialNumber")
 			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
+				return fmt.Errorf("input must include a %q field: %w", "serialNumber", err)
 			}
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/inventory-preload/records", "serialNumber", "id", name, noInput)
 			if err != nil {
 				return err
 			}

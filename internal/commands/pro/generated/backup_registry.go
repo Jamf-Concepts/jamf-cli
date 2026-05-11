@@ -112,7 +112,7 @@ var BackupEndpoints = map[string]BackupEndpoint{
 	"enrollment-settings":                    {ListPath: "/v3/enrollment/access-groups", GetPath: "/v3/enrollment/access-groups/{id}", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "", IDField: ""},
 	"groups":                                 {ListPath: "/v1/groups", GetPath: "/v1/groups/{id}", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "groupName", IDField: "groupPlatformId"},
 	"inventory-informations":                 {ListPath: "/v1/inventory-information", GetPath: "", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "", IDField: ""},
-	"inventory-preloads":                     {ListPath: "/v2/inventory-preload/records", GetPath: "/v2/inventory-preload/records/{id}", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "", IDField: ""},
+	"inventory-preloads":                     {ListPath: "/v2/inventory-preload/records", GetPath: "/v2/inventory-preload/records/{id}", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "serialNumber", IDField: ""},
 	"jamf-connects":                          {ListPath: "/v1/jamf-connect/config-profiles", GetPath: "", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "", IDField: ""},
 	"jamf-packages":                          {ListPath: "/v2/jamf-package", GetPath: "", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "displayName", IDField: ""},
 	"jamf-pro-informations":                  {ListPath: "/v2/jamf-pro-information", GetPath: "", IsClassic: false, WrapperKey: "", SingularKey: "", ListSubset: "", NameField: "", IDField: ""},
