@@ -30,8 +30,10 @@ type ScopeTarget struct {
 // with tags alone.
 
 // NamedItem is an item identified by name (and optionally ID) in scope XML.
+// ID is a string to accommodate both integer IDs (most resources) and UUID
+// IDs (e.g. ebook scope user groups) returned by the Classic API.
 type NamedItem struct {
-	ID   int    `xml:"id,omitempty" json:"id,omitempty"`
+	ID   string `xml:"id,omitempty" json:"id,omitempty"`
 	Name string `xml:"name" json:"name"`
 }
 
@@ -185,10 +187,12 @@ type ExclusionsXML struct {
 }
 
 // classicResourceXML captures general.id and scope from a Classic API GET.
+// ID is a string to accommodate both integer IDs (most resources) and UUID
+// IDs (e.g. ebooks) returned by the Classic API.
 type classicResourceXML struct {
 	XMLName xml.Name
 	General struct {
-		ID   int    `xml:"id"`
+		ID   string `xml:"id"`
 		Name string `xml:"name"`
 	} `xml:"general"`
 	Scope ScopeXML `xml:"scope"`

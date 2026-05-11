@@ -38,11 +38,11 @@ func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, n
 		return "", nil, fmt.Errorf("parsing %s XML: %w", res.SingularKey, err)
 	}
 
-	if envelope.General.ID == 0 {
+	if envelope.General.ID == "" {
 		return "", nil, fmt.Errorf("no ID in %s %q", res.SingularKey, name)
 	}
 
-	return fmt.Sprintf("%d", envelope.General.ID), &envelope.Scope, nil
+	return envelope.General.ID, &envelope.Scope, nil
 }
 
 // PutScope writes an updated scope back to the Classic API via subset PUT.

@@ -59,8 +59,8 @@ func TestScopeXML_UnmarshalPolicy(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if env.General.ID != 42 {
-		t.Errorf("general.id = %d, want 42", env.General.ID)
+	if env.General.ID != "42" {
+		t.Errorf("general.id = %s, want 42", env.General.ID)
 	}
 	if !env.Scope.AllComputers {
 		t.Error("all_computers should be true")
@@ -99,7 +99,7 @@ func TestScopeXML_MarshalRoundTrip(t *testing.T) {
 	s := ScopeXML{
 		AllComputers: true,
 		ComputerGroups: ScopeItemSlice{
-			Items:    []NamedItem{{ID: 1, Name: "Group A"}, {Name: "Group B"}},
+			Items:    []NamedItem{{ID: "1", Name: "Group A"}, {Name: "Group B"}},
 			ElemName: "computer_group",
 		},
 		Buildings: ScopeItemSlice{
@@ -165,7 +165,7 @@ func TestScopeUpdateXML_Marshal(t *testing.T) {
 func TestAddToScope_TargetComputerGroup(t *testing.T) {
 	s := &ScopeXML{
 		ComputerGroups: ScopeItemSlice{
-			Items:    []NamedItem{{ID: 1, Name: "Existing"}},
+			Items:    []NamedItem{{ID: "1", Name: "Existing"}},
 			ElemName: "computer_group",
 		},
 	}
@@ -290,7 +290,7 @@ func TestAddToScope_NonPolicyLimitUserGroup(t *testing.T) {
 func TestRemoveFromScope_TargetComputerGroup(t *testing.T) {
 	s := &ScopeXML{
 		ComputerGroups: ScopeItemSlice{
-			Items:    []NamedItem{{ID: 1, Name: "Keep"}, {ID: 2, Name: "Remove"}},
+			Items:    []NamedItem{{ID: "1", Name: "Keep"}, {ID: "2", Name: "Remove"}},
 			ElemName: "computer_group",
 		},
 	}
@@ -377,7 +377,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup_InLimitations(t *testing.T) {
 		},
 		Limitations: &LimitationsXML{
 			UserGroups: ScopeItemSlice{
-				Items:    []NamedItem{{ID: 5, Name: "Staff"}},
+				Items:    []NamedItem{{ID: "5", Name: "Staff"}},
 				ElemName: "user_group",
 			},
 		},
@@ -494,7 +494,7 @@ func TestFlattenScope_BasicPolicy(t *testing.T) {
 	s := &ScopeXML{
 		AllComputers: true,
 		ComputerGroups: ScopeItemSlice{
-			Items: []NamedItem{{ID: 1, Name: "Group A"}},
+			Items: []NamedItem{{ID: "1", Name: "Group A"}},
 		},
 		Buildings: ScopeItemSlice{
 			Items: []NamedItem{{Name: "HQ"}},
@@ -539,8 +539,8 @@ func TestFlattenScope_PolicyUserGroupNoDuplicates(t *testing.T) {
 		},
 		Limitations: &LimitationsXML{
 			UserGroups: ScopeItemSlice{Items: []NamedItem{
-				{ID: 1, Name: "Staff"},
-				{ID: 2, Name: "Faculty"},
+				{ID: "1", Name: "Staff"},
+				{ID: "2", Name: "Faculty"},
 			}},
 			NetworkSegments: ScopeItemSlice{Items: []NamedItem{{Name: "Corporate"}}},
 		},
