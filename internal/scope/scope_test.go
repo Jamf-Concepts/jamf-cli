@@ -420,7 +420,7 @@ func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
 // ─── ValidateScopeCombination ────────────────────────────────────────────────
 
 func TestValidateScopeCombination_ValidTargets(t *testing.T) {
-	for _, flag := range []string{"computer-group", "mobile-device-group", "building", "department"} {
+	for _, flag := range []string{"computer-group", "mobile-device-group", "building", "department", "user-group", "jss-user-group", "jss-user"} {
 		for _, sk := range []string{"policy", "restricted_software", "os_x_configuration_profile"} {
 			if err := ValidateScopeCombination(sk, "target", flag); err != nil {
 				t.Errorf("target/%s/%s: %v", sk, flag, err)
@@ -456,7 +456,7 @@ func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) 
 }
 
 func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
-	for _, flag := range []string{"computer-group", "mobile-device-group", "user-group", "network-segment", "building", "department"} {
+	for _, flag := range []string{"computer-group", "mobile-device-group", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department"} {
 		if err := ValidateScopeCombination("policy", "exclusion", flag); err != nil {
 			t.Errorf("exclusion/%s: %v", flag, err)
 		}
@@ -598,5 +598,170 @@ func TestIsPolicyLimitUserGroup(t *testing.T) {
 			t.Errorf("isPolicyLimitUserGroup(%q,%q,%q) = %v, want %v",
 				tt.singularKey, tt.section, tt.flagName, got, tt.want)
 		}
+	}
+}
+
+// ─── JSS user group target routing (VPP-style scope) ─────────────────────────
+
+func TestAddToScope_UserGroupTarget_RoutesToJSSUserGroups(t *testing.T) {
+	s := &ScopeXML{}
+
+	if !AddToScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
+		t.Fatal("expected true")
+	}
+	if len(s.JSSUserGroups.Items) != 1 {
+		t.Fatalf("jss_user_groups: got %d, want 1", len(s.JSSUserGroups.Items))
+	}
+	if s.JSSUserGroups.Items[0].Name != "VPP Associated Users" {
+		t.Errorf("name = %q", s.JSSUserGroups.Items[0].Name)
+	}
+	if s.JSSUserGroups.ElemName != "user_group" {
+		t.Errorf("ElemName = %q, want user_group", s.JSSUserGroups.ElemName)
+	}
+}
+
+func TestAddToScope_JSSUserGroupTarget(t *testing.T) {
+	s := &ScopeXML{}
+
+	if !AddToScope(s, "vpp_assignment", "target", "jss-user-group", "My Group") {
+		t.Fatal("expected true")
+	}
+	if len(s.JSSUserGroups.Items) != 1 {
+		t.Fatalf("jss_user_groups: got %d, want 1", len(s.JSSUserGroups.Items))
+	}
+	if s.JSSUserGroups.ElemName != "user_group" {
+		t.Errorf("ElemName = %q, want user_group", s.JSSUserGroups.ElemName)
+	}
+}
+
+func TestAddToScope_JSSUserGroupTarget_Idempotent(t *testing.T) {
+	s := &ScopeXML{
+		JSSUserGroups: ScopeItemSlice{
+			Items:    []NamedItem{{Name: "VPP Associated Users"}},
+			ElemName: "jss_user_group",
+		},
+	}
+
+	if AddToScope(s, "vpp_assignment", "target", "user-group", "vpp associated users") {
+		t.Fatal("expected false for case-insensitive duplicate")
+	}
+}
+
+func TestRemoveFromScope_UserGroupTarget_RoutesToJSSUserGroups(t *testing.T) {
+	s := &ScopeXML{
+		JSSUserGroups: ScopeItemSlice{
+			Items:    []NamedItem{{Name: "VPP Associated Users"}, {Name: "Other Group"}},
+			ElemName: "jss_user_group",
+		},
+	}
+
+	if !RemoveFromScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
+		t.Fatal("expected true")
+	}
+	if len(s.JSSUserGroups.Items) != 1 {
+		t.Fatalf("got %d, want 1", len(s.JSSUserGroups.Items))
+	}
+	if s.JSSUserGroups.Items[0].Name != "Other Group" {
+		t.Errorf("remaining = %q", s.JSSUserGroups.Items[0].Name)
+	}
+}
+
+func TestRemoveFromScope_JSSUserGroupExclusion(t *testing.T) {
+	s := &ScopeXML{
+		Exclusions: &ExclusionsXML{
+			JSSUserGroups: ScopeItemSlice{
+				Items:    []NamedItem{{Name: "Excluded Group"}},
+				ElemName: "jss_user_group",
+			},
+		},
+	}
+
+	if !RemoveFromScope(s, "vpp_assignment", "exclusion", "jss-user-group", "Excluded Group") {
+		t.Fatal("expected true")
+	}
+	if len(s.Exclusions.JSSUserGroups.Items) != 0 {
+		t.Error("should be empty after remove")
+	}
+}
+
+func TestFlattenScope_VPPAssignment_JSSUserGroups(t *testing.T) {
+	s := &ScopeXML{
+		JSSUserGroups: ScopeItemSlice{
+			Items: []NamedItem{{ID: "1", Name: "VPP Associated Users"}},
+		},
+		Limitations: &LimitationsXML{
+			UserGroups: ScopeItemSlice{
+				Items: []NamedItem{{Name: "COB-iosgrade1"}},
+			},
+		},
+	}
+
+	rows := FlattenScope(s, "vpp_assignment")
+
+	expected := []struct{ section, typ, name string }{
+		{"target", "jss_user_group", "VPP Associated Users"},
+		{"limitation", "user_group", "COB-iosgrade1"},
+	}
+	if len(rows) != len(expected) {
+		t.Fatalf("got %d rows, want %d: %v", len(rows), len(expected), rows)
+	}
+	for i, want := range expected {
+		got := rows[i]
+		if got["section"] != want.section || got["type"] != want.typ || got["name"] != want.name {
+			t.Errorf("row %d: got %v, want %s/%s/%s", i, got, want.section, want.typ, want.name)
+		}
+	}
+}
+
+func TestResolveElemName(t *testing.T) {
+	tests := []struct {
+		section, flag, want string
+	}{
+		{"target", "user-group", "user_group"},
+		{"target", "jss-user-group", "user_group"},
+		{"target", "computer-group", "computer_group"},
+		{"limitation", "user-group", "user_group"},
+		{"exclusion", "user-group", "user_group"},
+		{"exclusion", "jss-user-group", "user_group"},
+	}
+	for _, tt := range tests {
+		if got := resolveElemName(tt.section, tt.flag); got != tt.want {
+			t.Errorf("resolveElemName(%q,%q) = %q, want %q", tt.section, tt.flag, got, tt.want)
+		}
+	}
+}
+
+func TestReplaceScopeInXML(t *testing.T) {
+	original := []byte(`<?xml version="1.0" encoding="UTF-8"?><vpp_assignment><general><id>11</id></general><scope><all_jss_users>false</all_jss_users><jss_user_groups><user_group><id>1</id><name>Old Group</name></user_group></jss_user_groups></scope></vpp_assignment>`)
+
+	newScope := &ScopeXML{
+		JSSUserGroups: ScopeItemSlice{
+			Items:    []NamedItem{{ID: "2", Name: "New Group"}},
+			ElemName: "user_group",
+		},
+	}
+
+	updated, err := replaceScopeInXML(original, newScope)
+	if err != nil {
+		t.Fatalf("replaceScopeInXML: %v", err)
+	}
+
+	s := string(updated)
+	if strings.Contains(s, "Old Group") {
+		t.Error("old scope content should be replaced")
+	}
+	if !strings.Contains(s, "New Group") {
+		t.Error("new scope content should be present")
+	}
+	if !strings.Contains(s, "<general>") {
+		t.Error("non-scope content should be preserved")
+	}
+}
+
+func TestReplaceScopeInXML_MissingScope(t *testing.T) {
+	original := []byte(`<vpp_assignment><general><id>1</id></general></vpp_assignment>`)
+	_, err := replaceScopeInXML(original, &ScopeXML{})
+	if err == nil {
+		t.Error("expected error for missing <scope>")
 	}
 }

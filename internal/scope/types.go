@@ -13,8 +13,10 @@ import (
 
 // Resource identifies a Classic API resource that supports scope operations.
 type Resource struct {
-	APIPath     string // URL segment under /JSSResource/, e.g. "policies"
-	SingularKey string // XML root key for a single object, e.g. "policy"
+	APIPath       string // URL segment under /JSSResource/, e.g. "policies"
+	SingularKey   string // XML root key for a single object, e.g. "policy"
+	ResolveByList bool   // when true, resolve name→ID by listing all (no /name/ endpoint)
+	NoSubsetPut   bool   // when true, PUT full document instead of /subset/Scope
 }
 
 // ScopeTarget holds a resolved flag name and value from a scope add/remove command.
@@ -213,10 +215,13 @@ var flagToElemName = map[string]string{
 	"department":          "department",
 	"network-segment":     "network_segment",
 	"user-group":          "user_group",
+	"jss-user-group":      "user_group",
+	"jss-user":            "jss_user",
 }
 
 // scopeFlagNames is the ordered list of scope item flags.
 var scopeFlagNames = []string{
 	"computer-group", "mobile-device-group", "building",
 	"department", "network-segment", "user-group",
+	"jss-user-group", "jss-user",
 }

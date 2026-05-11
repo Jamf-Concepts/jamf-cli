@@ -36,8 +36,10 @@ func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicVppAssignmentsDeleteCmd(ctx))
 
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:     "vppassignments",
-		SingularKey: "vpp_assignment",
+		APIPath:       "vppassignments",
+		SingularKey:   "vpp_assignment",
+		ResolveByList: true,
+		NoSubsetPut:   true,
 	}))
 
 	return cmd

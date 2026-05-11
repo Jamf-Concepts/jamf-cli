@@ -316,6 +316,7 @@ resources:
     singular: vpp_assignment
     lookups: [id]
     scope: true
+    no_subset_put: true
 
   - name: vppinvitations
     path: vppinvitations
