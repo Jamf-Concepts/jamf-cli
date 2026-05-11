@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,11 @@ func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicVppAssignmentsUpdateCmd(ctx))
 
 	cmd.AddCommand(newClassicVppAssignmentsDeleteCmd(ctx))
+
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:     "vppassignments",
+		SingularKey: "vpp_assignment",
+	}))
 
 	return cmd
 }

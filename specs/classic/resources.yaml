@@ -315,6 +315,7 @@ resources:
     cli_name: classic-vpp-assignments
     singular: vpp_assignment
     lookups: [id]
+    scope: true
 
   - name: vppinvitations
     path: vppinvitations
