@@ -438,6 +438,7 @@ var proGroupMap = map[string]string{
 	"classic-restricted-software":     groupClassicConfig,
 	"classic-allowed-file-extensions": groupClassicConfig,
 	"classic-mac-apps":                groupClassicConfig,
+	"classic-ebooks":                  groupClassicConfig,
 	"classic-mobile-apps":             groupClassicMobile,
 	"classic-ibeacons":                groupClassicConfig,
 	"classic-classes":                 groupClassicConfig,

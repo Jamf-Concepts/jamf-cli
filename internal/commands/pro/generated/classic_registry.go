@@ -42,6 +42,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicDiskEncryptionConfigsCmd(ctx))
 	root.AddCommand(NewClassicDistributionPointsCmd(ctx))
 	root.AddCommand(NewClassicDockItemsCmd(ctx))
+	root.AddCommand(NewClassicEbooksCmd(ctx))
 	root.AddCommand(NewClassicGsxConnectionCmd(ctx))
 	root.AddCommand(NewClassicIbeaconsCmd(ctx))
 	root.AddCommand(NewClassicJwtConfigsCmd(ctx))

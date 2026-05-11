@@ -203,6 +203,13 @@ resources:
     singular: mobile_device_application
     scope: true
 
+  - name: ebooks
+    path: ebooks
+    description: eBook distributions
+    cli_name: classic-ebooks
+    singular: ebook
+    scope: true
+
   - name: ibeacons
     path: ibeacons
     description: iBeacon configurations

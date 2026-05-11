@@ -90,6 +90,8 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "classic-distribution-points", Operation: "list", Method: "GET", Path: "/JSSResource/distributionpoints", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "distributionpoints", SingularKey: ""},
 		{Resource: "classic-dock-items", Operation: "get", Method: "GET", Path: "/JSSResource/dockitems/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "dock_item"},
 		{Resource: "classic-dock-items", Operation: "list", Method: "GET", Path: "/JSSResource/dockitems", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "dockitems", SingularKey: ""},
+		{Resource: "classic-ebooks", Operation: "get", Method: "GET", Path: "/JSSResource/ebooks/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "ebook"},
+		{Resource: "classic-ebooks", Operation: "list", Method: "GET", Path: "/JSSResource/ebooks", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "ebooks", SingularKey: ""},
 		{Resource: "classic-gsx-connection", Operation: "get", Method: "GET", Path: "/JSSResource/gsxconnection/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "gsx_connection"},
 		{Resource: "classic-ibeacons", Operation: "get", Method: "GET", Path: "/JSSResource/ibeacons/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "ibeacon"},
 		{Resource: "classic-ibeacons", Operation: "list", Method: "GET", Path: "/JSSResource/ibeacons", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "ibeacons", SingularKey: ""},
