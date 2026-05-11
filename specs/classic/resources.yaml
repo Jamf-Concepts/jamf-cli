@@ -325,6 +325,8 @@ resources:
     singular: vpp_invitation
     operations: [list, get, create, delete]
     lookups: [id]
+    scope: true
+    no_subset_put: true
 
   - name: gsxconnection
     path: gsxconnection
