@@ -67,7 +67,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 {{- end }}
-{{- if .NeedsConfirm }}
+{{- if .IsDestructive }}
 	var yes bool
 {{- end }}
 {{- if .SupportsNameLookup }}
@@ -90,7 +90,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
-{{- if .NeedsConfirm }}
+{{- if .IsDestructive }}
 		Annotations: map[string]string{"jamf:destructive": "true"},
 {{- end }}
 {{- if and .PathParams (not .SupportsNameLookup) }}
@@ -134,7 +134,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 {{- end }}
-{{- if .NeedsConfirm }}
+{{- if .IsDestructive }}
 			if err := platform.ConfirmAction("{{.Name}}", {{if .SupportsNameLookup}}resolvedID{{else if .PathParams}}args[0]{{else}}"{{.Name}}"{{end}}, yes); err != nil {
 				return err
 			}
@@ -268,7 +268,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 {{- end }}
-{{- if .NeedsConfirm }}
+{{- if .IsDestructive }}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 {{- end }}
 {{- if .SupportsNameLookup }}

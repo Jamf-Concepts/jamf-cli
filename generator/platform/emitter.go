@@ -74,7 +74,7 @@ type templateOp struct {
 	Use                string        // cobra Use string, includes <param> placeholders for path params
 	PathParams         []string      // path parameter names in order of appearance in Path
 	HasBody            bool          // operation accepts a request body — emit --file/--set flags
-	NeedsConfirm       bool          // destructive op — emit --yes flag and ConfirmAction guard
+	IsDestructive      bool          // destructive op — emit --yes flag, ConfirmAction guard, and jamf:destructive annotation
 	UsesMergePatch     bool          // PATCH with application/merge-patch+json content type
 	SuccessCode        int           // success HTTP status code (200 default; 201 for create, 204 for delete/patch, etc.)
 	HasResult          bool          // operation returns a JSON response body to unmarshal/print
@@ -228,7 +228,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			Use:            buildUse(opCopy.Name, userParams),
 			PathParams:     userParams,
 			HasBody:        opCopy.RequestBody != nil,
-			NeedsConfirm:   opCopy.IsDestructive,
+			IsDestructive:  opCopy.IsDestructive,
 			UsesMergePatch: opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
 			SuccessCode:    successCode,
 			HasResult:      hasResult,
