@@ -4,6 +4,7 @@ package commands
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 )
@@ -67,6 +68,10 @@ var BackupResources = []BackupResource{
 	// record, so each site is written directly without a fan-out fetch.
 	{Key: "sites", FilterName: "sites", SubDir: "sites", ListOnly: true},
 
+	// App Store applications — classic only
+	{Key: "classic-mac-apps", FilterName: "mac-apps", SubDir: "mac-apps"},
+	{Key: "classic-mobile-apps", FilterName: "mobile-apps", SubDir: "mobile-apps"},
+
 	// Packages, printers, dock items — classic only
 	{Key: "classic-packages", FilterName: "packages", SubDir: "packages"},
 	{Key: "classic-printers", FilterName: "printers", SubDir: "printers"},
@@ -123,10 +128,38 @@ func ResolveBackupResources(filter []string) ([]ResolvedBackupResource, error) {
 	return out, nil
 }
 
+// isKnownBackupFilter returns true if name matches any curated BackupResource
+// FilterName or any non-standard filter handled outside BackupResources. Used
+// by runBackup to distinguish "no results because it's a non-standard resource"
+// from "no results because the user typed a garbage filter name".
+func isKnownBackupFilter(name string) bool {
+	for _, r := range BackupResources {
+		if r.FilterName == name {
+			return true
+		}
+	}
+	for _, n := range nonStandardBackupFilters {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// nonStandardBackupFilters lists filter names for backup resources that are
+// handled outside BackupResources (CSV downloads, SDK-backed resources, etc.).
+// These appear in BackupFilterNames so shell completion and help text stay
+// accurate even though they have no entry in the curated list.
+var nonStandardBackupFilters = []string{
+	"inventory-preloads",    // downloaded as a single CSV via /v2/inventory-preload/csv
+	"blueprints",            // Platform SDK
+	"compliance-benchmarks", // Platform SDK
+}
+
 // BackupFilterNames returns the unique set of FilterName values (sorted) — used
 // for CLI help text and completion hints.
 func BackupFilterNames() []string {
-	seen := make(map[string]bool, len(BackupResources))
+	seen := make(map[string]bool, len(BackupResources)+len(nonStandardBackupFilters))
 	var names []string
 	for _, r := range BackupResources {
 		if !seen[r.FilterName] {
@@ -134,5 +167,12 @@ func BackupFilterNames() []string {
 			names = append(names, r.FilterName)
 		}
 	}
+	for _, n := range nonStandardBackupFilters {
+		if !seen[n] {
+			seen[n] = true
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
 	return names
 }
