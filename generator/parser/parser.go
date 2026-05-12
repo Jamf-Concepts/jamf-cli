@@ -216,6 +216,9 @@ var resourceNameFieldOverrides = map[string]string{
 	// (DeleteUserCommand, UnlockUserAccountCommand) that live in the same
 	// spec as request bodies. Force-clear it.
 	"mdm-commands": "",
+	// inventory-preloads records are keyed by serialNumber, not a "name" field.
+	// Override so --name lookups and backup file naming both use serial number.
+	"inventory-preloads": "serialNumber",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path

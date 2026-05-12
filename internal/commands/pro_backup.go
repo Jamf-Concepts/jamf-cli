@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -154,7 +156,18 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		return err
 	}
 	if len(defs) == 0 {
-		return fmt.Errorf("no resources match filter %q", opts.Resources)
+		// Allow filters that resolve only to non-standard resources (inventory-preloads,
+		// blueprints, compliance-benchmarks) — those are handled after this loop.
+		allUnknown := true
+		for _, n := range nameFilter {
+			if isKnownBackupFilter(n) {
+				allUnknown = false
+				break
+			}
+		}
+		if allUnknown {
+			return fmt.Errorf("no resources match filter %q", opts.Resources)
+		}
 	}
 
 	ext := ".yaml"
@@ -250,26 +263,35 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		}
 	}
 
-	// Platform resources (blueprints, compliance-benchmarks) via SDK
-	if cliCtx.PlatformSDKClient != nil {
-		wantPlatform := func(name string) bool {
-			if len(nameFilter) == 0 {
+	// wantFilter reports whether a named resource should be included given the
+	// user's --resources filter. Empty filter means include everything.
+	wantFilter := func(name string) bool {
+		if len(nameFilter) == 0 {
+			return true
+		}
+		for _, n := range nameFilter {
+			if n == name {
 				return true
 			}
-			for _, n := range nameFilter {
-				if n == name {
-					return true
-				}
-			}
-			return false
 		}
+		return false
+	}
 
-		if wantPlatform("blueprints") {
+	// Inventory preload — single CSV download, not a JSON list+get resource.
+	if wantFilter("inventory-preloads") {
+		n, errs := backupInventoryPreloadCSV(ctx, client, opts)
+		totalExported += n
+		failures = append(failures, errs...)
+	}
+
+	// Platform resources (blueprints, compliance-benchmarks) via SDK
+	if cliCtx.PlatformSDKClient != nil {
+		if wantFilter("blueprints") {
 			n, errs := backupBlueprints(ctx, cliCtx, opts, newMeta)
 			totalExported += n
 			failures = append(failures, errs...)
 		}
-		if wantPlatform("compliance-benchmarks") {
+		if wantFilter("compliance-benchmarks") {
 			n, errs := backupBenchmarks(ctx, cliCtx, opts, newMeta)
 			totalExported += n
 			failures = append(failures, errs...)
@@ -535,6 +557,38 @@ func normalizeViaJSON(v any) (map[string]any, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// backupInventoryPreloadCSV downloads all inventory preload records as a single
+// CSV file from /v2/inventory-preload/csv. The Jamf Pro API returns the complete
+// dataset in one request — there is no paginated JSON list+get for this resource.
+func backupInventoryPreloadCSV(ctx context.Context, client registry.HTTPClient, opts backupOptions) (int, []backupFailure) {
+	subDir := filepath.Join(opts.OutputDir, "inventory-preloads")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		return 0, []backupFailure{{Resource: "inventory-preloads", Path: subDir, Error: err.Error()}}
+	}
+
+	csvCtx := registry.WithAccept(ctx, "text/csv")
+	resp, err := client.Do(csvCtx, "GET", "/v2/inventory-preload/csv", nil)
+	if err != nil {
+		return 0, []backupFailure{{Resource: "inventory-preloads", Path: "/v2/inventory-preload/csv", Error: err.Error()}}
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, []backupFailure{{Resource: "inventory-preloads", Path: "/v2/inventory-preload/csv", Error: fmt.Sprintf("HTTP %d", resp.StatusCode)}}
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, []backupFailure{{Resource: "inventory-preloads", Path: "/v2/inventory-preload/csv", Error: err.Error()}}
+	}
+
+	outPath := filepath.Join(subDir, "inventory-preload-all.csv")
+	if err := os.WriteFile(outPath, data, 0o644); err != nil {
+		return 0, []backupFailure{{Resource: "inventory-preloads", Path: outPath, Error: err.Error()}}
+	}
+	return 1, nil
 }
 
 // backupBlueprints exports all blueprints via the Platform SDK.
